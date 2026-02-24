@@ -155,12 +155,62 @@ function SerpPreview({ row }) {
   );
 }
 
-function EditableField({ label, value, limit, onChange, pinValue, onPinChange, mono = true, isDesc = false }) {
+function EditableField({ label, value, limit, onChange, pinValue, onPinChange, mono = true, isDesc = false, refineContext }) {
   const { n, over, grace, warn, color } = charInfo(value, limit, isDesc);
+  const [showRefine, setShowRefine] = useState(false);
+  const [refineText, setRefineText] = useState("");
+  const [refining, setRefining] = useState(false);
+  const [refineError, setRefineError] = useState("");
+  const [hovered, setHovered] = useState(false);
+
+  const handleRefine = async () => {
+    if (!refineText.trim() || refining) return;
+    setRefining(true); setRefineError("");
+    try {
+      const res = await fetch("/api/refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          current: value,
+          instruction: refineText.trim(),
+          limit,
+          isDesc,
+          language: refineContext?.language || "English",
+          url: refineContext?.url || "",
+        }),
+      });
+      const data = await res.json();
+      if (data.refined) {
+        onChange(data.refined);
+        setShowRefine(false);
+        setRefineText("");
+      } else {
+        setRefineError("Refinement failed — please try again");
+      }
+    } catch (e) {
+      setRefineError("Network error — please try again");
+    } finally {
+      setRefining(false);
+    }
+  };
+
   return (
-    <div style={{ marginBottom: 6 }}>
+    <div style={{ marginBottom: 6 }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</span>
+          {value.trim() && (
+            <button
+              onClick={() => { setShowRefine(v => !v); setRefineError(""); }}
+              title="Refine this field with AI"
+              style={{
+                background: "none", border: "none", cursor: "pointer", padding: "1px 3px",
+                fontSize: 11, opacity: hovered || showRefine ? 1 : 0,
+                color: showRefine ? "#6366f1" : "#475569",
+                transition: "opacity 0.15s, color 0.15s", lineHeight: 1,
+              }}>✏</button>
+          )}
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {onPinChange && (
             <select value={pinValue} onChange={e => onPinChange(e.target.value)}
@@ -195,6 +245,33 @@ function EditableField({ label, value, limit, onChange, pinValue, onPinChange, m
         onFocus={e => { if (!over) e.target.style.borderColor = "rgba(99,102,241,0.6)"; }}
         onBlur={e => { e.target.style.borderColor = over ? "rgba(255,77,77,0.5)" : grace ? "rgba(245,158,11,0.55)" : warn ? "rgba(251,191,36,0.35)" : "rgba(255,255,255,0.08)"; }}
       />
+      {showRefine && (
+        <div style={{ marginTop: 5, padding: "8px 10px", background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 7 }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              autoFocus
+              value={refineText}
+              onChange={e => setRefineText(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleRefine()}
+              placeholder={isDesc ? "e.g. more urgent, add offer, shorter..." : "e.g. add keyword, more benefit-focused..."}
+              style={{
+                flex: 1, padding: "6px 8px", fontSize: 11,
+                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(99,102,241,0.25)",
+                borderRadius: 6, color: "#e2e8f0", outline: "none", fontFamily: "inherit",
+              }}
+            />
+            <button onClick={handleRefine} disabled={!refineText.trim() || refining} style={{
+              padding: "6px 12px", fontSize: 11, fontWeight: 700, borderRadius: 6, border: "none",
+              background: refining ? "rgba(99,102,241,0.2)" : "linear-gradient(135deg,#6366f1,#8b5cf6)",
+              color: refining ? "#818cf8" : "white", cursor: refining ? "not-allowed" : "pointer",
+              flexShrink: 0, display: "flex", alignItems: "center", gap: 5,
+            }}>
+              {refining ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block" }}>◌</span> Refining…</> : "✦ Refine"}
+            </button>
+          </div>
+          {refineError && <div style={{ fontSize: 10, color: "#f87171", marginTop: 5 }}>{refineError}</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -207,6 +284,7 @@ export default function RSAStudio() {
   const [rows, setRows] = useState([makeRow(1)]);
   const [activeRow, setActiveRow] = useState(0);
   const [generated, setGenerated] = useState(false);
+  const [pageMeta, setPageMeta] = useState({ language: "English" });
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState("headlines"); // headlines | descriptions | urls
   const [showGuide, setShowGuide] = useState(false);
@@ -287,6 +365,7 @@ export default function RSAStudio() {
           // Only use scraped language if it's non-English OR if we have no client-side signal
           const useScrapedLang = scraped.language && (scraped.language !== "English" || !clientLang);
           pageMeta = { ...pageMeta, ...scraped, language: useScrapedLang ? scraped.language : (clientLang || scraped.language || "English") };
+          setPageMeta(pageMeta);
         }
       } catch (_) {
         // Scrape failed — continue with client-side language detection + empty metadata
@@ -1132,6 +1211,7 @@ STRICT rules:
                   onChange={v => setHL(i, "text", v)}
                   pinValue={h.pin}
                   onPinChange={v => setHL(i, "pin", v)}
+                  refineContext={{ url, language: pageMeta?.language || "English" }}
                 />
               ))}
             </>
@@ -1150,6 +1230,7 @@ STRICT rules:
                   pinValue={d.pin}
                   onPinChange={v => setDesc(i, "pin", v)}
                   isDesc={true}
+                  refineContext={{ url, language: pageMeta?.language || "English" }}
                 />
               ))}
             </>
