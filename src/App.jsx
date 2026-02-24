@@ -214,6 +214,10 @@ export default function RSAStudio() {
   const [copiedNoGroup, setCopiedNoGroup] = useState(false);
   const [modalOmitGroup, setModalOmitGroup] = useState(false);
   const nextId = useRef(2);
+  const [showGateModal, setShowGateModal] = useState(false);
+  const [usageCount, setUsageCount] = useState(0);
+  const [gateEmail, setGateEmail] = useState("");
+  const [gateSubmitted, setGateSubmitted] = useState(false);
   const [keywords, setKeywords] = useState(["", "", ""]);
   const [kwHeadlines, setKwHeadlines] = useState(5);   // how many headlines should include keywords
   const [kwInDescs, setKwInDescs] = useState(false);   // toggle: include keywords in descriptions
@@ -378,6 +382,17 @@ STRICT rules:
         })
       });
       const data = await res.json();
+
+      // ── Check if usage gate has been hit ─────────────────────────────────
+      if (data.gated) {
+        setShowGateModal(true);
+        setUsageCount(data.count || 10);
+        return;
+      }
+
+      // Track usage count for the counter display
+      if (data.usage_count) setUsageCount(data.usage_count);
+
       const text = data.content?.filter(b => b.type === "text").map(b => b.text).join("") || "";
       const rawJson = text.replace(/```json|```/g, "").trim().match(/\{[\s\S]*\}/)?.[0];
       if (!rawJson) throw new Error("Invalid response format");
@@ -523,6 +538,75 @@ STRICT rules:
     },
   };
 
+
+  // ── Gate Modal ───────────────────────────────────────────────────────────────
+  const GateModal = () => (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24,
+    }}>
+      <div style={{
+        background: "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(6,13,26,0.98))",
+        border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16,
+        padding: "36px 32px", maxWidth: 440, width: "100%", textAlign: "center",
+        boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
+      }}>
+        {!gateSubmitted ? (
+          <>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>🚀</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>
+              You've used your 10 free generations
+            </div>
+            <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, marginBottom: 24 }}>
+              Create a free account to keep generating high-quality RSA ad copy — no credit card required.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+              {["Unlimited generations", "Save & manage multiple ads", "Export to Google Ads Editor", "Priority support"].map(f => (
+                <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, textAlign: "left" }}>
+                  <span style={{ color: "#34d399", fontSize: 14, flexShrink: 0 }}>✓</span>
+                  <span style={{ fontSize: 13, color: "#94a3b8" }}>{f}</span>
+                </div>
+              ))}
+            </div>
+            <input
+              type="email"
+              value={gateEmail}
+              onChange={e => setGateEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && gateEmail.includes("@") && setGateSubmitted(true)}
+              placeholder="Enter your work email"
+              style={{
+                width: "100%", padding: "11px 14px", fontSize: 13,
+                background: "rgba(255,255,255,0.06)", border: "1.5px solid rgba(255,255,255,0.12)",
+                borderRadius: 8, color: "white", outline: "none", boxSizing: "border-box",
+                marginBottom: 10, fontFamily: "inherit",
+              }}
+            />
+            <button
+              onClick={() => gateEmail.includes("@") && setGateSubmitted(true)}
+              style={{
+                width: "100%", padding: "12px", fontSize: 14, fontWeight: 800,
+                background: gateEmail.includes("@") ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.06)",
+                color: gateEmail.includes("@") ? "white" : "#334155",
+                border: "none", borderRadius: 8, cursor: gateEmail.includes("@") ? "pointer" : "not-allowed",
+                transition: "all 0.2s", marginBottom: 12,
+              }}>
+              Create Free Account →
+            </button>
+            <div style={{ fontSize: 11, color: "#1e293b" }}>No credit card required · Takes 30 seconds</div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 36, marginBottom: 16 }}>🎉</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>You're on the list!</div>
+            <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, marginBottom: 20 }}>
+              Thanks! We've received <strong style={{ color: "#94a3b8" }}>{gateEmail}</strong>. We'll be in touch shortly with your account details.
+            </div>
+            <div style={{ fontSize: 12, color: "#334155" }}>In the meantime, your current session will remain accessible.</div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 
   // ── Copy Modal (sandbox fallback) ─────────────────────────────────────────
   const CopyModal = () => {
@@ -763,6 +847,16 @@ STRICT rules:
         {error && (
           <div style={{ maxWidth: 900, margin: "8px auto 0", fontSize: 12, color: "#f87171", display: "flex", alignItems: "center", gap: 6 }}>
             <span>⚠</span> {error}
+          </div>
+        )}
+        {usageCount > 0 && !showGateModal && (
+          <div style={{ maxWidth: 900, margin: "6px auto 0", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{ width: `${(usageCount / 10) * 100}%`, height: "100%", background: usageCount >= 8 ? "linear-gradient(90deg,#f59e0b,#ef4444)" : "linear-gradient(90deg,#3b82f6,#6366f1)", borderRadius: 2, transition: "width 0.4s" }} />
+            </div>
+            <span style={{ fontSize: 10, color: usageCount >= 8 ? "#f59e0b" : "#334155", fontWeight: 700, whiteSpace: "nowrap" }}>
+              {usageCount}/10 free generations{usageCount >= 8 ? " — almost at limit" : ""}
+            </span>
           </div>
         )}
       </div>
@@ -1307,6 +1401,7 @@ STRICT rules:
       </div>
 
       {showCopyModal && <CopyModal />}
+      {showGateModal && <GateModal />}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
