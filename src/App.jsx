@@ -296,6 +296,8 @@ export default function RSAStudio() {
   const [usageCount, setUsageCount] = useState(0);
   const [gateEmail, setGateEmail] = useState("");
   const [gateSubmitted, setGateSubmitted] = useState(false);
+  const [sessionUrls, setSessionUrls] = useState([]);
+  const [sessionLangs, setSessionLangs] = useState([]);
   const [keywords, setKeywords] = useState(["", "", ""]);
   const [kwHeadlines, setKwHeadlines] = useState(5);   // how many headlines should include keywords
   const [kwInDescs, setKwInDescs] = useState(false);   // toggle: include keywords in descriptions
@@ -516,6 +518,9 @@ STRICT rules:
         finalUrl: url,
       }));
       setGenerated(true);
+      // Track session URLs and languages for lead capture
+      setSessionUrls(prev => [...new Set([...prev, url])]);
+      setSessionLangs(prev => [...new Set([...prev, pageMeta.language || "English"])]);
       // Save snapshot to history (keep last 5)
       setHistory(prev => {
         const snapshot = {
@@ -619,7 +624,37 @@ STRICT rules:
 
 
   // ── Gate Modal ───────────────────────────────────────────────────────────────
-  const GateModal = () => (
+  const GateModal = () => {
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState("");
+
+    const handleSubmit = async () => {
+      if (!gateEmail.includes("@") || submitting) return;
+      setSubmitting(true); setSubmitError("");
+      try {
+        await fetch("https://hooks.zapier.com/hooks/catch/4880947/u0332lz/", {
+          method: "POST",
+          mode: "no-cors", // Zapier webhooks don't return CORS headers
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: gateEmail,
+            source: "RSA Studio — Free Tier Gate",
+            urls_used: sessionUrls.join(", ") || "none recorded",
+            languages_detected: sessionLangs.join(", ") || "English",
+            generation_count: usageCount,
+            timestamp: new Date().toISOString(),
+            page_url: window.location.href,
+          }),
+        });
+        // no-cors means we can't read the response — assume success
+        setGateSubmitted(true);
+      } catch (e) {
+        setSubmitError("Something went wrong — please try again");
+        setSubmitting(false);
+      }
+    };
+
+    return (
     <div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24,
@@ -651,7 +686,7 @@ STRICT rules:
               type="email"
               value={gateEmail}
               onChange={e => setGateEmail(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && gateEmail.includes("@") && setGateSubmitted(true)}
+              onKeyDown={e => e.key === "Enter" && handleSubmit()}
               placeholder="Enter your work email"
               style={{
                 width: "100%", padding: "11px 14px", fontSize: 13,
@@ -660,17 +695,17 @@ STRICT rules:
                 marginBottom: 10, fontFamily: "inherit",
               }}
             />
-            <button
-              onClick={() => gateEmail.includes("@") && setGateSubmitted(true)}
+            <button onClick={handleSubmit} disabled={!gateEmail.includes("@") || submitting}
               style={{
                 width: "100%", padding: "12px", fontSize: 14, fontWeight: 800,
                 background: gateEmail.includes("@") ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.06)",
                 color: gateEmail.includes("@") ? "white" : "#334155",
-                border: "none", borderRadius: 8, cursor: gateEmail.includes("@") ? "pointer" : "not-allowed",
-                transition: "all 0.2s", marginBottom: 12,
+                border: "none", borderRadius: 8, cursor: gateEmail.includes("@") && !submitting ? "pointer" : "not-allowed",
+                transition: "all 0.2s", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
               }}>
-              Create Free Account →
+              {submitting ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block" }}>◌</span> Sending…</> : "Create Free Account →"}
             </button>
+            {submitError && <div style={{ fontSize: 11, color: "#f87171", marginBottom: 8 }}>{submitError}</div>}
             <div style={{ fontSize: 11, color: "#1e293b" }}>No credit card required · Takes 30 seconds</div>
           </>
         ) : (
@@ -685,7 +720,8 @@ STRICT rules:
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   // ── Copy Modal (sandbox fallback) ─────────────────────────────────────────
   const CopyModal = () => {
