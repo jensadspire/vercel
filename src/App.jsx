@@ -654,7 +654,7 @@ STRICT rules:
       if (!gateEmail.includes("@") || submitting) return;
       setSubmitting(true); setSubmitError("");
       try {
-        await fetch("https://hooks.zapier.com/hooks/catch/4880947/u0332lz/", {
+        await fetch(import.meta.env.VITE_ZAPIER_WEBHOOK_URL, {
           method: "POST",
           mode: "no-cors", // Zapier webhooks don't return CORS headers
           headers: { "Content-Type": "application/json" },
