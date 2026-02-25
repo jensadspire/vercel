@@ -284,6 +284,7 @@ export default function RSAStudio() {
   const [rows, setRows] = useState([makeRow(1)]);
   const [activeRow, setActiveRow] = useState(0);
   const [generated, setGenerated] = useState(false);
+  const [clearKey, setClearKey] = useState(0);
   const [pageMeta, setPageMeta] = useState({ language: "English" });
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState("headlines"); // headlines | descriptions | urls
@@ -972,6 +973,22 @@ STRICT rules:
               setGenerated(false);
               setError("");
               setActiveTab("headlines");
+              // Reset all campaign modifiers
+              setShowModifiers(false);
+              setSeasonOn(false);
+              setSeasonPreset("");
+              setSeasonCustom("");
+              setSeasonIntensity("Moderate");
+              setDiscountOn(false);
+              setDiscountType("% Off");
+              setDiscountValue("");
+              setDiscountPlacement("Both");
+              setBrandOn(false);
+              setBrandRequired("");
+              setBrandBanned("");
+              setBrandTone("Professional");
+              // Increment clearKey to remount all EditableFields — closes any open refine panels
+              setClearKey(k => k + 1);
             }} style={{
               padding: "9px 14px", fontSize: 11, fontWeight: 700,
               background: "rgba(255,255,255,0.05)",
@@ -1262,7 +1279,7 @@ STRICT rules:
               <span style={S.sectionLabel}>Headlines — 30 char max each</span>
               {row.headlines.map((h, i) => (
                 <EditableField
-                  key={i}
+                  key={`${clearKey}-h-${i}`}
                   label={`H${i + 1}`}
                   value={h.text}
                   limit={HL_LIMIT}
@@ -1280,7 +1297,7 @@ STRICT rules:
               <span style={S.sectionLabel}>Descriptions — 90 char max each</span>
               {row.descriptions.map((d, i) => (
                 <EditableField
-                  key={i}
+                  key={`${clearKey}-d-${i}`}
                   label={`D${i + 1}`}
                   value={d.text}
                   limit={DESC_LIMIT}
