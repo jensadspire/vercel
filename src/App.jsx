@@ -341,14 +341,36 @@ export default function RSAStudio() {
     setLoading(true); setError("");
     try {
       // ── Step 0: Client-side URL language extraction (runs before scrape, immune to redirects) ──
-      const urlLangCodes = { de: "German", fr: "French", it: "Italian", es: "Spanish", nl: "Dutch",
+      const urlLangCodes = {
+        de: "German", fr: "French", it: "Italian", es: "Spanish", nl: "Dutch",
         pt: "Portuguese", pl: "Polish", sv: "Swedish", da: "Danish", fi: "Finnish",
-        no: "Norwegian", nb: "Norwegian", cs: "Czech", hu: "Hungarian", ro: "Romanian" };
-      const tldLangCodes = { dk: "Danish", se: "Swedish", no: "Norwegian", fi: "Finnish",
+        no: "Norwegian", nb: "Norwegian", cs: "Czech", sk: "Slovak", hu: "Hungarian",
+        ro: "Romanian", hr: "Croatian", bg: "Bulgarian", el: "Greek", sr: "Serbian",
+        uk: "Ukrainian", ru: "Russian", tr: "Turkish", zh: "Chinese", ja: "Japanese",
+        ko: "Korean", ar: "Arabic", is: "Icelandic", lt: "Lithuanian", lv: "Latvian",
+        et: "Estonian", sl: "Slovenian",
+      };
+      const iso3LangCodes = {
+        svk: "Slovak", cze: "Czech", pol: "Polish", deu: "German", fra: "French",
+        ita: "Italian", esp: "Spanish", nld: "Dutch", por: "Portuguese", swe: "Swedish",
+        dan: "Danish", nor: "Norwegian", fin: "Finnish", hun: "Hungarian", ron: "Romanian",
+        hrv: "Croatian", srp: "Serbian", bul: "Bulgarian", ell: "Greek", ukr: "Ukrainian",
+        rus: "Russian", tur: "Turkish", zho: "Chinese", jpn: "Japanese", kor: "Korean",
+        ara: "Arabic", isl: "Icelandic", lit: "Lithuanian", lav: "Latvian", est: "Estonian",
+        slk: "Slovak", slv: "Slovenian",
+      };
+      const tldLangCodes = {
+        dk: "Danish", se: "Swedish", no: "Norwegian", fi: "Finnish", is: "Icelandic",
         de: "German", at: "German", fr: "French", it: "Italian", es: "Spanish",
-        nl: "Dutch", pt: "Portuguese", pl: "Polish", cz: "Czech", hu: "Hungarian", ro: "Romanian" };
+        nl: "Dutch", pt: "Portuguese", pl: "Polish", cz: "Czech", sk: "Slovak",
+        hu: "Hungarian", ro: "Romanian", hr: "Croatian", bg: "Bulgarian", gr: "Greek",
+        ru: "Russian", tr: "Turkish", cn: "Chinese", tw: "Chinese", jp: "Japanese",
+        kr: "Korean", br: "Portuguese", ua: "Ukrainian",
+      };
       const _pathMatch = url.match(/\/([a-z]{2})(?:-[a-z]{2})?\//);
-      const urlPathLang = _pathMatch ? urlLangCodes[_pathMatch[1]?.toLowerCase()] || null : null;
+      const _pathMatch3 = url.match(/[/_]([a-z]{3})(?:[/_]|$)/i);
+      const urlPathLang = (_pathMatch ? urlLangCodes[_pathMatch[1]?.toLowerCase()] || null : null)
+        || (_pathMatch3 ? iso3LangCodes[_pathMatch3[1]?.toLowerCase()] || null : null) || null;
       const urlTld = url.match(/\.([a-z]{2})(?:\/|$)/i)?.[1]?.toLowerCase();
       const tldFallbackLang = urlTld ? tldLangCodes[urlTld] || null : null;
       const clientLang = urlPathLang || tldFallbackLang || null;

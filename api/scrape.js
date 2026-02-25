@@ -26,26 +26,80 @@ export default async function handler(req, res) {
 
     // TLD → language map (used as fallback for country-code domains)
     const tldLangMap = {
-      "dk": "da", "se": "sv", "no": "nb", "fi": "fi",
+      // Nordic
+      "dk": "da", "se": "sv", "no": "nb", "fi": "fi", "is": "is",
+      // Germanic
       "de": "de", "at": "de", "ch": "de",
-      "fr": "fr", "be": "fr",
-      "it": "it", "es": "es", "nl": "nl",
-      "pt": "pt", "pl": "pl", "cz": "cs",
-      "hu": "hu", "ro": "ro",
+      // Romance
+      "fr": "fr", "be": "fr", "it": "it", "es": "es",
+      "pt": "pt", "mx": "es", "ar": "es", "co": "es",
+      // Other European
+      "nl": "nl", "pl": "pl", "cz": "cs", "sk": "sk",
+      "hu": "hu", "ro": "ro", "hr": "hr", "bg": "bg",
+      "gr": "el", "rs": "sr", "ua": "uk", "lt": "lt",
+      "lv": "lv", "ee": "et", "si": "sl",
+      // Asian
+      "cn": "zh", "tw": "zh", "hk": "zh", "jp": "ja", "kr": "ko",
+      // Middle East
+      "sa": "ar", "ae": "ar", "eg": "ar",
+      // Other
+      "br": "pt", "ru": "ru", "tr": "tr",
+    };
+
+    // 3-letter ISO 639-2 path codes → 2-letter codes
+    // Handles proprietary URL structures like /eur_eu_svk/ or /cze/ etc.
+    const iso3Map = {
+      "svk": "sk", "cze": "cs", "pol": "pl", "deu": "de", "fra": "fr",
+      "ita": "it", "esp": "es", "nld": "nl", "por": "pt", "swe": "sv",
+      "dan": "da", "nor": "nb", "fin": "fi", "hun": "hu", "ron": "ro",
+      "hrv": "hr", "srp": "sr", "bul": "bg", "ell": "el", "ukr": "uk",
+      "rus": "ru", "tur": "tr", "zho": "zh", "jpn": "ja", "kor": "ko",
+      "ara": "ar", "isl": "is", "lit": "lt", "lav": "lv", "est": "et",
+      "slk": "sk", "slv": "sl",
     };
 
     // Full language name map
     const langMap = {
+      // Germanic
       "de": "German", "de-de": "German", "de-at": "German", "de-ch": "German",
+      // Romance
       "fr": "French", "fr-fr": "French", "fr-ch": "French", "fr-be": "French",
       "it": "Italian", "it-it": "Italian", "it-ch": "Italian",
-      "es": "Spanish", "es-es": "Spanish", "es-mx": "Spanish",
-      "nl": "Dutch", "nl-nl": "Dutch", "nl-be": "Dutch",
+      "es": "Spanish", "es-es": "Spanish", "es-mx": "Spanish", "es-ar": "Spanish",
       "pt": "Portuguese", "pt-br": "Portuguese", "pt-pt": "Portuguese",
-      "pl": "Polish", "sv": "Swedish", "da": "Danish",
-      "fi": "Finnish", "no": "Norwegian", "nb": "Norwegian",
-      "cs": "Czech", "hu": "Hungarian", "ro": "Romanian",
-      "en": "English", "en-us": "English", "en-gb": "English",
+      "ro": "Romanian", "ro-ro": "Romanian",
+      // Germanic/Nordic
+      "nl": "Dutch", "nl-nl": "Dutch", "nl-be": "Dutch",
+      "sv": "Swedish", "sv-se": "Swedish",
+      "da": "Danish", "da-dk": "Danish",
+      "nb": "Norwegian", "no": "Norwegian", "nn": "Norwegian",
+      "fi": "Finnish", "fi-fi": "Finnish",
+      "is": "Icelandic", "is-is": "Icelandic",
+      // Slavic
+      "pl": "Polish", "pl-pl": "Polish",
+      "cs": "Czech", "cs-cz": "Czech",
+      "sk": "Slovak", "sk-sk": "Slovak",
+      "hr": "Croatian", "hr-hr": "Croatian",
+      "sr": "Serbian", "sr-rs": "Serbian",
+      "bg": "Bulgarian", "bg-bg": "Bulgarian",
+      "uk": "Ukrainian", "uk-ua": "Ukrainian",
+      "ru": "Russian", "ru-ru": "Russian",
+      "sl": "Slovenian", "sl-si": "Slovenian",
+      // Other European
+      "hu": "Hungarian", "hu-hu": "Hungarian",
+      "el": "Greek", "el-gr": "Greek",
+      "tr": "Turkish", "tr-tr": "Turkish",
+      "lt": "Lithuanian", "lt-lt": "Lithuanian",
+      "lv": "Latvian", "lv-lv": "Latvian",
+      "et": "Estonian", "et-ee": "Estonian",
+      // Asian
+      "zh": "Chinese", "zh-cn": "Chinese", "zh-tw": "Chinese", "zh-hk": "Chinese",
+      "ja": "Japanese", "ja-jp": "Japanese",
+      "ko": "Korean", "ko-kr": "Korean",
+      // Middle East
+      "ar": "Arabic", "ar-sa": "Arabic", "ar-ae": "Arabic",
+      // English
+      "en": "English", "en-us": "English", "en-gb": "English", "en-au": "English",
     };
 
     const toLang = (code) => {
@@ -73,14 +127,17 @@ export default async function handler(req, res) {
     // 5. URL path locale patterns — checked against ORIGINAL URL before any redirect
     // This is intentionally checked on the input URL, not the fetched URL, to handle
     // sites that redirect bots to a different locale (e.g. avogel.ch/de/ → root page)
-    const urlLang = url.match(/[\/](de|fr|it|es|nl|pt|pl|sv|da|fi|no|nb|cs|hu|ro|en)(?:[\/\-\_]|$)/i)?.[1] || null;
+    // URL path 2-letter codes + 3-letter ISO codes
+    const urlLang2 = url.match(/[\/](de|fr|it|es|nl|pt|pl|sv|da|fi|no|nb|cs|sk|hu|ro|hr|bg|el|sr|uk|ru|tr|zh|ja|ko|ar|is|lt|lv|et|sl|en)(?:[\/\-\_]|$)/i)?.[1]?.toLowerCase() || null;
+    const urlLang3match = url.match(/[\/_](svk|cze|pol|deu|fra|ita|esp|nld|por|swe|dan|nor|fin|hun|ron|hrv|srp|bul|ell|ukr|rus|tur|zho|jpn|kor|ara|isl|lit|lav|est|slk|slv)(?:[\/_]|$)/i)?.[1]?.toLowerCase() || null;
+    const urlLang = urlLang2 || (urlLang3match ? iso3Map[urlLang3match] : null) || null;
 
     // 6. TLD fallback — extract country code TLD from original domain
     const tld = url.match(/\.([a-z]{2})(\/|$)/i)?.[1]?.toLowerCase() || null;
     const tldLang = tld ? tldLangMap[tld] || null : null;
 
     // 7. Subdomain locale pattern (e.g. de.example.com, fr.brand.com)
-    const subdomainLang = url.match(/https?:\/\/(de|fr|it|es|nl|pt|pl|sv|da|fi|no|nb|cs|hu|ro)\./i)?.[1] || null;
+    const subdomainLang = url.match(/https?:\/\/(de|fr|it|es|nl|pt|pl|sv|da|fi|no|nb|cs|sk|hu|ro|hr|bg|el|sr|uk|ru|tr|zh|ja|ko|ar|is|lt|lv|et|sl)\./i)?.[1]?.toLowerCase() || null;
 
     // ── Priority logic ────────────────────────────────────────────────────────
     // htmlLang is trusted ONLY if it is non-English.
