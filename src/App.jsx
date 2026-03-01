@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const HL_LIMIT = 30, DESC_LIMIT = 90, PATH_LIMIT = 15;
