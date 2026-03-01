@@ -285,6 +285,22 @@ export default function RSAStudio() {
   const [activeRow, setActiveRow] = useState(0);
   const [generated, setGenerated] = useState(false);
   const [clearKey, setClearKey] = useState(0);
+  // Admin mode — detected from ?admin=KEY URL param, persisted in sessionStorage
+  const [isAdmin] = useState(() => {
+    const urlKey = new URLSearchParams(window.location.search).get("admin");
+    const storedKey = sessionStorage.getItem("rsa_admin_key");
+    const key = urlKey || storedKey || "";
+    if (urlKey) sessionStorage.setItem("rsa_admin_key", urlKey);
+    return key === import.meta.env.VITE_ADMIN_KEY && !!key;
+  });
+  // Admin mode — detected from ?admin=KEY URL param, persisted in sessionStorage
+  const [isAdmin] = useState(() => {
+    const urlKey = new URLSearchParams(window.location.search).get("admin");
+    const storedKey = sessionStorage.getItem("rsa_admin_key");
+    const key = urlKey || storedKey || "";
+    if (urlKey) sessionStorage.setItem("rsa_admin_key", urlKey);
+    return key === import.meta.env.VITE_ADMIN_KEY && !!key;
+  });
   const [pageMeta, setPageMeta] = useState({ language: "English" });
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState("headlines"); // headlines | descriptions | urls
@@ -443,7 +459,10 @@ NOTE: ${activeModifiers} modifiers are active simultaneously. Balance them caref
       // ── Step 3: Generate ad copy with full context ───────────────────────────
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(isAdmin ? { "x-admin-key": import.meta.env.VITE_ADMIN_KEY } : {}),
+        },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 2000,
@@ -1003,7 +1022,13 @@ STRICT rules:
             <span>⚠</span> {error}
           </div>
         )}
-        {usageCount > 0 && !showGateModal && (
+        {isAdmin && (
+          <div style={{ maxWidth: 900, margin: "6px auto 0", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 10, background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)", letterSpacing: "0.08em" }}>⚡ ADMIN MODE</span>
+            <span style={{ fontSize: 10, color: "#334155" }}>Usage gate disabled — unlimited generations</span>
+          </div>
+        )}
+        {usageCount > 0 && !showGateModal && !isAdmin && (
           <div style={{ maxWidth: 900, margin: "6px auto 0", display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
               <div style={{ width: `${(usageCount / 10) * 100}%`, height: "100%", background: usageCount >= 8 ? "linear-gradient(90deg,#f59e0b,#ef4444)" : "linear-gradient(90deg,#3b82f6,#6366f1)", borderRadius: 2, transition: "width 0.4s" }} />
