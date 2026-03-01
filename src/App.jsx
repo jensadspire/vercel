@@ -286,27 +286,25 @@ export default function RSAStudio() {
   const [generated, setGenerated] = useState(false);
   const [clearKey, setClearKey] = useState(0);
   // Admin mode — detected from ?admin=KEY URL param, persisted in sessionStorage
-  const [isAdmin] = useState(() => {
-    try {
-      const urlKey = new URLSearchParams(window.location.search).get("admin");
-      const storedKey = sessionStorage.getItem("rsa_admin_key");
-      const key = urlKey || storedKey || "";
-      if (urlKey) sessionStorage.setItem("rsa_admin_key", urlKey);
-      const adminKey = import.meta.env.VITE_ADMIN_KEY;
-      return !!(adminKey && key && key === adminKey);
-    } catch (_) { return false; }
-  });
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    const urlKey = new URLSearchParams(window.location.search).get("admin");
+    const storedKey = sessionStorage.getItem("rsa_admin_key");
+    const key = urlKey || storedKey || "";
+    if (urlKey) sessionStorage.setItem("rsa_admin_key", urlKey);
+    const adminKey = import.meta.env.VITE_ADMIN_KEY;
+    if (adminKey && key && key === adminKey) setIsAdmin(true);
+  }, []);
   // Admin mode — detected from ?admin=KEY URL param, persisted in sessionStorage
-  const [isAdmin] = useState(() => {
-    try {
-      const urlKey = new URLSearchParams(window.location.search).get("admin");
-      const storedKey = sessionStorage.getItem("rsa_admin_key");
-      const key = urlKey || storedKey || "";
-      if (urlKey) sessionStorage.setItem("rsa_admin_key", urlKey);
-      const adminKey = import.meta.env.VITE_ADMIN_KEY;
-      return !!(adminKey && key && key === adminKey);
-    } catch (_) { return false; }
-  });
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    const urlKey = new URLSearchParams(window.location.search).get("admin");
+    const storedKey = sessionStorage.getItem("rsa_admin_key");
+    const key = urlKey || storedKey || "";
+    if (urlKey) sessionStorage.setItem("rsa_admin_key", urlKey);
+    const adminKey = import.meta.env.VITE_ADMIN_KEY;
+    if (adminKey && key && key === adminKey) setIsAdmin(true);
+  }, []);
   const [pageMeta, setPageMeta] = useState({ language: "English" });
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState("headlines"); // headlines | descriptions | urls
