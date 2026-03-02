@@ -1,4 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  ClerkProvider,
+  SignIn,
+  SignUp,
+  useUser,
+  useClerk,
+  UserButton,
+} from "@clerk/clerk-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const HL_LIMIT = 30, DESC_LIMIT = 90, PATH_LIMIT = 15;
@@ -277,7 +285,18 @@ function EditableField({ label, value, limit, onChange, pinValue, onPinChange, m
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────────
-export default function RSAStudio() {
+// ── Clerk-wrapped entry point ─────────────────────────────────────────────────
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+export default function App() {
+  return (
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+      <RSAStudio />
+    </ClerkProvider>
+  );
+}
+
+function RSAStudio() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -286,6 +305,10 @@ export default function RSAStudio() {
   const [generated, setGenerated] = useState(false);
   const [clearKey, setClearKey] = useState(0);
   // Admin mode — detected from ?admin=KEY URL param, persisted in sessionStorage
+  const { isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState("sign-in"); // "sign-in" | "sign-up"
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
     const urlKey = new URLSearchParams(window.location.search).get("admin");
@@ -659,6 +682,37 @@ STRICT rules:
   };
 
 
+  // ── Auth Modal ───────────────────────────────────────────────────────────────
+  const AuthModal = () => (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24,
+    }} onClick={() => setShowAuthModal(false)}>
+      <div onClick={e => e.stopPropagation()} style={{ position: "relative" }}>
+        <button onClick={() => setShowAuthModal(false)} style={{
+          position: "absolute", top: -12, right: -12, zIndex: 10,
+          width: 28, height: 28, borderRadius: "50%", border: "none",
+          background: "rgba(255,255,255,0.1)", color: "#94a3b8",
+          cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center",
+        }}>✕</button>
+        <div style={{ display: "flex", gap: 0, marginBottom: 16, background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: 3 }}>
+          {["sign-in", "sign-up"].map(mode => (
+            <button key={mode} onClick={() => setAuthMode(mode)} style={{
+              flex: 1, padding: "6px 16px", fontSize: 11, fontWeight: 700, borderRadius: 6, border: "none",
+              background: authMode === mode ? "rgba(99,102,241,0.3)" : "transparent",
+              color: authMode === mode ? "#a5b4fc" : "#475569", cursor: "pointer",
+              letterSpacing: "0.05em", textTransform: "uppercase",
+            }}>{mode === "sign-in" ? "Sign In" : "Create Account"}</button>
+          ))}
+        </div>
+        {authMode === "sign-in"
+          ? <SignIn afterSignInUrl="/" routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
+          : <SignUp afterSignUpUrl="/" routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
+        }
+      </div>
+    </div>
+  );
+
   // ── Gate Modal ───────────────────────────────────────────────────────────────
   const GateModal = () => {
     const [submitting, setSubmitting] = useState(false);
@@ -742,7 +796,14 @@ STRICT rules:
               {submitting ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block" }}>◌</span> Sending…</> : "Create Free Account →"}
             </button>
             {submitError && <div style={{ fontSize: 11, color: "#f87171", marginBottom: 8 }}>{submitError}</div>}
-            <div style={{ fontSize: 11, color: "#1e293b" }}>No credit card required · Takes 30 seconds</div>
+            <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>No credit card required · Takes 30 seconds</div>
+            <div style={{ fontSize: 11, color: "#334155", marginTop: 8 }}>
+              Already have an account?{" "}
+              <button onClick={() => { setShowGateModal(false); setAuthMode("sign-in"); setShowAuthModal(true); }}
+                style={{ background: "none", border: "none", color: "#818cf8", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: 0, textDecoration: "underline" }}>
+                Sign in
+              </button>
+            </div>
           </>
         ) : (
           <>
@@ -889,7 +950,7 @@ STRICT rules:
         </div>
 
         {/* Ad tabs */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, overflow: "hidden", flex: 1, justifyContent: "center" }}>
           {rows.map((r, i) => (
             <div key={r.id} style={{ display: "flex" }}>
               <button onClick={() => setActiveRow(i)} style={{
@@ -920,7 +981,7 @@ STRICT rules:
         </div>
 
         {/* Export buttons */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
             <button onClick={copyTSV} style={{
               display: "flex", alignItems: "center", gap: 6,
@@ -947,6 +1008,23 @@ STRICT rules:
             color: "#94a3b8", border: "1px solid rgba(255,255,255,0.09)",
             borderRadius: 7, cursor: "pointer",
           }}>⬇ CSV</button>
+          {/* Auth button */}
+          {isSignedIn ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 10, color: "#64748b", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}
+              </div>
+              <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
+            </div>
+          ) : (
+            <button onClick={() => { setAuthMode("sign-in"); setShowAuthModal(true); }} style={{
+              padding: "7px 14px", fontSize: 11, fontWeight: 700,
+              background: "linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.15))",
+              color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)",
+              borderRadius: 7, cursor: "pointer", whiteSpace: "nowrap",
+              transition: "all 0.2s",
+            }}>Sign in</button>
+          )}
         </div>
       </div>
 
@@ -1577,6 +1655,7 @@ STRICT rules:
 
       {showCopyModal && <CopyModal />}
       {showGateModal && <GateModal />}
+      {showAuthModal && <AuthModal />}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
