@@ -34,20 +34,31 @@ export default async function handler(req, res) {
   // ── Clerk signed-in bypass — decode JWT to verify session token ─────────────
   const clerkSessionToken = req.headers["x-clerk-session"] || "";
   let isSignedInUser = false;
+  console.log("Auth headers received:", {
+    hasClerkToken: !!clerkSessionToken,
+    tokenLength: clerkSessionToken.length,
+    hasAdminKey: !!req.headers["x-admin-key"],
+  });
   if (clerkSessionToken) {
     try {
-      // JWT is three base64url parts — decode the payload (middle part)
       const parts = clerkSessionToken.split(".");
       if (parts.length === 3) {
         const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
         const now = Math.floor(Date.now() / 1000);
-        // Valid if not expired and has a subject (user id)
+        console.log("JWT payload:", { sub: payload.sub, exp: payload.exp, now, valid: payload.exp > now });
         if (payload.sub && payload.exp && payload.exp > now) {
           isSignedInUser = true;
         }
+      } else {
+        console.log("JWT malformed — parts:", parts.length);
       }
-    } catch (_) {}
+    } catch (e) {
+      console.log("JWT decode error:", e.message);
+    }
+  } else {
+    console.log("No Clerk session token in request");
   }
+  console.log("isSignedInUser:", isSignedInUser);
 
   if (isAdmin || isSignedInUser) {
     // Admin request — call Anthropic directly, no counting
