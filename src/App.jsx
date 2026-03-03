@@ -310,6 +310,41 @@ function RSAStudio() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("sign-in"); // "sign-in" | "sign-up"
   const [isAdmin, setIsAdmin] = useState(false);
+  // ── Audience Modifiers (free tier — persistent via Redis) ─────────────────
+  const [audiences, setAudiences] = useState([]);
+  const [audiencesLoaded, setAudiencesLoaded] = useState(false);
+  const [showAudiencePanel, setShowAudiencePanel] = useState(false);
+  // ── Google Trends ─────────────────────────────────────────────────────────
+  const [trends, setTrends] = useState([]);
+  const [trendsLoading, setTrendsLoading] = useState(false);
+  const [selectedTrends, setSelectedTrends] = useState([]);
+  const [showTrendsPanel, setShowTrendsPanel] = useState(false);
+  // Load saved audiences from Redis when user signs in
+  useEffect(() => {
+    if (!isSignedIn || !user?.id) return;
+    fetch("/api/audiences", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get", userId: user.id }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.audiences) setAudiences(data.audiences);
+        setAudiencesLoaded(true);
+      })
+      .catch(() => setAudiencesLoaded(true));
+  }, [isSignedIn, user?.id]);
+
+  // Save audiences to Redis whenever they change
+  useEffect(() => {
+    if (!isSignedIn || !user?.id || !audiencesLoaded) return;
+    fetch("/api/audiences", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set", userId: user.id, audiences }),
+    }).catch(() => {});
+  }, [audiences, isSignedIn, user?.id, audiencesLoaded]);
+
   useEffect(() => {
     const urlKey = new URLSearchParams(window.location.search).get("admin");
     const storedKey = sessionStorage.getItem("rsa_admin_key");
@@ -429,6 +464,35 @@ function RSAStudio() {
         // Scrape failed — continue with client-side language detection + empty metadata
       }
 
+      // ── Step 1b: Fetch Google Trends if signed in ────────────────────────────
+      if (isSignedIn && pageMeta.title) {
+        setTrendsLoading(true);
+        try {
+          const trendSeed = pageMeta.siteName || pageMeta.title?.split(/[|\-–]/)[0]?.trim() || "";
+          const trendGeo = pageMeta.language === "German" ? "DE"
+            : pageMeta.language === "French" ? "FR"
+            : pageMeta.language === "Spanish" ? "ES"
+            : pageMeta.language === "Dutch" ? "NL"
+            : pageMeta.language === "Italian" ? "IT"
+            : pageMeta.language === "Portuguese" ? "PT"
+            : pageMeta.language === "Swedish" ? "SE"
+            : pageMeta.language === "Danish" ? "DK"
+            : pageMeta.language === "Norwegian" ? "NO"
+            : "US";
+          const trendRes = await fetch("/api/trends", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ keyword: trendSeed, geo: trendGeo }),
+          });
+          const trendData = await trendRes.json();
+          if (trendData.trends?.length > 0) {
+            setTrends(trendData.trends);
+            setShowTrendsPanel(true);
+          }
+        } catch (_) {}
+        setTrendsLoading(false);
+      }
+
       // ── Step 2: Build context string from scraped metadata ──────────────────
       const metaContext = [
         pageMeta.title        && `Page title: ${pageMeta.title}`,
@@ -473,6 +537,29 @@ BRAND & COMPLIANCE MODIFIER:
       const modifierWarning = activeModifiers >= 2 ? `
 NOTE: ${activeModifiers} modifiers are active simultaneously. Balance them carefully — do not let any single modifier dominate the output at the expense of core product messaging.` : "";
 
+      // ── Step 2d: Build audience modifier instructions ────────────────────────
+      const activeAudiences = audiences.filter(a => a.name?.trim());
+      const audienceInstruction = activeAudiences.length > 0 ? `
+
+AUDIENCE MODIFIERS (${activeAudiences.length} segment${activeAudiences.length > 1 ? "s" : ""} active):
+${activeAudiences.map((a, i) => `Segment ${i + 1}: "${a.name}"
+- Pain points / motivations: ${a.painPoints || "not specified"}
+- Preferred tone: ${a.tone || "Professional"}`).join("
+")}
+- Write copy that resonates with these audience segments — reflect their language, concerns and motivations
+- Distribute audience-specific angles across the headlines — do not cluster them all together` : "";
+
+      // ── Step 2e: Build trends instruction ────────────────────────────────────
+      const activeTrends = selectedTrends.length > 0 ? selectedTrends : [];
+      const trendsInstruction = activeTrends.length > 0 ? `
+
+TRENDING TOPICS TO LEVERAGE:
+The following topics are currently trending in searches related to this product/brand:
+${activeTrends.map(t => `- "${t}"`).join("
+")}
+- Weave 1-2 of these trending angles naturally into headlines or descriptions where relevant
+- Only use a trend if it genuinely fits the product — do not force irrelevant trends` : "";
+
       // ── Step 3: Generate ad copy with full context ───────────────────────────
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -507,7 +594,7 @@ Return ONLY valid JSON — no prose, no markdown fences:
   "path2": "sub-path"
 }
 
-${kwInstruction}${seasonInstruction}${discountInstruction}${brandInstruction}${modifierWarning}
+${kwInstruction}${seasonInstruction}${discountInstruction}${brandInstruction}${modifierWarning}${audienceInstruction}${trendsInstruction}
 
 STRICT rules:
 - Exactly 15 headlines, each ≤ ${HL_LIMIT} characters (hard limit)
@@ -1317,6 +1404,255 @@ STRICT rules:
               </div>
             )}
           </div>
+
+          {/* Audience Modifiers Panel */}
+          <div style={{ marginBottom: 10 }}>
+            <button onClick={() => isSignedIn ? setShowAudiencePanel(v => !v) : (setAuthMode("sign-up"), setShowAuthModal(true))} style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: showAudiencePanel ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
+              border: `1px solid ${showAudiencePanel ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.07)"}`,
+              borderRadius: 8, padding: "8px 12px", cursor: "pointer", marginBottom: showAudiencePanel ? 10 : 0,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12 }}>&#127919;</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.06em", textTransform: "uppercase" }}>Audience Modifiers</span>
+                {!isSignedIn && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.15)", color: "#818cf8" }}>SIGN IN</span>}
+                {isSignedIn && audiences.filter(a => a.name && a.name.trim()).length > 0 && (
+                  <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.15)", color: "#818cf8" }}>
+                    {audiences.filter(a => a.name && a.name.trim()).length} active
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: 10, color: "#334155" }}>{showAudiencePanel ? "A" : "V"}</span>
+            </button>
+            {showAudiencePanel && isSignedIn && (
+              <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.5 }}>Define audience segments — the AI will tailor ad copy to resonate with each group.</div>
+                {[0, 1].map(i => (
+                  <div key={i} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 10 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", marginBottom: 8, letterSpacing: "0.06em" }}>SEGMENT {i + 1}</div>
+                    <input
+                      placeholder={"Audience name (e.g. Young Professionals)"}
+                      value={(audiences[i] && audiences[i].name) || ""}
+                      onChange={e => {
+                        const updated = [...audiences];
+                        if (!updated[i]) updated[i] = { name: "", painPoints: "", tone: "Professional" };
+                        updated[i] = Object.assign({}, updated[i], { name: e.target.value });
+                        setAudiences(updated);
+                      }}
+                      style={{ width: "100%", padding: "7px 10px", fontSize: 11, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "white", outline: "none", boxSizing: "border-box", marginBottom: 6, fontFamily: "inherit" }}
+                    />
+                    <textarea
+                      placeholder={"Pain points & motivations (e.g. time-poor, value conscious)"}
+                      value={(audiences[i] && audiences[i].painPoints) || ""}
+                      onChange={e => {
+                        const updated = [...audiences];
+                        if (!updated[i]) updated[i] = { name: "", painPoints: "", tone: "Professional" };
+                        updated[i] = Object.assign({}, updated[i], { painPoints: e.target.value });
+                        setAudiences(updated);
+                      }}
+                      rows={2}
+                      style={{ width: "100%", padding: "7px 10px", fontSize: 11, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "white", outline: "none", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginBottom: 6 }}
+                    />
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {["Professional", "Friendly", "Urgent", "Empathetic"].map(t => (
+                        <button key={t} onClick={() => {
+                          const updated = [...audiences];
+                          if (!updated[i]) updated[i] = { name: "", painPoints: "", tone: t };
+                          updated[i] = Object.assign({}, updated[i], { tone: t });
+                          setAudiences(updated);
+                        }} style={{
+                          flex: 1, padding: "4px 2px", fontSize: 9, fontWeight: 700, borderRadius: 5, cursor: "pointer",
+                          background: ((audiences[i] && audiences[i].tone) || "Professional") === t ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.03)",
+                          color: ((audiences[i] && audiences[i].tone) || "Professional") === t ? "#818cf8" : "#334155",
+                          border: "1px solid " + (((audiences[i] && audiences[i].tone) || "Professional") === t ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)"),
+                        }}>{t}</button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ background: "rgba(255,255,255,0.01)", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, padding: 10, opacity: 0.5 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#334155", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                    SEGMENT 3 <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>PRO</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#334155" }}>Unlock unlimited audience segments with a Pro account</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Google Trends Panel */}
+          {isSignedIn && (trends.length > 0 || trendsLoading) && (
+            <div style={{ marginBottom: 10 }}>
+              <button onClick={() => setShowTrendsPanel(v => !v)} style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: showTrendsPanel ? "rgba(16,185,129,0.08)" : "rgba(255,255,255,0.03)",
+                border: "1px solid " + (showTrendsPanel ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.07)"),
+                borderRadius: 8, padding: "8px 12px", cursor: "pointer", marginBottom: showTrendsPanel ? 10 : 0,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12 }}>&#128200;</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.06em", textTransform: "uppercase" }}>Google Trends</span>
+                  {trendsLoading && <span style={{ fontSize: 9, color: "#475569" }}>fetching...</span>}
+                  {selectedTrends.length > 0 && (
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(16,185,129,0.15)", color: "#34d399" }}>
+                      {selectedTrends.length} injected
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: 10, color: "#334155" }}>{showTrendsPanel ? "A" : "V"}</span>
+              </button>
+              {showTrendsPanel && (
+                <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 12 }}>
+                  <div style={{ fontSize: 11, color: "#475569", marginBottom: 10, lineHeight: 1.5 }}>Trending searches related to this brand. Click to inject into your next generation.</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {trends.map(t => {
+                      const active = selectedTrends.includes(t);
+                      return (
+                        <button key={t} onClick={() => setSelectedTrends(prev => active ? prev.filter(x => x !== t) : [...prev, t])} style={{
+                          padding: "5px 10px", fontSize: 11, fontWeight: 600, borderRadius: 20, cursor: "pointer",
+                          background: active ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.04)",
+                          color: active ? "#34d399" : "#64748b",
+                          border: "1px solid " + (active ? "rgba(16,185,129,0.35)" : "rgba(255,255,255,0.08)"),
+                          transition: "all 0.15s",
+                        }}>
+                          {active ? "checked " : "+ "}{t}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedTrends.length > 0 && (
+                    <div style={{ marginTop: 8, fontSize: 10, color: "#334155" }}>Selected trends will be woven into your next generation</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Audience Modifiers Panel */}
+          <div style={{ marginBottom: 10 }}>
+            <button onClick={() => isSignedIn ? setShowAudiencePanel(v => !v) : (setAuthMode("sign-up"), setShowAuthModal(true))} style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: showAudiencePanel ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
+              border: "1px solid " + (showAudiencePanel ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.07)"),
+              borderRadius: 8, padding: "8px 12px", cursor: "pointer", marginBottom: showAudiencePanel ? 10 : 0,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12 }}>🎯</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.06em", textTransform: "uppercase" }}>Audience Modifiers</span>
+                {!isSignedIn && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.15)", color: "#818cf8" }}>SIGN IN</span>}
+                {isSignedIn && audiences.filter(a => a.name && a.name.trim()).length > 0 && (
+                  <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.15)", color: "#818cf8" }}>
+                    {audiences.filter(a => a.name && a.name.trim()).length} active
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: 10, color: "#334155" }}>{showAudiencePanel ? "▲" : "▼"}</span>
+            </button>
+            {showAudiencePanel && isSignedIn && (
+              <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.5 }}>Define audience segments — the AI will tailor ad copy to resonate with each group.</div>
+                {[0, 1].map(i => (
+                  <div key={i} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 10 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", marginBottom: 8, letterSpacing: "0.06em" }}>SEGMENT {i + 1}</div>
+                    <input
+                      placeholder="Audience name (e.g. Young Professionals)"
+                      value={(audiences[i] && audiences[i].name) || ""}
+                      onChange={e => {
+                        const updated = [...audiences];
+                        if (!updated[i]) updated[i] = { name: "", painPoints: "", tone: "Professional" };
+                        updated[i] = Object.assign({}, updated[i], { name: e.target.value });
+                        setAudiences(updated);
+                      }}
+                      style={{ width: "100%", padding: "7px 10px", fontSize: 11, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "white", outline: "none", boxSizing: "border-box", marginBottom: 6, fontFamily: "inherit" }}
+                    />
+                    <textarea
+                      placeholder="Pain points & motivations (e.g. time-poor, value conscious)"
+                      value={(audiences[i] && audiences[i].painPoints) || ""}
+                      onChange={e => {
+                        const updated = [...audiences];
+                        if (!updated[i]) updated[i] = { name: "", painPoints: "", tone: "Professional" };
+                        updated[i] = Object.assign({}, updated[i], { painPoints: e.target.value });
+                        setAudiences(updated);
+                      }}
+                      rows={2}
+                      style={{ width: "100%", padding: "7px 10px", fontSize: 11, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "white", outline: "none", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginBottom: 6 }}
+                    />
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {["Professional", "Friendly", "Urgent", "Empathetic"].map(t => (
+                        <button key={t} onClick={() => {
+                          const updated = [...audiences];
+                          if (!updated[i]) updated[i] = { name: "", painPoints: "", tone: t };
+                          updated[i] = Object.assign({}, updated[i], { tone: t });
+                          setAudiences(updated);
+                        }} style={{
+                          flex: 1, padding: "4px 2px", fontSize: 9, fontWeight: 700, borderRadius: 5, cursor: "pointer",
+                          background: ((audiences[i] && audiences[i].tone) || "Professional") === t ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.03)",
+                          color: ((audiences[i] && audiences[i].tone) || "Professional") === t ? "#818cf8" : "#334155",
+                          border: "1px solid " + (((audiences[i] && audiences[i].tone) || "Professional") === t ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)"),
+                        }}>{t}</button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ background: "rgba(255,255,255,0.01)", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, padding: 10, opacity: 0.5 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#334155", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                    SEGMENT 3
+                    <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>PRO</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#334155" }}>Unlock unlimited audience segments with a Pro account</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Google Trends Panel */}
+          {isSignedIn && (trends.length > 0 || trendsLoading) && (
+            <div style={{ marginBottom: 10 }}>
+              <button onClick={() => setShowTrendsPanel(v => !v)} style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: showTrendsPanel ? "rgba(16,185,129,0.08)" : "rgba(255,255,255,0.03)",
+                border: "1px solid " + (showTrendsPanel ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.07)"),
+                borderRadius: 8, padding: "8px 12px", cursor: "pointer", marginBottom: showTrendsPanel ? 10 : 0,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12 }}>📈</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.06em", textTransform: "uppercase" }}>Google Trends</span>
+                  {trendsLoading && <span style={{ fontSize: 9, color: "#475569" }}>fetching...</span>}
+                  {selectedTrends.length > 0 && (
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(16,185,129,0.15)", color: "#34d399" }}>
+                      {selectedTrends.length} injected
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: 10, color: "#334155" }}>{showTrendsPanel ? "▲" : "▼"}</span>
+              </button>
+              {showTrendsPanel && (
+                <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 12 }}>
+                  <div style={{ fontSize: 11, color: "#475569", marginBottom: 10, lineHeight: 1.5 }}>Trending searches related to this brand. Click to inject into your next generation.</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {trends.map(t => {
+                      const active = selectedTrends.includes(t);
+                      return (
+                        <button key={t} onClick={() => setSelectedTrends(prev => active ? prev.filter(x => x !== t) : [...prev, t])} style={{
+                          padding: "5px 10px", fontSize: 11, fontWeight: 600, borderRadius: 20, cursor: "pointer",
+                          background: active ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.04)",
+                          color: active ? "#34d399" : "#64748b",
+                          border: "1px solid " + (active ? "rgba(16,185,129,0.35)" : "rgba(255,255,255,0.08)"),
+                          transition: "all 0.15s",
+                        }}>
+                          {active ? "✓ " : "+ "}{t}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedTrends.length > 0 && (
+                    <div style={{ marginTop: 8, fontSize: 10, color: "#334155" }}>Selected trends will be woven into your next generation</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Tab nav */}
           <div style={{ display: "flex", marginBottom: 14, background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 3 }}>
