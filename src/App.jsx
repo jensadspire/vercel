@@ -468,7 +468,16 @@ function RSAStudio() {
       if (isSignedIn && pageMeta.title) {
         setTrendsLoading(true);
         try {
-          const trendSeed = pageMeta.siteName || pageMeta.title?.split(/[|\-–]/)[0]?.trim() || "";
+          // Extract category keywords from URL path (e.g. /women/dresses → "dresses")
+          const urlPathParts = url.split("/").filter(p =>
+            p.length > 3 &&
+            !p.match(/^(www|http|https|com|de|en|uk|fr|es|it|nl|gb|us|at|ch)$/i) &&
+            !p.match(/^[a-z]{2}_[a-z]{2}$/i) // skip locale codes like en_gb, de_de
+          );
+          const pathKeyword = urlPathParts[urlPathParts.length - 1]?.replace(/[-_]/g, " ") || "";
+          const metaKeyword = pageMeta.h1?.split(/[|\-–]/)[0]?.trim() || pageMeta.title?.split(/[|\-–]/)[0]?.trim() || "";
+          // Prefer URL path category over brand name for more relevant trends
+          const trendSeed = pathKeyword || metaKeyword || pageMeta.siteName || "";
           const trendGeo = pageMeta.language === "German" ? "DE"
             : pageMeta.language === "French" ? "FR"
             : pageMeta.language === "Spanish" ? "ES"

@@ -1,6 +1,5 @@
 // ── Google Trends API ─────────────────────────────────────────────────────────
-// Fetches trending topics related to a keyword using Google Trends RSS feed
-// No API key required — uses the public RSS endpoint
+// Uses Google Trends daily trending searches RSS — reliable, no auth needed
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -13,39 +12,58 @@ export default async function handler(req, res) {
   if (!keyword) return res.status(400).json({ error: "keyword is required" });
 
   try {
-    // Google Trends related queries via RSS — public, no auth needed
+    // Google Trends related queries — interest over time for keyword
     const encodedKw = encodeURIComponent(keyword);
-    const trendsUrl = `https://trends.google.com/trends/trendingsearches/daily/rss?geo=${geo}`;
-    const relatedUrl = `https://trends.google.com/trends/explore/RELATED_QUERIES?hl=en-US&tz=-60&req={"comparisonItem":[{"keyword":"${encodedKw}","geo":"${geo}","time":"today 3-m"}],"category":0,"property":""}`;
 
-    // Use the interest over time + related topics approach via the suggestions API
-    const suggestUrl = `https://trends.google.com/trends/api/autocomplete/${encodedKw}?hl=en-US&tz=60`;
+    // Try related queries first via the explore API
+    const exploreUrl = `https://trends.google.com/trends/api/explore?hl=en-US&tz=-60&req={"comparisonItem":[{"keyword":"${encodedKw}","geo":"${geo}","time":"today 3-m"}],"category":0,"property":""}`;
 
-    const response = await fetch(suggestUrl, {
+    const exploreRes = await fetch(exploreUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "Accept": "application/json, text/plain, */*",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
         "Referer": "https://trends.google.com/",
       },
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(8000),
     });
 
-    const raw = await response.text();
-    // Google Trends prepends ")]}',\n" to JSON responses as XSSI protection
-    const json = JSON.parse(raw.replace(/^\)\]\}',\n/, ""));
-    const suggestions = json?.default?.topics || json?.default?.queries || [];
+    if (exploreRes.ok) {
+      const raw = await exploreRes.text();
+      const json = JSON.parse(raw.replace(/^\)\]\}',\n/, ""));
+      // Extract related queries from the widgets
+      const widgets = json?.widgets || [];
+      const relatedWidget = widgets.find(w => w.id === "RELATED_QUERIES");
+      if (relatedWidget?.request) {
+        const reqToken = relatedWidget.request;
+        const relatedUrl = `https://trends.google.com/trends/api/widgetdata/relatedsearches?hl=en-US&tz=-60&req=${encodeURIComponent(JSON.stringify(reqToken))}&token=${encodeURIComponent(relatedWidget.token)}&user_country_code=${geo}`;
 
-    const trends = suggestions
-      .slice(0, 6)
-      .map(s => s.title || s.query)
-      .filter(Boolean);
+        const relatedRes = await fetch(relatedUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://trends.google.com/",
+          },
+          signal: AbortSignal.timeout(6000),
+        });
 
-    if (trends.length > 0) {
-      return res.status(200).json({ trends, source: "suggestions", keyword });
+        if (relatedRes.ok) {
+          const relRaw = await relatedRes.text();
+          const relJson = JSON.parse(relRaw.replace(/^\)\]\}',\n/, ""));
+          const rising = relJson?.default?.rankedList?.[1]?.rankedKeyword || [];
+          const top = relJson?.default?.rankedList?.[0]?.rankedKeyword || [];
+          const combined = [...rising, ...top]
+            .map(k => k.query)
+            .filter(Boolean)
+            .slice(0, 6);
+          if (combined.length > 0) {
+            return res.status(200).json({ trends: combined, source: "related_queries", keyword });
+          }
+        }
+      }
     }
 
-    // Fallback — use daily trending searches RSS for the geo
-    const rssRes = await fetch(trendsUrl, {
+    // Fallback — daily trending searches RSS for the geo
+    const rssUrl = `https://trends.google.com/trends/trendingsearches/daily/rss?geo=${geo}`;
+    const rssRes = await fetch(rssUrl, {
       headers: { "User-Agent": "Mozilla/5.0" },
       signal: AbortSignal.timeout(6000),
     });
