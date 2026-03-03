@@ -464,43 +464,39 @@ function RSAStudio() {
         // Scrape failed — continue with client-side language detection + empty metadata
       }
 
-      // ── Step 1b: Fetch Google Trends if signed in (only if no trends yet) ──────
+      // ── Step 1b: Fetch Google Trends in parallel (fire and forget) ─────────────
       if (isSignedIn && pageMeta.title && trends.length === 0) {
+        const urlPathParts = url.split("/").filter(p =>
+          p.length > 3 &&
+          !p.match(/^(www|http|https|com|de|en|uk|fr|es|it|nl|gb|us|at|ch)$/i) &&
+          !p.match(/^[a-z]{2}_[a-z]{2}$/i)
+        );
+        const pathKeyword = urlPathParts[urlPathParts.length - 1]?.replace(/[-_]/g, " ") || "";
+        const metaKeyword = pageMeta.h1?.split(/[|\-–]/)[0]?.trim() || pageMeta.title?.split(/[|\-–]/)[0]?.trim() || "";
+        const trendSeed = metaKeyword || pathKeyword || pageMeta.siteName || "";
+        const trendGeo = pageMeta.language === "German" ? "DE"
+          : pageMeta.language === "French" ? "FR"
+          : pageMeta.language === "Spanish" ? "ES"
+          : pageMeta.language === "Dutch" ? "NL"
+          : pageMeta.language === "Italian" ? "IT"
+          : pageMeta.language === "Portuguese" ? "PT"
+          : pageMeta.language === "Swedish" ? "SE"
+          : pageMeta.language === "Danish" ? "DK"
+          : pageMeta.language === "Norwegian" ? "NO"
+          : "US";
+        // Fire and forget — trends load independently, panel appears when ready
         setTrendsLoading(true);
-        try {
-          // Extract category keywords from URL path (e.g. /women/dresses → "dresses")
-          const urlPathParts = url.split("/").filter(p =>
-            p.length > 3 &&
-            !p.match(/^(www|http|https|com|de|en|uk|fr|es|it|nl|gb|us|at|ch)$/i) &&
-            !p.match(/^[a-z]{2}_[a-z]{2}$/i) // skip locale codes like en_gb, de_de
-          );
-          const pathKeyword = urlPathParts[urlPathParts.length - 1]?.replace(/[-_]/g, " ") || "";
-          const metaKeyword = pageMeta.h1?.split(/[|\-–]/)[0]?.trim() || pageMeta.title?.split(/[|\-–]/)[0]?.trim() || "";
-          // Build best possible seed: prefer H1/title category words over raw URL path
-          // Fall back through options until we have something useful
-          const trendSeed = metaKeyword || pathKeyword || pageMeta.siteName || "";
-          const trendGeo = pageMeta.language === "German" ? "DE"
-            : pageMeta.language === "French" ? "FR"
-            : pageMeta.language === "Spanish" ? "ES"
-            : pageMeta.language === "Dutch" ? "NL"
-            : pageMeta.language === "Italian" ? "IT"
-            : pageMeta.language === "Portuguese" ? "PT"
-            : pageMeta.language === "Swedish" ? "SE"
-            : pageMeta.language === "Danish" ? "DK"
-            : pageMeta.language === "Norwegian" ? "NO"
-            : "US";
-          const trendRes = await fetch("/api/trends", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ keyword: trendSeed, geo: trendGeo }),
-          });
-          const trendData = await trendRes.json();
+        fetch("/api/trends", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keyword: trendSeed, geo: trendGeo }),
+        }).then(r => r.json()).then(trendData => {
           if (trendData.trends?.length > 0) {
             setTrends(trendData.trends);
             setShowTrendsPanel(true);
           }
-        } catch (_) {}
-        setTrendsLoading(false);
+          setTrendsLoading(false);
+        }).catch(() => setTrendsLoading(false));
       }
 
       // ── Step 2: Build context string from scraped metadata ──────────────────
