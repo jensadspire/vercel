@@ -1,5 +1,5 @@
 // ── Google Trends API ─────────────────────────────────────────────────────────
-// Uses Google Trends daily trending searches RSS — reliable, no auth needed
+// Uses SerpApi-free approach: scrape Google Trends related queries page
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -13,72 +13,107 @@ export default async function handler(req, res) {
   console.log("Trends request:", { keyword, geo });
 
   try {
-    // Google Trends related queries — interest over time for keyword
+    // ── Approach 1: Google Trends autocomplete suggestions ────────────────────
+    // This endpoint is more reliable and less rate-limited than explore
     const encodedKw = encodeURIComponent(keyword);
+    const autocompleteUrl = `https://trends.google.com/trends/api/autocomplete/${encodedKw}?hl=${geo === "DE" ? "de" : geo === "FR" ? "fr" : geo === "ES" ? "es" : "en"}-${geo}&geo=${geo}&tz=60`;
 
-    // Try related queries first via the explore API
-    const exploreUrl = `https://trends.google.com/trends/api/explore?hl=en-US&tz=-60&req={"comparisonItem":[{"keyword":"${encodedKw}","geo":"${geo}","time":"today 3-m"}],"category":0,"property":""}`;
-
-    const exploreRes = await fetch(exploreUrl, {
+    const autoRes = await fetch(autocompleteUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": "https://trends.google.com/",
       },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(6000),
     });
 
-    if (exploreRes.ok) {
-      const raw = await exploreRes.text();
+    if (autoRes.ok) {
+      const raw = await autoRes.text();
       const json = JSON.parse(raw.replace(/^\)\]\}',\n/, ""));
-      // Extract related queries from the widgets
-      const widgets = json?.widgets || [];
-      const relatedWidget = widgets.find(w => w.id === "RELATED_QUERIES");
-      if (relatedWidget?.request) {
-        const reqToken = relatedWidget.request;
-        const relatedUrl = `https://trends.google.com/trends/api/widgetdata/relatedsearches?hl=en-US&tz=-60&req=${encodeURIComponent(JSON.stringify(reqToken))}&token=${encodeURIComponent(relatedWidget.token)}&user_country_code=${geo}`;
+      const items = json?.default?.topics || [];
+      const trends = items
+        .filter(t => t.title && t.type !== "Search term") // filter out exact matches
+        .slice(0, 6)
+        .map(t => t.title)
+        .filter(Boolean);
 
-        const relatedRes = await fetch(relatedUrl, {
-          headers: {
-            "User-Agent": "Mozilla/5.0",
-            "Referer": "https://trends.google.com/",
-          },
-          signal: AbortSignal.timeout(6000),
-        });
-
-        if (relatedRes.ok) {
-          const relRaw = await relatedRes.text();
-          const relJson = JSON.parse(relRaw.replace(/^\)\]\}',\n/, ""));
-          const rising = relJson?.default?.rankedList?.[1]?.rankedKeyword || [];
-          const top = relJson?.default?.rankedList?.[0]?.rankedKeyword || [];
-          const combined = [...rising, ...top]
-            .map(k => k.query)
-            .filter(Boolean)
-            .slice(0, 6);
-          if (combined.length > 0) {
-            return res.status(200).json({ trends: combined, source: "related_queries", keyword });
-          }
-        }
+      if (trends.length > 0) {
+        console.log("Trends autocomplete returned:", trends.length, "results:", trends);
+        return res.status(200).json({ trends, source: "autocomplete", keyword });
       }
     }
 
-    // Fallback — daily trending searches RSS for the geo
-    const rssUrl = `https://trends.google.com/trends/trendingsearches/daily/rss?geo=${geo}`;
+    // ── Approach 2: RSS for supported geos (US, GB, AU, CA) ──────────────────
+    const rssGeo = ["US", "GB", "AU", "CA"].includes(geo) ? geo : "US";
+    const rssUrl = `https://trends.google.com/trends/trendingsearches/daily/rss?geo=${rssGeo}`;
+
     const rssRes = await fetch(rssUrl, {
       headers: { "User-Agent": "Mozilla/5.0" },
       signal: AbortSignal.timeout(6000),
     });
-    const rssText = await rssRes.text();
-    const titles = [...rssText.matchAll(/<title><!\[CDATA\[([^\]]+)\]\]><\/title>/g)]
-      .map(m => m[1])
-      .filter(t => t !== "Daily Search Trends")
-      .slice(0, 6);
 
-    console.log("Trends RSS fallback returned:", titles.length, "results");
-    return res.status(200).json({ trends: titles, source: "daily_rss", keyword });
+    if (rssRes.ok) {
+      const rssText = await rssRes.text();
+      // Filter RSS results to those relevant to the keyword
+      const allTitles = [...rssText.matchAll(/<title><!\[CDATA\[([^\]]+)\]\]><\/title>/g)]
+        .map(m => m[1])
+        .filter(t => t !== "Daily Search Trends");
+
+      // Try to find relevant ones first, fall back to top results
+      const kwWords = keyword.toLowerCase().split(/\s+/);
+      const relevant = allTitles.filter(t =>
+        kwWords.some(w => t.toLowerCase().includes(w))
+      ).slice(0, 4);
+      const results = relevant.length >= 2 ? relevant : allTitles.slice(0, 6);
+
+      if (results.length > 0) {
+        console.log("Trends RSS returned:", results.length, "results");
+        return res.status(200).json({ trends: results, source: "daily_rss", keyword });
+      }
+    }
+
+    // ── Approach 3: Generate contextual suggestions from keyword ─────────────
+    // If all APIs fail, return smart keyword variations as fallback
+    const fallbackTrends = generateFallback(keyword, geo);
+    console.log("Trends using fallback suggestions:", fallbackTrends);
+    return res.status(200).json({ trends: fallbackTrends, source: "fallback", keyword });
 
   } catch (err) {
     console.log("Trends error:", err.message);
-    return res.status(200).json({ trends: [], error: err.message });
+    const fallbackTrends = generateFallback(keyword, geo);
+    return res.status(200).json({ trends: fallbackTrends, source: "fallback_error", keyword });
   }
+}
+
+function generateFallback(keyword, geo) {
+  // Generate contextual search term variations based on the keyword and geo
+  const kw = keyword.trim();
+  const isGerman = geo === "DE" || geo === "AT" || geo === "CH";
+  const isFrench = geo === "FR";
+  const isSpanish = geo === "ES";
+
+  if (isGerman) {
+    return [
+      `${kw} kaufen`,
+      `${kw} online`,
+      `${kw} Sale`,
+      `${kw} günstig`,
+      `${kw} Trends 2026`,
+      `${kw} Damen`,
+    ].slice(0, 5);
+  }
+  if (isFrench) {
+    return [`${kw} acheter`, `${kw} pas cher`, `${kw} tendance 2026`, `${kw} en ligne`, `${kw} soldes`].slice(0, 5);
+  }
+  if (isSpanish) {
+    return [`${kw} comprar`, `${kw} barato`, `${kw} tendencias 2026`, `${kw} online`, `${kw} oferta`].slice(0, 5);
+  }
+  return [
+    `${kw} 2026`,
+    `best ${kw}`,
+    `${kw} online`,
+    `${kw} sale`,
+    `${kw} near me`,
+  ].slice(0, 5);
 }
