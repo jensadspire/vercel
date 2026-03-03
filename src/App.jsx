@@ -476,8 +476,9 @@ function RSAStudio() {
           );
           const pathKeyword = urlPathParts[urlPathParts.length - 1]?.replace(/[-_]/g, " ") || "";
           const metaKeyword = pageMeta.h1?.split(/[|\-–]/)[0]?.trim() || pageMeta.title?.split(/[|\-–]/)[0]?.trim() || "";
-          // Prefer URL path category over brand name for more relevant trends
-          const trendSeed = pathKeyword || metaKeyword || pageMeta.siteName || "";
+          // Build best possible seed: prefer H1/title category words over raw URL path
+          // Fall back through options until we have something useful
+          const trendSeed = metaKeyword || pathKeyword || pageMeta.siteName || "";
           const trendGeo = pageMeta.language === "German" ? "DE"
             : pageMeta.language === "French" ? "FR"
             : pageMeta.language === "Spanish" ? "ES"

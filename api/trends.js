@@ -10,6 +10,7 @@ export default async function handler(req, res) {
 
   const { keyword, geo = "US" } = req.body;
   if (!keyword) return res.status(400).json({ error: "keyword is required" });
+  console.log("Trends request:", { keyword, geo });
 
   try {
     // Google Trends related queries — interest over time for keyword
@@ -73,6 +74,7 @@ export default async function handler(req, res) {
       .filter(t => t !== "Daily Search Trends")
       .slice(0, 6);
 
+    console.log("Trends RSS fallback returned:", titles.length, "results");
     return res.status(200).json({ trends: titles, source: "daily_rss", keyword });
 
   } catch (err) {
