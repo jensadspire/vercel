@@ -539,15 +539,17 @@ NOTE: ${activeModifiers} modifiers are active simultaneously. Balance them caref
 
       // ── Step 2d: Build audience modifier instructions ────────────────────────
       const activeAudiences = audiences.filter(a => a.name?.trim());
-      const audienceInstruction = activeAudiences.length > 0 ? `
-
-AUDIENCE MODIFIERS (${activeAudiences.length} segment${activeAudiences.length > 1 ? "s" : ""} active):
-${activeAudiences.map((a, i) => `Segment ${i + 1}: "${a.name}"
-- Pain points / motivations: ${a.painPoints || "not specified"}
-- Preferred tone: ${a.tone || "Professional"}`).join("
-")}
-- Write copy that resonates with these audience segments — reflect their language, concerns and motivations
-- Distribute audience-specific angles across the headlines — do not cluster them all together` : "";
+      const audienceLines = activeAudiences.map((a, i) =>
+        "Segment " + (i + 1) + ": " + a.name + "\n" +
+        "- Pain points / motivations: " + (a.painPoints || "not specified") + "\n" +
+        "- Preferred tone: " + (a.tone || "Professional")
+      ).join("\n");
+      const audienceInstruction = activeAudiences.length > 0
+        ? "\n\nAUDIENCE MODIFIERS (" + activeAudiences.length + " segment" + (activeAudiences.length > 1 ? "s" : "") + " active):\n" +
+          audienceLines + "\n" +
+          "- Write copy that resonates with these audience segments — reflect their language, concerns and motivations\n" +
+          "- Distribute audience-specific angles across the headlines — do not cluster them all together"
+        : "";
 
       // ── Step 2e: Build trends instruction ────────────────────────────────────
       const activeTrends = selectedTrends.length > 0 ? selectedTrends : [];
