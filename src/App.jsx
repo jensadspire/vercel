@@ -306,7 +306,7 @@ function RSAStudio() {
   const [clearKey, setClearKey] = useState(0);
   // Admin mode — detected from ?admin=KEY URL param, persisted in sessionStorage
   const { isSignedIn, user } = useUser();
-  const { signOut } = useClerk();
+  const { signOut, session } = useClerk();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("sign-in"); // "sign-in" | "sign-up"
   const [isAdmin, setIsAdmin] = useState(false);
@@ -566,6 +566,7 @@ ${activeTrends.map(t => `- "${t}"`).join("
         headers: {
           "Content-Type": "application/json",
           ...(isAdmin ? { "x-admin-key": import.meta.env.VITE_ADMIN_KEY } : {}),
+          ...(isSignedIn && session ? { "x-clerk-session": await session.getToken() } : {}),
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",

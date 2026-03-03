@@ -31,7 +31,24 @@ export default async function handler(req, res) {
   const requestAdminKey = req.headers["x-admin-key"] || "";
   const isAdmin = adminKey && requestAdminKey === adminKey;
 
-  if (isAdmin) {
+  // ── Clerk signed-in bypass — verify session token, skip gate for real users ─
+  const clerkSessionToken = req.headers["x-clerk-session"] || "";
+  let isSignedInUser = false;
+  if (clerkSessionToken && process.env.CLERK_SECRET_KEY) {
+    try {
+      const verifyRes = await fetch("https://api.clerk.com/v1/tokens/verify", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.CLERK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token: clerkSessionToken }),
+      });
+      if (verifyRes.ok) isSignedInUser = true;
+    } catch (_) {}
+  }
+
+  if (isAdmin || isSignedInUser) {
     // Admin request — call Anthropic directly, no counting
     try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -44,7 +61,7 @@ export default async function handler(req, res) {
         body: JSON.stringify(req.body),
       });
       const data = await response.json();
-      return res.status(response.status).json({ ...data, admin: true, gated: false });
+      return res.status(response.status).json({ ...data, admin: isAdmin, gated: false });
     } catch (err) {
       return res.status(500).json({ error: "Proxy error: " + err.message });
     }
@@ -60,7 +77,7 @@ export default async function handler(req, res) {
     const current = await redis("GET", redisKey);
     const count = parseInt(current || "0", 10);
 
-    if (count >= FREE_LIMIT) {
+    if (count >= FREE_LIMIT && !isSignedInUser) {
       // Return a specific gated status — do NOT call Anthropic
       return res.status(200).json({
         gated: true,
