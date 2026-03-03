@@ -464,8 +464,8 @@ function RSAStudio() {
         // Scrape failed — continue with client-side language detection + empty metadata
       }
 
-      // ── Step 1b: Fetch Google Trends if signed in ────────────────────────────
-      if (isSignedIn && pageMeta.title) {
+      // ── Step 1b: Fetch Google Trends if signed in (only if no trends yet) ──────
+      if (isSignedIn && pageMeta.title && trends.length === 0) {
         setTrendsLoading(true);
         try {
           // Extract category keywords from URL path (e.g. /women/dresses → "dresses")
@@ -1495,7 +1495,7 @@ STRICT rules:
           </div>
 
           {/* Google Trends Panel */}
-          {isSignedIn && (trends.length > 0 || trendsLoading) && (
+          {isSignedIn && trends.length > 0 && (
             <div style={{ marginBottom: 10 }}>
               <button onClick={() => setShowTrendsPanel(v => !v)} style={{
                 width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
