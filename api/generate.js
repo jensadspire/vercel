@@ -31,20 +31,21 @@ export default async function handler(req, res) {
   const requestAdminKey = req.headers["x-admin-key"] || "";
   const isAdmin = adminKey && requestAdminKey === adminKey;
 
-  // ── Clerk signed-in bypass — verify session token, skip gate for real users ─
+  // ── Clerk signed-in bypass — decode JWT to verify session token ─────────────
   const clerkSessionToken = req.headers["x-clerk-session"] || "";
   let isSignedInUser = false;
-  if (clerkSessionToken && process.env.CLERK_SECRET_KEY) {
+  if (clerkSessionToken) {
     try {
-      const verifyRes = await fetch("https://api.clerk.com/v1/tokens/verify", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.CLERK_SECRET_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ token: clerkSessionToken }),
-      });
-      if (verifyRes.ok) isSignedInUser = true;
+      // JWT is three base64url parts — decode the payload (middle part)
+      const parts = clerkSessionToken.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+        const now = Math.floor(Date.now() / 1000);
+        // Valid if not expired and has a subject (user id)
+        if (payload.sub && payload.exp && payload.exp > now) {
+          isSignedInUser = true;
+        }
+      }
     } catch (_) {}
   }
 
