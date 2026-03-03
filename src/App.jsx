@@ -714,37 +714,7 @@ STRICT rules:
   );
 
   // ── Gate Modal ───────────────────────────────────────────────────────────────
-  const GateModal = () => {
-    const [submitting, setSubmitting] = useState(false);
-    const [submitError, setSubmitError] = useState("");
-
-    const handleSubmit = async () => {
-      if (!gateEmail.includes("@") || submitting) return;
-      setSubmitting(true); setSubmitError("");
-      try {
-        await fetch(import.meta.env.VITE_ZAPIER_WEBHOOK_URL, {
-          method: "POST",
-          mode: "no-cors", // Zapier webhooks don't return CORS headers
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: gateEmail,
-            source: "RSA Studio — Free Tier Gate",
-            urls_used: sessionUrls.join(", ") || "none recorded",
-            languages_detected: sessionLangs.join(", ") || "English",
-            generation_count: usageCount,
-            timestamp: new Date().toISOString(),
-            page_url: window.location.href,
-          }),
-        });
-        // no-cors means we can't read the response — assume success
-        setGateSubmitted(true);
-      } catch (e) {
-        setSubmitError("Something went wrong — please try again");
-        setSubmitting(false);
-      }
-    };
-
-    return (
+  const GateModal = () => (
     <div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24,
@@ -752,73 +722,68 @@ STRICT rules:
       <div style={{
         background: "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(6,13,26,0.98))",
         border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16,
-        padding: "36px 32px", maxWidth: 440, width: "100%", textAlign: "center",
+        padding: "36px 32px", maxWidth: 460, width: "100%", textAlign: "center",
         boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
       }}>
-        {!gateSubmitted ? (
-          <>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🚀</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>
-              You've used your 10 free generations
+        <div style={{ fontSize: 36, marginBottom: 12 }}>🚀</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>
+          Unlock unlimited access + pro tools
+        </div>
+        <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, marginBottom: 24 }}>
+          You've used your 10 free generations. Sign up free to keep going and unlock powerful tools built for serious advertisers.
+        </div>
+
+        {/* Feature grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 28, textAlign: "left" }}>
+          {[
+            { icon: "∞", label: "Unlimited generations", color: "#34d399" },
+            { icon: "🎯", label: "Custom audience modifiers", color: "#818cf8" },
+            { icon: "📈", label: "Google Trends integration", color: "#60a5fa" },
+            { icon: "📋", label: "Export to Ads Editor", color: "#34d399" },
+          ].map(f => (
+            <div key={f.label} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
+              <span style={{ fontSize: 14, flexShrink: 0, color: f.color }}>{f.icon}</span>
+              <span style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.4, fontWeight: 600 }}>{f.label}</span>
             </div>
-            <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, marginBottom: 24 }}>
-              Create a free account to keep generating high-quality RSA ad copy — no credit card required.
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-              {["Unlimited generations", "Save & manage multiple ads", "Export to Google Ads Editor", "Priority support"].map(f => (
-                <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, textAlign: "left" }}>
-                  <span style={{ color: "#34d399", fontSize: 14, flexShrink: 0 }}>✓</span>
-                  <span style={{ fontSize: 13, color: "#94a3b8" }}>{f}</span>
-                </div>
-              ))}
-            </div>
-            <input
-              type="email"
-              value={gateEmail}
-              onChange={e => setGateEmail(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleSubmit()}
-              placeholder="Enter your work email"
-              style={{
-                width: "100%", padding: "11px 14px", fontSize: 13,
-                background: "rgba(255,255,255,0.06)", border: "1.5px solid rgba(255,255,255,0.12)",
-                borderRadius: 8, color: "white", outline: "none", boxSizing: "border-box",
-                marginBottom: 10, fontFamily: "inherit",
-              }}
-            />
-            <button onClick={handleSubmit} disabled={!gateEmail.includes("@") || submitting}
-              style={{
-                width: "100%", padding: "12px", fontSize: 14, fontWeight: 800,
-                background: gateEmail.includes("@") ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.06)",
-                color: gateEmail.includes("@") ? "white" : "#334155",
-                border: "none", borderRadius: 8, cursor: gateEmail.includes("@") && !submitting ? "pointer" : "not-allowed",
-                transition: "all 0.2s", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              }}>
-              {submitting ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block" }}>◌</span> Sending…</> : "Create Free Account →"}
-            </button>
-            {submitError && <div style={{ fontSize: 11, color: "#f87171", marginBottom: 8 }}>{submitError}</div>}
-            <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>No credit card required · Takes 30 seconds</div>
-            <div style={{ fontSize: 11, color: "#334155", marginTop: 8 }}>
-              Already have an account?{" "}
-              <button onClick={() => { setShowGateModal(false); setAuthMode("sign-in"); setShowAuthModal(true); }}
-                style={{ background: "none", border: "none", color: "#818cf8", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: 0, textDecoration: "underline" }}>
-                Sign in
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{ fontSize: 36, marginBottom: 16 }}>🎉</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>You're on the list!</div>
-            <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, marginBottom: 20 }}>
-              Thanks! We've received <strong style={{ color: "#94a3b8" }}>{gateEmail}</strong>. We'll be in touch shortly with your account details.
-            </div>
-            <div style={{ fontSize: 12, color: "#334155" }}>In the meantime, your current session will remain accessible.</div>
-          </>
-        )}
+          ))}
+        </div>
+
+        {/* Primary CTA — sign up */}
+        <button
+          onClick={() => { setShowGateModal(false); setAuthMode("sign-up"); setShowAuthModal(true); }}
+          style={{
+            width: "100%", padding: "13px", fontSize: 14, fontWeight: 800,
+            background: "linear-gradient(135deg,#3b82f6,#6366f1)",
+            color: "white", border: "none", borderRadius: 8, cursor: "pointer",
+            transition: "all 0.2s", marginBottom: 10,
+            boxShadow: "0 4px 20px rgba(99,102,241,0.35)",
+          }}>
+          Create Free Account →
+        </button>
+
+        <div style={{ fontSize: 11, color: "#334155", marginBottom: 14 }}>No credit card required · Takes 30 seconds</div>
+
+        {/* Divider */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+          <span style={{ fontSize: 10, color: "#334155", letterSpacing: "0.08em" }}>ALREADY HAVE AN ACCOUNT?</span>
+          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+        </div>
+
+        {/* Secondary CTA — sign in */}
+        <button
+          onClick={() => { setShowGateModal(false); setAuthMode("sign-in"); setShowAuthModal(true); }}
+          style={{
+            width: "100%", padding: "11px", fontSize: 13, fontWeight: 700,
+            background: "rgba(255,255,255,0.04)", color: "#94a3b8",
+            border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, cursor: "pointer",
+            transition: "all 0.2s",
+          }}>
+          Sign in
+        </button>
       </div>
     </div>
-    );
-  };
+  );
 
   // ── Copy Modal (sandbox fallback) ─────────────────────────────────────────
   const CopyModal = () => {
