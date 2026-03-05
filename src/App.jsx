@@ -314,6 +314,7 @@ function RSAStudio() {
   const [audiences, setAudiences] = useState([]);
   const [audiencesLoaded, setAudiencesLoaded] = useState(false);
   const [showAudiencePanel, setShowAudiencePanel] = useState(false);
+  const [stickyAudiences, setStickyAudiences] = useState(true); // sticky = persist across URLs
   // ── Google Trends ─────────────────────────────────────────────────────────
   const [trends, setTrends] = useState([]);
   const [trendsLoading, setTrendsLoading] = useState(false);
@@ -408,6 +409,10 @@ function RSAStudio() {
   const generate = async () => {
     if (!url.trim()) { setError("Please enter a URL first"); return; }
     setLoading(true); setError("");
+    // Clear trends on new generation, clear audiences if not sticky
+    setTrends([]);
+    setSelectedTrends([]);
+    if (!stickyAudiences) setAudiences([]);
     try {
       // ── Step 0: Client-side URL language extraction (runs before scrape, immune to redirects) ──
       const urlLangCodes = {
@@ -1416,11 +1421,12 @@ STRICT rules:
 
           {/* Audience Modifiers Panel */}
           <div style={{ marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button onClick={() => isSignedIn ? setShowAudiencePanel(v => !v) : (setAuthMode("sign-up"), setShowAuthModal(true))} style={{
-              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between",
               background: showAudiencePanel ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
               border: `1px solid ${showAudiencePanel ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.07)"}`,
-              borderRadius: 8, padding: "8px 12px", cursor: "pointer", marginBottom: showAudiencePanel ? 10 : 0,
+              borderRadius: 8, padding: "8px 12px", cursor: "pointer",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 12 }}>&#127919;</span>
@@ -1432,8 +1438,29 @@ STRICT rules:
                   </span>
                 )}
               </div>
-              <span style={{ fontSize: 10, color: "#334155" }}>{showAudiencePanel ? "A" : "V"}</span>
+              <span style={{ fontSize: 10, color: "#334155" }}>{showAudiencePanel ? "▲" : "▼"}</span>
             </button>
+            {/* Sticky / Session toggle */}
+            {isSignedIn && (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}
+                title={stickyAudiences ? "Sticky: segments persist across URLs" : "Session: segments clear on new URL"}>
+                <button onClick={e => { e.stopPropagation(); setStickyAudiences(v => !v); }} style={{
+                  width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", position: "relative",
+                  background: stickyAudiences ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(255,255,255,0.08)",
+                  transition: "background 0.2s",
+                }}>
+                  <span style={{
+                    position: "absolute", top: 2, left: stickyAudiences ? 18 : 2,
+                    width: 16, height: 16, borderRadius: "50%", background: "white",
+                    transition: "left 0.2s", display: "block",
+                  }} />
+                </button>
+                <span style={{ fontSize: 8, color: stickyAudiences ? "#818cf8" : "#334155", fontWeight: 700, letterSpacing: "0.04em" }}>
+                  {stickyAudiences ? "STICKY" : "SESSION"}
+                </span>
+              </div>
+            )}
+          </div>
             {showAudiencePanel && isSignedIn && (
               <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.5 }}>Define audience segments — the AI will tailor ad copy to resonate with each group.</div>
