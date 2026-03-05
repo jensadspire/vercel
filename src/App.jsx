@@ -837,11 +837,11 @@ STRICT rules:
               }).catch(() => {});
             }} style={{
               width: 16, height: 16, borderRadius: 3, border: "none", cursor: "pointer",
-              background: marketingOptIn ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.1)",
+              background: localOptIn ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.1)",
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0, marginTop: 1, transition: "background 0.15s",
             }}>
-              {marketingOptIn && <span style={{ color: "white", fontSize: 10, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+              {localOptIn && <span style={{ color: "white", fontSize: 10, fontWeight: 900, lineHeight: 1 }}>✓</span>}
             </button>
             <span style={{ fontSize: 10, color: "#8fa3b8", lineHeight: 1.5 }}>
               I'd like to receive news, updates and tips about RSA Studio. You can unsubscribe at any time.
