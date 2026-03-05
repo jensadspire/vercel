@@ -1160,6 +1160,12 @@ STRICT rules:
             <span>⚠</span> {error}
           </div>
         )}
+        {!generated && !loading && (
+          <div style={{ maxWidth: 900, margin: "6px auto 0", fontSize: 11, color: "#334155", display: "flex", alignItems: "center", gap: 5 }}>
+            <span>💡</span>
+            <span>Tip: Product or landing page URLs generate stronger ad copy than category pages</span>
+          </div>
+        )}
         {isAdmin && (
           <div style={{ maxWidth: 900, margin: "6px auto 0", display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 10, background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)", letterSpacing: "0.08em" }}>⚡ ADMIN MODE</span>
