@@ -108,7 +108,7 @@ function AdStrengthRing({ headlines, descriptions }) {
       </svg>
       <div>
         <div style={{ fontSize: 16, fontWeight: 800, color, letterSpacing: "-0.01em" }}>{label}</div>
-        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2, lineHeight: 1.4 }}>
+        <div style={{ fontSize: 11, color: "#8fa3b8", marginTop: 2, lineHeight: 1.4 }}>
           {validH}/{NUM_HL} headlines<br />{validD}/{NUM_DESC} descriptions
         </div>
       </div>
@@ -206,7 +206,7 @@ function EditableField({ label, value, limit, onChange, pinValue, onPinChange, m
     <div style={{ marginBottom: 6 }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</span>
           {value.trim() && (
             <button
               onClick={() => { setShowRefine(v => !v); setRefineError(""); }}
@@ -214,7 +214,7 @@ function EditableField({ label, value, limit, onChange, pinValue, onPinChange, m
               style={{
                 background: "none", border: "none", cursor: "pointer", padding: "1px 3px",
                 fontSize: 11, opacity: hovered || showRefine ? 1 : 0,
-                color: showRefine ? "#6366f1" : "#475569",
+                color: showRefine ? "#6366f1" : "#7e92a8",
                 transition: "opacity 0.15s, color 0.15s", lineHeight: 1,
               }}>✏</button>
           )}
@@ -222,7 +222,7 @@ function EditableField({ label, value, limit, onChange, pinValue, onPinChange, m
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {onPinChange && (
             <select value={pinValue} onChange={e => onPinChange(e.target.value)}
-              style={{ fontSize: 10, padding: "2px 4px", border: "1px solid #334155", borderRadius: 4, background: "#1e293b", color: "#94a3b8", cursor: "pointer" }}>
+              style={{ fontSize: 10, padding: "2px 4px", border: "1px solid #8fa3b8", borderRadius: 4, background: "#1e293b", color: "#adbccb", cursor: "pointer" }}>
               <option value="">No pin</option>
               <option value="1">Pin 1</option>
               <option value="2">Pin 2</option>
@@ -770,7 +770,7 @@ STRICT rules:
 
   // ── Styles ──────────────────────────────────────────────────────────────────
   const S = {
-    sectionLabel: { fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#475569", marginBottom: 10, display: "block" },
+    sectionLabel: { fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#7e92a8", marginBottom: 10, display: "block" },
     card: { background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 },
     inputBase: {
       width: "100%", padding: "9px 12px",
@@ -793,7 +793,7 @@ STRICT rules:
         <button onClick={() => setShowAuthModal(false)} style={{
           position: "absolute", top: -12, right: -12, zIndex: 10,
           width: 28, height: 28, borderRadius: "50%", border: "none",
-          background: "rgba(255,255,255,0.1)", color: "#94a3b8",
+          background: "rgba(255,255,255,0.1)", color: "#adbccb",
           cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center",
         }}>✕</button>
         <div style={{ display: "flex", gap: 0, marginBottom: 16, background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: 3 }}>
@@ -801,7 +801,7 @@ STRICT rules:
             <button key={mode} onClick={() => setAuthMode(mode)} style={{
               flex: 1, padding: "6px 16px", fontSize: 11, fontWeight: 700, borderRadius: 6, border: "none",
               background: authMode === mode ? "rgba(99,102,241,0.3)" : "transparent",
-              color: authMode === mode ? "#a5b4fc" : "#475569", cursor: "pointer",
+              color: authMode === mode ? "#a5b4fc" : "#7e92a8", cursor: "pointer",
               letterSpacing: "0.05em", textTransform: "uppercase",
             }}>{mode === "sign-in" ? "Sign In" : "Create Account"}</button>
           ))}
@@ -830,7 +830,7 @@ STRICT rules:
         <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>
           Unlock unlimited access + pro tools
         </div>
-        <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, marginBottom: 24 }}>
+        <div style={{ fontSize: 13, color: "#8fa3b8", lineHeight: 1.6, marginBottom: 24 }}>
           You've used your 10 free generations. Sign up free to keep going and unlock powerful tools built for serious advertisers.
         </div>
 
@@ -844,7 +844,7 @@ STRICT rules:
           ].map(f => (
             <div key={f.label} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
               <span style={{ fontSize: 14, flexShrink: 0, color: f.color }}>{f.icon}</span>
-              <span style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.4, fontWeight: 600 }}>{f.label}</span>
+              <span style={{ fontSize: 11, color: "#adbccb", lineHeight: 1.4, fontWeight: 600 }}>{f.label}</span>
             </div>
           ))}
         </div>
@@ -862,12 +862,12 @@ STRICT rules:
           Create Free Account →
         </button>
 
-        <div style={{ fontSize: 11, color: "#334155", marginBottom: 14 }}>No credit card required · Takes 30 seconds</div>
+        <div style={{ fontSize: 11, color: "#8fa3b8", marginBottom: 14 }}>No credit card required · Takes 30 seconds</div>
 
         {/* Divider */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
           <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
-          <span style={{ fontSize: 10, color: "#334155", letterSpacing: "0.08em" }}>ALREADY HAVE AN ACCOUNT?</span>
+          <span style={{ fontSize: 10, color: "#8fa3b8", letterSpacing: "0.08em" }}>ALREADY HAVE AN ACCOUNT?</span>
           <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
         </div>
 
@@ -876,7 +876,7 @@ STRICT rules:
           onClick={() => { setShowGateModal(false); setAuthMode("sign-in"); setShowAuthModal(true); }}
           style={{
             width: "100%", padding: "11px", fontSize: 13, fontWeight: 700,
-            background: "rgba(255,255,255,0.04)", color: "#94a3b8",
+            background: "rgba(255,255,255,0.04)", color: "#adbccb",
             border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, cursor: "pointer",
             transition: "all 0.2s",
           }}>
@@ -920,14 +920,14 @@ STRICT rules:
               <div style={{ fontSize: 15, fontWeight: 800, color: "white", marginBottom: 4 }}>
                 {modalOmitGroup ? "Copy ad data — no campaign/group" : "Copy data for Google Ads Editor"}
               </div>
-              <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+              <div style={{ fontSize: 12, color: "#8fa3b8", lineHeight: 1.5 }}>
                 {modalOmitGroup && <span style={{display:"inline-block",marginBottom:4,padding:"2px 8px",borderRadius:4,background:"rgba(99,102,241,0.15)",color:"#a5b4fc",fontSize:11,fontWeight:700}}>Campaign &amp; Ad Group columns removed</span>}<br style={{display: modalOmitGroup ? "block" : "none"}} />
-                The text below is pre-selected. Press <kbd style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "1px 6px", fontSize: 11, color: "#94a3b8" }}>Ctrl+C</kbd> (or <kbd style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "1px 6px", fontSize: 11, color: "#94a3b8" }}>⌘C</kbd>) to copy, then paste directly into Google Ads Editor.
+                The text below is pre-selected. Press <kbd style={{ background: "#1e293b", border: "1px solid #8fa3b8", borderRadius: 4, padding: "1px 6px", fontSize: 11, color: "#adbccb" }}>Ctrl+C</kbd> (or <kbd style={{ background: "#1e293b", border: "1px solid #8fa3b8", borderRadius: 4, padding: "1px 6px", fontSize: 11, color: "#adbccb" }}>⌘C</kbd>) to copy, then paste directly into Google Ads Editor.
               </div>
             </div>
             <button onClick={() => setShowCopyModal(false)} style={{
               background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 6, color: "#94a3b8", fontSize: 16, width: 30, height: 30,
+              borderRadius: 6, color: "#adbccb", fontSize: 16, width: 30, height: 30,
               cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
             }}>✕</button>
           </div>
@@ -959,7 +959,7 @@ STRICT rules:
             </button>
             <button onClick={() => setShowCopyModal(false)} style={{
               padding: "10px 16px", fontSize: 13, fontWeight: 700,
-              background: "rgba(255,255,255,0.05)", color: "#64748b",
+              background: "rgba(255,255,255,0.05)", color: "#8fa3b8",
               border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, cursor: "pointer",
             }}>Close</button>
           </div>
@@ -969,7 +969,7 @@ STRICT rules:
             {IMPORT_STEPS.map(s => (
               <div key={s.n} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 5 }}>
                 <span style={{ fontSize: 10, fontWeight: 800, fontFamily: "monospace", color: "#3b82f6", background: "rgba(59,130,246,0.15)", borderRadius: 3, padding: "1px 5px", flexShrink: 0 }}>{s.n}</span>
-                <span style={{ fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>{s.text}</span>
+                <span style={{ fontSize: 11, color: "#8fa3b8", lineHeight: 1.4 }}>{s.text}</span>
               </div>
             ))}
           </div>
@@ -1011,7 +1011,7 @@ STRICT rules:
           }}>G</div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 800, color: "white", letterSpacing: "-0.01em" }}>RSA Studio</div>
-            <div style={{ fontSize: 10, color: "#475569", letterSpacing: "0.06em" }}>GOOGLE ADS EDITOR READY</div>
+            <div style={{ fontSize: 10, color: "#7e92a8", letterSpacing: "0.06em" }}>GOOGLE ADS EDITOR READY</div>
           </div>
         </div>
 
@@ -1022,7 +1022,7 @@ STRICT rules:
               <button onClick={() => setActiveRow(i)} style={{
                 padding: "5px 12px", fontSize: 11, fontWeight: 700,
                 background: activeRow === i ? "rgba(59,130,246,0.2)" : "transparent",
-                color: activeRow === i ? "#60a5fa" : "#475569",
+                color: activeRow === i ? "#60a5fa" : "#7e92a8",
                 border: activeRow === i ? "1px solid rgba(59,130,246,0.35)" : "1px solid rgba(255,255,255,0.06)",
                 borderRadius: rows.length > 1 ? "6px 0 0 6px" : "6px",
                 cursor: "pointer", letterSpacing: "0.04em",
@@ -1041,7 +1041,7 @@ STRICT rules:
           ))}
           <button onClick={addAd} style={{
             padding: "5px 10px", fontSize: 11, fontWeight: 700,
-            background: "transparent", color: "#475569",
+            background: "transparent", color: "#7e92a8",
             border: "1px dashed rgba(255,255,255,0.12)", borderRadius: 6, cursor: "pointer",
           }}>+ Ad</button>
         </div>
@@ -1071,13 +1071,13 @@ STRICT rules:
           <button onClick={downloadCSV} style={{
             padding: "7px 14px", fontSize: 12, fontWeight: 700,
             background: "rgba(255,255,255,0.06)",
-            color: "#94a3b8", border: "1px solid rgba(255,255,255,0.09)",
+            color: "#adbccb", border: "1px solid rgba(255,255,255,0.09)",
             borderRadius: 7, cursor: "pointer",
           }}>⬇ CSV</button>
           {/* Auth button */}
           {isSignedIn ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ fontSize: 10, color: "#64748b", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: 10, color: "#8fa3b8", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}
               </div>
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
@@ -1098,7 +1098,7 @@ STRICT rules:
       <div style={{ padding: "16px 24px", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(6,13,26,0.6)" }}>
         <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", gap: 10 }}>
           <div style={{ flex: 1, position: "relative" }}>
-            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#475569", fontSize: 13 }}>🔗</span>
+            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#7e92a8", fontSize: 13 }}>🔗</span>
             <input
               type="url"
               value={url}
@@ -1149,7 +1149,7 @@ STRICT rules:
             }} style={{
               padding: "9px 14px", fontSize: 11, fontWeight: 700,
               background: "rgba(255,255,255,0.05)",
-              color: "#64748b", border: "1px solid rgba(255,255,255,0.09)",
+              color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.09)",
               borderRadius: 8, cursor: "pointer", flexShrink: 0,
               transition: "all 0.2s", whiteSpace: "nowrap",
             }}>↺ Clear & new URL</button>
@@ -1161,7 +1161,7 @@ STRICT rules:
           </div>
         )}
         {!generated && !loading && (
-          <div style={{ maxWidth: 900, margin: "6px auto 0", fontSize: 11, color: "#334155", display: "flex", alignItems: "center", gap: 5 }}>
+          <div style={{ maxWidth: 900, margin: "6px auto 0", fontSize: 11, color: "#8fa3b8", display: "flex", alignItems: "center", gap: 5 }}>
             <span>💡</span>
             <span>Tip: Product or landing page URLs generate stronger ad copy than category pages</span>
           </div>
@@ -1169,7 +1169,7 @@ STRICT rules:
         {isAdmin && (
           <div style={{ maxWidth: 900, margin: "6px auto 0", display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 10, background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)", letterSpacing: "0.08em" }}>⚡ ADMIN MODE</span>
-            <span style={{ fontSize: 10, color: "#334155" }}>Usage gate disabled — unlimited generations</span>
+            <span style={{ fontSize: 10, color: "#8fa3b8" }}>Usage gate disabled — unlimited generations</span>
           </div>
         )}
         {usageCount > 0 && !showGateModal && !isAdmin && (
@@ -1177,7 +1177,7 @@ STRICT rules:
             <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
               <div style={{ width: `${(usageCount / 10) * 100}%`, height: "100%", background: usageCount >= 8 ? "linear-gradient(90deg,#f59e0b,#ef4444)" : "linear-gradient(90deg,#3b82f6,#6366f1)", borderRadius: 2, transition: "width 0.4s" }} />
             </div>
-            <span style={{ fontSize: 10, color: usageCount >= 8 ? "#f59e0b" : "#334155", fontWeight: 700, whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: 10, color: usageCount >= 8 ? "#f59e0b" : "#8fa3b8", fontWeight: 700, whiteSpace: "nowrap" }}>
               {usageCount}/10 free generations{usageCount >= 8 ? " — almost at limit" : ""}
             </span>
           </div>
@@ -1200,11 +1200,11 @@ STRICT rules:
             <span style={S.sectionLabel}>Targeting</span>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <div>
-                <div style={{ fontSize: 10, color: "#475569", fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Campaign</div>
+                <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Campaign</div>
                 <input value={row.campaign} onChange={e => setField("campaign", e.target.value)} placeholder="My Campaign" style={{ ...S.inputBase, fontSize: 12 }} />
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "#475569", fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Ad Group</div>
+                <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Ad Group</div>
                 <input value={row.adGroup} onChange={e => setField("adGroup", e.target.value)} placeholder="My Ad Group" style={{ ...S.inputBase, fontSize: 12 }} />
               </div>
             </div>
@@ -1216,7 +1216,7 @@ STRICT rules:
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
               {keywords.map((kw, i) => (
                 <div key={i} style={{ position: "relative" }}>
-                  <span style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", fontSize: 9, fontWeight: 800, color: "#334155", fontFamily: "monospace" }}>K{i+1}</span>
+                  <span style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", fontSize: 9, fontWeight: 800, color: "#8fa3b8", fontFamily: "monospace" }}>K{i+1}</span>
                   <input
                     value={kw}
                     onChange={e => setKeywords(prev => prev.map((k, j) => j === i ? e.target.value : k))}
@@ -1231,24 +1231,24 @@ STRICT rules:
                 {/* Headline distribution */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em" }}>Headlines with keywords</div>
-                    <div style={{ fontSize: 9, color: "#334155", marginTop: 1 }}>Google recommends 3–5</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Headlines with keywords</div>
+                    <div style={{ fontSize: 9, color: "#8fa3b8", marginTop: 1 }}>Google recommends 3–5</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <button onClick={() => setKwHeadlines(v => Math.max(1, v - 1))} style={{ width: 22, height: 22, borderRadius: 4, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                    <button onClick={() => setKwHeadlines(v => Math.max(1, v - 1))} style={{ width: 22, height: 22, borderRadius: 4, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#adbccb", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
                     <span style={{ fontSize: 13, fontWeight: 800, color: "#e2e8f0", fontFamily: "monospace", minWidth: 20, textAlign: "center" }}>{kwHeadlines}</span>
-                    <button onClick={() => setKwHeadlines(v => Math.min(10, v + 1))} style={{ width: 22, height: 22, borderRadius: 4, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                    <button onClick={() => setKwHeadlines(v => Math.min(10, v + 1))} style={{ width: 22, height: 22, borderRadius: 4, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#adbccb", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
                   </div>
                 </div>
                 {/* Description toggle */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em" }}>Include in descriptions</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Include in descriptions</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {kwInDescs && (
                       <>
-                        <button onClick={() => setKwDescs(v => Math.max(1, v - 1))} style={{ width: 22, height: 22, borderRadius: 4, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                        <button onClick={() => setKwDescs(v => Math.max(1, v - 1))} style={{ width: 22, height: 22, borderRadius: 4, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#adbccb", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
                         <span style={{ fontSize: 13, fontWeight: 800, color: "#e2e8f0", fontFamily: "monospace", minWidth: 20, textAlign: "center" }}>{kwDescs}</span>
-                        <button onClick={() => setKwDescs(v => Math.min(4, v + 1))} style={{ width: 22, height: 22, borderRadius: 4, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                        <button onClick={() => setKwDescs(v => Math.min(4, v + 1))} style={{ width: 22, height: 22, borderRadius: 4, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#adbccb", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
                       </>
                     )}
                     <button onClick={() => setKwInDescs(v => !v)} style={{
@@ -1277,14 +1277,14 @@ STRICT rules:
               transition: "margin 0.2s",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#475569" }}>Ad Copy Modifiers</span>
+                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#7e92a8" }}>Ad Copy Modifiers</span>
                 {[seasonOn, discountOn, brandOn].filter(Boolean).length > 0 && (
                   <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 10, background: "rgba(99,102,241,0.2)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)" }}>
                     {[seasonOn, discountOn, brandOn].filter(Boolean).length} active
                   </span>
                 )}
               </div>
-              <span style={{ fontSize: 10, color: "#334155" }}>{showModifiers ? "▲" : "▼"}</span>
+              <span style={{ fontSize: 10, color: "#8fa3b8" }}>{showModifiers ? "▲" : "▼"}</span>
             </button>
 
             {showModifiers && (
@@ -1301,7 +1301,7 @@ STRICT rules:
                 <div style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", background: "rgba(255,255,255,0.03)" }}>
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: seasonOn ? "#e2e8f0" : "#475569" }}>🗓 Seasonal Messaging</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: seasonOn ? "#e2e8f0" : "#7e92a8" }}>🗓 Seasonal Messaging</div>
                       {seasonOn && seasonPreset && seasonPreset !== "Custom" && <div style={{ fontSize: 9, color: "#6366f1", marginTop: 1 }}>{seasonPreset} · {seasonIntensity}</div>}
                     </div>
                     <button onClick={() => setSeasonOn(v => !v)} style={{ ...({width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0}), background: seasonOn ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(255,255,255,0.08)" }}>
@@ -1315,7 +1315,7 @@ STRICT rules:
                           <button key={p} onClick={() => setSeasonPreset(p)} style={{
                             padding: "4px 9px", fontSize: 10, fontWeight: 700, borderRadius: 20, cursor: "pointer",
                             background: seasonPreset === p ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.04)",
-                            color: seasonPreset === p ? "#a5b4fc" : "#475569",
+                            color: seasonPreset === p ? "#a5b4fc" : "#7e92a8",
                             border: `1px solid ${seasonPreset === p ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.07)"}`,
                             transition: "all 0.15s",
                           }}>{p}</button>
@@ -1327,12 +1327,12 @@ STRICT rules:
                           style={{ ...S.inputBase, fontSize: 12 }} />
                       )}
                       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        <span style={{ fontSize: 10, color: "#475569", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>Intensity</span>
+                        <span style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>Intensity</span>
                         {["Subtle", "Moderate", "Strong"].map(level => (
                           <button key={level} onClick={() => setSeasonIntensity(level)} style={{
                             flex: 1, padding: "4px 6px", fontSize: 10, fontWeight: 700, borderRadius: 5, cursor: "pointer",
                             background: seasonIntensity === level ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.03)",
-                            color: seasonIntensity === level ? "#a5b4fc" : "#334155",
+                            color: seasonIntensity === level ? "#a5b4fc" : "#8fa3b8",
                             border: `1px solid ${seasonIntensity === level ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.06)"}`,
                           }}>{level}</button>
                         ))}
@@ -1345,7 +1345,7 @@ STRICT rules:
                 <div style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", background: "rgba(255,255,255,0.03)" }}>
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: discountOn ? "#e2e8f0" : "#475569" }}>🏷 Discount & Offer</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: discountOn ? "#e2e8f0" : "#7e92a8" }}>🏷 Discount & Offer</div>
                       {discountOn && discountValue && <div style={{ fontSize: 9, color: "#34d399", marginTop: 1 }}>{discountValue} {discountType} · {discountPlacement}</div>}
                     </div>
                     <button onClick={() => setDiscountOn(v => !v)} style={{ ...({width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0}), background: discountOn ? "linear-gradient(135deg,#059669,#10b981)" : "rgba(255,255,255,0.08)" }}>
@@ -1361,18 +1361,18 @@ STRICT rules:
                         <select value={discountType} onChange={e => setDiscountType(e.target.value)} style={{
                           padding: "8px 8px", fontSize: 11, fontWeight: 700,
                           background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)",
-                          borderRadius: 8, color: "#94a3b8", cursor: "pointer", flexShrink: 0,
+                          borderRadius: 8, color: "#adbccb", cursor: "pointer", flexShrink: 0,
                         }}>
                           {["% Off", "Fixed Amount", "Free Shipping", "Free Trial", "Custom"].map(t => <option key={t}>{t}</option>)}
                         </select>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        <span style={{ fontSize: 10, color: "#475569", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>Placement</span>
+                        <span style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>Placement</span>
                         {["Headlines only", "Descriptions only", "Both"].map(p => (
                           <button key={p} onClick={() => setDiscountPlacement(p)} style={{
                             flex: 1, padding: "4px 4px", fontSize: 9, fontWeight: 700, borderRadius: 5, cursor: "pointer",
                             background: discountPlacement === p ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.03)",
-                            color: discountPlacement === p ? "#34d399" : "#334155",
+                            color: discountPlacement === p ? "#34d399" : "#8fa3b8",
                             border: `1px solid ${discountPlacement === p ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.06)"}`,
                           }}>{p}</button>
                         ))}
@@ -1385,7 +1385,7 @@ STRICT rules:
                 <div style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", background: "rgba(255,255,255,0.03)" }}>
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: brandOn ? "#e2e8f0" : "#475569" }}>✓ Brand & Compliance</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: brandOn ? "#e2e8f0" : "#7e92a8" }}>✓ Brand & Compliance</div>
                       {brandOn && <div style={{ fontSize: 9, color: "#f59e0b", marginTop: 1 }}>{brandTone} tone{brandRequired ? " · required terms set" : ""}{brandBanned ? " · banned terms set" : ""}</div>}
                     </div>
                     <button onClick={() => setBrandOn(v => !v)} style={{ ...({width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0}), background: brandOn ? "linear-gradient(135deg,#d97706,#f59e0b)" : "rgba(255,255,255,0.08)" }}>
@@ -1395,12 +1395,12 @@ STRICT rules:
                   {brandOn && (
                     <div style={{ padding: "10px 12px", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "column", gap: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
-                        <span style={{ fontSize: 10, color: "#475569", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>Tone</span>
+                        <span style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>Tone</span>
                         {["Professional", "Friendly", "Urgent", "Neutral"].map(t => (
                           <button key={t} onClick={() => setBrandTone(t)} style={{
                             flex: 1, padding: "4px 4px", fontSize: 9, fontWeight: 700, borderRadius: 5, cursor: "pointer",
                             background: brandTone === t ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.03)",
-                            color: brandTone === t ? "#f59e0b" : "#334155",
+                            color: brandTone === t ? "#f59e0b" : "#8fa3b8",
                             border: `1px solid ${brandTone === t ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.06)"}`,
                           }}>{t}</button>
                         ))}
@@ -1436,7 +1436,7 @@ STRICT rules:
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 12 }}>&#127919;</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.06em", textTransform: "uppercase" }}>Audience Modifiers</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#adbccb", letterSpacing: "0.06em", textTransform: "uppercase" }}>Audience Modifiers</span>
                 {!isSignedIn && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.15)", color: "#818cf8" }}>SIGN IN</span>}
                 {isSignedIn && audiences.filter(a => a.name && a.name.trim()).length > 0 && (
                   <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.15)", color: "#818cf8" }}>
@@ -1444,7 +1444,7 @@ STRICT rules:
                   </span>
                 )}
               </div>
-              <span style={{ fontSize: 10, color: "#334155" }}>{showAudiencePanel ? "▲" : "▼"}</span>
+              <span style={{ fontSize: 10, color: "#8fa3b8" }}>{showAudiencePanel ? "▲" : "▼"}</span>
             </button>
             {/* Sticky / Session toggle */}
             {isSignedIn && (
@@ -1461,7 +1461,7 @@ STRICT rules:
                     transition: "left 0.2s", display: "block",
                   }} />
                 </button>
-                <span style={{ fontSize: 8, color: stickyAudiences ? "#818cf8" : "#334155", fontWeight: 700, letterSpacing: "0.04em" }}>
+                <span style={{ fontSize: 8, color: stickyAudiences ? "#818cf8" : "#8fa3b8", fontWeight: 700, letterSpacing: "0.04em" }}>
                   {stickyAudiences ? "STICKY" : "SESSION"}
                 </span>
               </div>
@@ -1469,7 +1469,7 @@ STRICT rules:
           </div>
             {showAudiencePanel && isSignedIn && (
               <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.5 }}>Define audience segments — the AI will tailor ad copy to resonate with each group.</div>
+                <div style={{ fontSize: 11, color: "#7e92a8", lineHeight: 1.5 }}>Define audience segments — the AI will tailor ad copy to resonate with each group.</div>
                 {[0, 1].map(i => (
                   <div key={i} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 10 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", marginBottom: 8, letterSpacing: "0.06em" }}>SEGMENT {i + 1}</div>
@@ -1506,7 +1506,7 @@ STRICT rules:
                         }} style={{
                           flex: 1, padding: "4px 2px", fontSize: 9, fontWeight: 700, borderRadius: 5, cursor: "pointer",
                           background: ((audiences[i] && audiences[i].tone) || "Professional") === t ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.03)",
-                          color: ((audiences[i] && audiences[i].tone) || "Professional") === t ? "#818cf8" : "#334155",
+                          color: ((audiences[i] && audiences[i].tone) || "Professional") === t ? "#818cf8" : "#8fa3b8",
                           border: "1px solid " + (((audiences[i] && audiences[i].tone) || "Professional") === t ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)"),
                         }}>{t}</button>
                       ))}
@@ -1514,10 +1514,10 @@ STRICT rules:
                   </div>
                 ))}
                 <div style={{ background: "rgba(255,255,255,0.01)", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, padding: 10, opacity: 0.5 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#334155", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                     SEGMENT 3 <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>PRO</span>
                   </div>
-                  <div style={{ fontSize: 11, color: "#334155" }}>Unlock unlimited audience segments with a Pro account</div>
+                  <div style={{ fontSize: 11, color: "#8fa3b8" }}>Unlock unlimited audience segments with a Pro account</div>
                 </div>
               </div>
             )}
@@ -1534,19 +1534,19 @@ STRICT rules:
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 12 }}>&#128200;</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.06em", textTransform: "uppercase" }}>Google Trends</span>
-                  {trendsLoading && <span style={{ fontSize: 9, color: "#475569" }}>fetching...</span>}
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#adbccb", letterSpacing: "0.06em", textTransform: "uppercase" }}>Google Trends</span>
+                  {trendsLoading && <span style={{ fontSize: 9, color: "#7e92a8" }}>fetching...</span>}
                   {selectedTrends.length > 0 && (
                     <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(16,185,129,0.15)", color: "#34d399" }}>
                       {selectedTrends.length} injected
                     </span>
                   )}
                 </div>
-                <span style={{ fontSize: 10, color: "#334155" }}>{showTrendsPanel ? "A" : "V"}</span>
+                <span style={{ fontSize: 10, color: "#8fa3b8" }}>{showTrendsPanel ? "A" : "V"}</span>
               </button>
               {showTrendsPanel && (
                 <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 12 }}>
-                  <div style={{ fontSize: 11, color: "#475569", marginBottom: 10, lineHeight: 1.5 }}>Trending searches related to this brand. Click to inject into your next generation.</div>
+                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 10, lineHeight: 1.5 }}>Trending searches related to this brand. Click to inject into your next generation.</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {trends.map(t => {
                       const active = selectedTrends.includes(t);
@@ -1554,7 +1554,7 @@ STRICT rules:
                         <button key={t} onClick={() => setSelectedTrends(prev => active ? prev.filter(x => x !== t) : [...prev, t])} style={{
                           padding: "5px 10px", fontSize: 11, fontWeight: 600, borderRadius: 20, cursor: "pointer",
                           background: active ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.04)",
-                          color: active ? "#34d399" : "#64748b",
+                          color: active ? "#34d399" : "#8fa3b8",
                           border: "1px solid " + (active ? "rgba(16,185,129,0.35)" : "rgba(255,255,255,0.08)"),
                           transition: "all 0.15s",
                         }}>
@@ -1564,7 +1564,7 @@ STRICT rules:
                     })}
                   </div>
                   {selectedTrends.length > 0 && (
-                    <div style={{ marginTop: 8, fontSize: 10, color: "#334155" }}>Selected trends will be woven into your next generation</div>
+                    <div style={{ marginTop: 8, fontSize: 10, color: "#8fa3b8" }}>Selected trends will be woven into your next generation</div>
                   )}
                 </div>
               )}
@@ -1581,7 +1581,7 @@ STRICT rules:
               <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
                 flex: 1, padding: "6px 4px", fontSize: 10.5, fontWeight: 700,
                 background: activeTab === t.id ? "rgba(59,130,246,0.25)" : "transparent",
-                color: activeTab === t.id ? "#60a5fa" : "#475569",
+                color: activeTab === t.id ? "#60a5fa" : "#7e92a8",
                 border: "none", borderRadius: 6, cursor: "pointer",
                 letterSpacing: "0.04em", transition: "all 0.15s",
               }}>{t.label}</button>
@@ -1655,7 +1655,7 @@ STRICT rules:
                   { label: "Final URL set", val: row.finalUrl ? "Yes" : "No", ok: !!row.finalUrl },
                 ].map(stat => (
                   <div key={stat.label} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 7, padding: "8px 10px" }}>
-                    <div style={{ fontSize: 10, color: "#475569", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>{stat.label}</div>
+                    <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>{stat.label}</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: stat.ok ? "#34d399" : "#e2e8f0" }}>{stat.val}</div>
                   </div>
                 ))}
@@ -1667,14 +1667,14 @@ STRICT rules:
           <div style={S.card}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...S.sectionLabel, margin: 0 }}>Google SERP Preview</span>
-              <span style={{ fontSize: 10, color: "#334155", fontStyle: "italic" }}>Shows first 3 headlines · first 2 descriptions</span>
+              <span style={{ fontSize: 10, color: "#8fa3b8", fontStyle: "italic" }}>Shows first 3 headlines · first 2 descriptions</span>
             </div>
             <div style={{ padding: "18px" }}>
               <SerpPreview row={row} />
             </div>
             {/* Headline rotation hint */}
             {row.headlines.filter(h => h.text.trim()).length > 3 && (
-              <div style={{ padding: "0 18px 14px", fontSize: 11, color: "#334155", display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ padding: "0 18px 14px", fontSize: 11, color: "#8fa3b8", display: "flex", alignItems: "center", gap: 5 }}>
                 <span>⟳</span> Google will rotate all {row.headlines.filter(h => h.text.trim()).length} headlines automatically
               </div>
             )}
@@ -1716,10 +1716,10 @@ STRICT rules:
                       marginBottom: 5, lineHeight: 1.4,
                       background: over ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.03)",
                       border: `1px solid ${over ? "rgba(239,68,68,0.25)" : "rgba(255,255,255,0.06)"}`,
-                      color: over ? "#f87171" : "#94a3b8",
+                      color: over ? "#f87171" : "#adbccb",
                       display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8,
                     }}>
-                      <span style={{ color: "#475569", fontSize: 10, flexShrink: 0, marginTop: 1 }}>D{i + 1}</span>
+                      <span style={{ color: "#7e92a8", fontSize: 10, flexShrink: 0, marginTop: 1 }}>D{i + 1}</span>
                       <span style={{ flex: 1 }}>{d.text}</span>
                       <span style={{ fontSize: 10, fontFamily: "monospace", color: charInfo(d.text, DESC_LIMIT, true).color, flexShrink: 0 }} title={charInfo(d.text, DESC_LIMIT, true).grace ? "Slightly over — tolerated" : ""}>{d.text.length}{charInfo(d.text, DESC_LIMIT, true).grace ? "⚠" : ""}</span>
                     </div>
@@ -1735,7 +1735,7 @@ STRICT rules:
               <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ ...S.sectionLabel, margin: 0 }}>Recent Generations</span>
                 <button onClick={() => setShowHistory(!showHistory)} style={{
-                  fontSize: 11, fontWeight: 700, color: "#475569",
+                  fontSize: 11, fontWeight: 700, color: "#7e92a8",
                   background: "none", border: "none", cursor: "pointer", letterSpacing: "0.04em",
                 }}>{showHistory ? "▲ Hide" : `▼ Show (${history.length})`}</button>
               </div>
@@ -1752,7 +1752,7 @@ STRICT rules:
                         <div style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {h.rows[0]?.campaign || new URL(h.url).hostname}
                         </div>
-                        <div style={{ fontSize: 10, color: "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.url}</div>
+                        <div style={{ fontSize: 10, color: "#8fa3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.url}</div>
                         <div style={{ fontSize: 9, color: "#1e293b", marginTop: 2 }}>{h.timestamp} · {h.rows[0]?.headlines.filter(hl => hl.text).length} headlines</div>
                       </div>
                       <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
@@ -1772,7 +1772,7 @@ STRICT rules:
                           navigator.clipboard.writeText(tsv).catch(() => {});
                         }} style={{
                           padding: "5px 10px", fontSize: 11, fontWeight: 700,
-                          background: "rgba(255,255,255,0.05)", color: "#64748b",
+                          background: "rgba(255,255,255,0.05)", color: "#8fa3b8",
                           border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, cursor: "pointer",
                         }}>TSV</button>
                       </div>
@@ -1788,7 +1788,7 @@ STRICT rules:
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...S.sectionLabel, margin: 0 }}>Export to Google Ads Editor</span>
               <button onClick={() => setShowGuide(!showGuide)} style={{
-                fontSize: 11, fontWeight: 700, color: "#475569",
+                fontSize: 11, fontWeight: 700, color: "#7e92a8",
                 background: "none", border: "none", cursor: "pointer", letterSpacing: "0.04em",
               }}>{showGuide ? "▲ Hide guide" : "▼ Show import guide"}</button>
             </div>
@@ -1818,7 +1818,7 @@ STRICT rules:
                 </div>
                 <button onClick={downloadCSV} style={{
                   padding: "11px 16px", fontSize: 13, fontWeight: 700,
-                  background: "rgba(255,255,255,0.05)", color: "#64748b",
+                  background: "rgba(255,255,255,0.05)", color: "#8fa3b8",
                   border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, cursor: "pointer",
                   display: "flex", alignItems: "center", gap: 6,
                 }}>
@@ -1828,8 +1828,8 @@ STRICT rules:
 
               {/* TSV mini-preview */}
               <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 7, padding: "10px 12px", overflowX: "auto" }}>
-                <div style={{ fontSize: 9, color: "#334155", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>TSV preview — {rows.length} ad{rows.length > 1 ? "s" : ""}</div>
-                <table style={{ borderCollapse: "collapse", fontSize: 10, fontFamily: "monospace", color: "#64748b", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: 9, color: "#8fa3b8", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>TSV preview — {rows.length} ad{rows.length > 1 ? "s" : ""}</div>
+                <table style={{ borderCollapse: "collapse", fontSize: 10, fontFamily: "monospace", color: "#8fa3b8", whiteSpace: "nowrap" }}>
                   <thead>
                     <tr>{["Campaign", "Ad Group", "Headline 1", "Headline 2", "Headline 3", `+${TSV_HEADERS.length - 5} cols`].map(h =>
                       <td key={h} style={{ padding: "2px 12px 2px 0", color: "#3b82f6", fontWeight: 700 }}>{h}</td>)}</tr>
@@ -1852,7 +1852,7 @@ STRICT rules:
               {/* Import guide */}
               {showGuide && (
                 <div style={{ marginTop: 14 }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: "#334155", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Step-by-step import</div>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: "#8fa3b8", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Step-by-step import</div>
                   {IMPORT_STEPS.map(s => (
                     <div key={s.n} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 7 }}>
                       <span style={{
@@ -1861,7 +1861,7 @@ STRICT rules:
                         border: "1px solid rgba(59,130,246,0.2)",
                         borderRadius: 4, padding: "2px 5px", flexShrink: 0, marginTop: 1,
                       }}>{s.n}</span>
-                      <span style={{ fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>{s.text}</span>
+                      <span style={{ fontSize: 12, color: "#8fa3b8", lineHeight: 1.45 }}>{s.text}</span>
                     </div>
                   ))}
                 </div>
@@ -1881,7 +1881,7 @@ STRICT rules:
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
         * { box-sizing: border-box; }
-        input::placeholder { color: #334155; }
+        input::placeholder { color: #8fa3b8; }
         select option { background: #1e293b; color: #e2e8f0; }
         button:active { transform: scale(0.97); }
       `}</style>
