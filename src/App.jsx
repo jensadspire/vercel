@@ -797,8 +797,9 @@ STRICT rules:
 
 
   // ── Auth Modal ───────────────────────────────────────────────────────────────
-  const AuthModal = () => (
-    <div style={{
+  const AuthModal = () => {
+    const [localOptIn, setLocalOptIn] = useState(false);
+    return <div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24,
     }} onClick={() => setShowAuthModal(false)}>
@@ -827,8 +828,8 @@ STRICT rules:
         {authMode === "sign-up" && (
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 12, padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)" }}>
             <button onClick={() => {
-              const newVal = !marketingOptIn;
-              setMarketingOptIn(newVal);
+              const newVal = !localOptIn;
+              setLocalOptIn(newVal);
               fetch("/api/audiences", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -849,7 +850,7 @@ STRICT rules:
         )}
       </div>
     </div>
-  );
+  };
 
   // ── Gate Modal ───────────────────────────────────────────────────────────────
   const GateModal = () => (
