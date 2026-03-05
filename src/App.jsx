@@ -365,7 +365,7 @@ function RSAStudio() {
   const [showGateModal, setShowGateModal] = useState(false);
   const [usageCount, setUsageCount] = useState(0);
   const [gateEmail, setGateEmail] = useState("");
-  const [marketingOptIn, setMarketingOptIn] = useState(true); // default opt-in (user can uncheck)
+  const [marketingOptIn, setMarketingOptIn] = useState(false); // unchecked by default — GDPR compliant
   const [gateSubmitted, setGateSubmitted] = useState(false);
   const [sessionUrls, setSessionUrls] = useState([]);
   const [sessionLangs, setSessionLangs] = useState([]);
@@ -823,7 +823,7 @@ STRICT rules:
           ? <SignIn afterSignInUrl="/" routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
           : <SignUp afterSignUpUrl="/" routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
         }
-        {/* Marketing opt-in — only shown on sign-up tab */}
+        {/* Marketing opt-in — below Clerk form, unchecked by default (GDPR compliant) */}
         {authMode === "sign-up" && (
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 12, padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)" }}>
             <button onClick={() => {
