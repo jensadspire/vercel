@@ -395,6 +395,7 @@ function RSAStudio() {
   const [selectedForExport, setSelectedForExport] = useState(new Set()); // history ids selected
   const [currentAdSelected, setCurrentAdSelected] = useState(true); // current ad included in multi-export
   const [multiCopied, setMultiCopied] = useState(false);
+  const [omitGroupMulti, setOmitGroupMulti] = useState(false); // toggle campaign/ad group in multi-export
 
   const row = rows[activeRow];
 
@@ -1735,12 +1736,31 @@ STRICT rules:
           {/* History panel */}
           {history.length > 0 && (
             <div style={S.card}>
-              <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                 <span style={{ ...S.sectionLabel, margin: 0 }}>Recent Generations</span>
-                <button onClick={() => setShowHistory(!showHistory)} style={{
-                  fontSize: 11, fontWeight: 700, color: "#7e92a8",
-                  background: "none", border: "none", cursor: "pointer", letterSpacing: "0.04em",
-                }}>{showHistory ? "▲ Hide" : `▼ Show (${history.length})`}</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {/* Campaign / Ad Group toggle */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 10, color: omitGroupMulti ? "#8fa3b8" : "#adbccb", fontWeight: 700, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+                      Campaign / Group
+                    </span>
+                    <button onClick={() => setOmitGroupMulti(v => !v)} style={{
+                      width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", position: "relative",
+                      background: omitGroupMulti ? "rgba(255,255,255,0.08)" : "linear-gradient(135deg,#3b82f6,#6366f1)",
+                      transition: "background 0.2s", flexShrink: 0,
+                    }}>
+                      <span style={{
+                        position: "absolute", top: 2, left: omitGroupMulti ? 2 : 18,
+                        width: 16, height: 16, borderRadius: "50%", background: "white",
+                        transition: "left 0.2s", display: "block",
+                      }} />
+                    </button>
+                  </div>
+                  <button onClick={() => setShowHistory(!showHistory)} style={{
+                    fontSize: 11, fontWeight: 700, color: "#7e92a8",
+                    background: "none", border: "none", cursor: "pointer", letterSpacing: "0.04em",
+                  }}>{showHistory ? "▲ Hide" : `▼ Show (${history.length})`}</button>
+                </div>
               </div>
               {showHistory && (
                 <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1829,7 +1849,7 @@ STRICT rules:
                       ...history.filter(h => selectedForExport.has(h.id)).flatMap(h => h.rows),
                     ];
                     const totalSelected = (currentAdSelected ? 1 : 0) + selectedForExport.size;
-                    const multiTsv = buildTSV(selectedRows, false);
+                    const multiTsv = buildTSV(selectedRows, omitGroupMulti);
 
                     const handleMultiCopy = async () => {
                       try {
