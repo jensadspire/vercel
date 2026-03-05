@@ -392,6 +392,9 @@ function RSAStudio() {
   const [brandTone, setBrandTone] = useState("Professional");
   const [history, setHistory] = useState([]);          // last 5 generations
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedForExport, setSelectedForExport] = useState(new Set()); // history ids selected
+  const [currentAdSelected, setCurrentAdSelected] = useState(true); // current ad included in multi-export
+  const [multiCopied, setMultiCopied] = useState(false);
 
   const row = rows[activeRow];
 
@@ -1741,43 +1744,155 @@ STRICT rules:
               </div>
               {showHistory && (
                 <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-                  {history.map((h, i) => (
-                    <div key={h.id} style={{
+
+                  {/* Current active ad — always shown at top with checkbox */}
+                  {generated && (
+                    <div style={{
                       padding: "10px 12px", borderRadius: 8,
-                      background: "rgba(255,255,255,0.03)",
-                      border: "1px solid rgba(255,255,255,0.07)",
+                      background: currentAdSelected ? "rgba(59,130,246,0.08)" : "rgba(255,255,255,0.03)",
+                      border: `1px solid ${currentAdSelected ? "rgba(59,130,246,0.3)" : "rgba(255,255,255,0.07)"}`,
                       display: "flex", alignItems: "center", gap: 10,
+                      transition: "all 0.15s",
                     }}>
+                      {/* Checkbox */}
+                      <button onClick={() => setCurrentAdSelected(v => !v)} style={{
+                        width: 18, height: 18, borderRadius: 4, border: "none", cursor: "pointer", flexShrink: 0,
+                        background: currentAdSelected ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.08)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "background 0.15s",
+                      }}>
+                        {currentAdSelected && <span style={{ color: "white", fontSize: 10, fontWeight: 900 }}>✓</span>}
+                      </button>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {h.rows[0]?.campaign || new URL(h.url).hostname}
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0", marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}>
+                          {row.campaign || new URL(url).hostname}
+                          <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: "rgba(59,130,246,0.2)", color: "#60a5fa", fontWeight: 700 }}>CURRENT</span>
                         </div>
-                        <div style={{ fontSize: 10, color: "#8fa3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.url}</div>
-                        <div style={{ fontSize: 9, color: "#1e293b", marginTop: 2 }}>{h.timestamp} · {h.rows[0]?.headlines.filter(hl => hl.text).length} headlines</div>
-                      </div>
-                      <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                        <button onClick={() => {
-                          setRows(h.rows);
-                          setActiveRow(0);
-                          setUrl(h.url);
-                          setGenerated(true);
-                          setShowHistory(false);
-                        }} style={{
-                          padding: "5px 10px", fontSize: 11, fontWeight: 700,
-                          background: "rgba(59,130,246,0.15)", color: "#60a5fa",
-                          border: "1px solid rgba(59,130,246,0.25)", borderRadius: 6, cursor: "pointer",
-                        }}>Load</button>
-                        <button onClick={() => {
-                          const tsv = buildTSV(h.rows, false);
-                          navigator.clipboard.writeText(tsv).catch(() => {});
-                        }} style={{
-                          padding: "5px 10px", fontSize: 11, fontWeight: 700,
-                          background: "rgba(255,255,255,0.05)", color: "#8fa3b8",
-                          border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, cursor: "pointer",
-                        }}>TSV</button>
+                        <div style={{ fontSize: 10, color: "#8fa3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{url}</div>
+                        <div style={{ fontSize: 9, color: "#8fa3b8", marginTop: 2 }}>{row.headlines.filter(h => h.text).length} headlines · {row.descriptions.filter(d => d.text).length} descriptions</div>
                       </div>
                     </div>
-                  ))}
+                  )}
+
+                  {/* History items with checkboxes */}
+                  {history.map((h, i) => {
+                    const isSelected = selectedForExport.has(h.id);
+                    return (
+                      <div key={h.id} style={{
+                        padding: "10px 12px", borderRadius: 8,
+                        background: isSelected ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
+                        border: `1px solid ${isSelected ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.07)"}`,
+                        display: "flex", alignItems: "center", gap: 10,
+                        transition: "all 0.15s",
+                      }}>
+                        {/* Checkbox */}
+                        <button onClick={() => setSelectedForExport(prev => {
+                          const next = new Set(prev);
+                          next.has(h.id) ? next.delete(h.id) : next.add(h.id);
+                          return next;
+                        })} style={{
+                          width: 18, height: 18, borderRadius: 4, border: "none", cursor: "pointer", flexShrink: 0,
+                          background: isSelected ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(255,255,255,0.08)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          transition: "background 0.15s",
+                        }}>
+                          {isSelected && <span style={{ color: "white", fontSize: 10, fontWeight: 900 }}>✓</span>}
+                        </button>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {h.rows[0]?.campaign || new URL(h.url).hostname}
+                          </div>
+                          <div style={{ fontSize: 10, color: "#8fa3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.url}</div>
+                          <div style={{ fontSize: 9, color: "#8fa3b8", marginTop: 2 }}>{h.timestamp} · {h.rows[0]?.headlines.filter(hl => hl.text).length} headlines</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                          <button onClick={() => {
+                            setRows(h.rows);
+                            setActiveRow(0);
+                            setUrl(h.url);
+                            setGenerated(true);
+                            setShowHistory(false);
+                          }} style={{
+                            padding: "5px 10px", fontSize: 11, fontWeight: 700,
+                            background: "rgba(59,130,246,0.15)", color: "#60a5fa",
+                            border: "1px solid rgba(59,130,246,0.25)", borderRadius: 6, cursor: "pointer",
+                          }}>Load</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Multi-export tray — shows when anything is selected */}
+                  {(currentAdSelected || selectedForExport.size > 0) && (() => {
+                    const selectedRows = [
+                      ...(currentAdSelected ? [row] : []),
+                      ...history.filter(h => selectedForExport.has(h.id)).flatMap(h => h.rows),
+                    ];
+                    const totalSelected = (currentAdSelected ? 1 : 0) + selectedForExport.size;
+                    const multiTsv = buildTSV(selectedRows, false);
+
+                    const handleMultiCopy = async () => {
+                      try {
+                        await navigator.clipboard.writeText(multiTsv);
+                      } catch (_) {
+                        const ta = document.createElement("textarea");
+                        ta.value = multiTsv;
+                        ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(ta);
+                      }
+                      setMultiCopied(true);
+                      setTimeout(() => setMultiCopied(false), 2500);
+                    };
+
+                    const handleMultiDownload = () => {
+                      const encoded = "data:text/tab-separated-values;charset=utf-8," + encodeURIComponent(multiTsv);
+                      const a = document.createElement("a");
+                      a.href = encoded;
+                      a.download = `rsa_ads_${totalSelected}_versions.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                    };
+
+                    return (
+                      <div style={{
+                        marginTop: 4, padding: "12px 14px",
+                        background: "linear-gradient(135deg,rgba(99,102,241,0.12),rgba(59,130,246,0.08))",
+                        border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10,
+                      }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#a5b4fc", marginBottom: 10 }}>
+                          ✦ {totalSelected} ad version{totalSelected > 1 ? "s" : ""} selected for export
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={handleMultiCopy} style={{
+                            flex: 1, padding: "9px 12px", fontSize: 12, fontWeight: 700,
+                            background: multiCopied ? "linear-gradient(135deg,#059669,#10b981)" : "linear-gradient(135deg,#3b82f6,#6366f1)",
+                            color: "white", border: "none", borderRadius: 7, cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                            transition: "all 0.3s",
+                          }}>
+                            <span>{multiCopied ? "✓" : "📋"}</span>
+                            {multiCopied ? "Copied!" : "Copy all to Editor"}
+                          </button>
+                          <button onClick={handleMultiDownload} style={{
+                            padding: "9px 12px", fontSize: 12, fontWeight: 700,
+                            background: "rgba(255,255,255,0.06)", color: "#8fa3b8",
+                            border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, cursor: "pointer",
+                            display: "flex", alignItems: "center", gap: 5,
+                          }}>
+                            ⬇ CSV
+                          </button>
+                        </div>
+                        <div style={{ fontSize: 10, color: "#8fa3b8", marginTop: 8 }}>
+                          All {totalSelected} versions exported as separate rows — paste directly into Google Ads Editor
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                 </div>
               )}
             </div>
