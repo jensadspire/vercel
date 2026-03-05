@@ -32,6 +32,18 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true, skipped: true });
     }
 
+    // Read marketing opt-in from Redis
+    let marketingOptIn = true; // default true
+    try {
+      const optInRes = await fetch(`${process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "http://localhost:3000"}/api/audiences`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-optin" }),
+      });
+      const optInData = await optInRes.json();
+      marketingOptIn = optInData.optIn !== false;
+    } catch (_) {}
+
     // Forward to Zapier
     await fetch(zapierUrl, {
       method: "POST",
@@ -45,6 +57,7 @@ export default async function handler(req, res) {
         source: "RSA Studio — Free Account Sign-up",
         signup_timestamp: new Date(created_at).toISOString(),
         plan: "free",
+        marketing_opt_in: marketingOptIn ? "Yes" : "No",
       }),
     });
 

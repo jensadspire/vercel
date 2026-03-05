@@ -19,7 +19,29 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { action, userId, audiences } = req.body;
+  const { action, userId, audiences, optIn } = req.body;
+
+  // ── Store marketing opt-in preference temporarily (no userId yet — pre-signup) ──
+  if (action === "set-optin") {
+    try {
+      // Store with a short TTL (30 mins) — just long enough for Clerk signup to complete
+      await redis("SET", "rsa:pending:optin", optIn ? "1" : "0", "EX", 1800);
+      return res.status(200).json({ saved: true });
+    } catch (_) {
+      return res.status(200).json({ saved: false });
+    }
+  }
+
+  // ── Get pending opt-in (called from clerk webhook) ────────────────────────
+  if (action === "get-optin") {
+    try {
+      const val = await redis("GET", "rsa:pending:optin");
+      return res.status(200).json({ optIn: val !== "0" }); // default true if not set
+    } catch (_) {
+      return res.status(200).json({ optIn: true });
+    }
+  }
+
   if (!userId) return res.status(400).json({ error: "userId required" });
 
   const key = `rsa:user:${userId}:audiences`;

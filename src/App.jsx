@@ -365,6 +365,7 @@ function RSAStudio() {
   const [showGateModal, setShowGateModal] = useState(false);
   const [usageCount, setUsageCount] = useState(0);
   const [gateEmail, setGateEmail] = useState("");
+  const [marketingOptIn, setMarketingOptIn] = useState(true); // default opt-in (user can uncheck)
   const [gateSubmitted, setGateSubmitted] = useState(false);
   const [sessionUrls, setSessionUrls] = useState([]);
   const [sessionLangs, setSessionLangs] = useState([]);
@@ -863,7 +864,17 @@ STRICT rules:
 
         {/* Primary CTA — sign up */}
         <button
-          onClick={() => { setShowGateModal(false); setAuthMode("sign-up"); setShowAuthModal(true); }}
+          onClick={async () => {
+            // Store opt-in preference in Redis before opening Clerk
+            try {
+              await fetch("/api/audiences", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "set-optin", optIn: marketingOptIn }),
+              });
+            } catch (_) {}
+            setShowGateModal(false); setAuthMode("sign-up"); setShowAuthModal(true);
+          }}
           style={{
             width: "100%", padding: "13px", fontSize: 14, fontWeight: 800,
             background: "linear-gradient(135deg,#3b82f6,#6366f1)",
@@ -873,6 +884,21 @@ STRICT rules:
           }}>
           Create Free Account →
         </button>
+
+        {/* Marketing opt-in checkbox */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 14, textAlign: "left" }}>
+          <button onClick={() => setMarketingOptIn(v => !v)} style={{
+            width: 16, height: 16, borderRadius: 3, border: "none", cursor: "pointer",
+            background: marketingOptIn ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.1)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0, marginTop: 1, transition: "background 0.15s",
+          }}>
+            {marketingOptIn && <span style={{ color: "white", fontSize: 10, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+          </button>
+          <span style={{ fontSize: 10, color: "#8fa3b8", lineHeight: 1.5 }}>
+            I'd like to receive news, updates and tips about RSA Studio. You can unsubscribe at any time.
+          </span>
+        </div>
 
         <div style={{ fontSize: 11, color: "#8fa3b8", marginBottom: 14 }}>No credit card required · Takes 30 seconds</div>
 
