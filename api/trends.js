@@ -1,5 +1,5 @@
-// ── Google Trends API ─────────────────────────────────────────────────────────
-// Uses RSS for supported geos, smart contextual fallback for others
+// ── Trends API — AI-powered search angle suggestions ─────────────────────────
+// Uses Claude to generate contextual trending search angles from page metadata
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -8,66 +8,77 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { keyword, geo = "US" } = req.body;
+  const { keyword, geo = "US", language = "English", title, metaDescription, h1, siteName } = req.body;
   if (!keyword) return res.status(400).json({ error: "keyword is required" });
-  console.log("Trends request:", { keyword, geo });
+  console.log("Trends AI request:", { keyword, geo, language });
 
-  // ── RSS only works reliably for these geos ────────────────────────────────
-  const rssGeo = ["US", "GB", "AU", "CA"].includes(geo) ? geo : null;
+  const langMap = {
+    DE: "German", FR: "French", ES: "Spanish", NL: "Dutch",
+    IT: "Italian", PT: "Portuguese", SE: "Swedish", DK: "Danish",
+    NO: "Norwegian", PL: "Polish", FI: "Finnish",
+  };
+  const outputLang = langMap[geo] || language || "English";
 
-  if (rssGeo) {
-    try {
-      const rssUrl = `https://trends.google.com/trends/trendingsearches/daily/rss?geo=${rssGeo}`;
-      const rssRes = await fetch(rssUrl, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-        signal: AbortSignal.timeout(6000),
-      });
-      if (rssRes.ok) {
-        const rssText = await rssRes.text();
-        const allTitles = [...rssText.matchAll(/<title><!\[CDATA\[([^\]]+)\]\]><\/title>/g)]
-          .map(m => m[1])
-          .filter(t => t !== "Daily Search Trends");
-        const kwWords = keyword.toLowerCase().split(/\s+/);
-        const relevant = allTitles.filter(t =>
-          kwWords.some(w => t.toLowerCase().includes(w))
-        ).slice(0, 4);
-        const results = relevant.length >= 2 ? relevant : allTitles.slice(0, 5);
-        if (results.length > 0) {
-          console.log("Trends RSS returned:", results.length, "results");
-          return res.status(200).json({ trends: results, source: "daily_rss", keyword });
-        }
-      }
-    } catch (_) {}
-  }
+  const metaContext = [
+    title && `Page title: ${title}`,
+    siteName && `Brand: ${siteName}`,
+    metaDescription && `Description: ${metaDescription}`,
+    h1 && `H1: ${h1}`,
+  ].filter(Boolean).join("\n");
 
-  // ── Contextual fallback for all other geos (DE, FR, ES, NL etc) ───────────
-  const fallback = generateFallback(keyword, geo);
-  console.log("Trends contextual fallback:", fallback);
-  return res.status(200).json({ trends: fallback, source: "fallback", keyword });
-}
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 300,
+        messages: [{
+          role: "user",
+          content: `You are a search trends expert. Based on the product/category below, generate 6 realistic search queries that people are actively searching for RIGHT NOW related to this product. These should read like real Google searches — specific, varied, and genuinely useful as ad copy angles.
 
-function generateFallback(keyword, geo) {
-  const kw = keyword.trim();
-  if (["DE", "AT", "CH"].includes(geo)) {
-    return [`${kw} kaufen`, `${kw} online Shop`, `${kw} Sale 2026`, `${kw} günstig`, `${kw} Trends`];
+Product/Category: ${keyword}
+Market: ${geo}
+Language: ${outputLang}
+${metaContext ? `\nPage context:\n${metaContext}` : ""}
+
+Rules:
+- Write ALL queries in ${outputLang}
+- Make them feel like real trending searches, not generic variations
+- Include a mix of: style/trend queries, occasion-based, comparison, seasonal, intent-based
+- Each query should be 2-5 words max
+- Do NOT just append "kaufen/buy/online" to the keyword — be creative
+- Return ONLY a JSON array of 6 strings, no other text
+
+Example for "kurze kleider" in German:
+["Sommerkleid Trends 2026", "Festival Outfit Damen", "Midi Kleid casual", "Partykleid kurz elegant", "Boho Kleid Sommer", "Kleid Hochzeit Gast"]`
+        }],
+      }),
+    });
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || "[]";
+    const clean = text.replace(/```json|```/g, "").trim();
+    const trends = JSON.parse(clean);
+
+    if (Array.isArray(trends) && trends.length > 0) {
+      console.log("AI trends generated:", trends.length, "suggestions");
+      return res.status(200).json({ trends, source: "ai", keyword });
+    }
+    throw new Error("Invalid AI response");
+
+  } catch (err) {
+    console.log("AI trends error:", err.message);
+    // Minimal fallback
+    return res.status(200).json({
+      trends: [],
+      source: "error",
+      keyword,
+      error: err.message,
+    });
   }
-  if (geo === "FR") {
-    return [`${kw} acheter`, `${kw} en ligne`, `${kw} soldes 2026`, `${kw} tendance`, `${kw} pas cher`];
-  }
-  if (geo === "ES") {
-    return [`${kw} comprar`, `${kw} online`, `${kw} oferta 2026`, `${kw} tendencias`, `${kw} barato`];
-  }
-  if (geo === "NL") {
-    return [`${kw} kopen`, `${kw} online`, `${kw} sale 2026`, `${kw} goedkoop`, `${kw} trends`];
-  }
-  if (geo === "IT") {
-    return [`${kw} comprare`, `${kw} online`, `${kw} saldi 2026`, `${kw} tendenze`, `${kw} economico`];
-  }
-  if (geo === "SE") {
-    return [`${kw} köpa`, `${kw} online`, `${kw} rea 2026`, `${kw} trender`, `${kw} billig`];
-  }
-  if (geo === "DK") {
-    return [`${kw} købe`, `${kw} online`, `${kw} tilbud 2026`, `${kw} trends`, `${kw} billig`];
-  }
-  return [`best ${kw}`, `${kw} 2026`, `${kw} online`, `${kw} sale`, `${kw} near me`];
 }

@@ -498,7 +498,15 @@ function RSAStudio() {
         fetch("/api/trends", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ keyword: trendSeed, geo: trendGeo }),
+          body: JSON.stringify({
+            keyword: trendSeed,
+            geo: trendGeo,
+            language: pageMeta.language,
+            title: pageMeta.title,
+            metaDescription: pageMeta.metaDescription,
+            h1: pageMeta.h1,
+            siteName: pageMeta.siteName,
+          }),
         }).then(r => r.json()).then(trendData => {
           if (trendData.trends?.length > 0) {
             setTrends(trendData.trends);
@@ -1538,7 +1546,7 @@ STRICT rules:
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 12 }}>&#128200;</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#adbccb", letterSpacing: "0.06em", textTransform: "uppercase" }}>Google Trends</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#adbccb", letterSpacing: "0.06em", textTransform: "uppercase" }}>Search Angles</span>
                   {trendsLoading && <span style={{ fontSize: 9, color: "#7e92a8" }}>fetching...</span>}
                   {selectedTrends.length > 0 && (
                     <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(16,185,129,0.15)", color: "#34d399" }}>
@@ -1550,7 +1558,7 @@ STRICT rules:
               </button>
               {showTrendsPanel && (
                 <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 12 }}>
-                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 10, lineHeight: 1.5 }}>Trending searches related to this brand. Click to inject into your next generation.</div>
+                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 10, lineHeight: 1.5 }}>AI-suggested search angles for this product. Click to inject into your next generation.</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {trends.map(t => {
                       const active = selectedTrends.includes(t);
