@@ -32,16 +32,18 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true, skipped: true });
     }
 
-    // Read marketing opt-in from Redis
+    // Read marketing opt-in directly from Redis
     let marketingOptIn = true; // default true
     try {
-      const optInRes = await fetch(`${process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "http://localhost:3000"}/api/audiences`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "get-optin" }),
-      });
-      const optInData = await optInRes.json();
-      marketingOptIn = optInData.optIn !== false;
+      const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+      const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+      if (redisUrl && redisToken) {
+        const optInRes = await fetch(`${redisUrl}/${encodeURIComponent("GET")}/${encodeURIComponent("rsa:pending:optin")}`, {
+          headers: { Authorization: `Bearer ${redisToken}` },
+        });
+        const optInData = await optInRes.json();
+        if (optInData.result === "0") marketingOptIn = false;
+      }
     } catch (_) {}
 
     // Forward to Zapier

@@ -823,6 +823,30 @@ STRICT rules:
           ? <SignIn afterSignInUrl="/" routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
           : <SignUp afterSignUpUrl="/" routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
         }
+        {/* Marketing opt-in — only shown on sign-up tab */}
+        {authMode === "sign-up" && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 12, padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)" }}>
+            <button onClick={() => {
+              const newVal = !marketingOptIn;
+              setMarketingOptIn(newVal);
+              fetch("/api/audiences", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "set-optin", optIn: newVal }),
+              }).catch(() => {});
+            }} style={{
+              width: 16, height: 16, borderRadius: 3, border: "none", cursor: "pointer",
+              background: marketingOptIn ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.1)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, marginTop: 1, transition: "background 0.15s",
+            }}>
+              {marketingOptIn && <span style={{ color: "white", fontSize: 10, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+            </button>
+            <span style={{ fontSize: 10, color: "#8fa3b8", lineHeight: 1.5 }}>
+              I'd like to receive news, updates and tips about RSA Studio. You can unsubscribe at any time.
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
