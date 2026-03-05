@@ -2028,6 +2028,34 @@ STRICT rules:
         select option { background: #1e293b; color: #e2e8f0; }
         button:active { transform: scale(0.97); }
       `}</style>
+
+      {/* ── Footer ── */}
+      <div style={{
+        borderTop: "1px solid rgba(255,255,255,0.05)",
+        padding: "12px 24px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        background: "rgba(6,13,26,0.6)",
+        flexShrink: 0,
+      }}>
+        <span style={{ fontSize: 10, color: "#8fa3b8" }}>
+          © {new Date().getFullYear()} RSA Studio by Adspire
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <a
+            href="https://app.termly.io/dashboard/website/3a01a18a-2820-4b2c-ab90-d722bbcd93d8/privacy-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 10, color: "#8fa3b8", textDecoration: "none", letterSpacing: "0.04em" }}
+            onMouseEnter={e => e.target.style.color = "#adbccb"}
+            onMouseLeave={e => e.target.style.color = "#8fa3b8"}
+          >
+            Privacy Policy
+          </a>
+        </div>
+      </div>
+
     </div>
   );
 }
