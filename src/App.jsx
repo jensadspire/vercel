@@ -298,6 +298,7 @@ export default function App() {
 
 function RSAStudio() {
   const [url, setUrl] = useState("");
+  const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax"
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [rows, setRows] = useState([makeRow(1)]);
@@ -586,7 +587,71 @@ NOTE: ${activeModifiers} modifiers are active simultaneously. Balance them caref
           "- Only use a trend if it genuinely fits the product — do not force irrelevant trends"
         : "";
 
-      // ── Step 3: Generate ad copy with full context ───────────────────────────
+      // ── Step 3: Generate ad copy (format-aware) ────────────────────────────
+      if (adFormat === "pmax") {
+        // ── PMax generation ──
+        const pmaxRes = await fetch("/api/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(isAdmin ? { "x-admin-key": import.meta.env.VITE_ADMIN_KEY } : {}),
+            ...(isSignedIn && session ? { "x-clerk-session": await session.getToken() } : {}),
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 2000,
+            messages: [{
+              role: "user",
+              content: `You are a Google Ads expert. Generate a PMax asset group for this landing page.
+OUTPUT LANGUAGE: ${pageMeta.language}
+CRITICAL: Write ALL copy in ${pageMeta.language}. Do not use English if the language is not English.
+
+Page URL: ${url}
+${pageMeta.title ? `Page Title: ${pageMeta.title}` : ""}
+${pageMeta.metaDescription ? `Meta Description: ${pageMeta.metaDescription}` : ""}
+${pageMeta.h1 ? `H1: ${pageMeta.h1}` : ""}
+${pageMeta.siteName ? `Brand: ${pageMeta.siteName}` : ""}
+${audienceInstruction}
+
+Return ONLY valid JSON — no prose, no markdown fences:
+{
+  "businessName": "max 25 chars",
+  "headlines": ["h1","h2","h3","h4","h5"],
+  "longHeadlines": ["lh1","lh2","lh3","lh4","lh5"],
+  "descriptions": ["d1","d2","d3","d4","d5"],
+  "callToAction": "one of: Shop Now, Learn More, Sign Up, Get Quote, Apply Now, Book Now, Contact Us, Download, Get Offer, Order Now, Subscribe, Visit Site"
+}
+
+Rules:
+- businessName: max 25 chars — use brand name only
+- headlines: exactly 5, max 30 chars each — short punchy phrases
+- longHeadlines: exactly 5, max 90 chars each — complete value proposition sentences, no punctuation at end
+- descriptions: exactly 5, max 90 chars each — benefit-focused, include CTA
+- callToAction: pick the single most relevant option from the list above`
+            }],
+          }),
+        });
+        const pmaxData = await pmaxRes.json();
+        if (pmaxData.gated) {
+          setUsageCount(pmaxData.count || FREE_LIMIT);
+          setShowGateModal(true);
+          setLoading(false);
+          return;
+        }
+        try {
+          const pmaxText = pmaxData.content?.[0]?.text || "";
+          const pmaxClean = pmaxText.replace(/\`\`\`json|\`\`\`/g, "").trim();
+          const pmaxParsed = JSON.parse(pmaxClean);
+          updateRow(activeRow, r => ({ ...r, pmaxResult: pmaxParsed }));
+          setGenerated(true);
+        } catch (e) {
+          setError("Could not parse PMax response — please try again");
+        }
+        setLoading(false);
+        return;
+      }
+
+      // ── RSA generation (original) ──
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: {
@@ -1247,6 +1312,31 @@ STRICT rules:
         )}
       </div>
 
+      {/* ── Format Tab Strip ── */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 4,
+        padding: "8px 24px",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(6,13,26,0.7)",
+      }}>
+        {[
+          { id: "rsa", label: "RSA", sublabel: "Search Ads", icon: "⚡" },
+          { id: "pmax", label: "PMax", sublabel: "Performance Max", icon: "◈" },
+        ].map(fmt => (
+          <button key={fmt.id} onClick={() => setAdFormat(fmt.id)} style={{
+            display: "flex", alignItems: "center", gap: 7,
+            padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+            background: adFormat === fmt.id ? "rgba(99,102,241,0.2)" : "transparent",
+            borderBottom: adFormat === fmt.id ? "2px solid #6366f1" : "2px solid transparent",
+            transition: "all 0.15s",
+          }}>
+            <span style={{ fontSize: 13 }}>{fmt.icon}</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: adFormat === fmt.id ? "#a5b4fc" : "#7e92a8", letterSpacing: "0.04em" }}>{fmt.label}</span>
+            <span style={{ fontSize: 10, color: adFormat === fmt.id ? "#7e92a8" : "#4a5568", letterSpacing: "0.03em" }}>{fmt.sublabel}</span>
+          </button>
+        ))}
+      </div>
+
       {/* ── Main 2-Col Layout ── */}
       <div style={{ flex: 1, display: "flex", gap: 0, overflow: "hidden", maxHeight: "calc(100vh - 160px)" }}>
 
@@ -1702,6 +1792,113 @@ STRICT rules:
         {/* RIGHT: Preview Panel */}
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
 
+        {adFormat === "pmax" ? (
+          /* ── PMax Output Panel ── */
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* PMax empty state */}
+            {!rows[activeRow]?.pmaxResult && !loading && (
+              <div style={{ textAlign: "center", padding: "60px 20px", color: "#4a5568" }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>◈</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#7e92a8", marginBottom: 6 }}>PMax Asset Group</div>
+                <div style={{ fontSize: 12, color: "#4a5568" }}>Enter a URL and generate to create your Performance Max assets</div>
+              </div>
+            )}
+
+            {/* PMax loading */}
+            {loading && (
+              <div style={{ textAlign: "center", padding: "60px 20px" }}>
+                <div style={{ fontSize: 12, color: "#7e92a8" }}>Generating PMax assets…</div>
+              </div>
+            )}
+
+            {/* PMax Result */}
+            {rows[activeRow]?.pmaxResult && (() => {
+              const p = rows[activeRow].pmaxResult;
+              const SectionLabel = ({ children }) => (
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>{children}</div>
+              );
+              const AssetRow = ({ text, limit, color = "#a5b4fc" }) => {
+                const len = text?.length || 0;
+                const over = len > limit;
+                return (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 6, marginBottom: 4, border: `1px solid ${over ? "rgba(239,68,68,0.3)" : "rgba(255,255,255,0.06)"}` }}>
+                    <span style={{ fontSize: 12, color: over ? "#f87171" : "#e2e8f0", flex: 1 }}>{text}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: over ? "#f87171" : "#4a5568", flexShrink: 0 }}>{len}/{limit}</span>
+                  </div>
+                );
+              };
+              return (
+                <>
+                  {/* Business Name */}
+                  <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px" }}>
+                    <SectionLabel>Business Name</SectionLabel>
+                    <AssetRow text={p.businessName} limit={25} color="#34d399" />
+                  </div>
+
+                  {/* Headlines */}
+                  <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px" }}>
+                    <SectionLabel>Headlines (30 chars)</SectionLabel>
+                    {(p.headlines || []).map((h, i) => <AssetRow key={i} text={h} limit={30} />)}
+                  </div>
+
+                  {/* Long Headlines */}
+                  <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px" }}>
+                    <SectionLabel>Long Headlines (90 chars)</SectionLabel>
+                    {(p.longHeadlines || []).map((h, i) => <AssetRow key={i} text={h} limit={90} color="#34d399" />)}
+                  </div>
+
+                  {/* Descriptions */}
+                  <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px" }}>
+                    <SectionLabel>Descriptions (90 chars)</SectionLabel>
+                    {(p.descriptions || []).map((d, i) => <AssetRow key={i} text={d} limit={90} color="#fb923c" />)}
+                  </div>
+
+                  {/* Call to Action */}
+                  <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px" }}>
+                    <SectionLabel>Call to Action</SectionLabel>
+                    <div style={{ display: "inline-flex", alignItems: "center", padding: "6px 14px", background: "rgba(99,102,241,0.2)", borderRadius: 20, border: "1px solid rgba(99,102,241,0.3)" }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc" }}>{p.callToAction || "Shop Now"}</span>
+                    </div>
+                  </div>
+
+                  {/* Copy Button */}
+                  <button onClick={() => {
+                    const txt = [
+                      "=== PMAX ASSET GROUP ===",
+                      "",
+                      "BUSINESS NAME",
+                      p.businessName,
+                      "",
+                      "HEADLINES",
+                      ...(p.headlines || []),
+                      "",
+                      "LONG HEADLINES",
+                      ...(p.longHeadlines || []),
+                      "",
+                      "DESCRIPTIONS",
+                      ...(p.descriptions || []),
+                      "",
+                      "CALL TO ACTION",
+                      p.callToAction,
+                    ].join("
+");
+                    navigator.clipboard.writeText(txt);
+                  }} style={{
+                    width: "100%", padding: "10px 0", borderRadius: 8, border: "none",
+                    background: "linear-gradient(135deg,#3b82f6,#6366f1)",
+                    color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                  }}>
+                    Copy All Assets
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        ) : (
+          /* ── RSA Output (existing) ── */
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
           {/* Ad Strength + Score */}
           <div style={{ ...S.card, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
             <div>
@@ -2062,6 +2259,8 @@ STRICT rules:
               )}
             </div>
           </div>
+          </div> {/* end RSA wrapper */}
+        )}
         </div>
       </div>
 
