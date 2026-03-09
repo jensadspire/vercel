@@ -50,7 +50,14 @@ Brand context:
 ${siteName ? `Brand: ${siteName}` : ""}
 ${title ? `Page title: ${title}` : ""}
 ${h1 ? `H1: ${h1}` : ""}
-${creativeStyle ? `Creative style requested: ${creativeStyle}` : ""}
+${creativeStyle === "match" ? "IMPORTANT: The user wants to MATCH this exact visual style. Your dallePrompt must strictly replicate the background, lighting and composition of this image." : ""}
+${creativeStyle === "studio" ? "IMPORTANT: Generate a clean studio-style DALL-E prompt with neutral background, professional lighting, product as hero." : ""}
+${creativeStyle === "lifestyle" ? "IMPORTANT: Generate a lifestyle DALL-E prompt showing the product in a real-world setting with natural environment." : ""}
+${creativeStyle === "match" ? 
+  "Creative style: STRICTLY match the visual style of the uploaded image. If the image shows clean studio photography with neutral background, replicate that exactly. Do not add lifestyle elements, outdoor settings or people unless they are in the original image." :
+  creativeStyle === "studio" ? "Creative style: Clean professional studio photography. Neutral or white background. Product is the hero. No outdoor or lifestyle elements." :
+  creativeStyle === "lifestyle" ? "Creative style: Lifestyle photography showing the product in real-life situations and environments. Natural settings, authentic mood." :
+  creativeStyle ? `Creative style: ${creativeStyle}` : ""}
 ${userGuidance ? `Additional guidance: ${userGuidance}` : ""}
 
 Return ONLY a JSON object, no prose, no markdown:
