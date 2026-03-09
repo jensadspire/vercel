@@ -32,17 +32,26 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true, skipped: true });
     }
 
-    // Read marketing opt-in directly from Redis
+    // Read marketing opt-in + language directly from Redis
     let marketingOptIn = true; // default true
+    let detectedLanguage = "";
     try {
       const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
       const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
       if (redisUrl && redisToken) {
+        // Read opt-in
         const optInRes = await fetch(`${redisUrl}/${encodeURIComponent("GET")}/${encodeURIComponent("rsa:pending:optin")}`, {
           headers: { Authorization: `Bearer ${redisToken}` },
         });
         const optInData = await optInRes.json();
         if (optInData.result === "0") marketingOptIn = false;
+
+        // Read last detected language
+        const langRes = await fetch(`${redisUrl}/${encodeURIComponent("GET")}/${encodeURIComponent("rsa:pending:language")}`, {
+          headers: { Authorization: `Bearer ${redisToken}` },
+        });
+        const langData = await langRes.json();
+        detectedLanguage = langData.result || "";
       }
     } catch (_) {}
 
@@ -60,6 +69,7 @@ export default async function handler(req, res) {
         signup_timestamp: new Date(created_at).toISOString(),
         plan: "free",
         marketing_opt_in: marketingOptIn ? "Yes" : "No",
+        language: detectedLanguage,
       }),
     });
 

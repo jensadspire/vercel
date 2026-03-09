@@ -127,6 +127,16 @@ export default async function handler(req, res) {
       await redis("INCR", redisKey);
     }
 
+    // Store detected language for signup webhook (30 min TTL)
+    try {
+      const bodyData = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+      const msgContent = bodyData?.messages?.[0]?.content || "";
+      const langMatch = msgContent.match(/Language:\s*([A-Za-z]+)/);
+      if (langMatch?.[1]) {
+        await redis("SET", "rsa:pending:language", langMatch[1], "EX", 1800);
+      }
+    } catch (_) {}
+
     // Return response with usage info attached
     return res.status(200).json({
       ...data,
