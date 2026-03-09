@@ -52,17 +52,19 @@ function buildTSV(rows, omitGroup = false, format = "rsa") {
     const headers = omitGroup
       ? PMAX_TSV_HEADERS.filter(h => h !== "Campaign" && h !== "Asset Group")
       : PMAX_TSV_HEADERS;
+    const pmaxRows = rows.filter(r => r.pmaxResult);
+    if (pmaxRows.length === 0) return headers.join("\t");
     return [
       headers.join("\t"),
-      ...rows.filter(r => r.pmaxResult).map(r => {
+      ...pmaxRows.map(r => {
         const p = r.pmaxResult;
         const cells = omitGroup ? [] : [r.campaign || "", r.adGroup || ""];
         return [
           ...cells,
           p.businessName || "",
-          ...(p.headlines || []),
-          ...(p.longHeadlines || []),
-          ...(p.descriptions || []),
+          ...(p.headlines || Array(5).fill("")),
+          ...(p.longHeadlines || Array(5).fill("")),
+          ...(p.descriptions || Array(5).fill("")),
           p.callToAction || "",
         ].join("\t");
       }),
@@ -849,7 +851,7 @@ STRICT rules:
   const copyTSVNoGroup = () => triggerCopy(true);
 
   const downloadCSV = () => {
-    const tsv = buildTSV(rows);
+    const tsv = buildTSV(rows, false, adFormat);
     const encoded = "data:text/tab-separated-values;charset=utf-8," + encodeURIComponent(tsv);
     const a = document.createElement("a");
     a.href = encoded;
@@ -2133,7 +2135,7 @@ STRICT rules:
                       ...history.filter(h => selectedForExport.has(h.id)).flatMap(h => h.rows),
                     ];
                     const totalSelected = (currentAdSelected ? 1 : 0) + selectedForExport.size;
-                    const multiTsv = buildTSV(selectedRows, omitGroupMulti);
+                    const multiTsv = buildTSV(selectedRows, omitGroupMulti, adFormat);
 
                     const handleMultiCopy = async () => {
                       try {
