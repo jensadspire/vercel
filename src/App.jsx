@@ -1881,8 +1881,7 @@ STRICT rules:
                       "",
                       "CALL TO ACTION",
                       p.callToAction,
-                    ].join("
-");
+                    ].join("\n");
                     navigator.clipboard.writeText(txt);
                   }} style={{
                     width: "100%", padding: "10px 0", borderRadius: 8, border: "none",
