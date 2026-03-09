@@ -2259,8 +2259,7 @@ STRICT rules:
             </div>
           </div>
           </div>
-        {/* end RSA wrapper */}
-        )}
+          )} {/* end RSA/PMax conditional */}
         </div>
       </div>
 
