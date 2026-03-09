@@ -1957,45 +1957,57 @@ STRICT rules:
                         <div style={{ padding: "16px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderTop: "none", borderRadius: "0 0 10px 10px" }}>
 
                           {/* Upload area */}
-                          <div style={{ marginBottom: 14 }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
-                              Brand / Product Image
-                            </div>
-                            <label style={{
-                              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                              gap: 8, padding: "20px 16px",
-                              border: "2px dashed " + (imagePreview ? "rgba(52,211,153,0.4)" : "rgba(255,255,255,0.12)"),
-                              borderRadius: 10, cursor: "pointer", transition: "all 0.2s",
-                              background: imagePreview ? "rgba(16,185,129,0.05)" : "rgba(255,255,255,0.02)",
-                            }}>
-                              {imagePreview ? (
-                                <img src={imagePreview} alt="preview" style={{ maxHeight: 120, maxWidth: "100%", borderRadius: 6, objectFit: "contain" }} />
-                              ) : (
-                                <>
-                                  <span style={{ fontSize: 24 }}>📁</span>
-                                  <span style={{ fontSize: 11, color: "#7e92a8", textAlign: "center" }}>Click to upload brand or product image<br /><span style={{ fontSize: 10, color: "#4a5568" }}>JPG, PNG, WEBP · max 5MB</span></span>
-                                </>
-                              )}
-                              <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }}
-                                onChange={e => {
-                                  const file = e.target.files?.[0];
-                                  if (!file) return;
-                                  if (file.size > 5 * 1024 * 1024) { alert("Image must be under 5MB"); return; }
-                                  setImageFile(file);
-                                  const reader = new FileReader();
-                                  reader.onload = ev => setImagePreview(ev.target.result);
-                                  reader.readAsDataURL(file);
-                                  setGeneratedImages([]);
-                                }}
-                              />
-                            </label>
-                            {imagePreview && (
-                              <button onClick={() => { setImageFile(null); setImagePreview(null); setGeneratedImages([]); }}
-                                style={{ marginTop: 6, fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
-                                Remove image
-                              </button>
-                            )}
-                          </div>
+                          {(() => {
+                            const fileInputRef = { current: null };
+                            const handleFileChange = e => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              if (file.size > 5 * 1024 * 1024) { alert("Image must be under 5MB"); return; }
+                              setImageFile(file);
+                              const reader = new FileReader();
+                              reader.onload = ev => setImagePreview(ev.target.result);
+                              reader.readAsDataURL(file);
+                              setGeneratedImages([]);
+                            };
+                            return (
+                              <div style={{ marginBottom: 14 }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+                                  Brand / Product Image
+                                </div>
+                                <input
+                                  ref={el => fileInputRef.current = el}
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  style={{ display: "none" }}
+                                  onChange={handleFileChange}
+                                />
+                                <div
+                                  onClick={() => fileInputRef.current?.click()}
+                                  style={{
+                                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                                    gap: 8, padding: "20px 16px",
+                                    border: "2px dashed " + (imagePreview ? "rgba(52,211,153,0.4)" : "rgba(255,255,255,0.12)"),
+                                    borderRadius: 10, cursor: "pointer", transition: "all 0.2s",
+                                    background: imagePreview ? "rgba(16,185,129,0.05)" : "rgba(255,255,255,0.02)",
+                                  }}>
+                                  {imagePreview ? (
+                                    <img src={imagePreview} alt="preview" style={{ maxHeight: 120, maxWidth: "100%", borderRadius: 6, objectFit: "contain" }} />
+                                  ) : (
+                                    <>
+                                      <span style={{ fontSize: 24 }}>📁</span>
+                                      <span style={{ fontSize: 11, color: "#7e92a8", textAlign: "center" }}>Click to upload brand or product image<br /><span style={{ fontSize: 10, color: "#4a5568" }}>JPG, PNG, WEBP · max 5MB</span></span>
+                                    </>
+                                  )}
+                                </div>
+                                {imagePreview && (
+                                  <button onClick={() => { setImageFile(null); setImagePreview(null); setGeneratedImages([]); }}
+                                    style={{ marginTop: 6, fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                                    Remove image
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           {/* Optional guidance */}
                           <div style={{ marginBottom: 14 }}>
