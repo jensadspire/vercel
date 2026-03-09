@@ -338,6 +338,7 @@ function RSAStudio() {
   const [imageLoading, setImageLoading] = useState(false);
   const [generatedImages, setGeneratedImages] = useState([]);
   const [imageAnalysis, setImageAnalysis] = useState(null);
+  const [creativeStyle, setCreativeStyle] = useState("match"); // match/studio/lifestyle/other
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [rows, setRows] = useState([makeRow(1)]);
@@ -2009,15 +2010,49 @@ STRICT rules:
                             );
                           })()}
 
-                          {/* Optional guidance */}
+                          {/* Creative Style selector */}
+                          <div style={{ marginBottom: 14 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+                              Creative Style
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              {[
+                                { id: "match",     icon: "🎯", label: "Match URL style",    desc: "Recreate the visual style found on the landing page" },
+                                { id: "studio",    icon: "📸", label: "Studio",             desc: "Clean studio setting, model or product on neutral background" },
+                                { id: "lifestyle", icon: "🌿", label: "Lifestyle",           desc: "Product shown in real-life situations and environments" },
+                                { id: "other",     icon: "✏️",  label: "Custom direction",   desc: null },
+                              ].map(opt => (
+                                <button key={opt.id} onClick={() => setCreativeStyle(opt.id)} style={{
+                                  display: "flex", alignItems: "center", gap: 10,
+                                  padding: "9px 12px", borderRadius: 8, border: "none", cursor: "pointer",
+                                  background: creativeStyle === opt.id ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.03)",
+                                  borderLeft: "3px solid " + (creativeStyle === opt.id ? "#6366f1" : "transparent"),
+                                  transition: "all 0.15s", textAlign: "left",
+                                }}>
+                                  <span style={{ fontSize: 14, flexShrink: 0 }}>{opt.icon}</span>
+                                  <div>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: creativeStyle === opt.id ? "#a5b4fc" : "#e2e8f0" }}>{opt.label}</div>
+                                    {opt.desc && <div style={{ fontSize: 10, color: "#7e92a8", marginTop: 1 }}>{opt.desc}</div>}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Free text guidance — always shown for Other, optional hint for others */}
                           <div style={{ marginBottom: 14 }}>
                             <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
-                              Creative Direction <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span>
+                              {creativeStyle === "other" ? "Your Creative Direction" : "Additional Notes"} <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>{creativeStyle !== "other" && "(optional)"}</span>
                             </div>
                             <input
                               value={imageGuidance}
                               onChange={e => setImageGuidance(e.target.value)}
-                              placeholder="e.g. outdoor lifestyle, summer mood, white background..."
+                              placeholder={
+                                creativeStyle === "match" ? "e.g. emphasise the summer collection..." :
+                                creativeStyle === "studio" ? "e.g. white background, female model, standing pose..." :
+                                creativeStyle === "lifestyle" ? "e.g. outdoor beach setting, sunny day, casual mood..." :
+                                "Describe your creative vision..."
+                              }
                               style={{ ...S.inputBase, fontSize: 11, width: "100%" }}
                             />
                           </div>
@@ -2045,6 +2080,7 @@ STRICT rules:
                                       title: pageMeta?.title,
                                       h1: pageMeta?.h1,
                                       language: pageMeta?.language,
+                                      creativeStyle,
                                       userGuidance: imageGuidance,
                                     }),
                                   });

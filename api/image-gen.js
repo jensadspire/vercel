@@ -1,5 +1,8 @@
 // ── Image Generation API — Claude Vision + DALL-E 3 ──────────────────────────
-// Flow: uploaded image → Claude analyses brand/style → DALL-E 3 generates per format
+
+export const config = {
+  api: { bodyParser: { sizeLimit: "10mb" } }, // increase limit for base64 images
+};
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -8,16 +11,20 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { imageBase64, mediaType, siteName, title, h1, language, userGuidance } = req.body;
+  const { imageBase64, mediaType, siteName, title, h1, language, userGuidance, creativeStyle } = req.body;
 
   if (!imageBase64) return res.status(400).json({ error: "No image provided" });
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
+
+  console.log("image-gen: keys present:", { anthropic: !!anthropicKey, openai: !!openaiKey });
+
   if (!anthropicKey || !openaiKey) return res.status(500).json({ error: "API keys not configured" });
 
   try {
     // ── Step 1: Claude Vision analyses the uploaded image ──────────────────
+    console.log("image-gen: starting vision analysis, image size:", imageBase64.length);
     const visionRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -37,22 +44,22 @@ export default async function handler(req, res) {
             },
             {
               type: "text",
-              text: `Analyse this brand/product image and extract key visual characteristics for use in ad image generation.
+              text: `Analyse this brand/product image and extract key visual characteristics for ad generation.
 
 Brand context:
 ${siteName ? `Brand: ${siteName}` : ""}
 ${title ? `Page title: ${title}` : ""}
 ${h1 ? `H1: ${h1}` : ""}
-${userGuidance ? `User guidance: ${userGuidance}` : ""}
+${creativeStyle ? `Creative style requested: ${creativeStyle}` : ""}
+${userGuidance ? `Additional guidance: ${userGuidance}` : ""}
 
-Return ONLY a JSON object with these fields:
+Return ONLY a JSON object, no prose, no markdown:
 {
-  "style": "photographic/illustrated/minimal/bold/lifestyle etc",
-  "mood": "energetic/calm/luxurious/playful/professional etc",
+  "style": "photographic/illustrated/minimal/bold/lifestyle",
+  "mood": "energetic/calm/luxurious/playful/professional",
   "colorPalette": "describe dominant colors in 1 sentence",
-  "subject": "main subject/product described in 1 sentence",
-  "brandPersonality": "1 sentence describing brand feel",
-  "dallePrompt": "A detailed, specific DALL-E 3 prompt (100-150 words) that recreates the style and mood of this brand image for a Google PMax ad. Include: visual style, color palette, mood, composition, lighting. End with: high quality commercial photography, clean background, professional advertising image."
+  "subject": "main subject/product in 1 sentence",
+  "dallePrompt": "A detailed DALL-E 3 prompt (80-120 words) that recreates this brand visual style for a Google PMax ad. Describe: visual style, color palette, mood, lighting, composition. Do NOT include any text, logos or words in the image. End with: high quality commercial photography, professional advertising image, no text overlay."
 }`,
             },
           ],
@@ -61,24 +68,38 @@ Return ONLY a JSON object with these fields:
     });
 
     const visionData = await visionRes.json();
+    console.log("image-gen: vision response status:", visionRes.status);
+
+    if (visionData.error) {
+      console.log("image-gen: vision error:", visionData.error);
+      return res.status(500).json({ error: "Vision analysis failed: " + visionData.error.message });
+    }
+
     const visionText = visionData.content?.[0]?.text || "{}";
     const visionClean = visionText.replace(/```json|```/g, "").trim();
-    const analysis = JSON.parse(visionClean);
-    console.log("Vision analysis complete:", analysis.style, analysis.mood);
+    let analysis = {};
+    try {
+      analysis = JSON.parse(visionClean);
+    } catch (e) {
+      console.log("image-gen: vision parse error:", e.message, "raw:", visionClean.slice(0, 200));
+      analysis = { dallePrompt: "Professional product advertising image, clean studio background, high quality commercial photography, no text overlay." };
+    }
+    console.log("image-gen: vision analysis:", analysis.style, analysis.mood);
 
-    // ── Step 2: Generate 3 images via DALL-E 3 (one per PMax format) ───────
+    // ── Step 2: Generate 3 images via DALL-E 3 ────────────────────────────
     const formats = [
       { id: "landscape", label: "Landscape", size: "1792x1024", ratio: "1.91:1", dims: "1200×628px" },
       { id: "square",    label: "Square",    size: "1024x1024", ratio: "1:1",    dims: "1200×1200px" },
       { id: "portrait",  label: "Portrait",  size: "1024x1792", ratio: "4:5",    dims: "960×1200px" },
     ];
 
-    const basePrompt = analysis.dallePrompt || 
-      `Professional advertising image in ${analysis.style || "modern"} style. ${analysis.colorPalette || ""}. ${analysis.mood || "professional"} mood. High quality commercial photography, clean background, professional advertising image.`;
+    const basePrompt = analysis.dallePrompt ||
+      "Professional product advertising image, clean background, high quality commercial photography, no text overlay.";
 
     const imageResults = await Promise.all(
       formats.map(async (fmt) => {
         try {
+          console.log("image-gen: generating", fmt.id, "format");
           const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
             method: "POST",
             headers: {
@@ -87,22 +108,25 @@ Return ONLY a JSON object with these fields:
             },
             body: JSON.stringify({
               model: "dall-e-3",
-              prompt: `${basePrompt} Optimized for ${fmt.ratio} aspect ratio ${fmt.label.toLowerCase()} format Google PMax ad.`,
+              prompt: `${basePrompt} ${fmt.label} format (${fmt.ratio} aspect ratio). No text, no logos, no words in the image.`,
               size: fmt.size,
               quality: "standard",
               n: 1,
             }),
           });
           const dalleData = await dalleRes.json();
+          console.log("image-gen:", fmt.id, "status:", dalleRes.status, "error:", dalleData.error?.message);
           const imageUrl = dalleData.data?.[0]?.url;
-          return { ...fmt, imageUrl, error: imageUrl ? null : "Generation failed" };
+          return { ...fmt, imageUrl: imageUrl || null, error: dalleData.error?.message || (imageUrl ? null : "No image returned") };
         } catch (e) {
+          console.log("image-gen:", fmt.id, "exception:", e.message);
           return { ...fmt, imageUrl: null, error: e.message };
         }
       })
     );
 
-    console.log("Images generated:", imageResults.filter(r => r.imageUrl).length, "/ 3");
+    const successCount = imageResults.filter(r => r.imageUrl).length;
+    console.log("image-gen: complete —", successCount, "/ 3 images generated");
 
     return res.status(200).json({
       images: imageResults,
@@ -115,7 +139,7 @@ Return ONLY a JSON object with these fields:
     });
 
   } catch (err) {
-    console.error("Image gen error:", err.message);
+    console.error("image-gen: fatal error:", err.message);
     return res.status(500).json({ error: err.message });
   }
 }
