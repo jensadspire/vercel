@@ -13,10 +13,19 @@ const HL_LIMIT = 30, DESC_LIMIT = 90, PATH_LIMIT = 15;
 const NUM_HL = 15, NUM_DESC = 4;
 
 const TSV_HEADERS = [
-  "Campaign", "Ad Group",
+  "Campaign", "Ad Group / Asset Group",
   ...Array.from({ length: NUM_HL }, (_, i) => `Headline ${i + 1}`),
   ...Array.from({ length: NUM_DESC }, (_, i) => `Description ${i + 1}`),
   "Path 1", "Path 2", "Final URL",
+];
+
+const PMAX_TSV_HEADERS = [
+  "Campaign", "Asset Group",
+  "Business Name",
+  ...Array.from({ length: 5 }, (_, i) => `Headline ${i + 1}`),
+  ...Array.from({ length: 5 }, (_, i) => `Long Headline ${i + 1}`),
+  ...Array.from({ length: 5 }, (_, i) => `Description ${i + 1}`),
+  "Call to Action",
 ];
 
 const IMPORT_STEPS = [
@@ -38,9 +47,29 @@ function makeRow(id) {
   };
 }
 
-function buildTSV(rows, omitGroup = false) {
+function buildTSV(rows, omitGroup = false, format = "rsa") {
+  if (format === "pmax") {
+    const headers = omitGroup
+      ? PMAX_TSV_HEADERS.filter(h => h !== "Campaign" && h !== "Asset Group")
+      : PMAX_TSV_HEADERS;
+    return [
+      headers.join("\t"),
+      ...rows.filter(r => r.pmaxResult).map(r => {
+        const p = r.pmaxResult;
+        const cells = omitGroup ? [] : [r.campaign || "", r.adGroup || ""];
+        return [
+          ...cells,
+          p.businessName || "",
+          ...(p.headlines || []),
+          ...(p.longHeadlines || []),
+          ...(p.descriptions || []),
+          p.callToAction || "",
+        ].join("\t");
+      }),
+    ].join("\n");
+  }
   const headers = omitGroup
-    ? TSV_HEADERS.filter(h => h !== "Campaign" && h !== "Ad Group")
+    ? TSV_HEADERS.filter(h => h !== "Campaign" && h !== "Ad Group / Asset Group")
     : TSV_HEADERS;
   return [
     headers.join("\t"),
@@ -785,8 +814,8 @@ STRICT rules:
     }
   };
 
-  const tsvText = buildTSV(rows, false);
-  const tsvTextNoGroup = buildTSV(rows, true);
+  const tsvText = buildTSV(rows, false, adFormat);
+  const tsvTextNoGroup = buildTSV(rows, true, adFormat);
 
   // Shared copy logic — omitGroup=false: full data, omitGroup=true: no Campaign/Ad Group
   const triggerCopy = async (omitGroup) => {
@@ -1357,7 +1386,7 @@ STRICT rules:
                 <input value={row.campaign} onChange={e => setField("campaign", e.target.value)} placeholder="My Campaign" style={{ ...S.inputBase, fontSize: 12 }} />
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Ad Group</div>
+                <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Ad Group / Asset Group</div>
                 <input value={row.adGroup} onChange={e => setField("adGroup", e.target.value)} placeholder="My Ad Group" style={{ ...S.inputBase, fontSize: 12 }} />
               </div>
             </div>
