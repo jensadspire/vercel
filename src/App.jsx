@@ -330,6 +330,14 @@ export default function App() {
 function RSAStudio() {
   const [url, setUrl] = useState("");
   const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax"
+  // ── PMax Image Assets ─────────────────────────────────────────────────────
+  const [showImagePanel, setShowImagePanel] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageGuidance, setImageGuidance] = useState("");
+  const [imageLoading, setImageLoading] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState([]);
+  const [imageAnalysis, setImageAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [rows, setRows] = useState([makeRow(1)]);
@@ -1921,6 +1929,179 @@ STRICT rules:
                   }}>
                     Copy All Assets
                   </button>
+
+                  {/* ── Image Assets Accordion ── */}
+                  {isSignedIn && (
+                    <div style={{ marginTop: 8 }}>
+                      <button onClick={() => setShowImagePanel(v => !v)} style={{
+                        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                        background: showImagePanel ? "rgba(16,185,129,0.08)" : "rgba(255,255,255,0.03)",
+                        border: "1px solid " + (showImagePanel ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.08)"),
+                        borderRadius: 10, padding: "12px 16px", cursor: "pointer", transition: "all 0.2s",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 14 }}>🎨</span>
+                          <div style={{ textAlign: "left" }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: showImagePanel ? "#34d399" : "#e2e8f0" }}>
+                              Generate Visuals for this PMax Ad
+                            </div>
+                            <div style={{ fontSize: 10, color: "#7e92a8", marginTop: 1 }}>
+                              Upload a brand image → AI generates landscape, square & portrait formats
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 10, color: "#7e92a8", transition: "transform 0.2s", transform: showImagePanel ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+                      </button>
+
+                      {showImagePanel && (
+                        <div style={{ padding: "16px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderTop: "none", borderRadius: "0 0 10px 10px" }}>
+
+                          {/* Upload area */}
+                          <div style={{ marginBottom: 14 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+                              Brand / Product Image
+                            </div>
+                            <label style={{
+                              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                              gap: 8, padding: "20px 16px",
+                              border: "2px dashed " + (imagePreview ? "rgba(52,211,153,0.4)" : "rgba(255,255,255,0.12)"),
+                              borderRadius: 10, cursor: "pointer", transition: "all 0.2s",
+                              background: imagePreview ? "rgba(16,185,129,0.05)" : "rgba(255,255,255,0.02)",
+                            }}>
+                              {imagePreview ? (
+                                <img src={imagePreview} alt="preview" style={{ maxHeight: 120, maxWidth: "100%", borderRadius: 6, objectFit: "contain" }} />
+                              ) : (
+                                <>
+                                  <span style={{ fontSize: 24 }}>📁</span>
+                                  <span style={{ fontSize: 11, color: "#7e92a8", textAlign: "center" }}>Click to upload brand or product image<br /><span style={{ fontSize: 10, color: "#4a5568" }}>JPG, PNG, WEBP · max 5MB</span></span>
+                                </>
+                              )}
+                              <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }}
+                                onChange={e => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  if (file.size > 5 * 1024 * 1024) { alert("Image must be under 5MB"); return; }
+                                  setImageFile(file);
+                                  const reader = new FileReader();
+                                  reader.onload = ev => setImagePreview(ev.target.result);
+                                  reader.readAsDataURL(file);
+                                  setGeneratedImages([]);
+                                }}
+                              />
+                            </label>
+                            {imagePreview && (
+                              <button onClick={() => { setImageFile(null); setImagePreview(null); setGeneratedImages([]); }}
+                                style={{ marginTop: 6, fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                                Remove image
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Optional guidance */}
+                          <div style={{ marginBottom: 14 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
+                              Creative Direction <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span>
+                            </div>
+                            <input
+                              value={imageGuidance}
+                              onChange={e => setImageGuidance(e.target.value)}
+                              placeholder="e.g. outdoor lifestyle, summer mood, white background..."
+                              style={{ ...S.inputBase, fontSize: 11, width: "100%" }}
+                            />
+                          </div>
+
+                          {/* Generate button */}
+                          <button
+                            disabled={!imageFile || imageLoading}
+                            onClick={async () => {
+                              if (!imageFile) return;
+                              setImageLoading(true);
+                              setGeneratedImages([]);
+                              try {
+                                const reader = new FileReader();
+                                reader.onload = async (ev) => {
+                                  const dataUrl = ev.target.result;
+                                  const base64 = dataUrl.split(",")[1];
+                                  const mediaType = imageFile.type;
+                                  const imgRes = await fetch("/api/image-gen", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      imageBase64: base64,
+                                      mediaType,
+                                      siteName: pageMeta?.siteName,
+                                      title: pageMeta?.title,
+                                      h1: pageMeta?.h1,
+                                      language: pageMeta?.language,
+                                      userGuidance: imageGuidance,
+                                    }),
+                                  });
+                                  const imgData = await imgRes.json();
+                                  if (imgData.images) {
+                                    setGeneratedImages(imgData.images);
+                                    setImageAnalysis(imgData.analysis);
+                                  } else {
+                                    alert("Image generation failed — " + (imgData.error || "unknown error"));
+                                  }
+                                  setImageLoading(false);
+                                };
+                                reader.readAsDataURL(imageFile);
+                              } catch (e) {
+                                alert("Error: " + e.message);
+                                setImageLoading(false);
+                              }
+                            }}
+                            style={{
+                              width: "100%", padding: "10px 0", borderRadius: 8, border: "none",
+                              background: imageFile && !imageLoading ? "linear-gradient(135deg,#059669,#0d9488)" : "rgba(255,255,255,0.06)",
+                              color: imageFile && !imageLoading ? "white" : "#4a5568",
+                              fontSize: 12, fontWeight: 700, cursor: imageFile && !imageLoading ? "pointer" : "not-allowed",
+                              transition: "all 0.2s",
+                            }}>
+                            {imageLoading ? "⏳ Generating 3 formats…" : "🎨 Generate PMax Visuals"}
+                          </button>
+
+                          {/* Analysis badge */}
+                          {imageAnalysis && (
+                            <div style={{ marginTop: 10, padding: "8px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8, fontSize: 10, color: "#7e92a8" }}>
+                              <span style={{ color: "#34d399", fontWeight: 700 }}>✓ Style detected: </span>
+                              {imageAnalysis.style} · {imageAnalysis.mood} · {imageAnalysis.colorPalette}
+                            </div>
+                          )}
+
+                          {/* Generated images */}
+                          {generatedImages.length > 0 && (
+                            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+                              {generatedImages.map(img => (
+                                <div key={img.id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, overflow: "hidden" }}>
+                                  <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                    <div>
+                                      <span style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0" }}>{img.label}</span>
+                                      <span style={{ fontSize: 10, color: "#7e92a8", marginLeft: 8 }}>{img.ratio} · {img.dims}</span>
+                                    </div>
+                                    {img.imageUrl && (
+                                      <a href={img.imageUrl} download={`pmax-${img.id}.jpg`} target="_blank" rel="noopener noreferrer"
+                                        style={{ fontSize: 10, fontWeight: 700, color: "#60a5fa", textDecoration: "none", padding: "4px 10px", background: "rgba(96,165,250,0.1)", borderRadius: 6, border: "1px solid rgba(96,165,250,0.2)" }}>
+                                        ⬇ Download
+                                      </a>
+                                    )}
+                                  </div>
+                                  {img.imageUrl ? (
+                                    <img src={img.imageUrl} alt={img.label} style={{ width: "100%", display: "block", maxHeight: 220, objectFit: "cover" }} />
+                                  ) : (
+                                    <div style={{ padding: 20, textAlign: "center", color: "#7e92a8", fontSize: 11 }}>
+                                      ⚠ {img.error || "Generation failed for this format"}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               );
             })()}
