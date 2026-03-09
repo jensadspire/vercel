@@ -2258,7 +2258,8 @@ STRICT rules:
               )}
             </div>
           </div>
-          </div> {/* end RSA wrapper */}
+          </div>
+        {/* end RSA wrapper */}
         )}
         </div>
       </div>
