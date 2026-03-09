@@ -131,9 +131,10 @@ export default async function handler(req, res) {
     try {
       const bodyData = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
       const msgContent = bodyData?.messages?.[0]?.content || "";
-      const langMatch = msgContent.match(/Language:\s*([A-Za-z]+)/);
+      const langMatch = msgContent.match(/OUTPUT LANGUAGE: ([A-Za-z]+)/);
       if (langMatch?.[1]) {
         await redis("SET", "rsa:pending:language", langMatch[1], "EX", 1800);
+        console.log("Stored language:", langMatch[1]);
       }
     } catch (_) {}
 
