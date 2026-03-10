@@ -1530,8 +1530,8 @@ STRICT rules:
               AI-generated copy may contain errors. Always review before importing into Google Ads. You are responsible for final ad content.
             </span>
           </div>
-        {/* Batch Mode Button */}
-        {!batchRunning && (
+        {/* Batch Mode Button — signed-in users only */}
+        {isSignedIn && !batchRunning && (
           <div style={{ maxWidth: 900, margin: "6px auto 0", display: "flex", justifyContent: "flex-end" }}>
             <button onClick={() => setShowBatchPanel(v => !v)} style={{
               fontSize: 10, fontWeight: 700, padding: "4px 12px", borderRadius: 6,
@@ -1543,8 +1543,8 @@ STRICT rules:
           </div>
         )}
 
-        {/* Batch Panel */}
-        {showBatchPanel && (
+        {/* Batch Panel — signed-in users only */}
+        {isSignedIn && showBatchPanel && (
           <div style={{ maxWidth: 900, margin: "8px auto 0", background: "rgba(15,23,42,0.8)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 12, overflow: "hidden" }}>
             {/* Header */}
             <div style={{ padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
