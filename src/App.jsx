@@ -596,17 +596,27 @@ function RSAStudio() {
     }
 
     if (newRows.length > 0) {
+      // Build final rows array and set active row in one synchronous pass
       setRows(prev => {
-        const updated = [...prev, ...newRows.map(n => n.row)];
-        setActiveRow(updated.length - 1);
+        const updated = [...prev.filter(r => r.headlines.some(h => h.text) || r.finalUrl), ...newRows.map(n => n.row)];
+        // Schedule activeRow update after state settles
+        setTimeout(() => {
+          setActiveRow(updated.length - 1);
+          setUrl(newRows[newRows.length - 1].url);
+          setGenerated(true);
+          setBatchRunning(false);
+          setShowBatchPanel(false);
+          setBatchPasteText("");
+          setBatchUrls([]);
+        }, 50);
         return updated;
       });
-      setGenerated(true);
+    } else {
+      setBatchRunning(false);
+      setShowBatchPanel(false);
+      setBatchPasteText("");
+      setBatchUrls([]);
     }
-    setBatchRunning(false);
-    setShowBatchPanel(false);
-    setBatchPasteText("");
-    setBatchUrls([]);
   };
 
   const generate = async () => {
@@ -1648,13 +1658,19 @@ STRICT rules:
 
                 {/* Progress bar when running */}
                 {batchRunning && (
-                  <div style={{ marginTop: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                      <span style={{ fontSize: 10, color: "#7e92a8" }}>Generating {batchProgress.current} of {batchProgress.total}…</span>
-                      <span style={{ fontSize: 10, color: "#60a5fa", fontWeight: 700 }}>{Math.round((batchProgress.current / batchProgress.total) * 100)}%</span>
+                  <div style={{ marginTop: 12, padding: "12px 14px", background: "rgba(59,130,246,0.06)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.15)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, alignItems: "center" }}>
+                      <span style={{ fontSize: 11, color: "#93c5fd", fontWeight: 700 }}>
+                        <span style={{ animation: "spin 0.8s linear infinite", display: "inline-block", marginRight: 6 }}>◌</span>
+                        Generating {batchProgress.current} of {batchProgress.total}…
+                      </span>
+                      <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 800 }}>{Math.round((batchProgress.current / batchProgress.total) * 100)}%</span>
                     </div>
                     <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
-                      <div style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%`, height: "100%", background: "linear-gradient(90deg,#3b82f6,#6366f1)", borderRadius: 2, transition: "width 0.4s" }} />
+                      <div style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%`, height: "100%", background: "linear-gradient(90deg,#3b82f6,#6366f1)", borderRadius: 2, transition: "width 0.5s ease" }} />
+                    </div>
+                    <div style={{ fontSize: 10, color: "#4a5568", marginTop: 6 }}>
+                      Results will appear in the history panel — you can export all at once when done
                     </div>
                   </div>
                 )}
