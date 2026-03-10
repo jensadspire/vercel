@@ -383,6 +383,12 @@ function RSAStudio() {
   const [url, setUrl] = useState("");
   const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax"
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
+  // ── Batch mode state ──────────────────────────────────────────────────────
+  const [showBatchPanel, setShowBatchPanel] = useState(false);
+  const [batchPasteText, setBatchPasteText] = useState("");
+  const [batchUrls, setBatchUrls] = useState([]); // [{ url, category, selected }]
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   // ── PMax Image Assets ─────────────────────────────────────────────────────
   const [showImagePanel, setShowImagePanel] = useState(false);
   const [imageFile, setImageFile] = useState(null);
@@ -504,6 +510,105 @@ function RSAStudio() {
   const setDesc = (i, key, val) => updateRow(activeRow, r => {
     const d = [...r.descriptions]; d[i] = { ...d[i], [key]: val }; return { ...r, descriptions: d };
   });
+
+  // ── Batch helpers ─────────────────────────────────────────────────────────
+  const parseBatchUrls = (text) => {
+    const lines = text.split(/[
+,]/).map(l => l.trim()).filter(l => l.length > 4);
+    const seen = new Set();
+    return lines.reduce((acc, raw) => {
+      let url;
+      try { url = raw.startsWith("http") ? raw : "https://" + raw; new URL(url); } catch { return acc; }
+      if (seen.has(url)) return acc;
+      seen.add(url);
+      let category = "Other";
+      try {
+        const segs = new URL(url).pathname.split("/").filter(Boolean);
+        if (segs.length > 0) {
+          const seg = segs[0].replace(/[-_]/g, " ").replace(/\.html?$/, "");
+          category = seg.charAt(0).toUpperCase() + seg.slice(1);
+        }
+      } catch {}
+      return [...acc, { url, category, selected: true }];
+    }, []);
+  };
+
+  const runBatchGeneration = async () => {
+    const selected = batchUrls.filter(b => b.selected);
+    if (!selected.length) return;
+    setBatchRunning(true);
+    setBatchProgress({ current: 0, total: selected.length });
+    const newRows = [];
+    for (let i = 0; i < selected.length; i++) {
+      setBatchProgress({ current: i + 1, total: selected.length });
+      try {
+        let metaCtx = "";
+        let meta = { language: "English", title: "", metaDescription: "", h1: "", siteName: "" };
+        try {
+          const scrapeRes = await fetch("/api/scrape", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: selected[i].url }),
+          });
+          if (scrapeRes.ok) {
+            const sd = await scrapeRes.json();
+            meta = { ...meta, ...sd };
+            metaCtx = [sd.title && "Title: " + sd.title, sd.metaDescription && "Meta: " + sd.metaDescription, sd.h1 && "H1: " + sd.h1, sd.siteName && "Brand: " + sd.siteName].filter(Boolean).join("\n");
+          }
+        } catch {}
+
+        const prompt = "You are a Google Ads expert. Generate RSA ad copy.\nCURRENT YEAR: " + new Date().getFullYear() + "\nURL: " + selected[i].url + "\nPAGE METADATA:\n" + (metaCtx || "Infer from URL.") + "\nOUTPUT LANGUAGE: " + meta.language + "\nCRITICAL: Write ALL copy in " + meta.language + ".\n\nReturn ONLY valid JSON, no markdown:\n{\n  \"campaign\": \"name\",\n  \"adGroup\": \"name\",\n  \"headlines\": [\"h1\",...15 total],\n  \"descriptions\": [\"d1\",\"d2\",\"d3\",\"d4\"],\n  \"path1\": \"p1\",\n  \"path2\": \"p2\"\n}\nRules: Headlines max 30 chars each, exactly 15, unique. Descriptions 80-90 chars each, exactly 4, complete sentences ending with punctuation. path1/path2 max 15 chars.";
+
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(isAdmin ? { "x-admin-key": import.meta.env.VITE_ADMIN_KEY } : {}),
+            ...(isSignedIn && session ? { "x-clerk-session": await session.getToken() } : {}),
+          },
+          body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
+        });
+
+        if (!res.ok || res.status === 429) continue;
+        const data = await res.json();
+        if (data.gated) { setBatchRunning(false); setShowGateModal(true); return; }
+        if (data.usage_count) setUsageCount(data.usage_count);
+
+        const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+        const clean = text.replace(/```json|```/g, "").trim();
+        const p = JSON.parse(clean);
+
+        const newRow = makeEmptyRow();
+        newRow.finalUrl = selected[i].url;
+        newRow.campaign = p.campaign || "";
+        newRow.adGroup = p.adGroup || "";
+        newRow.headlines = Array.from({ length: NUM_HL }, (_, j) => ({ text: (p.headlines?.[j] || "").slice(0, HL_LIMIT), pin: "" }));
+        newRow.descriptions = Array.from({ length: NUM_DESC }, (_, j) => ({ text: smartTrimDesc(p.descriptions?.[j] || ""), pin: "" }));
+        newRow.path1 = (p.path1 || "").slice(0, PATH_LIMIT);
+        newRow.path2 = (p.path2 || "").slice(0, PATH_LIMIT);
+        newRows.push({ row: newRow, url: selected[i].url });
+
+        setHistory(prev => {
+          const snap = { id: Date.now() + i, url: selected[i].url, format: "rsa", timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), rows: [newRow] };
+          return [snap, ...prev].slice(0, 5);
+        });
+        setSessionUrls(prev => [...new Set([...prev, selected[i].url])]);
+      } catch (e) { console.error("Batch item error:", e); }
+      if (i < selected.length - 1) await new Promise(r => setTimeout(r, 600));
+    }
+
+    if (newRows.length > 0) {
+      setRows(prev => {
+        const updated = [...prev, ...newRows.map(n => n.row)];
+        setActiveRow(updated.length - 1);
+        return updated;
+      });
+      setGenerated(true);
+    }
+    setBatchRunning(false);
+    setShowBatchPanel(false);
+    setBatchPasteText("");
+    setBatchUrls([]);
+  };
 
   const generate = async () => {
     if (!url.trim()) { setError("Please enter a URL first"); return; }
@@ -1425,6 +1530,163 @@ STRICT rules:
               AI-generated copy may contain errors. Always review before importing into Google Ads. You are responsible for final ad content.
             </span>
           </div>
+        {/* Batch Mode Button */}
+        {!batchRunning && (
+          <div style={{ maxWidth: 900, margin: "6px auto 0", display: "flex", justifyContent: "flex-end" }}>
+            <button onClick={() => setShowBatchPanel(v => !v)} style={{
+              fontSize: 10, fontWeight: 700, padding: "4px 12px", borderRadius: 6,
+              background: showBatchPanel ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.04)",
+              border: "1px solid " + (showBatchPanel ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.08)"),
+              color: showBatchPanel ? "#a5b4fc" : "#7e92a8", cursor: "pointer",
+              letterSpacing: "0.05em",
+            }}>⚡ Batch Mode</button>
+          </div>
+        )}
+
+        {/* Batch Panel */}
+        {showBatchPanel && (
+          <div style={{ maxWidth: 900, margin: "8px auto 0", background: "rgba(15,23,42,0.8)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 12, overflow: "hidden" }}>
+            {/* Header */}
+            <div style={{ padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "#e2e8f0", letterSpacing: "0.04em" }}>⚡ Batch URL Generator</span>
+                <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 10 }}>Paste URLs from your Google Sheet — one per line</span>
+              </div>
+              <button onClick={() => setShowBatchPanel(false)} style={{ background: "none", border: "none", color: "#4a5568", cursor: "pointer", fontSize: 16 }}>✕</button>
+            </div>
+
+            {batchUrls.length === 0 ? (
+              /* Paste step */
+              <div style={{ padding: "16px 18px" }}>
+                <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Step 1 — Run the Apps Script in Google Sheets, then paste the URLs below
+                </div>
+                <textarea
+                  value={batchPasteText}
+                  onChange={e => setBatchPasteText(e.target.value)}
+                  placeholder={"https://example.com/category/shoes
+https://example.com/category/bags
+https://example.com/products/item-1"}
+                  style={{
+                    width: "100%", height: 120, background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8,
+                    color: "#e2e8f0", fontSize: 11, padding: "10px 12px",
+                    resize: "vertical", fontFamily: "monospace", boxSizing: "border-box",
+                  }}
+                />
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                  <button
+                    onClick={() => {
+                      const parsed = parseBatchUrls(batchPasteText);
+                      if (parsed.length > 0) setBatchUrls(parsed);
+                    }}
+                    disabled={!batchPasteText.trim()}
+                    style={{
+                      padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer",
+                      background: batchPasteText.trim() ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.05)",
+                      color: batchPasteText.trim() ? "white" : "#4a5568", fontWeight: 700, fontSize: 12,
+                    }}>
+                    Parse URLs →
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Select & generate step */
+              <div style={{ padding: "16px 18px" }}>
+                <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>Step 2 — Select URLs to generate ({batchUrls.filter(b => b.selected).length} of {batchUrls.length} selected)</span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setBatchUrls(prev => prev.map(b => ({ ...b, selected: true })))} style={{ fontSize: 10, fontWeight: 700, color: "#60a5fa", background: "none", border: "none", cursor: "pointer" }}>Select all</button>
+                    <button onClick={() => setBatchUrls(prev => prev.map(b => ({ ...b, selected: false })))} style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>Clear all</button>
+                    <button onClick={() => { setBatchUrls([]); setBatchPasteText(""); }} style={{ fontSize: 10, fontWeight: 700, color: "#f87171", background: "none", border: "none", cursor: "pointer" }}>← Re-paste</button>
+                  </div>
+                </div>
+
+                {/* Grouped by category */}
+                {(() => {
+                  const groups = batchUrls.reduce((acc, item) => {
+                    if (!acc[item.category]) acc[item.category] = [];
+                    acc[item.category].push(item);
+                    return acc;
+                  }, {});
+                  return Object.entries(groups).map(([cat, items]) => {
+                    const allSelected = items.every(b => b.selected);
+                    return (
+                      <div key={cat} style={{ marginBottom: 12 }}>
+                        {/* Category header with toggle */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                          <button onClick={() => setBatchUrls(prev => prev.map(b => b.category === cat ? { ...b, selected: !allSelected } : b))} style={{
+                            width: 14, height: 14, borderRadius: 3, border: "none", cursor: "pointer", flexShrink: 0,
+                            background: allSelected ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.08)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}>
+                            {allSelected && <span style={{ color: "white", fontSize: 8, fontWeight: 900 }}>✓</span>}
+                          </button>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: "#a5b4fc", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                            {cat} <span style={{ color: "#4a5568", fontWeight: 400 }}>({items.length})</span>
+                          </span>
+                        </div>
+                        {/* URL rows */}
+                        {items.map((item) => {
+                          const idx = batchUrls.indexOf(item);
+                          return (
+                            <div key={item.url} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0 5px 22px" }}>
+                              <button onClick={() => setBatchUrls(prev => prev.map((b, j) => j === idx ? { ...b, selected: !b.selected } : b))} style={{
+                                width: 13, height: 13, borderRadius: 3, border: "none", cursor: "pointer", flexShrink: 0,
+                                background: item.selected ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.08)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                                {item.selected && <span style={{ color: "white", fontSize: 7, fontWeight: 900 }}>✓</span>}
+                              </button>
+                              <span style={{ fontSize: 11, color: item.selected ? "#cbd5e1" : "#4a5568", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", transition: "color 0.15s" }}>
+                                {item.url}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  });
+                })()}
+
+                {/* Progress bar when running */}
+                {batchRunning && (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                      <span style={{ fontSize: 10, color: "#7e92a8" }}>Generating {batchProgress.current} of {batchProgress.total}…</span>
+                      <span style={{ fontSize: 10, color: "#60a5fa", fontWeight: 700 }}>{Math.round((batchProgress.current / batchProgress.total) * 100)}%</span>
+                    </div>
+                    <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%`, height: "100%", background: "linear-gradient(90deg,#3b82f6,#6366f1)", borderRadius: 2, transition: "width 0.4s" }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Generate button */}
+                {!batchRunning && (
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14, gap: 10 }}>
+                    <button onClick={() => { setBatchUrls([]); setBatchPasteText(""); setShowBatchPanel(false); }} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "none", color: "#7e92a8", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                    <button
+                      onClick={runBatchGeneration}
+                      disabled={batchUrls.filter(b => b.selected).length === 0}
+                      style={{
+                        padding: "8px 22px", borderRadius: 8, border: "none", cursor: "pointer",
+                        background: batchUrls.filter(b => b.selected).length > 0 ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.05)",
+                        color: batchUrls.filter(b => b.selected).length > 0 ? "white" : "#4a5568",
+                        fontWeight: 700, fontSize: 12,
+                        boxShadow: batchUrls.filter(b => b.selected).length > 0 ? "0 4px 14px rgba(99,102,241,0.3)" : "none",
+                      }}>
+                      ✦ Generate {batchUrls.filter(b => b.selected).length} ad{batchUrls.filter(b => b.selected).length !== 1 ? "s" : ""}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {isAdmin && (
           <div style={{ maxWidth: 900, margin: "6px auto 0", display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 10, background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)", letterSpacing: "0.08em" }}>⚡ ADMIN MODE</span>
