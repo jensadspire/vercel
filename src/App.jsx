@@ -131,29 +131,26 @@ function smartTrimDesc(text) {
 
 // ── Description quality scorer ────────────────────────────────────────────────
 function scoreDescription(text) {
-  if (!text || text.trim().length === 0) return { score: 0, flags: ["Empty"] };
-  const flags = [];
-  const t = text.trim();
-  // Check for abrupt ending (no punctuation, ends mid-phrase)
-  const lastChar = t[t.length - 1];
-  const endsClean = ".!?…".includes(lastChar) || t.length <= 70;
-  if (!endsClean) flags.push("May be cut off");
-  // Check for very short (weak)
-  if (t.length < 40) flags.push("Too short");
-  // Check for repetition of same word 3+ times
-  const words = t.toLowerCase().split(/\s+/);
-  const freq = {};
-  words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
-  const repeated = Object.entries(freq).filter(([w, c]) => c >= 3 && w.length > 3);
-  if (repeated.length > 0) flags.push("Repeated words");
-  // Check for ALL CAPS words (spammy)
-  if (/[A-Z]{4,}/.test(t)) flags.push("All-caps detected");
-  // Check for incomplete sentence patterns
-  if (/(and|or|but|with|for|the|a|an)$/i.test(t)) flags.push("Ends on function word");
-  const score = flags.length === 0 ? "good" : flags.length === 1 ? "warn" : "error";
-  return { score, flags };
+  try {
+    if (!text || typeof text !== "string" || text.trim().length === 0) return { score: "good", flags: [] };
+    const flags = [];
+    const t = text.trim();
+    const lastChar = t[t.length - 1];
+    const endsClean = ".!?…".includes(lastChar) || t.length <= 70;
+    if (!endsClean) flags.push("May be cut off");
+    if (t.length < 40) flags.push("Too short");
+    const words = t.toLowerCase().split(" ");
+    const freq = {};
+    words.forEach(w => { if (w.length > 3) freq[w] = (freq[w] || 0) + 1; });
+    if (Object.values(freq).some(c => c >= 3)) flags.push("Repeated words");
+    if (t !== t.toLowerCase() && /[A-Z]{4,}/.test(t)) flags.push("All-caps detected");
+    if (/\b(and|or|but|with|for|the|a|an)$/i.test(t)) flags.push("Ends on function word");
+    const score = flags.length === 0 ? "good" : flags.length === 1 ? "warn" : "error";
+    return { score, flags };
+  } catch (e) {
+    return { score: "good", flags: [] };
+  }
 }
-
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function AdStrengthRing({ headlines, descriptions }) {
