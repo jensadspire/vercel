@@ -513,8 +513,7 @@ function RSAStudio() {
 
   // ── Batch helpers ─────────────────────────────────────────────────────────
   const parseBatchUrls = (text) => {
-    const lines = text.split(/[
-,]/).map(l => l.trim()).filter(l => l.length > 4);
+    const lines = text.split(/[\n,]/).map(l => l.trim()).filter(l => l.length > 4);
     const seen = new Set();
     return lines.reduce((acc, raw) => {
       let url;
