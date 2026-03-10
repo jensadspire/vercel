@@ -586,6 +586,12 @@ function RSAStudio() {
         newRow.path2 = (p.path2 || "").slice(0, PATH_LIMIT);
         newRows.push({ row: newRow, url: selected[i].url });
 
+        // Update rows live so each ad appears as it completes
+        setRows(prev => {
+          const hasContent = prev.some(r => r.headlines.some(h => h.text) || r.finalUrl);
+          return hasContent ? [...prev, newRow] : [newRow];
+        });
+
         setHistory(prev => {
           const snap = { id: Date.now() + i, url: selected[i].url, format: "rsa", timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), rows: [newRow] };
           return [snap, ...prev].slice(0, 5);
@@ -596,27 +602,19 @@ function RSAStudio() {
     }
 
     if (newRows.length > 0) {
-      // Build final rows array and set active row in one synchronous pass
+      // Point to the last generated ad — rows already updated live during generation
       setRows(prev => {
-        const updated = [...prev.filter(r => r.headlines.some(h => h.text) || r.finalUrl), ...newRows.map(n => n.row)];
-        // Schedule activeRow update after state settles
-        setTimeout(() => {
-          setActiveRow(updated.length - 1);
-          setUrl(newRows[newRows.length - 1].url);
-          setGenerated(true);
-          setBatchRunning(false);
-          setShowBatchPanel(false);
-          setBatchPasteText("");
-          setBatchUrls([]);
-        }, 50);
-        return updated;
+        const lastIdx = prev.length - 1;
+        setActiveRow(lastIdx);
+        return prev;
       });
-    } else {
-      setBatchRunning(false);
-      setShowBatchPanel(false);
-      setBatchPasteText("");
-      setBatchUrls([]);
+      setUrl(newRows[newRows.length - 1].url);
+      setGenerated(true);
     }
+    setBatchRunning(false);
+    setShowBatchPanel(false);
+    setBatchPasteText("");
+    setBatchUrls([]);
   };
 
   const generate = async () => {
