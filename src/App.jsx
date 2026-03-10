@@ -1897,10 +1897,17 @@ STRICT rules:
             <>
               <span style={S.sectionLabel}>Descriptions — 90 char max each</span>
               {row.descriptions.map((d, i) => {
-                const qa = scoreDescription(d.text);
+                const qa = d.text ? scoreDescription(d.text) : { score: "good", flags: [] };
+                const dotColor = !d.text ? "#2d3748" : qa.score === "error" ? "#f87171" : qa.score === "warn" ? "#fbbf24" : "#34d399";
+                const labelWithDot = (
+                  <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    {`D${i + 1}`}
+                    {d.text && <span style={{ width: 6, height: 6, borderRadius: "50%", background: dotColor, display: "inline-block", flexShrink: 0 }} title={qa.flags.join(", ") || "OK"} />}
+                  </span>
+                );
                 return (
                   <div key={`desc-${i}`}>
-                    {qa.score !== "good" && d.text && (
+                    {qa.score !== "good" && d.text && qa.flags.length > 0 && (
                       <div style={{ display: "flex", gap: 4, marginBottom: 3, flexWrap: "wrap" }}>
                         {qa.flags.map(f => (
                           <span key={f} style={{
@@ -1913,7 +1920,7 @@ STRICT rules:
                       </div>
                     )}
                     <EditableField
-                      label={`D${i + 1}`}
+                      label={labelWithDot}
                       value={d.text}
                       limit={DESC_LIMIT}
                       onChange={v => setDesc(i, "text", v)}
