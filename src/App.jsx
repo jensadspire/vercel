@@ -580,7 +580,7 @@ function RSAStudio() {
         if (!jsonMatch) { console.error("No JSON found in:", clean.slice(0, 200)); continue; }
         const p = JSON.parse(jsonMatch[0]);
 
-        const newRow = makeEmptyRow();
+        const newRow = makeRow(Date.now() + i);
         newRow.finalUrl = selected[i].url;
         newRow.campaign = p.campaign || "";
         newRow.adGroup = p.adGroup || "";
