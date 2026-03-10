@@ -135,16 +135,26 @@ function scoreDescription(text) {
     if (!text || typeof text !== "string" || text.trim().length === 0) return { score: "good", flags: [] };
     const flags = [];
     const t = text.trim();
+    // Flag descriptions that end abruptly — no sentence-ending punctuation AND no natural noun/verb ending
     const lastChar = t[t.length - 1];
-    const endsClean = ".!?…".includes(lastChar) || t.length <= 70;
-    if (!endsClean) flags.push("May be cut off");
-    if (t.length < 40) flags.push("Too short");
-    const words = t.toLowerCase().split(" ");
+    const hasPunct = ".!?…".includes(lastChar);
+    if (!hasPunct) {
+      // Ends on a function/connective word = cut off mid-sentence
+      if (/\b(and|or|but|with|for|the|a|an|to|of|in|on|at|by|as|is|are|was|were|be|been|your|our|their|this|that|these|those|more|most|from|into|about|when|where|which|who|how|we|you|it|its|all|any|each|every|no|not|can|will|would|could|should|get|do|use|find|see|try|now|here|there|than|then|so|if|up|out|just|also|new|free|best|great|good|even)$/i.test(t)) {
+        flags.push("Incomplete sentence");
+      }
+    }
+    // Too short to be useful
+    if (t.length < 35) flags.push("Too short");
+    // Repeated meaningful word (3+ times)
+    const words = t.toLowerCase().replace(/[^a-z\s]/g, "").split(/\s+/);
     const freq = {};
     words.forEach(w => { if (w.length > 3) freq[w] = (freq[w] || 0) + 1; });
     if (Object.values(freq).some(c => c >= 3)) flags.push("Repeated words");
-    if (t !== t.toLowerCase() && /[A-Z]{4,}/.test(t)) flags.push("All-caps detected");
-    if (/\b(and|or|but|with|for|the|a|an)$/i.test(t)) flags.push("Ends on function word");
+    // ALL CAPS word (spammy)
+    if (/(?<![A-Z])[A-Z]{4,}(?![A-Z])/.test(t)) flags.push("All-caps word");
+    // Ends with an ellipsis or dash — likely truncated by the AI
+    if (/[–—\-…]$/.test(t)) flags.push("Truncated");
     const score = flags.length === 0 ? "good" : flags.length === 1 ? "warn" : "error";
     return { score, flags };
   } catch (e) {
