@@ -1903,12 +1903,11 @@ STRICT rules:
                         }}>{f}</span>
                       ))}
                     </div>
-                  ) : null;
-                })()}
-                <EditableField
-                  key={`${clearKey}-d-${i}`}
-                  label={`D${i + 1}`}
-                  value={d.text}
+                    )}
+                    <EditableField
+                      key={`desc-${i}`}
+                      label={`D${i + 1}`}
+                      value={d.text}
                   limit={DESC_LIMIT}
                   onChange={v => setDesc(i, "text", v)}
                   pinValue={d.pin}
@@ -1916,7 +1915,9 @@ STRICT rules:
                   isDesc={true}
                   refineContext={{ url, language: pageMeta?.language || "English" }}
                 />
-              ))}
+                  </React.Fragment>
+                );
+              })}
             </>
           )}
 
