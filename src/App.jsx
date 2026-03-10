@@ -572,9 +572,13 @@ function RSAStudio() {
         if (data.gated) { setBatchRunning(false); setShowGateModal(true); return; }
         if (data.usage_count) setUsageCount(data.usage_count);
 
+        console.log("Batch response for", selected[i].url, ":", JSON.stringify(data).slice(0, 200));
         const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
-        const clean = text.replace(/```json|```/g, "").trim();
-        const p = JSON.parse(clean);
+        if (!text) { console.error("No text in response:", data); continue; }
+        const clean = text.replace(/```json[\s\S]*?```|```/g, "").trim();
+        const jsonMatch = clean.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) { console.error("No JSON found in:", clean.slice(0, 200)); continue; }
+        const p = JSON.parse(jsonMatch[0]);
 
         const newRow = makeEmptyRow();
         newRow.finalUrl = selected[i].url;
@@ -597,7 +601,10 @@ function RSAStudio() {
           return [snap, ...prev].slice(0, 5);
         });
         setSessionUrls(prev => [...new Set([...prev, selected[i].url])]);
-      } catch (e) { console.error("Batch item error:", e); }
+      } catch (e) {
+        console.error("Batch item error for", selected[i].url, ":", e);
+        setError("Batch error on " + selected[i].url + ": " + e.message);
+      }
       if (i < selected.length - 1) await new Promise(r => setTimeout(r, 600));
     }
 
