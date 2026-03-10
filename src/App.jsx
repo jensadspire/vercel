@@ -28,13 +28,22 @@ const PMAX_TSV_HEADERS = [
   "Call to Action",
 ];
 
-const IMPORT_STEPS = [
-  { n: "01", text: "Open Google Ads Editor, download account (Ctrl+Shift+T)" },
-  { n: "02", text: "Left panel \u2192 Ads \u2192 Responsive search ads" },
-  { n: "03", text: 'Click "Make multiple changes"' },
-  { n: "04", text: 'Set Destination \u2192 "My data includes columns for campaigns / ad groups"' },
-  { n: "05", text: 'Click "Paste from clipboard" \u2014 done!' },
-];
+const IMPORT_STEPS = {
+  rsa: [
+    { n: "01", text: "Open Google Ads Editor, download account (Ctrl+Shift+T)" },
+    { n: "02", text: "Left panel → Ads → Responsive search ads" },
+    { n: "03", text: 'Click "Make multiple changes"' },
+    { n: "04", text: 'Set Destination → "My data includes columns for campaigns / ad groups"' },
+    { n: "05", text: 'Click "Paste from clipboard" — done!' },
+  ],
+  pmax: [
+    { n: "01", text: "Open Google Ads, navigate to your PMax campaign" },
+    { n: "02", text: "Click into the Asset Group you want to update" },
+    { n: "03", text: "Paste headlines, long headlines and descriptions manually into each field" },
+    { n: "04", text: "Set Business Name and select Call to Action from the dropdown" },
+    { n: "05", text: "Save — Google will auto-assemble the best combinations" },
+  ],
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function makeRow(id) {
@@ -684,6 +693,21 @@ Rules:
           const pmaxParsed = JSON.parse(pmaxClean);
           updateRow(activeRow, r => ({ ...r, pmaxResult: pmaxParsed }));
           setGenerated(true);
+          // Track usage count
+          if (pmaxData.usage_count) setUsageCount(pmaxData.usage_count);
+          // Save to history
+          setSessionUrls(prev => [...new Set([...prev, url])]);
+          setSessionLangs(prev => [...new Set([...prev, pageMeta.language || "English"])]);
+          setHistory(prev => {
+            const snapshot = {
+              id: Date.now(),
+              url,
+              format: "pmax",
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: pmaxParsed } : r))),
+            };
+            return [snapshot, ...prev].slice(0, 5);
+          });
         } catch (e) {
           setError("Could not parse PMax response — please try again");
         }
@@ -1134,7 +1158,7 @@ STRICT rules:
 
           <div style={{ marginTop: 12, padding: "10px 12px", background: "rgba(59,130,246,0.07)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.15)" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#60a5fa", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Next steps in Google Ads Editor</div>
-            {IMPORT_STEPS.map(s => (
+            {(IMPORT_STEPS[adFormat] || IMPORT_STEPS.rsa).map(s => (
               <div key={s.n} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 5 }}>
                 <span style={{ fontSize: 10, fontWeight: 800, fontFamily: "monospace", color: "#3b82f6", background: "rgba(59,130,246,0.15)", borderRadius: 3, padding: "1px 5px", flexShrink: 0 }}>{s.n}</span>
                 <span style={{ fontSize: 11, color: "#8fa3b8", lineHeight: 1.4 }}>{s.text}</span>
@@ -1363,7 +1387,9 @@ STRICT rules:
           { id: "rsa", label: "RSA", sublabel: "Search Ads", icon: "⚡" },
           { id: "pmax", label: "PMax", sublabel: "Performance Max", icon: "◈" },
         ].map(fmt => (
-          <button key={fmt.id} onClick={() => setAdFormat(fmt.id)} style={{
+          <button key={fmt.id} onClick={() => {
+            setAdFormat(fmt.id);
+          }} style={{
             display: "flex", alignItems: "center", gap: 7,
             padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
             background: adFormat === fmt.id ? "rgba(99,102,241,0.2)" : "transparent",
@@ -1838,10 +1864,34 @@ STRICT rules:
 
             {/* PMax empty state */}
             {!rows[activeRow]?.pmaxResult && !loading && (
-              <div style={{ textAlign: "center", padding: "60px 20px", color: "#4a5568" }}>
+              <div style={{ textAlign: "center", padding: "40px 20px", color: "#4a5568" }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>◈</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#7e92a8", marginBottom: 6 }}>PMax Asset Group</div>
-                <div style={{ fontSize: 12, color: "#4a5568" }}>Enter a URL and generate to create your Performance Max assets</div>
+                <div style={{ fontSize: 12, color: "#4a5568", marginBottom: 16 }}>Enter a URL and generate to create your Performance Max assets</div>
+                {/* Cross-format import — only show if RSA has been generated */}
+                {generated && rows[activeRow]?.headlines?.some(h => h.text) && (
+                  <button onClick={() => {
+                    const r = rows[activeRow];
+                    const rsaHeadlines = r.headlines.filter(h => h.text).map(h => h.text);
+                    const rsaDescs = r.descriptions.filter(d => d.text).map(d => d.text);
+                    updateRow(activeRow, row => ({
+                      ...row,
+                      pmaxResult: {
+                        businessName: r.adGroup || "",
+                        headlines: rsaHeadlines.slice(0, 5),
+                        longHeadlines: rsaHeadlines.slice(5, 10).concat(Array(Math.max(0, 5 - Math.max(0, rsaHeadlines.length - 5))).fill("")),
+                        descriptions: rsaDescs.slice(0, 5),
+                        callToAction: "Shop Now",
+                      }
+                    }));
+                  }} style={{
+                    padding: "9px 18px", borderRadius: 8, border: "1px solid rgba(99,102,241,0.3)",
+                    background: "rgba(99,102,241,0.1)", color: "#a5b4fc",
+                    fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  }}>
+                    ⚡ Use RSA as starting point
+                  </button>
+                )}
               </div>
             )}
 
@@ -2252,7 +2302,28 @@ STRICT rules:
           {history.length > 0 && (
             <div style={S.card}>
               <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <span style={{ ...S.sectionLabel, margin: 0 }}>Recent Generations</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => {
+                    const allIds = new Set(history.map(h => h.id));
+                    const allChecked = history.every(h => selectedForExport.has(h.id)) && currentAdSelected;
+                    if (allChecked) {
+                      setSelectedForExport(new Set());
+                      setCurrentAdSelected(false);
+                    } else {
+                      setSelectedForExport(allIds);
+                      setCurrentAdSelected(true);
+                    }
+                  }} style={{
+                    width: 16, height: 16, borderRadius: 3, border: "none", cursor: "pointer", flexShrink: 0,
+                    background: history.every(h => selectedForExport.has(h.id)) && currentAdSelected
+                      ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.08)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {history.every(h => selectedForExport.has(h.id)) && currentAdSelected &&
+                      <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
+                  </button>
+                  <span style={{ ...S.sectionLabel, margin: 0 }}>Recent Generations</span>
+                </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   {/* Campaign / Ad Group toggle */}
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2338,7 +2409,14 @@ STRICT rules:
                             {h.rows[0]?.campaign || new URL(h.url).hostname}
                           </div>
                           <div style={{ fontSize: 10, color: "#8fa3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.url}</div>
-                          <div style={{ fontSize: 9, color: "#8fa3b8", marginTop: 2 }}>{h.timestamp} · {h.rows[0]?.headlines.filter(hl => hl.text).length} headlines</div>
+                          <div style={{ fontSize: 9, color: "#8fa3b8", marginTop: 2 }}>
+                            {h.timestamp}
+                            {h.format === "pmax"
+                              ? <span style={{ marginLeft: 6, padding: "1px 5px", background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: 3, color: "#34d399", fontWeight: 700 }}>PMax</span>
+                              : <span style={{ marginLeft: 6, padding: "1px 5px", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 3, color: "#a5b4fc", fontWeight: 700 }}>RSA</span>
+                            }
+                            {h.format !== "pmax" && <span style={{ marginLeft: 4 }}>· {h.rows[0]?.headlines.filter(hl => hl.text).length} headlines</span>}
+                          </div>
                         </div>
                         <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
                           <button onClick={() => {
@@ -2347,6 +2425,7 @@ STRICT rules:
                             setUrl(h.url);
                             setGenerated(true);
                             setShowHistory(false);
+                            if (h.format) setAdFormat(h.format);
                           }} style={{
                             padding: "5px 10px", fontSize: 11, fontWeight: 700,
                             background: "rgba(59,130,246,0.15)", color: "#60a5fa",
@@ -2503,7 +2582,7 @@ STRICT rules:
               {showGuide && (
                 <div style={{ marginTop: 14 }}>
                   <div style={{ fontSize: 10, fontWeight: 800, color: "#8fa3b8", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Step-by-step import</div>
-                  {IMPORT_STEPS.map(s => (
+                  {(IMPORT_STEPS[adFormat] || IMPORT_STEPS.rsa).map(s => (
                     <div key={s.n} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 7 }}>
                       <span style={{
                         fontSize: 10, fontWeight: 800, fontFamily: "monospace",
