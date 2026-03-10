@@ -111,11 +111,47 @@ function charInfo(text, limit, isDesc = false) {
 
 // Smart description trimmer: keep text if <=93 chars, else trim to last complete word
 function smartTrimDesc(text) {
-  if (text.length <= DESC_LIMIT + DESC_GRACE) return text; // 91-93: keep as-is
-  // >93: trim to last complete word boundary at or before DESC_LIMIT
-  const cut = text.slice(0, DESC_LIMIT);
+  if (!text) return "";
+  // Remove trailing incomplete fragments — anything after last sentence-ending punctuation
+  const clean = text.trimEnd();
+  if (clean.length <= DESC_LIMIT + DESC_GRACE) {
+    // Within limit — but check for clean ending
+    const lastPunct = Math.max(clean.lastIndexOf("."), clean.lastIndexOf("!"), clean.lastIndexOf("?"));
+    // If text doesn't end with punct and last sentence is far back, keep as-is
+    return clean;
+  }
+  // Over limit — first try to cut at sentence boundary within limit
+  const cut = clean.slice(0, DESC_LIMIT);
+  const lastPunct = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"));
+  if (lastPunct > DESC_LIMIT * 0.6) return cut.slice(0, lastPunct + 1); // cut at sentence end
+  // Fall back to last word boundary
   const lastSpace = cut.lastIndexOf(" ");
   return lastSpace > 0 ? cut.slice(0, lastSpace) : cut;
+}
+
+// ── Description quality scorer ────────────────────────────────────────────────
+function scoreDescription(text) {
+  if (!text || text.trim().length === 0) return { score: 0, flags: ["Empty"] };
+  const flags = [];
+  const t = text.trim();
+  // Check for abrupt ending (no punctuation, ends mid-phrase)
+  const lastChar = t[t.length - 1];
+  const endsClean = ".!?…".includes(lastChar) || t.length <= 70;
+  if (!endsClean) flags.push("May be cut off");
+  // Check for very short (weak)
+  if (t.length < 40) flags.push("Too short");
+  // Check for repetition of same word 3+ times
+  const words = t.toLowerCase().split(/\s+/);
+  const freq = {};
+  words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
+  const repeated = Object.entries(freq).filter(([w, c]) => c >= 3 && w.length > 3);
+  if (repeated.length > 0) flags.push("Repeated words");
+  // Check for ALL CAPS words (spammy)
+  if (/[A-Z]{4,}/.test(t)) flags.push("All-caps detected");
+  // Check for incomplete sentence patterns
+  if (/(and|or|but|with|for|the|a|an)$/i.test(t)) flags.push("Ends on function word");
+  const score = flags.length === 0 ? "good" : flags.length === 1 ? "warn" : "error";
+  return { score, flags };
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -339,6 +375,7 @@ export default function App() {
 function RSAStudio() {
   const [url, setUrl] = useState("");
   const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax"
+  const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
   // ── PMax Image Assets ─────────────────────────────────────────────────────
   const [showImagePanel, setShowImagePanel] = useState(false);
   const [imageFile, setImageFile] = useState(null);
@@ -508,6 +545,14 @@ function RSAStudio() {
       // clientLang from URL is used as guaranteed fallback if scrape fails or returns English
       let pageMeta = { language: clientLang || "English", title: null, metaDescription: null, siteName: null, h1: null };
       try {
+        // Auto-fetch favicon for PMax logo
+        if (url.trim()) {
+          try {
+            const domain = new URL(url).hostname;
+            const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+            setPmaxLogo(faviconUrl);
+          } catch (_) {}
+        }
         const scrapeRes = await fetch("/api/scrape", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1302,13 +1347,21 @@ STRICT rules:
           </div>
           <button onClick={generate} disabled={loading} style={{
             padding: "9px 22px", fontSize: 13, fontWeight: 700,
-            background: loading ? "rgba(59,130,246,0.2)" : "linear-gradient(135deg,#3b82f6,#6366f1)",
-            color: loading ? "#60a5fa" : "white", border: "none",
+            background: loading
+              ? "linear-gradient(135deg,#d97706,#f59e0b)"
+              : "linear-gradient(135deg,#3b82f6,#6366f1)",
+            color: "white", border: "none",
             borderRadius: 8, cursor: loading ? "not-allowed" : "pointer",
             display: "flex", alignItems: "center", gap: 7, flexShrink: 0,
-            transition: "all 0.2s",
+            transition: "all 0.3s ease",
+            boxShadow: loading
+              ? "0 0 16px rgba(245,158,11,0.5)"
+              : "0 4px 14px rgba(99,102,241,0.3)",
+            animation: loading ? "pulse 1.5s ease-in-out infinite" : "none",
           }}>
-            {loading ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block", fontSize: 16 }}>◌</span> Analyzing…</> : "✦ Generate"}
+            {loading
+              ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block", fontSize: 14 }}>◌</span> Generating…</>
+              : "✦ Generate"}
           </button>
           {generated && !loading && (
             <button onClick={() => {
@@ -1358,6 +1411,13 @@ STRICT rules:
             <span>Tip: Product or landing page URLs generate stronger ad copy than category pages</span>
           </div>
         )}
+          {/* AI disclaimer */}
+          <div style={{ maxWidth: 900, margin: "4px auto 0", padding: "7px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 6, display: "flex", alignItems: "flex-start", gap: 6 }}>
+            <span style={{ fontSize: 10, flexShrink: 0 }}>⚠️</span>
+            <span style={{ fontSize: 10, color: "#4a5568", lineHeight: 1.5 }}>
+              AI-generated copy may contain errors. Always review before importing into Google Ads. You are responsible for final ad content.
+            </span>
+          </div>
         {isAdmin && (
           <div style={{ maxWidth: 900, margin: "6px auto 0", display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 10, background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)", letterSpacing: "0.08em" }}>⚡ ADMIN MODE</span>
@@ -1830,6 +1890,21 @@ STRICT rules:
             <>
               <span style={S.sectionLabel}>Descriptions — 90 char max each</span>
               {row.descriptions.map((d, i) => (
+                {(() => {
+                  const qa = scoreDescription(d.text);
+                  return qa.score !== "good" && d.text ? (
+                    <div style={{ display: "flex", gap: 4, marginBottom: 3, flexWrap: "wrap" }}>
+                      {qa.flags.map(f => (
+                        <span key={f} style={{
+                          fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 10,
+                          background: qa.score === "error" ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.12)",
+                          color: qa.score === "error" ? "#f87171" : "#fbbf24",
+                          border: `1px solid ${qa.score === "error" ? "rgba(239,68,68,0.25)" : "rgba(245,158,11,0.25)"}`,
+                        }}>{f}</span>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
                 <EditableField
                   key={`${clearKey}-d-${i}`}
                   label={`D${i + 1}`}
@@ -1920,9 +1995,18 @@ STRICT rules:
               };
               return (
                 <>
-                  {/* Business Name */}
+                  {/* Business Name + Logo */}
                   <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px" }}>
-                    <SectionLabel>Business Name</SectionLabel>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <SectionLabel>Business Name</SectionLabel>
+                      {pmaxLogo && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <img src={pmaxLogo} alt="logo" style={{ width: 28, height: 28, borderRadius: 4, objectFit: "contain", background: "rgba(255,255,255,0.05)", padding: 2 }}
+                            onError={() => setPmaxLogo(null)} />
+                          <span style={{ fontSize: 9, color: "#4a5568" }}>Auto-fetched logo</span>
+                        </div>
+                      )}
+                    </div>
                     <AssetRow text={p.businessName} limit={25} color="#34d399" />
                   </div>
 
@@ -2608,6 +2692,7 @@ STRICT rules:
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
