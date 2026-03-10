@@ -1889,7 +1889,7 @@ STRICT rules:
               {row.descriptions.map((d, i) => {
                 const qa = scoreDescription(d.text);
                 return (
-                  <React.Fragment key={`desc-${i}`}>
+                  <div key={`desc-${i}`}>
                     {qa.score !== "good" && d.text && (
                       <div style={{ display: "flex", gap: 4, marginBottom: 3, flexWrap: "wrap" }}>
                         {qa.flags.map(f => (
@@ -1903,7 +1903,6 @@ STRICT rules:
                       </div>
                     )}
                     <EditableField
-                      key={`desc-inner-${i}`}
                       label={`D${i + 1}`}
                       value={d.text}
                       limit={DESC_LIMIT}
@@ -1913,7 +1912,7 @@ STRICT rules:
                       isDesc={true}
                       refineContext={{ url, language: pageMeta?.language || "English" }}
                     />
-                  </React.Fragment>
+                  </div>
                 );
               })}
             </>
