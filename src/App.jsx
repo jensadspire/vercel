@@ -1889,32 +1889,33 @@ STRICT rules:
           {activeTab === "descriptions" && (
             <>
               <span style={S.sectionLabel}>Descriptions — 90 char max each</span>
-              {row.descriptions.map((d, i) => (
-                {(() => {
-                  const qa = scoreDescription(d.text);
-                  return qa.score !== "good" && d.text ? (
-                    <div style={{ display: "flex", gap: 4, marginBottom: 3, flexWrap: "wrap" }}>
-                      {qa.flags.map(f => (
-                        <span key={f} style={{
-                          fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 10,
-                          background: qa.score === "error" ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.12)",
-                          color: qa.score === "error" ? "#f87171" : "#fbbf24",
-                          border: `1px solid ${qa.score === "error" ? "rgba(239,68,68,0.25)" : "rgba(245,158,11,0.25)"}`,
-                        }}>{f}</span>
-                      ))}
-                    </div>
+              {row.descriptions.map((d, i) => {
+                const qa = scoreDescription(d.text);
+                return (
+                  <React.Fragment key={`desc-${i}`}>
+                    {qa.score !== "good" && d.text && (
+                      <div style={{ display: "flex", gap: 4, marginBottom: 3, flexWrap: "wrap" }}>
+                        {qa.flags.map(f => (
+                          <span key={f} style={{
+                            fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 10,
+                            background: qa.score === "error" ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.12)",
+                            color: qa.score === "error" ? "#f87171" : "#fbbf24",
+                            border: `1px solid ${qa.score === "error" ? "rgba(239,68,68,0.25)" : "rgba(245,158,11,0.25)"}`,
+                          }}>{f}</span>
+                        ))}
+                      </div>
                     )}
                     <EditableField
-                      key={`desc-${i}`}
+                      key={`desc-inner-${i}`}
                       label={`D${i + 1}`}
                       value={d.text}
-                  limit={DESC_LIMIT}
-                  onChange={v => setDesc(i, "text", v)}
-                  pinValue={d.pin}
-                  onPinChange={v => setDesc(i, "pin", v)}
-                  isDesc={true}
-                  refineContext={{ url, language: pageMeta?.language || "English" }}
-                />
+                      limit={DESC_LIMIT}
+                      onChange={v => setDesc(i, "text", v)}
+                      pinValue={d.pin}
+                      onPinChange={v => setDesc(i, "pin", v)}
+                      isDesc={true}
+                      refineContext={{ url, language: pageMeta?.language || "English" }}
+                    />
                   </React.Fragment>
                 );
               })}
