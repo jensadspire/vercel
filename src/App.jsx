@@ -1754,9 +1754,7 @@ STRICT rules:
                     <textarea
                       value={batchPasteText}
                       onChange={e => setBatchPasteText(e.target.value)}
-                      placeholder={"https://example.com/category/shoes
-https://example.com/category/bags
-https://example.com/products/item-1"}
+                      placeholder="https://example.com/category/shoes&#10;https://example.com/category/bags&#10;https://example.com/products/item-1"
                       style={{
                         width: "100%", height: 110, background: "rgba(255,255,255,0.03)",
                         border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8,
