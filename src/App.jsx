@@ -416,8 +416,9 @@ function RSAStudio() {
   const [scanCategories, setScanCategories] = useState([]); // [{ slug, name, urls, count }]
   const [scanMethod, setScanMethod] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [scanLocales, setScanLocales] = useState([]);     // locale picker results
+  const [scanLocales, setScanLocales] = useState([]);        // locale picker results
   const [scanScannedDomain, setScanScannedDomain] = useState(""); // origin after scan
+  const [cachedLocales, setCachedLocales] = useState([]);    // hreflang cache — survives category drill-down
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [showAdSwitcher, setShowAdSwitcher] = useState(false);
@@ -575,6 +576,7 @@ function RSAStudio() {
     setScanError("");
     setScanCategories([]);
     setScanLocales([]);
+    setCachedLocales([]);
     setSelectedCategory(null);
     try {
       const body = { domain };
@@ -586,13 +588,20 @@ function RSAStudio() {
       });
       const data = await res.json();
       if (data.error) {
-        setScanError(data.diagnosis || data.error);
-        if (data.fallback) setBatchTab("paste");
+        if (data.fallback) {
+          // Show explanation then auto-switch to paste tab
+          setScanError(data.diagnosis || data.error);
+          setTimeout(() => { setBatchTab("paste"); setScanError(""); }, 3000);
+        } else {
+          setScanError(data.diagnosis || data.error);
+        }
       } else if (data.mode === "locale") {
-        // Show locale picker
-        setScanLocales(data.locales || []);
+        const locales = data.locales || [];
+        setScanLocales(locales);
         setScanScannedDomain(data.domain || domain);
         setScanMethod(data.method || "");
+        // Cache hreflang locales — used by Change market to avoid re-scan
+        if (data.source === "hreflang") setCachedLocales(locales);
       } else {
         // Straight to categories
         setScanCategories(data.categories || []);
@@ -1715,13 +1724,13 @@ STRICT rules:
                         </div>
                         {scanError && (
                           <div style={{ marginTop: 10, padding: "8px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 7 }}>
-                            <div style={{ fontSize: 11, color: "#f87171", fontWeight: 700, marginBottom: 2 }}>Scan failed</div>
-                            <div style={{ fontSize: 10, color: "#8fa3b8" }}>{scanError}</div>
-                            {scanError.includes("Apps Script") && (
-                              <button onClick={() => setBatchTab("paste")} style={{ marginTop: 6, fontSize: 10, fontWeight: 700, color: "#60a5fa", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                                → Switch to manual paste instead
-                              </button>
-                            )}
+                            <div style={{ fontSize: 11, color: "#f87171", fontWeight: 700, marginBottom: 2 }}>
+                              Scanner couldn't access this site
+                            </div>
+                            <div style={{ fontSize: 10, color: "#8fa3b8", lineHeight: 1.5 }}>{scanError}</div>
+                            <button onClick={() => { setBatchTab("paste"); setScanError(""); }} style={{ marginTop: 8, fontSize: 10, fontWeight: 700, color: "#60a5fa", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 5, cursor: "pointer", padding: "4px 10px" }}>
+                              → Switch to manual paste
+                            </button>
                           </div>
                         )}
                         <div style={{ marginTop: 10, fontSize: 10, color: "#2d3748" }}>
@@ -1784,7 +1793,14 @@ STRICT rules:
                             <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 8 }}>via {scanMethod}</span>
                           </div>
                           <div style={{ display: "flex", gap: 10 }}>
-                            <button onClick={() => { setScanCategories([]); }} style={{ fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>🌐 Change market</button>
+                            <button onClick={() => {
+                              setScanCategories([]);
+                              // If we have cached hreflang locales, restore them directly — no re-scan
+                              if (cachedLocales.length > 0) {
+                                setScanLocales(cachedLocales);
+                              }
+                              // If no cache, scanLocales will be empty → shows input again
+                            }} style={{ fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>🌐 Change market</button>
                             <button onClick={() => { setScanCategories([]); setScanLocales([]); setSelectedCategory(null); setScanDomain(""); }} style={{ fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>← Re-scan</button>
                           </div>
                         </div>

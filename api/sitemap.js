@@ -1,52 +1,52 @@
 /**
- * /api/sitemap — Domain URL Scanner v2
- * Locale-aware: detects language/country path segments first,
- * then scopes category grouping within selected locale.
+ * /api/sitemap — Domain URL Scanner v3
  *
- * POST body:
- *   { domain }              -> full scan, returns locales OR categories
- *   { domain, locale }      -> scoped scan within locale prefix, returns categories
+ * Market detection priority:
+ *   1. hreflang tags in homepage HTML  → authoritative full market list
+ *   2. Locale segments in sitemap URLs → fallback grouping
  *
- * Responses:
- *   { mode: "locale",    locales: [{ slug, flag, label, count }] }
- *   { mode: "category",  categories: [{ slug, name, urls, count }], method, total }
- *   { error, diagnosis, fallback? }
+ * Scan flow:
+ *   POST { domain }         → returns { mode:"locale", locales } OR { mode:"category", categories }
+ *   POST { domain, locale } → scopes sitemap fetch to that locale, returns { mode:"category" }
+ *
+ * Change market: frontend caches hreflang locales — no re-scan needed
  */
 
+// ── Locale map ────────────────────────────────────────────────────────────────
 const LOCALE_MAP = {
-  "en": { flag: "🇬🇧", label: "English" },
-  "de": { flag: "🇩🇪", label: "German" },
-  "fr": { flag: "🇫🇷", label: "French" },
-  "es": { flag: "🇪🇸", label: "Spanish" },
-  "it": { flag: "🇮🇹", label: "Italian" },
-  "nl": { flag: "🇳🇱", label: "Dutch" },
-  "pt": { flag: "🇵🇹", label: "Portuguese" },
-  "sv": { flag: "🇸🇪", label: "Swedish" },
-  "da": { flag: "🇩🇰", label: "Danish" },
-  "nb": { flag: "🇳🇴", label: "Norwegian" },
-  "fi": { flag: "🇫🇮", label: "Finnish" },
-  "pl": { flag: "🇵🇱", label: "Polish" },
-  "cs": { flag: "🇨🇿", label: "Czech" },
-  "sk": { flag: "🇸🇰", label: "Slovak" },
-  "hu": { flag: "🇭🇺", label: "Hungarian" },
-  "ro": { flag: "🇷🇴", label: "Romanian" },
-  "tr": { flag: "🇹🇷", label: "Turkish" },
-  "ru": { flag: "🇷🇺", label: "Russian" },
-  "ja": { flag: "🇯🇵", label: "Japanese" },
-  "zh": { flag: "🇨🇳", label: "Chinese" },
-  "ko": { flag: "🇰🇷", label: "Korean" },
-  "ar": { flag: "🇸🇦", label: "Arabic" },
-  "uk": { flag: "🇬🇧", label: "United Kingdom" },
-  "us": { flag: "🇺🇸", label: "United States" },
-  "au": { flag: "🇦🇺", label: "Australia" },
-  "ca": { flag: "🇨🇦", label: "Canada" },
-  "ie": { flag: "🇮🇪", label: "Ireland" },
-  "at": { flag: "🇦🇹", label: "Austria" },
-  "ch": { flag: "🇨🇭", label: "Switzerland" },
-  "be": { flag: "🇧🇪", label: "Belgium" },
-  "se": { flag: "🇸🇪", label: "Sweden" },
-  "no": { flag: "🇳🇴", label: "Norway" },
-  "dk": { flag: "🇩🇰", label: "Denmark" },
+  "en":    { flag: "🇬🇧", label: "English" },
+  "de":    { flag: "🇩🇪", label: "German" },
+  "fr":    { flag: "🇫🇷", label: "French" },
+  "es":    { flag: "🇪🇸", label: "Spanish" },
+  "it":    { flag: "🇮🇹", label: "Italian" },
+  "nl":    { flag: "🇳🇱", label: "Dutch" },
+  "pt":    { flag: "🇵🇹", label: "Portuguese" },
+  "sv":    { flag: "🇸🇪", label: "Swedish" },
+  "da":    { flag: "🇩🇰", label: "Danish" },
+  "nb":    { flag: "🇳🇴", label: "Norwegian" },
+  "fi":    { flag: "🇫🇮", label: "Finnish" },
+  "pl":    { flag: "🇵🇱", label: "Polish" },
+  "cs":    { flag: "🇨🇿", label: "Czech" },
+  "sk":    { flag: "🇸🇰", label: "Slovak" },
+  "hu":    { flag: "🇭🇺", label: "Hungarian" },
+  "ro":    { flag: "🇷🇴", label: "Romanian" },
+  "tr":    { flag: "🇹🇷", label: "Turkish" },
+  "ru":    { flag: "🇷🇺", label: "Russian" },
+  "ja":    { flag: "🇯🇵", label: "Japanese" },
+  "zh":    { flag: "🇨🇳", label: "Chinese" },
+  "ko":    { flag: "🇰🇷", label: "Korean" },
+  "ar":    { flag: "🇸🇦", label: "Arabic" },
+  "uk":    { flag: "🇬🇧", label: "United Kingdom" },
+  "us":    { flag: "🇺🇸", label: "United States" },
+  "au":    { flag: "🇦🇺", label: "Australia" },
+  "ca":    { flag: "🇨🇦", label: "Canada" },
+  "ie":    { flag: "🇮🇪", label: "Ireland" },
+  "at":    { flag: "🇦🇹", label: "Austria" },
+  "ch":    { flag: "🇨🇭", label: "Switzerland" },
+  "be":    { flag: "🇧🇪", label: "Belgium" },
+  "se":    { flag: "🇸🇪", label: "Sweden" },
+  "no":    { flag: "🇳🇴", label: "Norway" },
+  "dk":    { flag: "🇩🇰", label: "Denmark" },
   "en-gb": { flag: "🇬🇧", label: "English (UK)" },
   "en-us": { flag: "🇺🇸", label: "English (US)" },
   "en-au": { flag: "🇦🇺", label: "English (AU)" },
@@ -81,8 +81,6 @@ const LOCALE_MAP = {
   "ar-sa": { flag: "🇸🇦", label: "Arabic (SA)" },
 };
 
-const LOCALE_PATTERN = /^[a-z]{2}(?:[-_][a-z]{2,4})?$/i;
-
 function isLocaleSegment(seg) {
   const s = seg.toLowerCase().replace(/_/g, "-");
   return !!LOCALE_MAP[s];
@@ -93,9 +91,10 @@ function getLocaleInfo(seg) {
   return LOCALE_MAP[s] || { flag: "🌐", label: seg.toUpperCase() };
 }
 
-const MAX_URLS    = 300;
-const MAX_PER_CAT = 50;
-const FETCH_TIMEOUT = 8000;
+// ── Config ────────────────────────────────────────────────────────────────────
+const MAX_URLS      = 300;
+const MAX_PER_CAT   = 50;
+const FETCH_TIMEOUT = 9000;
 
 const SITEMAP_PATHS = [
   "/sitemap.xml","/sitemap_index.xml","/sitemap-index.xml",
@@ -136,7 +135,8 @@ const EXCLUDE_KEYWORDS = [
 
 const BINARY_EXT = [".jpg",".jpeg",".png",".gif",".pdf",".xml",".css",".js",".svg",".webp",".ico",".woff",".woff2"];
 
-async function fetchUrl(url) {
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+async function fetchUrl(url, extraHeaders = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
   try {
@@ -146,24 +146,20 @@ async function fetchUrl(url) {
         "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en,de;q=0.8,da;q=0.6",
+        ...extraHeaders,
       },
       redirect: "follow",
     });
     clearTimeout(timer);
     const body = await res.text();
-    return { code: res.status, body };
+    return { code: res.status, body, finalUrl: res.url };
   } catch (e) {
     clearTimeout(timer);
     return { code: 0, body: null, error: e.message };
   }
 }
 
-function normalizeDomain(input) {
-  let d = input.trim().toLowerCase();
-  if (!d.startsWith("http://") && !d.startsWith("https://")) d = "https://" + d;
-  return d.replace(/\/$/, "");
-}
-
+// ── Utils ─────────────────────────────────────────────────────────────────────
 function parseDomainInput(input) {
   let raw = input.trim();
   if (!raw.startsWith("http://") && !raw.startsWith("https://")) raw = "https://" + raw;
@@ -176,7 +172,7 @@ function parseDomainInput(input) {
     }
     return { origin: u.origin, localePrefix: null };
   } catch {
-    return { origin: normalizeDomain(input), localePrefix: null };
+    return { origin: "https://" + input.trim().replace(/^https?:\/\//, "").replace(/\/$/, ""), localePrefix: null };
   }
 }
 
@@ -195,7 +191,22 @@ function isXml(body) {
 }
 
 function isCloudflare(body) {
-  return body && (body.includes("cf-browser-verification") || body.includes("challenge-platform") || body.includes("cf_chl_") || body.includes("Just a moment"));
+  return body && (
+    body.includes("cf-browser-verification") ||
+    body.includes("challenge-platform") ||
+    body.includes("cf_chl_") ||
+    body.includes("Just a moment") ||
+    body.includes("_cf_chl")
+  );
+}
+
+function isBot403(body) {
+  return body && (
+    body.includes("Access Denied") ||
+    body.includes("403 Forbidden") ||
+    body.includes("Bot detection") ||
+    body.includes("automated access")
+  );
 }
 
 function extractLocs(xml) {
@@ -213,6 +224,50 @@ function getPathSegments(url) {
 
 function getDepth(url) { return getPathSegments(url).length; }
 
+// ── hreflang parser — the key to finding ALL markets ─────────────────────────
+function extractHreflang(html, origin) {
+  const results = [];
+  const seen = new Set();
+
+  // Match <link rel="alternate" hreflang="..." href="..."> in any attribute order
+  const re = /<link[^>]+hreflang=["']([^"']+)["'][^>]*href=["']([^"']+)["'][^>]*>/gi;
+  const re2 = /<link[^>]+href=["']([^"']+)["'][^>]*hreflang=["']([^"']+)["'][^>]*>/gi;
+
+  function process(lang, href) {
+    if (lang === "x-default") return;
+    const langKey = lang.toLowerCase().replace(/_/g, "-");
+    if (seen.has(langKey)) return;
+
+    // Extract path prefix from href
+    let pathPrefix = null;
+    try {
+      const u = new URL(href.startsWith("http") ? href : origin + href);
+      const segs = u.pathname.split("/").filter(Boolean);
+      if (segs.length >= 1) pathPrefix = "/" + segs[0].toLowerCase();
+    } catch {}
+
+    seen.add(langKey);
+    results.push({ lang: langKey, href, pathPrefix });
+  }
+
+  let m;
+  while ((m = re.exec(html)) !== null)  process(m[1], m[2]);
+  while ((m = re2.exec(html)) !== null) process(m[2], m[1]);
+
+  // Convert to locale objects
+  return results.map(r => {
+    const info = getLocaleInfo(r.lang) || getLocaleInfo(r.pathPrefix?.replace("/", "") || "");
+    return {
+      slug: r.pathPrefix ? r.pathPrefix.replace("/", "") : r.lang,
+      lang: r.lang,
+      href: r.href,
+      flag: info.flag || "🌐",
+      label: info.label || r.lang.toUpperCase(),
+    };
+  }).filter(r => r.slug);
+}
+
+// ── Sitemap collection ────────────────────────────────────────────────────────
 async function getSitemapsFromRobots(origin) {
   const { body } = await fetchUrl(origin + "/robots.txt");
   if (!body) return [];
@@ -242,33 +297,69 @@ async function collectFromSitemapXml(xml, sourceUrl, visited = new Set()) {
   return all;
 }
 
-function extractNavLinks(html, origin) {
-  const host = origin.replace(/^https?:\/\//, "").replace(/^www\./, "");
-  const seen = new Set();
-  const candidates = [];
-  const re = /href=["']([^"'#?][^"']*?)["']/gi;
-  let m;
-  while ((m = re.exec(html)) !== null) {
-    let href = m[1].trim();
-    if (href.startsWith("/")) href = origin + href;
-    else if (!href.startsWith("http")) continue;
-    const hrefHost = href.replace(/^https?:\/\//, "").replace(/^www\./, "");
-    if (!hrefHost.startsWith(host)) continue;
-    href = href.split("?")[0].split("#")[0];
-    if (isExcluded(href)) continue;
-    const d = getDepth(href);
-    if (d < 1 || d > 4) continue;
-    if (!seen.has(href)) { seen.add(href); candidates.push(href); }
+// Try to collect URLs scoped to a specific locale path
+async function collectScopedUrls(origin, localeSlug) {
+  const localePath = "/" + localeSlug;
+  let allUrls = [];
+  let method = "";
+
+  // Try locale-specific sitemap paths first
+  const localeSitemapPaths = [
+    `${localePath}/sitemap.xml`,
+    `${localePath}/sitemap_index.xml`,
+    `/sitemap_${localeSlug}.xml`,
+    `/sitemap-${localeSlug}.xml`,
+  ];
+
+  for (const path of localeSitemapPaths) {
+    const { body, code } = await fetchUrl(origin + path);
+    if (!body || !isXml(body) || code !== 200) continue;
+    const urls = await collectFromSitemapXml(body, origin + path);
+    const scoped = urls.filter(u => u.includes(localePath));
+    if (scoped.length > 0) { allUrls = scoped; method = "locale sitemap"; break; }
   }
-  return candidates;
+
+  // Fall back to root sitemap, filter by locale
+  if (allUrls.length === 0) {
+    const robotsSitemaps = await getSitemapsFromRobots(origin);
+    for (const sm of robotsSitemaps) {
+      const { body } = await fetchUrl(sm);
+      if (!body || !isXml(body)) continue;
+      const urls = await collectFromSitemapXml(body, sm);
+      const scoped = urls.filter(u => {
+        const segs = getPathSegments(u);
+        return segs.length >= 1 && segs[0].toLowerCase().replace(/_/g, "-") === localeSlug;
+      });
+      allUrls.push(...scoped);
+      if (allUrls.length >= MAX_URLS) break;
+    }
+    if (allUrls.length > 0) method = "robots.txt sitemap";
+  }
+
+  if (allUrls.length === 0) {
+    for (const path of SITEMAP_PATHS) {
+      const { body, code } = await fetchUrl(origin + path);
+      if (!body || !isXml(body) || code !== 200) continue;
+      const urls = await collectFromSitemapXml(body, origin + path);
+      const scoped = urls.filter(u => {
+        const segs = getPathSegments(u);
+        return segs.length >= 1 && segs[0].toLowerCase().replace(/_/g, "-") === localeSlug;
+      });
+      if (scoped.length > 0) { allUrls = scoped; method = "sitemap XML"; break; }
+    }
+  }
+
+  return { allUrls: allUrls.slice(0, MAX_URLS), method };
 }
 
+// Full root-level collection (no locale scope)
 async function collectAllUrls(origin) {
   let allUrls = [];
   let method = "";
+  let homeBody = null;
   let homeBlocked = null;
 
-  // ── Strategy 1: robots.txt sitemaps ────────────────────────────────────────
+  // Robots.txt sitemaps first
   const robotsSitemaps = await getSitemapsFromRobots(origin);
   for (const sm of robotsSitemaps) {
     const { body } = await fetchUrl(sm);
@@ -279,33 +370,56 @@ async function collectAllUrls(origin) {
   }
   if (allUrls.length > 0) method = "robots.txt sitemap";
 
-  // ── Strategy 2: known sitemap paths ────────────────────────────────────────
+  // Known paths
   if (allUrls.length === 0) {
     for (const path of SITEMAP_PATHS) {
       const { body, code } = await fetchUrl(origin + path);
       if (!body || !isXml(body) || code === 403) continue;
       const urls = await collectFromSitemapXml(body, origin + path);
-      allUrls.push(...urls);
-      if (allUrls.length > 0) { method = "sitemap XML"; break; }
+      if (urls.length > 0) { allUrls = urls; method = "sitemap XML"; break; }
     }
   }
 
-  // ── Strategy 3: homepage nav (last resort) ──────────────────────────────────
-  if (allUrls.length === 0) {
-    const home = await fetchUrl(origin + "/");
-    if (home.code === 0)        homeBlocked = "unreachable";
-    else if (home.code === 403 || home.code === 429) homeBlocked = "blocked";
-    else if (home.body && isCloudflare(home.body)) homeBlocked = "cloudflare";
-    else if (home.body) {
-      allUrls = extractNavLinks(home.body, origin);
-      if (allUrls.length > 0) method = "homepage navigation";
-    }
+  // Homepage — always fetch for hreflang even if we got sitemap URLs
+  const home = await fetchUrl(origin + "/");
+  if (home.code === 0)       homeBlocked = "unreachable";
+  else if (home.code >= 400) homeBlocked = isCloudflare(home.body) ? "cloudflare" : "blocked";
+  else                       homeBody = home.body;
+
+  // Nav crawl as last resort
+  if (allUrls.length === 0 && homeBody && !isCloudflare(homeBody)) {
+    const navLinks = extractNavLinksFromHtml(homeBody, origin);
+    if (navLinks.length > 0) { allUrls = navLinks; method = "homepage navigation"; }
   }
 
-  return { allUrls: allUrls.slice(0, MAX_URLS), method, homeBlocked };
+  return { allUrls: allUrls.slice(0, MAX_URLS), method, homeBody, homeBlocked };
 }
 
-function detectLocales(allUrls) {
+function extractNavLinksFromHtml(html, origin) {
+  const host = origin.replace(/^https?:\/\//, "").replace(/^www\./, "");
+  const seen = new Set();
+  const candidates = [];
+  const re = /href=["']([^"'#?][^"']*?)["']/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    let href = m[1].trim();
+    if (href.startsWith("/")) href = origin + href;
+    else if (!href.startsWith("http")) continue;
+    try {
+      const hrefHost = new URL(href).hostname.replace(/^www\./, "");
+      if (!hrefHost.includes(host.split("/")[0])) continue;
+    } catch { continue; }
+    href = href.split("?")[0].split("#")[0];
+    if (isExcluded(href)) continue;
+    const d = getDepth(href);
+    if (d < 1 || d > 4) continue;
+    if (!seen.has(href)) { seen.add(href); candidates.push(href); }
+  }
+  return candidates;
+}
+
+// ── Locale detection from sitemap URLs ───────────────────────────────────────
+function detectLocalesFromUrls(allUrls) {
   const counts = {};
   for (const url of allUrls) {
     const segs = getPathSegments(url);
@@ -320,12 +434,12 @@ function detectLocales(allUrls) {
     .map(([slug, count]) => ({ slug, ...getLocaleInfo(slug), count }));
 }
 
-function groupIntoCategories(allUrls, localePrefix) {
-  const locSeg = localePrefix ? localePrefix.replace(/^\//, "").toLowerCase() : null;
-  const scoped = locSeg
+// ── Category grouping ─────────────────────────────────────────────────────────
+function groupIntoCategories(allUrls, localeSlug) {
+  const scoped = localeSlug
     ? allUrls.filter(u => {
         const segs = getPathSegments(u);
-        return segs.length >= 1 && segs[0].toLowerCase().replace(/_/g, "-") === locSeg;
+        return segs.length >= 1 && segs[0].toLowerCase().replace(/_/g, "-") === localeSlug;
       })
     : allUrls;
 
@@ -335,18 +449,17 @@ function groupIntoCategories(allUrls, localePrefix) {
   const groups = {};
   for (const url of filtered) {
     const segs = getPathSegments(url);
-    const catIdx = locSeg && segs[0] && segs[0].toLowerCase().replace(/_/g, "-") === locSeg ? 1 : 0;
+    const catIdx = localeSlug && segs[0] && segs[0].toLowerCase().replace(/_/g, "-") === localeSlug ? 1 : 0;
     const catSeg = segs[catIdx];
     if (!catSeg || isLocaleSegment(catSeg)) continue;
-    if (locSeg && segs.length === catIdx + 1) continue; // skip locale-root-level
+    if (localeSlug && segs.length <= catIdx + 1) continue; // skip locale root itself
     if (!groups[catSeg]) groups[catSeg] = [];
     groups[catSeg].push(url);
   }
 
   const scored = Object.entries(groups).map(([slug, urls]) => {
     const kwCount = urls.filter(hasProductKeyword).length;
-    const depths = urls.map(getDepth);
-    const avgDepth = depths.reduce((a, b) => a + b, 0) / depths.length;
+    const avgDepth = urls.map(getDepth).reduce((a, b) => a + b, 0) / urls.length;
     const score =
       (kwCount / Math.max(urls.length, 1)) * 40 +
       Math.min(urls.length / 5, 10) +
@@ -354,9 +467,8 @@ function groupIntoCategories(allUrls, localePrefix) {
     return { slug, urls, score };
   });
 
-  scored.sort((a, b) => b.score - a.score);
-
   return scored
+    .sort((a, b) => b.score - a.score)
     .filter(g => g.urls.length >= 1)
     .slice(0, 20)
     .map(g => ({
@@ -367,6 +479,7 @@ function groupIntoCategories(allUrls, localePrefix) {
     }));
 }
 
+// ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -379,55 +492,117 @@ export default async function handler(req, res) {
 
   const { origin, localePrefix: userLocalePrefix } = parseDomainInput(rawDomain);
 
-  // Strategy: try sitemap sources FIRST (robots.txt + known paths) — these often
-  // bypass geo-redirects and bot protection that blocks the homepage.
-  // Only fall back to homepage check if sitemap strategies yield nothing.
-  const { allUrls, method, homeBlocked } = await collectAllUrls(origin);
+  // ── Scoped mode: user already chose a market ────────────────────────────────
+  const effectiveLocale = userLocalePrefix
+    ? userLocalePrefix.replace("/", "")
+    : locale ? locale.replace(/^\//, "") : null;
 
-  if (allUrls.length === 0) {
-    // Nothing from sitemaps — now check why homepage failed
-    if (homeBlocked === "cloudflare") {
-      return res.json({ error: "Cloudflare protected", diagnosis: "This site uses Cloudflare bot protection — use the Apps Script method instead", fallback: true });
-    }
-    if (homeBlocked === "blocked") {
-      return res.json({ error: "Access blocked", diagnosis: "Server is blocking automated requests — use the Apps Script method instead", fallback: true });
-    }
-    if (homeBlocked === "unreachable") {
-      return res.json({ error: "Domain unreachable", diagnosis: "DNS or connection error — check the URL and try again" });
-    }
-    return res.json({ error: "No URLs found", diagnosis: "Could not find a sitemap or navigation links. Try the Apps Script method for JS-rendered sites.", fallback: true });
-  }
-
-  // If user typed a locale path OR API caller passed locale — go straight to categories
-  const effectiveLocale = userLocalePrefix || (locale ? "/" + locale.replace(/^\//, "") : null);
   if (effectiveLocale) {
+    const { allUrls, method } = await collectScopedUrls(origin, effectiveLocale);
+
+    if (allUrls.length === 0) {
+      return res.json({
+        error: "No URLs found for this market",
+        diagnosis: `Could not find product URLs under /${effectiveLocale}. This site may require the manual paste method.`,
+        fallback: true,
+      });
+    }
+
     const categories = groupIntoCategories(allUrls, effectiveLocale);
     if (!categories || categories.length === 0) {
-      return res.json({ error: "No categories found", diagnosis: `No product categories detected under ${effectiveLocale}` });
+      return res.json({
+        error: "No categories found",
+        diagnosis: `Found ${allUrls.length} URLs under /${effectiveLocale} but couldn't identify product categories.`,
+        fallback: true,
+      });
     }
+
     return res.json({ mode: "category", categories, method, total: allUrls.length, locale: effectiveLocale });
   }
 
-  // Auto-detect locales — always surface picker if ANY locales found,
-  // even if geo-redirect landed us in just one (user may want a different market)
-  const locales = detectLocales(allUrls);
-  if (locales.length >= 1) {
-    // Check if there are also non-locale URLs (mixed site structure)
-    const nonLocaleUrls = allUrls.filter(u => {
-      const segs = getPathSegments(u);
-      return segs.length >= 1 && !isLocaleSegment(segs[0]);
-    });
-    // If site has locale structure, always show picker — even for single locale
-    // This lets users know they're scoped and can adjust
-    if (locales.length >= 2 || (locales.length === 1 && nonLocaleUrls.length < allUrls.length * 0.3)) {
-      return res.json({ mode: "locale", locales, method, total: allUrls.length, domain: origin });
+  // ── Full scan mode ──────────────────────────────────────────────────────────
+  const { allUrls, method, homeBody, homeBlocked } = await collectAllUrls(origin);
+
+  // ── Step 1: Try hreflang from homepage HTML — authoritative market list ─────
+  if (homeBody) {
+    const hreflangLocales = extractHreflang(homeBody, origin);
+    if (hreflangLocales.length >= 2) {
+      // Deduplicate by slug, keep unique path prefixes
+      const seen = new Set();
+      const unique = hreflangLocales.filter(l => {
+        if (seen.has(l.slug)) return false;
+        seen.add(l.slug);
+        return true;
+      });
+      return res.json({
+        mode: "locale",
+        locales: unique,
+        method: "hreflang tags",
+        total: allUrls.length,
+        domain: origin,
+        source: "hreflang", // tells frontend to cache this list
+      });
     }
   }
 
-  // No locale structure — go straight to categories
-  const categories = groupIntoCategories(allUrls, null);
-  if (!categories || categories.length === 0) {
-    return res.json({ error: "No categories found", diagnosis: "Found URLs but could not identify product/category structure", fallback: true });
+  // ── Step 2: Locale detection from sitemap URLs ──────────────────────────────
+  if (allUrls.length > 0) {
+    const urlLocales = detectLocalesFromUrls(allUrls);
+
+    if (urlLocales.length >= 2) {
+      return res.json({
+        mode: "locale",
+        locales: urlLocales,
+        method,
+        total: allUrls.length,
+        domain: origin,
+        source: "sitemap",
+      });
+    }
+
+    // Single locale or no locale — try categories directly
+    const singleLocale = urlLocales.length === 1 ? urlLocales[0].slug : null;
+    const categories = groupIntoCategories(allUrls, singleLocale);
+
+    if (categories && categories.length > 0) {
+      // Still show locale picker if we found a single locale — user may want another market
+      if (urlLocales.length === 1) {
+        return res.json({
+          mode: "locale",
+          locales: urlLocales,
+          method,
+          total: allUrls.length,
+          domain: origin,
+          source: "sitemap",
+          note: "single_locale",
+        });
+      }
+      return res.json({ mode: "category", categories, method, total: allUrls.length, locale: null });
+    }
   }
-  return res.json({ mode: "category", categories, method, total: allUrls.length, locale: null });
+
+  // ── Nothing worked ──────────────────────────────────────────────────────────
+  if (homeBlocked === "cloudflare") {
+    return res.json({
+      error: "Cloudflare protected",
+      diagnosis: "This site uses Cloudflare bot protection which blocks automated scanning. Use the manual paste method to add URLs directly.",
+      fallback: true,
+    });
+  }
+  if (homeBlocked === "blocked") {
+    return res.json({
+      error: "Site blocked scanner",
+      diagnosis: "This site is blocking automated requests. Use the manual paste method to add URLs directly.",
+      fallback: true,
+    });
+  }
+  if (homeBlocked === "unreachable") {
+    return res.json({ error: "Domain unreachable", diagnosis: "Check the URL and try again." });
+  }
+
+  return res.json({
+    error: "No URLs found",
+    diagnosis: "Could not find a sitemap or navigation links. Use the manual paste method for this site.",
+    fallback: true,
+  });
 }
