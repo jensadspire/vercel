@@ -238,12 +238,19 @@ function extractHreflang(html, origin) {
     const langKey = lang.toLowerCase().replace(/_/g, "-");
     if (seen.has(langKey)) return;
 
-    // Extract path prefix from href
+    // Extract path prefix from href — handle double-locale slugs like /sk/sk/ or /en/gb/
     let pathPrefix = null;
     try {
       const u = new URL(href.startsWith("http") ? href : origin + href);
       const segs = u.pathname.split("/").filter(Boolean);
-      if (segs.length >= 1) pathPrefix = "/" + segs[0].toLowerCase();
+      if (segs.length >= 2 &&
+          segs[0].length <= 3 && segs[1].length <= 3 &&
+          (segs[0] === segs[1] || isLocaleSegment(segs[0]) && isLocaleSegment(segs[1]))) {
+        // Double-locale pattern: /sk/sk/ or /en/gb/ — use full two-segment prefix
+        pathPrefix = "/" + segs[0].toLowerCase() + "/" + segs[1].toLowerCase();
+      } else if (segs.length >= 1) {
+        pathPrefix = "/" + segs[0].toLowerCase();
+      }
     } catch {}
 
     seen.add(langKey);
@@ -328,7 +335,8 @@ async function collectScopedUrls(origin, localeSlug) {
       const urls = await collectFromSitemapXml(body, sm);
       const scoped = urls.filter(u => {
         const segs = getPathSegments(u);
-        return segs.length >= 1 && segs[0].toLowerCase().replace(/_/g, "-") === localeSlug;
+        const slugParts = localeSlug.split("/").filter(Boolean);
+        return slugParts.every((part, i) => segs[i] && segs[i].toLowerCase() === part);
       });
       allUrls.push(...scoped);
       if (allUrls.length >= MAX_URLS) break;
@@ -343,7 +351,8 @@ async function collectScopedUrls(origin, localeSlug) {
       const urls = await collectFromSitemapXml(body, origin + path);
       const scoped = urls.filter(u => {
         const segs = getPathSegments(u);
-        return segs.length >= 1 && segs[0].toLowerCase().replace(/_/g, "-") === localeSlug;
+        const slugParts = localeSlug.split("/").filter(Boolean);
+        return slugParts.every((part, i) => segs[i] && segs[i].toLowerCase() === part);
       });
       if (scoped.length > 0) { allUrls = scoped; method = "sitemap XML"; break; }
     }
@@ -436,10 +445,11 @@ function detectLocalesFromUrls(allUrls) {
 
 // ── Category grouping ─────────────────────────────────────────────────────────
 function groupIntoCategories(allUrls, localeSlug) {
+  const slugParts = localeSlug ? localeSlug.split("/").filter(Boolean) : [];
   const scoped = localeSlug
     ? allUrls.filter(u => {
         const segs = getPathSegments(u);
-        return segs.length >= 1 && segs[0].toLowerCase().replace(/_/g, "-") === localeSlug;
+        return slugParts.every((part, i) => segs[i] && segs[i].toLowerCase() === part);
       })
     : allUrls;
 
@@ -449,10 +459,10 @@ function groupIntoCategories(allUrls, localeSlug) {
   const groups = {};
   for (const url of filtered) {
     const segs = getPathSegments(url);
-    const catIdx = localeSlug && segs[0] && segs[0].toLowerCase().replace(/_/g, "-") === localeSlug ? 1 : 0;
+    const catIdx = slugParts.length; // skip all locale parts
     const catSeg = segs[catIdx];
     if (!catSeg || isLocaleSegment(catSeg)) continue;
-    if (localeSlug && segs.length <= catIdx + 1) continue; // skip locale root itself
+    if (localeSlug && segs.length <= slugParts.length) continue; // skip locale root itself
     if (!groups[catSeg]) groups[catSeg] = [];
     groups[catSeg].push(url);
   }
