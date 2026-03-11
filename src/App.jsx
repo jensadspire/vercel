@@ -1525,6 +1525,17 @@ STRICT rules:
               transition: "all 0.2s", whiteSpace: "nowrap",
             }}>↺ Clear & new URL</button>
           )}
+          {/* Batch Mode — inline next to Clear button, signed-in only */}
+          {isSignedIn && !batchRunning && (
+            <button onClick={() => setShowBatchPanel(v => !v)} style={{
+              padding: "9px 14px", fontSize: 11, fontWeight: 700,
+              background: showBatchPanel ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)",
+              border: "1px solid " + (showBatchPanel ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.09)"),
+              color: showBatchPanel ? "#a5b4fc" : "#7e92a8",
+              borderRadius: 8, cursor: "pointer", flexShrink: 0,
+              transition: "all 0.2s", whiteSpace: "nowrap",
+            }}>⚡ Batch</button>
+          )}
         </div>
         {error && (
           <div style={{ maxWidth: 900, margin: "8px auto 0", fontSize: 12, color: "#f87171", display: "flex", alignItems: "center", gap: 6 }}>
@@ -1544,18 +1555,6 @@ STRICT rules:
               AI-generated copy may contain errors. Always review before importing into Google Ads. You are responsible for final ad content.
             </span>
           </div>
-        {/* Batch Mode Button — signed-in users only */}
-        {isSignedIn && !batchRunning && (
-          <div style={{ maxWidth: 900, margin: "6px auto 0", display: "flex", justifyContent: "flex-end" }}>
-            <button onClick={() => setShowBatchPanel(v => !v)} style={{
-              fontSize: 10, fontWeight: 700, padding: "4px 12px", borderRadius: 6,
-              background: showBatchPanel ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.04)",
-              border: "1px solid " + (showBatchPanel ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.08)"),
-              color: showBatchPanel ? "#a5b4fc" : "#7e92a8", cursor: "pointer",
-              letterSpacing: "0.05em",
-            }}>⚡ Batch Mode</button>
-          </div>
-        )}
 
         {/* Batch Panel — signed-in users only */}
         {isSignedIn && showBatchPanel && (
