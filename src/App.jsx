@@ -406,8 +406,16 @@ function RSAStudio() {
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
   // ── Batch mode state ──────────────────────────────────────────────────────
   const [showBatchPanel, setShowBatchPanel] = useState(false);
+  const [batchTab, setBatchTab] = useState("scan"); // "scan" | "paste"
   const [batchPasteText, setBatchPasteText] = useState("");
   const [batchUrls, setBatchUrls] = useState([]); // [{ url, category, selected }]
+  // Scanner state
+  const [scanDomain, setScanDomain] = useState("");
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanError, setScanError] = useState("");
+  const [scanCategories, setScanCategories] = useState([]); // [{ slug, name, urls, count }]
+  const [scanMethod, setScanMethod] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [showAdSwitcher, setShowAdSwitcher] = useState(false);
@@ -557,6 +565,49 @@ function RSAStudio() {
     }, []);
   };
 
+  // ── Domain scanner ────────────────────────────────────────────────────────
+  const runScan = async () => {
+    if (!scanDomain.trim()) return;
+    setScanLoading(true);
+    setScanError("");
+    setScanCategories([]);
+    setSelectedCategory(null);
+    try {
+      const res = await fetch("/api/sitemap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: scanDomain.trim() }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setScanError(data.diagnosis || data.error);
+        if (data.fallback) setBatchTab("paste"); // auto-switch to paste fallback
+      } else {
+        setScanCategories(data.categories || []);
+        setScanMethod(data.method || "");
+      }
+    } catch (e) {
+      setScanError("Network error — please try again");
+    }
+    setScanLoading(false);
+  };
+
+  const loadCategory = (cat) => {
+    setSelectedCategory(cat);
+    const parsed = cat.urls.map(url => {
+      let category = cat.name;
+      try {
+        const segs = new URL(url).pathname.split("/").filter(Boolean);
+        if (segs.length > 1) {
+          const seg = segs[segs.length - 1].replace(/[-_]/g, " ").replace(/\.html?$/, "");
+          category = seg.charAt(0).toUpperCase() + seg.slice(1);
+        }
+      } catch {}
+      return { url, category, selected: true };
+    });
+    setBatchUrls(parsed);
+  };
+
   const runBatchGeneration = async () => {
     const selected = batchUrls.filter(b => b.selected);
     if (!selected.length) return;
@@ -648,6 +699,10 @@ function RSAStudio() {
     setShowBatchPanel(false);
     setBatchPasteText("");
     setBatchUrls([]);
+    setScanCategories([]);
+    setSelectedCategory(null);
+    setScanDomain("");
+    setScanError("");
   };
 
   const generate = async () => {
@@ -1597,37 +1652,132 @@ STRICT rules:
             </div>
 
             {batchUrls.length === 0 ? (
-              /* Paste step */
-              <div style={{ padding: "16px 18px" }}>
-                <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Step 1 — Run the Apps Script in Google Sheets, then paste the URLs below
+              /* Step 1 — Scan or Paste */
+              <div style={{ padding: "0" }}>
+
+                {/* Tab switcher */}
+                <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  {[{ id: "scan", label: "🔍 Scan Domain" }, { id: "paste", label: "📋 Paste URLs" }].map(t => (
+                    <button key={t.id} onClick={() => { setBatchTab(t.id); setScanError(""); }} style={{
+                      flex: 1, padding: "10px 0", fontSize: 11, fontWeight: 700,
+                      background: "none", border: "none", cursor: "pointer",
+                      color: batchTab === t.id ? "#a5b4fc" : "#4a5568",
+                      borderBottom: batchTab === t.id ? "2px solid #6366f1" : "2px solid transparent",
+                      transition: "all 0.15s",
+                    }}>{t.label}</button>
+                  ))}
                 </div>
-                <textarea
-                  value={batchPasteText}
-                  onChange={e => setBatchPasteText(e.target.value)}
-                  placeholder={"https://example.com/category/shoes\nhttps://example.com/category/bags\nhttps://example.com/products/item-1"}
-                  style={{
-                    width: "100%", height: 120, background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8,
-                    color: "#e2e8f0", fontSize: 11, padding: "10px 12px",
-                    resize: "vertical", fontFamily: "monospace", boxSizing: "border-box",
-                  }}
-                />
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-                  <button
-                    onClick={() => {
-                      const parsed = parseBatchUrls(batchPasteText);
-                      if (parsed.length > 0) setBatchUrls(parsed);
-                    }}
-                    disabled={!batchPasteText.trim()}
-                    style={{
-                      padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer",
-                      background: batchPasteText.trim() ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.05)",
-                      color: batchPasteText.trim() ? "white" : "#4a5568", fontWeight: 700, fontSize: 12,
-                    }}>
-                    Parse URLs →
-                  </button>
-                </div>
+
+                {/* Scan tab */}
+                {batchTab === "scan" && (
+                  <div style={{ padding: "16px 18px" }}>
+                    {scanCategories.length === 0 ? (
+                      <>
+                        <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          Enter a domain to scan for product categories
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <input
+                            value={scanDomain}
+                            onChange={e => setScanDomain(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && runScan()}
+                            placeholder="e.g. hackett.com or www.only.com/de-de"
+                            style={{
+                              flex: 1, ...{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#e2e8f0", fontSize: 12, padding: "9px 12px", outline: "none" },
+                            }}
+                          />
+                          <button onClick={runScan} disabled={scanLoading || !scanDomain.trim()} style={{
+                            padding: "9px 18px", borderRadius: 8, border: "none", cursor: scanLoading ? "not-allowed" : "pointer",
+                            background: scanLoading ? "linear-gradient(135deg,#d97706,#f59e0b)" : "linear-gradient(135deg,#3b82f6,#6366f1)",
+                            color: "white", fontWeight: 700, fontSize: 12, flexShrink: 0,
+                            animation: scanLoading ? "pulse 1.5s ease-in-out infinite" : "none",
+                            boxShadow: scanLoading ? "0 0 12px rgba(245,158,11,0.4)" : "none",
+                          }}>
+                            {scanLoading ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block", marginRight: 5 }}>◌</span>Scanning…</> : "Scan →"}
+                          </button>
+                        </div>
+                        {scanError && (
+                          <div style={{ marginTop: 10, padding: "8px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 7 }}>
+                            <div style={{ fontSize: 11, color: "#f87171", fontWeight: 700, marginBottom: 2 }}>Scan failed</div>
+                            <div style={{ fontSize: 10, color: "#8fa3b8" }}>{scanError}</div>
+                            {scanError.includes("Apps Script") && (
+                              <button onClick={() => setBatchTab("paste")} style={{ marginTop: 6, fontSize: 10, fontWeight: 700, color: "#60a5fa", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                                → Switch to manual paste instead
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        <div style={{ marginTop: 10, fontSize: 10, color: "#2d3748" }}>
+                          Works for most sites with XML sitemaps · Cloudflare-protected sites require the Apps Script method
+                        </div>
+                      </>
+                    ) : (
+                      /* Category picker */
+                      <>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0" }}>{scanCategories.length} categories found</span>
+                            <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 8 }}>via {scanMethod}</span>
+                          </div>
+                          <button onClick={() => { setScanCategories([]); setSelectedCategory(null); setScanDomain(""); }} style={{ fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>← Re-scan</button>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 260, overflowY: "auto" }}>
+                          {scanCategories.map(cat => (
+                            <button key={cat.slug} onClick={() => loadCategory(cat)} style={{
+                              display: "flex", alignItems: "center", justifyContent: "space-between",
+                              padding: "9px 12px", borderRadius: 8, cursor: "pointer", textAlign: "left",
+                              background: selectedCategory?.slug === cat.slug ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)",
+                              border: "1px solid " + (selectedCategory?.slug === cat.slug ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)"),
+                              transition: "all 0.15s",
+                            }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: selectedCategory?.slug === cat.slug ? "#a5b4fc" : "#cbd5e1" }}>{cat.name}</span>
+                              <span style={{ fontSize: 10, color: "#4a5568", fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>{cat.count} URL{cat.count !== 1 ? "s" : ""} →</span>
+                            </button>
+                          ))}
+                        </div>
+                        {selectedCategory && (
+                          <div style={{ marginTop: 10, padding: "8px 12px", background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.15)", borderRadius: 7, fontSize: 10, color: "#6ee7b7" }}>
+                            ✓ {selectedCategory.count} URLs from <strong>{selectedCategory.name}</strong> loaded — scroll down to review and generate
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Paste tab */}
+                {batchTab === "paste" && (
+                  <div style={{ padding: "16px 18px" }}>
+                    <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      Run the Apps Script in Google Sheets, then paste URLs below
+                    </div>
+                    <textarea
+                      value={batchPasteText}
+                      onChange={e => setBatchPasteText(e.target.value)}
+                      placeholder={"https://example.com/category/shoes
+https://example.com/category/bags
+https://example.com/products/item-1"}
+                      style={{
+                        width: "100%", height: 110, background: "rgba(255,255,255,0.03)",
+                        border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8,
+                        color: "#e2e8f0", fontSize: 11, padding: "10px 12px",
+                        resize: "vertical", fontFamily: "monospace", boxSizing: "border-box",
+                      }}
+                    />
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                      <button
+                        onClick={() => { const parsed = parseBatchUrls(batchPasteText); if (parsed.length > 0) setBatchUrls(parsed); }}
+                        disabled={!batchPasteText.trim()}
+                        style={{
+                          padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer",
+                          background: batchPasteText.trim() ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.05)",
+                          color: batchPasteText.trim() ? "white" : "#4a5568", fontWeight: 700, fontSize: 12,
+                        }}>
+                        Parse URLs →
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               /* Select & generate step */
