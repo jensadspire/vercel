@@ -407,6 +407,7 @@ function RSAStudio() {
   const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
   const [metaResult, setMetaResult] = useState(null);       // { primaryTexts, headlines, descriptions, imageUrl }
   const [metaLoading, setMetaLoading] = useState(false);
+  const [metaError, setMetaError] = useState("");
   const [metaCopied, setMetaCopied] = useState({});
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   const [metaActiveVariants, setMetaActiveVariants] = useState({ pt: 0, hl: 0, d: 0 }); // active variant indices
@@ -1129,7 +1130,7 @@ STRICT rules:
       // ── Meta generation (opt-in) ─────────────────────────────────────────
       if (generateMeta) {
         setMetaLoading(true);
-        setAdFormat("meta"); // switch to meta tab to show progress
+        setMetaError("");
         try {
           const metaRes = await fetch("/api/generate-meta", {
             method: "POST",
@@ -1137,8 +1138,17 @@ STRICT rules:
             body: JSON.stringify({ url, language: selectedLanguage }),
           });
           const metaData = await metaRes.json();
-          if (!metaData.error) setMetaResult(metaData);
-        } catch {}
+          if (metaData.error) {
+            setMetaError("Meta generation error: " + metaData.error);
+          } else {
+            setMetaError("");
+            setMetaResult(metaData);
+            setAdFormat("meta"); // switch to meta tab only after success
+          }
+        } catch (e) {
+          console.error("Meta generation failed:", e.message);
+          setMetaError("Meta generation failed — " + e.message);
+        }
         setMetaLoading(false);
       }
     } catch (e) {
@@ -3250,9 +3260,13 @@ STRICT rules:
                 {!metaLoading && !metaResult && (
                   <div style={{ textAlign: "center", padding: "32px 16px" }}>
                     <div style={{ fontSize: 28, marginBottom: 10, opacity: 0.3 }}>◉</div>
-                    <div style={{ fontSize: 11, color: "#4a5568", lineHeight: 1.5 }}>
-                      Check "Also generate Meta ads" below the URL bar and click Generate
-                    </div>
+                    {metaError ? (
+                      <div style={{ fontSize: 11, color: "#f87171", lineHeight: 1.5, marginBottom: 8 }}>{metaError}</div>
+                    ) : (
+                      <div style={{ fontSize: 11, color: "#4a5568", lineHeight: 1.5 }}>
+                        Check "Also generate Meta ads" below the URL bar and click Generate
+                      </div>
+                    )}
                   </div>
                 )}
                 {!metaLoading && metaResult && (() => {
