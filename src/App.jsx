@@ -1783,7 +1783,10 @@ STRICT rules:
                             <span style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0" }}>{scanCategories.length} categories found</span>
                             <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 8 }}>via {scanMethod}</span>
                           </div>
-                          <button onClick={() => { setScanCategories([]); setScanLocales([]); setSelectedCategory(null); setScanDomain(""); }} style={{ fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>← Re-scan</button>
+                          <div style={{ display: "flex", gap: 10 }}>
+                            <button onClick={() => { setScanCategories([]); }} style={{ fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>🌐 Change market</button>
+                            <button onClick={() => { setScanCategories([]); setScanLocales([]); setSelectedCategory(null); setScanDomain(""); }} style={{ fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>← Re-scan</button>
+                          </div>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 260, overflowY: "auto" }}>
                           {scanCategories.map(cat => (

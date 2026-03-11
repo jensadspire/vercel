@@ -266,6 +266,9 @@ function extractNavLinks(html, origin) {
 async function collectAllUrls(origin) {
   let allUrls = [];
   let method = "";
+  let homeBlocked = null;
+
+  // ── Strategy 1: robots.txt sitemaps ────────────────────────────────────────
   const robotsSitemaps = await getSitemapsFromRobots(origin);
   for (const sm of robotsSitemaps) {
     const { body } = await fetchUrl(sm);
@@ -275,6 +278,8 @@ async function collectAllUrls(origin) {
     if (allUrls.length >= MAX_URLS) break;
   }
   if (allUrls.length > 0) method = "robots.txt sitemap";
+
+  // ── Strategy 2: known sitemap paths ────────────────────────────────────────
   if (allUrls.length === 0) {
     for (const path of SITEMAP_PATHS) {
       const { body, code } = await fetchUrl(origin + path);
@@ -284,14 +289,20 @@ async function collectAllUrls(origin) {
       if (allUrls.length > 0) { method = "sitemap XML"; break; }
     }
   }
+
+  // ── Strategy 3: homepage nav (last resort) ──────────────────────────────────
   if (allUrls.length === 0) {
-    const { body } = await fetchUrl(origin + "/");
-    if (body && !isCloudflare(body)) {
-      allUrls = extractNavLinks(body, origin);
+    const home = await fetchUrl(origin + "/");
+    if (home.code === 0)        homeBlocked = "unreachable";
+    else if (home.code === 403 || home.code === 429) homeBlocked = "blocked";
+    else if (home.body && isCloudflare(home.body)) homeBlocked = "cloudflare";
+    else if (home.body) {
+      allUrls = extractNavLinks(home.body, origin);
       if (allUrls.length > 0) method = "homepage navigation";
     }
   }
-  return { allUrls: allUrls.slice(0, MAX_URLS), method };
+
+  return { allUrls: allUrls.slice(0, MAX_URLS), method, homeBlocked };
 }
 
 function detectLocales(allUrls) {
@@ -368,18 +379,23 @@ export default async function handler(req, res) {
 
   const { origin, localePrefix: userLocalePrefix } = parseDomainInput(rawDomain);
 
-  const home = await fetchUrl(origin + "/");
-  if (home.code === 0)   return res.json({ error: "Domain unreachable", diagnosis: "DNS or connection error — check the URL and try again" });
-  if (home.code === 403) return res.json({ error: "Access blocked", diagnosis: "Server is blocking automated requests (403)" });
-  if (home.code === 429) return res.json({ error: "Rate limited", diagnosis: "Too many requests — try again in a few seconds" });
-  if (home.code >= 500)  return res.json({ error: "Server error", diagnosis: `Site returned ${home.code} — may be temporarily down` });
-  if (home.body && isCloudflare(home.body)) {
-    return res.json({ error: "Cloudflare protected", diagnosis: "This site uses Cloudflare bot protection — use the Apps Script method instead", fallback: true });
-  }
+  // Strategy: try sitemap sources FIRST (robots.txt + known paths) — these often
+  // bypass geo-redirects and bot protection that blocks the homepage.
+  // Only fall back to homepage check if sitemap strategies yield nothing.
+  const { allUrls, method, homeBlocked } = await collectAllUrls(origin);
 
-  const { allUrls, method } = await collectAllUrls(origin);
   if (allUrls.length === 0) {
-    return res.json({ error: "No URLs found", diagnosis: "Could not find a sitemap or navigation links. Try the Apps Script method.", fallback: true });
+    // Nothing from sitemaps — now check why homepage failed
+    if (homeBlocked === "cloudflare") {
+      return res.json({ error: "Cloudflare protected", diagnosis: "This site uses Cloudflare bot protection — use the Apps Script method instead", fallback: true });
+    }
+    if (homeBlocked === "blocked") {
+      return res.json({ error: "Access blocked", diagnosis: "Server is blocking automated requests — use the Apps Script method instead", fallback: true });
+    }
+    if (homeBlocked === "unreachable") {
+      return res.json({ error: "Domain unreachable", diagnosis: "DNS or connection error — check the URL and try again" });
+    }
+    return res.json({ error: "No URLs found", diagnosis: "Could not find a sitemap or navigation links. Try the Apps Script method for JS-rendered sites.", fallback: true });
   }
 
   // If user typed a locale path OR API caller passed locale — go straight to categories
@@ -392,17 +408,26 @@ export default async function handler(req, res) {
     return res.json({ mode: "category", categories, method, total: allUrls.length, locale: effectiveLocale });
   }
 
-  // Auto-detect locales
+  // Auto-detect locales — always surface picker if ANY locales found,
+  // even if geo-redirect landed us in just one (user may want a different market)
   const locales = detectLocales(allUrls);
-  if (locales.length >= 2) {
-    return res.json({ mode: "locale", locales, method, total: allUrls.length, domain: origin });
+  if (locales.length >= 1) {
+    // Check if there are also non-locale URLs (mixed site structure)
+    const nonLocaleUrls = allUrls.filter(u => {
+      const segs = getPathSegments(u);
+      return segs.length >= 1 && !isLocaleSegment(segs[0]);
+    });
+    // If site has locale structure, always show picker — even for single locale
+    // This lets users know they're scoped and can adjust
+    if (locales.length >= 2 || (locales.length === 1 && nonLocaleUrls.length < allUrls.length * 0.3)) {
+      return res.json({ mode: "locale", locales, method, total: allUrls.length, domain: origin });
+    }
   }
 
-  // Single locale or no locale structure — go straight to categories
-  const singleLocale = locales.length === 1 ? "/" + locales[0].slug : null;
-  const categories = groupIntoCategories(allUrls, singleLocale);
+  // No locale structure — go straight to categories
+  const categories = groupIntoCategories(allUrls, null);
   if (!categories || categories.length === 0) {
     return res.json({ error: "No categories found", diagnosis: "Found URLs but could not identify product/category structure", fallback: true });
   }
-  return res.json({ mode: "category", categories, method, total: allUrls.length, locale: singleLocale });
+  return res.json({ mode: "category", categories, method, total: allUrls.length, locale: null });
 }
