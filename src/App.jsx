@@ -3215,6 +3215,7 @@ STRICT rules:
                 </div>
               )}
             </div>
+          )}
 
           {/* Meta Preview — shown in left panel when Meta tab active */}
           {adFormat === "meta" && (<>
