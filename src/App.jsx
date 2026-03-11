@@ -2759,21 +2759,19 @@ STRICT rules:
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <button onClick={() => {
                     const allIds = new Set(history.map(h => h.id));
-                    const allChecked = history.every(h => selectedForExport.has(h.id)) && currentAdSelected;
+                    const allChecked = history.every(h => selectedForExport.has(h.id));
                     if (allChecked) {
                       setSelectedForExport(new Set());
-                      setCurrentAdSelected(false);
                     } else {
                       setSelectedForExport(allIds);
-                      setCurrentAdSelected(true);
                     }
                   }} style={{
                     width: 16, height: 16, borderRadius: 3, border: "none", cursor: "pointer", flexShrink: 0,
-                    background: history.every(h => selectedForExport.has(h.id)) && currentAdSelected
+                    background: history.every(h => selectedForExport.has(h.id))
                       ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.08)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
-                    {history.every(h => selectedForExport.has(h.id)) && currentAdSelected &&
+                    {history.every(h => selectedForExport.has(h.id)) &&
                       <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
                   </button>
                   <span style={{ ...S.sectionLabel, margin: 0 }}>Recent Generations</span>
@@ -2805,36 +2803,7 @@ STRICT rules:
               {showHistory && (
                 <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
 
-                  {/* Current active ad — always shown at top with checkbox */}
-                  {generated && (
-                    <div style={{
-                      padding: "10px 12px", borderRadius: 8,
-                      background: currentAdSelected ? "rgba(59,130,246,0.08)" : "rgba(255,255,255,0.03)",
-                      border: `1px solid ${currentAdSelected ? "rgba(59,130,246,0.3)" : "rgba(255,255,255,0.07)"}`,
-                      display: "flex", alignItems: "center", gap: 10,
-                      transition: "all 0.15s",
-                    }}>
-                      {/* Checkbox */}
-                      <button onClick={() => setCurrentAdSelected(v => !v)} style={{
-                        width: 18, height: 18, borderRadius: 4, border: "none", cursor: "pointer", flexShrink: 0,
-                        background: currentAdSelected ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.08)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "background 0.15s",
-                      }}>
-                        {currentAdSelected && <span style={{ color: "white", fontSize: 10, fontWeight: 900 }}>✓</span>}
-                      </button>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0", marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}>
-                          {row.campaign || new URL(url).hostname}
-                          <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: "rgba(59,130,246,0.2)", color: "#60a5fa", fontWeight: 700 }}>CURRENT</span>
-                        </div>
-                        <div style={{ fontSize: 10, color: "#8fa3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{url}</div>
-                        <div style={{ fontSize: 9, color: "#8fa3b8", marginTop: 2 }}>{row.headlines.filter(h => h.text).length} headlines · {row.descriptions.filter(d => d.text).length} descriptions</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* History items with checkboxes — paginated */}
+                                    {/* History items with checkboxes — paginated */}
                   {history.slice(historyPage * ADS_PER_PAGE, (historyPage + 1) * ADS_PER_PAGE).map((h, i) => {
                     const isSelected = selectedForExport.has(h.id);
                     return (
@@ -2846,11 +2815,20 @@ STRICT rules:
                         transition: "all 0.15s",
                       }}>
                         {/* Checkbox */}
-                        <button onClick={() => setSelectedForExport(prev => {
-                          const next = new Set(prev);
-                          next.has(h.id) ? next.delete(h.id) : next.add(h.id);
-                          return next;
-                        })} style={{
+                        <button onClick={() => {
+                          // Toggle export selection
+                          setSelectedForExport(prev => {
+                            const next = new Set(prev);
+                            next.has(h.id) ? next.delete(h.id) : next.add(h.id);
+                            return next;
+                          });
+                          // Also switch active preview to this ad
+                          setRows(h.rows);
+                          setActiveRow(0);
+                          setUrl(h.url);
+                          setGenerated(true);
+                          if (h.format) setAdFormat(h.format);
+                        }} style={{
                           width: 18, height: 18, borderRadius: 4, border: "none", cursor: "pointer", flexShrink: 0,
                           background: isSelected ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(255,255,255,0.08)",
                           display: "flex", alignItems: "center", justifyContent: "center",
@@ -2893,12 +2871,9 @@ STRICT rules:
                   <Paginator page={historyPage} total={history.length} perPage={ADS_PER_PAGE} onChange={p => setHistoryPage(p)} />
 
                   {/* Multi-export tray — shows when anything is selected */}
-                  {(currentAdSelected || selectedForExport.size > 0) && (() => {
-                    const selectedRows = [
-                      ...(currentAdSelected ? [row] : []),
-                      ...history.filter(h => selectedForExport.has(h.id)).flatMap(h => h.rows),
-                    ];
-                    const totalSelected = (currentAdSelected ? 1 : 0) + selectedForExport.size;
+                  {selectedForExport.size > 0 && (() => {
+                    const selectedRows = history.filter(h => selectedForExport.has(h.id)).flatMap(h => h.rows);
+                    const totalSelected = selectedForExport.size;
                     const multiTsv = buildTSV(selectedRows, omitGroupMulti, adFormat);
 
                     const handleMultiCopy = async () => {
