@@ -416,6 +416,8 @@ function RSAStudio() {
   const [scanCategories, setScanCategories] = useState([]); // [{ slug, name, urls, count }]
   const [scanMethod, setScanMethod] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [scanLocales, setScanLocales] = useState([]);     // locale picker results
+  const [scanScannedDomain, setScanScannedDomain] = useState(""); // origin after scan
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [showAdSwitcher, setShowAdSwitcher] = useState(false);
@@ -566,23 +568,33 @@ function RSAStudio() {
   };
 
   // ── Domain scanner ────────────────────────────────────────────────────────
-  const runScan = async () => {
-    if (!scanDomain.trim()) return;
+  const runScan = async (domainOverride, localeOverride) => {
+    const domain = domainOverride || scanDomain.trim();
+    if (!domain) return;
     setScanLoading(true);
     setScanError("");
     setScanCategories([]);
+    setScanLocales([]);
     setSelectedCategory(null);
     try {
+      const body = { domain };
+      if (localeOverride) body.locale = localeOverride;
       const res = await fetch("/api/sitemap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain: scanDomain.trim() }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.error) {
         setScanError(data.diagnosis || data.error);
-        if (data.fallback) setBatchTab("paste"); // auto-switch to paste fallback
+        if (data.fallback) setBatchTab("paste");
+      } else if (data.mode === "locale") {
+        // Show locale picker
+        setScanLocales(data.locales || []);
+        setScanScannedDomain(data.domain || domain);
+        setScanMethod(data.method || "");
       } else {
+        // Straight to categories
         setScanCategories(data.categories || []);
         setScanMethod(data.method || "");
       }
@@ -700,8 +712,10 @@ function RSAStudio() {
     setBatchPasteText("");
     setBatchUrls([]);
     setScanCategories([]);
+    setScanLocales([]);
     setSelectedCategory(null);
     setScanDomain("");
+    setScanScannedDomain("");
     setScanError("");
   };
 
@@ -1671,7 +1685,9 @@ STRICT rules:
                 {/* Scan tab */}
                 {batchTab === "scan" && (
                   <div style={{ padding: "16px 18px" }}>
-                    {scanCategories.length === 0 ? (
+
+                    {/* Input row — always visible unless categories loaded */}
+                    {scanCategories.length === 0 && scanLocales.length === 0 && (
                       <>
                         <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                           Enter a domain to scan for product categories
@@ -1681,12 +1697,13 @@ STRICT rules:
                             value={scanDomain}
                             onChange={e => setScanDomain(e.target.value)}
                             onKeyDown={e => e.key === "Enter" && runScan()}
-                            placeholder="e.g. hackett.com or www.only.com/de-de"
+                            placeholder="e.g. hackett.com or hackett.com/de-de"
                             style={{
-                              flex: 1, ...{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#e2e8f0", fontSize: 12, padding: "9px 12px", outline: "none" },
+                              flex: 1, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                              borderRadius: 8, color: "#e2e8f0", fontSize: 12, padding: "9px 12px", outline: "none",
                             }}
                           />
-                          <button onClick={runScan} disabled={scanLoading || !scanDomain.trim()} style={{
+                          <button onClick={() => runScan()} disabled={scanLoading || !scanDomain.trim()} style={{
                             padding: "9px 18px", borderRadius: 8, border: "none", cursor: scanLoading ? "not-allowed" : "pointer",
                             background: scanLoading ? "linear-gradient(135deg,#d97706,#f59e0b)" : "linear-gradient(135deg,#3b82f6,#6366f1)",
                             color: "white", fontWeight: 700, fontSize: 12, flexShrink: 0,
@@ -1708,24 +1725,71 @@ STRICT rules:
                           </div>
                         )}
                         <div style={{ marginTop: 10, fontSize: 10, color: "#2d3748" }}>
-                          Works for most sites with XML sitemaps · Cloudflare-protected sites require the Apps Script method
+                          Works for most sites with XML sitemaps · Add /de-de to scan a specific market directly
                         </div>
                       </>
-                    ) : (
-                      /* Category picker */
+                    )}
+
+                    {/* Locale picker — shown when multiple markets detected */}
+                    {scanLocales.length > 0 && scanCategories.length === 0 && (
+                      <>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0" }}>
+                              {scanLocales.length} markets found
+                            </span>
+                            <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 8 }}>via {scanMethod} · select your target market</span>
+                          </div>
+                          <button onClick={() => { setScanLocales([]); setScanDomain(""); }} style={{ fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>← Re-scan</button>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto" }}>
+                          {scanLocales.map(loc => (
+                            <button key={loc.slug}
+                              onClick={() => runScan(scanScannedDomain, loc.slug)}
+                              disabled={scanLoading}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 12,
+                                padding: "10px 14px", borderRadius: 8, cursor: "pointer", textAlign: "left", width: "100%",
+                                background: "rgba(255,255,255,0.03)",
+                                border: "1px solid rgba(255,255,255,0.06)",
+                                transition: "all 0.15s",
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = "rgba(99,102,241,0.08)"; e.currentTarget.style.borderColor = "rgba(99,102,241,0.25)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
+                            >
+                              <span style={{ fontSize: 20, flexShrink: 0 }}>{loc.flag}</span>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0" }}>{loc.label}</div>
+                                <div style={{ fontSize: 10, color: "#4a5568" }}>/{loc.slug} · {loc.count} URLs</div>
+                              </div>
+                              <span style={{ fontSize: 10, color: "#4a5568" }}>→</span>
+                            </button>
+                          ))}
+                        </div>
+                        {scanLoading && (
+                          <div style={{ marginTop: 10, fontSize: 10, color: "#7e92a8", textAlign: "center" }}>
+                            <span style={{ animation: "spin 0.8s linear infinite", display: "inline-block", marginRight: 5 }}>◌</span>
+                            Scanning selected market…
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Category picker */}
+                    {scanCategories.length > 0 && (
                       <>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                           <div>
                             <span style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0" }}>{scanCategories.length} categories found</span>
                             <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 8 }}>via {scanMethod}</span>
                           </div>
-                          <button onClick={() => { setScanCategories([]); setSelectedCategory(null); setScanDomain(""); }} style={{ fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>← Re-scan</button>
+                          <button onClick={() => { setScanCategories([]); setScanLocales([]); setSelectedCategory(null); setScanDomain(""); }} style={{ fontSize: 10, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>← Re-scan</button>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 260, overflowY: "auto" }}>
                           {scanCategories.map(cat => (
                             <button key={cat.slug} onClick={() => loadCategory(cat)} style={{
                               display: "flex", alignItems: "center", justifyContent: "space-between",
-                              padding: "9px 12px", borderRadius: 8, cursor: "pointer", textAlign: "left",
+                              padding: "9px 12px", borderRadius: 8, cursor: "pointer", textAlign: "left", width: "100%",
                               background: selectedCategory?.slug === cat.slug ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)",
                               border: "1px solid " + (selectedCategory?.slug === cat.slug ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)"),
                               transition: "all 0.15s",
