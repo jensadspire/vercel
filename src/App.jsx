@@ -1135,7 +1135,7 @@ STRICT rules:
           const metaRes = await fetch("/api/generate-meta", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: selectedLanguage }),
+            body: JSON.stringify({ url, language: pageMeta.language }),
           });
           const metaData = await metaRes.json();
           if (metaData.error) {
