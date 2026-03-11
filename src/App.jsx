@@ -402,7 +402,11 @@ export default function App() {
 
 function RSAStudio() {
   const [url, setUrl] = useState("");
-  const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax"
+  const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax" | "meta"
+  const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
+  const [metaResult, setMetaResult] = useState(null);       // { primaryTexts, headlines, descriptions, imageUrl }
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [metaCopied, setMetaCopied] = useState({});
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
   // ── Batch mode state ──────────────────────────────────────────────────────
   const [showBatchPanel, setShowBatchPanel] = useState(false);
@@ -1119,6 +1123,21 @@ STRICT rules:
         setHistoryPage(0);
         return updated;
       });
+      // ── Meta generation (opt-in) ─────────────────────────────────────────
+      if (generateMeta) {
+        setMetaLoading(true);
+        setAdFormat("meta"); // switch to meta tab to show progress
+        try {
+          const metaRes = await fetch("/api/generate-meta", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url, language: selectedLanguage }),
+          });
+          const metaData = await metaRes.json();
+          if (!metaData.error) setMetaResult(metaData);
+        } catch {}
+        setMetaLoading(false);
+      }
     } catch (e) {
       setError("Generation failed — " + e.message);
     } finally {
@@ -1577,6 +1596,22 @@ STRICT rules:
               style={{ ...S.inputBase, paddingLeft: 34, fontSize: 13 }}
             />
           </div>
+          {/* Meta opt-in checkbox */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px" }}>
+            <button onClick={() => setGenerateMeta(v => !v)} style={{
+              width: 16, height: 16, borderRadius: 3, border: "none", cursor: "pointer", flexShrink: 0,
+              background: generateMeta ? "linear-gradient(135deg,#0ea5e9,#6366f1)" : "rgba(255,255,255,0.08)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.15s",
+            }}>
+              {generateMeta && <span style={{ color: "white", fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+            </button>
+            <span style={{ fontSize: 11, color: generateMeta ? "#93c5fd" : "#4a5568", cursor: "pointer", userSelect: "none" }}
+              onClick={() => setGenerateMeta(v => !v)}>
+              Also generate Meta ads <span style={{ fontSize: 10, color: "#2d3748" }}>(Facebook / Instagram)</span>
+            </span>
+          </div>
+
           <button onClick={generate} disabled={loading} style={{
             padding: "9px 22px", fontSize: 13, fontWeight: 700,
             background: loading
@@ -1991,6 +2026,7 @@ STRICT rules:
         {[
           { id: "rsa", label: "RSA", sublabel: "Search Ads", icon: "⚡" },
           { id: "pmax", label: "PMax", sublabel: "Performance Max", icon: "◈" },
+          { id: "meta", label: "Meta", sublabel: "Social Ads", icon: "◉" },
         ].map(fmt => (
           <button key={fmt.id} onClick={() => {
             setAdFormat(fmt.id);
@@ -3261,6 +3297,211 @@ STRICT rules:
           </div>
           </div>
           )} {/* end RSA/PMax conditional */}
+
+          {/* ── Meta Ad Suite Tab ────────────────────────────────────────────── */}
+          {adFormat === "meta" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+              {/* Loading state */}
+              {metaLoading && (
+                <div style={{ ...S.card, padding: "32px 24px", textAlign: "center" }}>
+                  <div style={{ fontSize: 28, marginBottom: 12, animation: "spin 1.5s linear infinite", display: "inline-block" }}>◉</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", marginBottom: 4 }}>Generating Meta ads…</div>
+                  <div style={{ fontSize: 11, color: "#4a5568" }}>Adapting copy for Facebook & Instagram</div>
+                </div>
+              )}
+
+              {/* Empty state — not yet generated */}
+              {!metaLoading && !metaResult && (
+                <div style={{ ...S.card, padding: "40px 24px", textAlign: "center" }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>◉</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>Meta Ad Suite</div>
+                  <div style={{ fontSize: 12, color: "#4a5568", maxWidth: 280, margin: "0 auto 20px" }}>
+                    Check "Also generate Meta ads" below the URL bar, then click Generate to create Facebook & Instagram ad copy alongside your Google ads.
+                  </div>
+                  <button onClick={() => { setGenerateMeta(true); setAdFormat("rsa"); }} style={{
+                    padding: "9px 20px", borderRadius: 8, border: "none", cursor: "pointer",
+                    background: "linear-gradient(135deg,#0ea5e9,#6366f1)", color: "white",
+                    fontWeight: 700, fontSize: 12,
+                  }}>← Go back and enable Meta generation</button>
+                </div>
+              )}
+
+              {/* Meta results */}
+              {!metaLoading && metaResult && (() => {
+                const copyField = async (text, key) => {
+                  try { await navigator.clipboard.writeText(text); }
+                  catch {
+                    const ta = document.createElement("textarea");
+                    ta.value = text; ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
+                    document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+                  }
+                  setMetaCopied(prev => ({ ...prev, [key]: true }));
+                  setTimeout(() => setMetaCopied(prev => ({ ...prev, [key]: false })), 2000);
+                };
+
+                return (
+                  <>
+                    {/* Preview card — simulated Facebook post */}
+                    <div style={S.card}>
+                      <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <span style={S.sectionLabel}>Facebook / Instagram Preview</span>
+                      </div>
+                      <div style={{ padding: "16px" }}>
+                        <div style={{
+                          background: "#fff", borderRadius: 10, overflow: "hidden",
+                          boxShadow: "0 2px 12px rgba(0,0,0,0.4)", maxWidth: 400, margin: "0 auto",
+                        }}>
+                          {/* Ad header */}
+                          <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, borderBottom: "1px solid #f0f0f0" }}>
+                            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#0ea5e9,#6366f1)", flexShrink: 0 }} />
+                            <div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#1c1e21" }}>{row.campaign || "Your Brand"}</div>
+                              <div style={{ fontSize: 9, color: "#65676b" }}>Sponsored · <span style={{ fontSize: 9 }}>🌐</span></div>
+                            </div>
+                          </div>
+                          {/* Primary text */}
+                          <div style={{ padding: "10px 12px 8px", fontSize: 12, color: "#1c1e21", lineHeight: 1.5 }}>
+                            {metaResult.primaryTexts?.[0] || ""}
+                          </div>
+                          {/* Image */}
+                          {metaResult.imageUrl && (
+                            <img src={metaResult.imageUrl} alt="Ad creative" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
+                          )}
+                          {/* Link bar */}
+                          <div style={{ padding: "8px 12px", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <div>
+                              <div style={{ fontSize: 9, color: "#65676b", textTransform: "uppercase" }}>
+                                {(() => { try { return new URL(url).hostname.replace("www.", ""); } catch { return url; } })()}
+                              </div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#1c1e21" }}>{metaResult.headlines?.[0] || ""}</div>
+                              <div style={{ fontSize: 10, color: "#65676b" }}>{metaResult.descriptions?.[0] || ""}</div>
+                            </div>
+                            <button style={{ padding: "6px 12px", background: "#e4e6eb", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, color: "#050505", cursor: "pointer", flexShrink: 0 }}>
+                              Learn More
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Primary Text variants */}
+                    <div style={S.card}>
+                      <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <span style={S.sectionLabel}>Primary Text</span>
+                        <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 8 }}>125 chars · hook-led · 3 variants</span>
+                      </div>
+                      <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {(metaResult.primaryTexts || []).map((text, i) => (
+                          <div key={i} style={{
+                            padding: "10px 12px", borderRadius: 8,
+                            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
+                            display: "flex", alignItems: "flex-start", gap: 10,
+                          }}>
+                            <span style={{ fontSize: 9, fontWeight: 800, color: "#4a5568", paddingTop: 2, flexShrink: 0 }}>0{i+1}</span>
+                            <span style={{ flex: 1, fontSize: 12, color: "#e2e8f0", lineHeight: 1.55 }}>{text}</span>
+                            <button onClick={() => copyField(text, `pt${i}`)} style={{
+                              flexShrink: 0, padding: "3px 8px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 700,
+                              background: metaCopied[`pt${i}`] ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.06)",
+                              color: metaCopied[`pt${i}`] ? "#34d399" : "#7e92a8",
+                            }}>{metaCopied[`pt${i}`] ? "✓" : "Copy"}</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Headlines */}
+                    <div style={S.card}>
+                      <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <span style={S.sectionLabel}>Headlines</span>
+                        <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 8 }}>40 chars · 3 variants</span>
+                      </div>
+                      <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {(metaResult.headlines || []).map((text, i) => (
+                          <div key={i} style={{
+                            padding: "10px 12px", borderRadius: 8,
+                            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
+                            display: "flex", alignItems: "center", gap: 10,
+                          }}>
+                            <span style={{ fontSize: 9, fontWeight: 800, color: "#4a5568", flexShrink: 0 }}>0{i+1}</span>
+                            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{text}</span>
+                            <span style={{ fontSize: 9, color: text.length > 40 ? "#f87171" : "#4a5568", flexShrink: 0 }}>{text.length}/40</span>
+                            <button onClick={() => copyField(text, `hl${i}`)} style={{
+                              flexShrink: 0, padding: "3px 8px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 700,
+                              background: metaCopied[`hl${i}`] ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.06)",
+                              color: metaCopied[`hl${i}`] ? "#34d399" : "#7e92a8",
+                            }}>{metaCopied[`hl${i}`] ? "✓" : "Copy"}</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Descriptions */}
+                    <div style={S.card}>
+                      <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <span style={S.sectionLabel}>Link Descriptions</span>
+                        <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 8 }}>30 chars · 2 variants</span>
+                      </div>
+                      <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {(metaResult.descriptions || []).map((text, i) => (
+                          <div key={i} style={{
+                            padding: "10px 12px", borderRadius: 8,
+                            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
+                            display: "flex", alignItems: "center", gap: 10,
+                          }}>
+                            <span style={{ fontSize: 9, fontWeight: 800, color: "#4a5568", flexShrink: 0 }}>0{i+1}</span>
+                            <span style={{ flex: 1, fontSize: 12, color: "#e2e8f0" }}>{text}</span>
+                            <span style={{ fontSize: 9, color: text.length > 30 ? "#f87171" : "#4a5568", flexShrink: 0 }}>{text.length}/30</span>
+                            <button onClick={() => copyField(text, `d${i}`)} style={{
+                              flexShrink: 0, padding: "3px 8px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 700,
+                              background: metaCopied[`d${i}`] ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.06)",
+                              color: metaCopied[`d${i}`] ? "#34d399" : "#7e92a8",
+                            }}>{metaCopied[`d${i}`] ? "✓" : "Copy"}</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Image + Reel */}
+                    {metaResult.imageUrl && (
+                      <div style={S.card}>
+                        <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={S.sectionLabel}>Ad Creative</span>
+                          <span style={{ fontSize: 10, padding: "2px 8px", background: "rgba(14,165,233,0.1)", border: "1px solid rgba(14,165,233,0.2)", borderRadius: 4, color: "#38bdf8", fontWeight: 700 }}>1:1 Feed</span>
+                        </div>
+                        <div style={{ padding: "16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                          <img src={metaResult.imageUrl} alt="Meta creative" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                            <a href={metaResult.imageUrl} download="meta-creative.png" style={{
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                              padding: "8px 14px", borderRadius: 7, fontSize: 11, fontWeight: 700,
+                              background: "linear-gradient(135deg,#0ea5e9,#6366f1)", color: "white",
+                              textDecoration: "none",
+                            }}>⬇ Download 1:1 Image</a>
+                            <div style={{
+                              padding: "8px 12px", borderRadius: 7, fontSize: 10, color: "#4a5568",
+                              background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
+                              textAlign: "center",
+                            }}>
+                              🎬 Reel / Story export <span style={{ color: "#2d3748" }}>— coming soon</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Regenerate */}
+                    <div style={{ textAlign: "center", paddingBottom: 8 }}>
+                      <button onClick={() => { setMetaResult(null); setGenerateMeta(true); setAdFormat("rsa"); }} style={{
+                        fontSize: 11, color: "#4a5568", background: "none", border: "none", cursor: "pointer",
+                      }}>← Back to Google ads · regenerate Meta from RSA tab</button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
         </div>
       </div>
 
