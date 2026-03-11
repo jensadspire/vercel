@@ -2913,7 +2913,7 @@ STRICT rules:
           </div>
 
           {/* SERP Preview — hidden when Meta tab active */}
-          {adFormat !== "meta" ? <div style={S.card}>
+          {adFormat !== "meta" && (function() { return <div style={S.card}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...S.sectionLabel, margin: 0 }}>Google SERP Preview</span>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2975,8 +2975,7 @@ STRICT rules:
                 <span>⟳</span> Google will rotate all {row.headlines.filter(h => h.text.trim()).length} headlines automatically
               </div>
             )}
-          </div>
-          : null}
+          </div> : null}
 
           {/* All Headlines grid preview */}
           {generated && (
@@ -3216,11 +3215,10 @@ STRICT rules:
                 </div>
               )}
             </div>
-          </div>
-          : null}
+          </div>; }())}
 
           {/* Meta Preview — shown in left panel when Meta tab active */}
-          {adFormat === "meta" ? (
+          {adFormat === "meta" && (function() { return (
             <div style={S.card}>
               <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ ...S.sectionLabel, margin: 0 }}>Meta Ad Preview</span>
@@ -3335,7 +3333,7 @@ STRICT rules:
                 })()}
               </div>
             </div>
-          ) : null}
+          ); }())}
 
           {/* Export + Guide */}
           <div style={S.card}>
@@ -3581,8 +3579,7 @@ STRICT rules:
                                     : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,rgba(99,102,241,0.15),rgba(14,165,233,0.15))", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                         <span style={{ fontSize: 24, opacity: 0.3 }}>◉</span>
                                       </div>
-                                  }
-                                </div>
+                                  }</div>
                                 {/* IG caption below image */}
                                 {isIG && (
                                   <div style={{ padding: "6px 10px 4px" }}>
