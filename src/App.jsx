@@ -381,8 +381,8 @@ function EditableField({ label, value, limit, onChange, pinValue, onPinChange, m
               {refining ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block" }}>◌</span> Refining…</> : "✦ Refine"}
             </button>
           </div>
-          {refineError && <div style={{ fontSize: 10, color: "#f87171", marginTop: 5 }}>{refineError}</div>
-          }
+          {refineError ? <div style={{ fontSize: 10, color: "#f87171", marginTop: 5 }}>{refineError}</div>
+          : null}
         </div>
       )}
     </div>
@@ -2165,8 +2165,8 @@ STRICT rules:
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", background: "rgba(255,255,255,0.03)" }}>
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: seasonOn ? "#e2e8f0" : "#7e92a8" }}>🗓 Seasonal Messaging</div>
-                      {seasonOn && seasonPreset && seasonPreset !== "Custom" && <div style={{ fontSize: 9, color: "#6366f1", marginTop: 1 }}>{seasonPreset} · {seasonIntensity}</div>
-                      }
+                      {seasonOn && seasonPreset && seasonPreset !== "Custom" ? <div style={{ fontSize: 9, color: "#6366f1", marginTop: 1 }}>{seasonPreset} · {seasonIntensity}</div>
+                      : null}
                     </div>
                     <button onClick={() => setSeasonOn(v => !v)} style={{ ...({width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0}), background: seasonOn ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(255,255,255,0.08)" }}>
                       <span style={{ ...({position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block"}), left: seasonOn ? 18 : 2 }} />
@@ -2210,8 +2210,8 @@ STRICT rules:
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", background: "rgba(255,255,255,0.03)" }}>
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: discountOn ? "#e2e8f0" : "#7e92a8" }}>🏷 Discount & Offer</div>
-                      {discountOn && discountValue && <div style={{ fontSize: 9, color: "#34d399", marginTop: 1 }}>{discountValue} {discountType} · {discountPlacement}</div>
-                      }
+                      {discountOn && discountValue ? <div style={{ fontSize: 9, color: "#34d399", marginTop: 1 }}>{discountValue} {discountType} · {discountPlacement}</div>
+                      : null}
                     </div>
                     <button onClick={() => setDiscountOn(v => !v)} style={{ ...({width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0}), background: discountOn ? "linear-gradient(135deg,#059669,#10b981)" : "rgba(255,255,255,0.08)" }}>
                       <span style={{ ...({position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block"}), left: discountOn ? 18 : 2 }} />
@@ -2251,8 +2251,8 @@ STRICT rules:
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", background: "rgba(255,255,255,0.03)" }}>
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: brandOn ? "#e2e8f0" : "#7e92a8" }}>✓ Brand & Compliance</div>
-                      {brandOn && <div style={{ fontSize: 9, color: "#f59e0b", marginTop: 1 }}>{brandTone} tone{brandRequired ? " · required terms set" : ""}{brandBanned ? " · banned terms set" : ""}</div>
-                      }
+                      {brandOn ? <div style={{ fontSize: 9, color: "#f59e0b", marginTop: 1 }}>{brandTone} tone{brandRequired ? " · required terms set" : ""}{brandBanned ? " · banned terms set" : ""}</div>
+                      : null}
                     </div>
                     <button onClick={() => setBrandOn(v => !v)} style={{ ...({width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0}), background: brandOn ? "linear-gradient(135deg,#d97706,#f59e0b)" : "rgba(255,255,255,0.08)" }}>
                       <span style={{ ...({position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block"}), left: brandOn ? 18 : 2 }} />
@@ -2761,8 +2761,8 @@ STRICT rules:
                                   <span style={{ fontSize: 14, flexShrink: 0 }}>{opt.icon}</span>
                                   <div>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: creativeStyle === opt.id ? "#a5b4fc" : "#e2e8f0" }}>{opt.label}</div>
-                                    {opt.desc && <div style={{ fontSize: 10, color: "#7e92a8", marginTop: 1 }}>{opt.desc}</div>
-                                    }
+                                    {opt.desc ? <div style={{ fontSize: 10, color: "#7e92a8", marginTop: 1 }}>{opt.desc}</div>
+                                    : null}
                                   </div>
                                 </button>
                               ))}
@@ -2976,7 +2976,7 @@ STRICT rules:
               </div>
             )}
           </div>
-          }
+          : null}
 
           {/* All Headlines grid preview */}
           {generated && (
@@ -3301,8 +3301,8 @@ STRICT rules:
                             </div>
                             <div style={{ fontSize: 14, color: "#65676b" }}>···</div>
                           </div>
-                          {!isIG && pt && <div style={{ padding: "6px 10px", fontSize: 11, color: "#1c1e21", lineHeight: 1.5 }}>{pt.slice(0, 125)}{pt.length > 125 ? "…" : ""}</div>
-                          }
+                          {(!isIG && pt) ? <div style={{ padding: "6px 10px", fontSize: 11, color: "#1c1e21", lineHeight: 1.5 }}>{pt.slice(0, 125)}{pt.length > 125 ? "…" : ""}</div>
+                          : null}
                           <div style={{ aspectRatio: "1/1", background: "#f0f0f0", overflow: "hidden" }}>
                             {img ? <img src={img} alt="Ad" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                               : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg,rgba(99,102,241,0.1),rgba(14,165,233,0.1))" }}><span style={{ fontSize: 22, opacity: 0.2 }}>◉</span></div>
@@ -3326,8 +3326,8 @@ STRICT rules:
                               <button style={{ padding: "4px 8px", background: "#e4e6eb", border: "none", borderRadius: 4, fontSize: 9, fontWeight: 700, color: "#050505", cursor: "pointer", flexShrink: 0 }}>Learn More</button>
                             </div>
                           )}
-                          {isIG && <div style={{ padding: "5px 10px 8px", display: "flex", justifyContent: "space-between" }}><div style={{ fontSize: 9, color: "#262626" }}><span style={{ fontWeight: 700 }}>Learn more</span> · {domain}</div><div style={{ fontSize: 9, color: "#0095f6", fontWeight: 700 }}>Shop Now</div></div>
-                          }
+                          {isIG ? <div style={{ padding: "5px 10px 8px", display: "flex", justifyContent: "space-between" }}><div style={{ fontSize: 9, color: "#262626" }}><span style={{ fontWeight: 700 }}>Learn more</span> · {domain}</div><div style={{ fontSize: 9, color: "#0095f6", fontWeight: 700 }}>Shop Now</div></div>
+                          : null}
                         </div>
                       )}
                     </div>
@@ -3561,10 +3561,10 @@ STRICT rules:
                                   </div>
                                   <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: "#1c1e21", lineHeight: 1.2 }}>{brand}</div>
-                                    {!isIG && <div style={{ fontSize: 9, color: "#65676b" }}>Sponsored · 🌐</div>
-                                    }
-                                    {isIG && <div style={{ fontSize: 9, color: "#8e8e8e" }}>Sponsored</div>
-                                    }
+                                    {!isIG ? <div style={{ fontSize: 9, color: "#65676b" }}>Sponsored · 🌐</div>
+                                    : null}
+                                    {isIG ? <div style={{ fontSize: 9, color: "#8e8e8e" }}>Sponsored</div>
+                                    : null}
                                   </div>
                                   <div style={{ fontSize: 16, color: "#65676b", cursor: "pointer" }}>···</div>
                                 </div>
