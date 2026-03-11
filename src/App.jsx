@@ -2907,8 +2907,8 @@ STRICT rules:
             </div>
           </div>
 
-          {/* SERP Preview */}
-          <div style={S.card}>
+          {/* SERP Preview — hidden when Meta tab active */}
+          {adFormat !== "meta" && <div style={S.card}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...S.sectionLabel, margin: 0 }}>Google SERP Preview</span>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -3209,6 +3209,121 @@ STRICT rules:
 
                 </div>
               )}
+            </div>
+          </div>}
+
+          {/* Meta Preview — shown in left panel when Meta tab active */}
+          {adFormat === "meta" && (
+            <div style={S.card}>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ ...S.sectionLabel, margin: 0 }}>Meta Ad Preview</span>
+                {metaResult && (
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {[
+                      { id: "fb-feed",  label: "FB Feed",  icon: "▣" },
+                      { id: "ig-feed",  label: "IG Feed",  icon: "◎" },
+                      { id: "ig-story", label: "IG Story", icon: "▯" },
+                      { id: "fb-story", label: "FB Story", icon: "▮" },
+                    ].map(f => (
+                      <button key={f.id} onClick={() => setMetaPreviewFormat(f.id)} style={{
+                        padding: "3px 7px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700,
+                        background: metaPreviewFormat === f.id ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.04)",
+                        color: metaPreviewFormat === f.id ? "#a5b4fc" : "#4a5568",
+                        transition: "all 0.15s",
+                      }}>{f.icon} {f.label}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: "16px" }}>
+                {metaLoading && (
+                  <div style={{ textAlign: "center", padding: "32px 0" }}>
+                    <div style={{ fontSize: 28, animation: "spin 1.5s linear infinite", display: "inline-block", marginBottom: 10 }}>◉</div>
+                    <div style={{ fontSize: 12, color: "#4a5568" }}>Generating Meta ads…</div>
+                  </div>
+                )}
+                {!metaLoading && !metaResult && (
+                  <div style={{ textAlign: "center", padding: "32px 16px" }}>
+                    <div style={{ fontSize: 28, marginBottom: 10, opacity: 0.3 }}>◉</div>
+                    <div style={{ fontSize: 11, color: "#4a5568", lineHeight: 1.5 }}>
+                      Check "Also generate Meta ads" below the URL bar and click Generate
+                    </div>
+                  </div>
+                )}
+                {!metaLoading && metaResult && (() => {
+                  const brand = row.campaign || (() => { try { return new URL(url).hostname.replace("www.", ""); } catch { return "Your Brand"; } })();
+                  const domain = (() => { try { return new URL(url).hostname.replace("www.", ""); } catch { return ""; } })();
+                  const pt  = metaResult.primaryTexts?.[metaActiveVariants.pt] || "";
+                  const hl  = metaResult.headlines?.[metaActiveVariants.hl] || "";
+                  const d   = metaResult.descriptions?.[metaActiveVariants.d] || "";
+                  const img = metaResult.imageUrl;
+                  const isStory = metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story";
+                  const isIG    = metaPreviewFormat === "ig-feed"  || metaPreviewFormat === "ig-story";
+                  return (
+                    <div style={{ display: "flex", justifyContent: "center" }}>
+                      {isStory ? (
+                        <div style={{ width: 200, height: 356, borderRadius: 14, overflow: "hidden", position: "relative", background: img ? "transparent" : "linear-gradient(160deg,#1e293b,#0f172a)", boxShadow: "0 4px 24px rgba(0,0,0,0.5)", flexShrink: 0 }}>
+                          {img && <img src={img} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+                          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 35%, transparent 55%, rgba(0,0,0,0.7) 100%)" }} />
+                          <div style={{ position: "absolute", top: 10, left: 10, right: 10 }}>
+                            <div style={{ height: 2, background: "rgba(255,255,255,0.3)", borderRadius: 1, marginBottom: 8 }}>
+                              <div style={{ width: "60%", height: "100%", background: "white", borderRadius: 1 }} />
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <div style={{ width: 22, height: 22, borderRadius: "50%", background: isIG ? "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" : "linear-gradient(135deg,#0ea5e9,#6366f1)", flexShrink: 0, border: "1.5px solid white" }} />
+                              <span style={{ fontSize: 9, fontWeight: 700, color: "white" }}>{brand}</span>
+                            </div>
+                          </div>
+                          <div style={{ position: "absolute", bottom: 44, left: 10, right: 10 }}>
+                            <div style={{ fontSize: 10, color: "white", fontWeight: 700, marginBottom: 3, lineHeight: 1.3 }}>{hl}</div>
+                            <div style={{ fontSize: 8, color: "rgba(255,255,255,0.85)", lineHeight: 1.4 }}>{pt.slice(0, 80)}{pt.length > 80 ? "…" : ""}</div>
+                          </div>
+                          <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)" }}>
+                            <div style={{ background: "white", borderRadius: 20, padding: "4px 14px", fontSize: 9, fontWeight: 800, color: "#050505", whiteSpace: "nowrap" }}>Learn More ↑</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ width: 260, background: "white", borderRadius: 10, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.45)", flexShrink: 0 }}>
+                          <div style={{ padding: "8px 10px", display: "flex", alignItems: "center", gap: 7 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, background: isIG ? "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" : "linear-gradient(135deg,#0ea5e9,#6366f1)", padding: isIG ? 2 : 0, boxSizing: "border-box" }}>
+                              <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: "linear-gradient(135deg,#0ea5e9,#6366f1)", border: isIG ? "2px solid white" : "none" }} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{brand}</div>
+                              <div style={{ fontSize: 8, color: isIG ? "#8e8e8e" : "#65676b" }}>{isIG ? "Sponsored" : "Sponsored · 🌐"}</div>
+                            </div>
+                            <div style={{ fontSize: 14, color: "#65676b" }}>···</div>
+                          </div>
+                          {!isIG && pt && <div style={{ padding: "6px 10px", fontSize: 11, color: "#1c1e21", lineHeight: 1.5 }}>{pt.slice(0, 125)}{pt.length > 125 ? "…" : ""}</div>}
+                          <div style={{ aspectRatio: "1/1", background: "#f0f0f0", overflow: "hidden" }}>
+                            {img ? <img src={img} alt="Ad" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                              : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg,rgba(99,102,241,0.1),rgba(14,165,233,0.1))" }}><span style={{ fontSize: 22, opacity: 0.2 }}>◉</span></div>}
+                          </div>
+                          {isIG && (
+                            <div style={{ padding: "6px 10px 4px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                                <div style={{ fontSize: 16 }}>♡ △ ✈</div><div style={{ fontSize: 16 }}>⊠</div>
+                              </div>
+                              <div style={{ fontSize: 9, color: "#262626", lineHeight: 1.4 }}><span style={{ fontWeight: 700 }}>{brand}</span> {pt.slice(0, 90)}{pt.length > 90 ? "…" : ""}</div>
+                            </div>
+                          )}
+                          {!isIG && (
+                            <div style={{ padding: "7px 10px", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 8, color: "#65676b", textTransform: "uppercase", marginBottom: 1 }}>{domain}</div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hl}</div>
+                                <div style={{ fontSize: 9, color: "#65676b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d}</div>
+                              </div>
+                              <button style={{ padding: "4px 8px", background: "#e4e6eb", border: "none", borderRadius: 4, fontSize: 9, fontWeight: 700, color: "#050505", cursor: "pointer", flexShrink: 0 }}>Learn More</button>
+                            </div>
+                          )}
+                          {isIG && <div style={{ padding: "5px 10px 8px", display: "flex", justifyContent: "space-between" }}><div style={{ fontSize: 9, color: "#262626" }}><span style={{ fontWeight: 700 }}>Learn more</span> · {domain}</div><div style={{ fontSize: 9, color: "#0095f6", fontWeight: 700 }}>Shop Now</div></div>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           )}
 
