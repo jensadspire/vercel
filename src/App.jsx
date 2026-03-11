@@ -161,6 +161,27 @@ function scoreDescription(text) {
     return { score: "good", flags: [] };
   }
 }
+// ── Paginator ─────────────────────────────────────────────────────────────────
+function Paginator({ page, total, perPage, onChange }) {
+  const totalPages = Math.ceil(total / perPage);
+  if (totalPages <= 1) return null;
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "6px 0 2px" }}>
+      <button onClick={() => onChange(page - 1)} disabled={page === 0} style={{
+        background: "none", border: "none", cursor: page === 0 ? "default" : "pointer",
+        color: page === 0 ? "#2d3748" : "#7e92a8", fontSize: 13, fontWeight: 700, padding: "2px 6px",
+      }}>‹</button>
+      <span style={{ fontSize: 10, color: "#4a5568", fontWeight: 700, letterSpacing: "0.06em" }}>
+        {page + 1} / {totalPages}
+      </span>
+      <button onClick={() => onChange(page + 1)} disabled={page >= totalPages - 1} style={{
+        background: "none", border: "none", cursor: page >= totalPages - 1 ? "default" : "pointer",
+        color: page >= totalPages - 1 ? "#2d3748" : "#7e92a8", fontSize: 13, fontWeight: 700, padding: "2px 6px",
+      }}>›</button>
+    </div>
+  );
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function AdStrengthRing({ headlines, descriptions }) {
@@ -390,6 +411,9 @@ function RSAStudio() {
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [showAdSwitcher, setShowAdSwitcher] = useState(false);
+  const [switcherPage, setSwitcherPage] = useState(0);   // ad switcher page
+  const [historyPage, setHistoryPage] = useState(0);     // history panel page
+  const ADS_PER_PAGE = 5;
   // ── PMax Image Assets ─────────────────────────────────────────────────────
   const [showImagePanel, setShowImagePanel] = useState(false);
   const [imageFile, setImageFile] = useState(null);
@@ -599,7 +623,7 @@ function RSAStudio() {
 
         setHistory(prev => {
           const snap = { id: Date.now() + i, url: selected[i].url, format: "rsa", timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), rows: [newRow] };
-          return [snap, ...prev].slice(0, 5);
+          return [snap, ...prev].slice(0, 20);
         });
         setSessionUrls(prev => [...new Set([...prev, selected[i].url])]);
       } catch (e) {
@@ -618,6 +642,7 @@ function RSAStudio() {
       });
       setUrl(newRows[newRows.length - 1].url);
       setGenerated(true);
+      setSwitcherPage(0);
     }
     setBatchRunning(false);
     setShowBatchPanel(false);
@@ -878,7 +903,7 @@ Rules:
               timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: pmaxParsed } : r))),
             };
-            return [snapshot, ...prev].slice(0, 5);
+            return [snapshot, ...prev].slice(0, 20);
           });
         } catch (e) {
           setError("Could not parse PMax response — please try again");
@@ -1012,7 +1037,9 @@ STRICT rules:
             finalUrl: url,
           } : r))),
         };
-        return [snapshot, ...prev].slice(0, 5);
+        const updated = [snapshot, ...prev].slice(0, 20);
+        setHistoryPage(0);
+        return updated;
       });
     } catch (e) {
       setError("Generation failed — " + e.message);
@@ -2633,34 +2660,35 @@ STRICT rules:
             {/* Ad Switcher Accordion */}
             {showAdSwitcher && (
               <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
-                {rows.map((r, i) => {
-                  if (!r.headlines.some(h => h.text)) return null;
-                  const isActive = i === activeRow;
-                  const label = r.adGroup || r.campaign || (() => { try { return new URL(r.finalUrl || "").hostname; } catch { return "Ad " + (i + 1); } })();
-                  const headline = r.headlines.find(h => h.text)?.text || "—";
+                {(() => {
+                  const validRows = rows.map((r, i) => ({ r, i })).filter(({ r }) => r.headlines.some(h => h.text));
+                  const pageRows = validRows.slice(switcherPage * ADS_PER_PAGE, (switcherPage + 1) * ADS_PER_PAGE);
                   return (
-                    <button key={r.id} onClick={() => { setActiveRow(i); setUrl(r.finalUrl || ""); }} style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
-                      borderRadius: 7, border: "1px solid " + (isActive ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.05)"),
-                      background: isActive ? "rgba(99,102,241,0.1)" : "rgba(255,255,255,0.02)",
-                      cursor: "pointer", textAlign: "left", transition: "all 0.15s",
-                    }}>
-                      <div style={{
-                        width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-                        background: isActive ? "#818cf8" : "rgba(255,255,255,0.15)",
-                      }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#a5b4fc" : "#7e92a8", marginBottom: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {label}
-                        </div>
-                        <div style={{ fontSize: 11, color: isActive ? "#e2e8f0" : "#4a5568", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {headline}
-                        </div>
-                      </div>
-                      {isActive && <span style={{ fontSize: 9, color: "#818cf8", fontWeight: 700, flexShrink: 0 }}>ACTIVE</span>}
-                    </button>
+                    <>
+                      {pageRows.map(({ r, i }) => {
+                        const isActive = i === activeRow;
+                        const label = r.adGroup || r.campaign || (() => { try { return new URL(r.finalUrl || "").hostname; } catch { return "Ad " + (i + 1); } })();
+                        const headline = r.headlines.find(h => h.text)?.text || "—";
+                        return (
+                          <button key={r.id} onClick={() => { setActiveRow(i); setUrl(r.finalUrl || ""); }} style={{
+                            display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+                            borderRadius: 7, border: "1px solid " + (isActive ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.05)"),
+                            background: isActive ? "rgba(99,102,241,0.1)" : "rgba(255,255,255,0.02)",
+                            cursor: "pointer", textAlign: "left", transition: "all 0.15s", width: "100%",
+                          }}>
+                            <div style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: isActive ? "#818cf8" : "rgba(255,255,255,0.15)" }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#a5b4fc" : "#7e92a8", marginBottom: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</div>
+                              <div style={{ fontSize: 11, color: isActive ? "#e2e8f0" : "#4a5568", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{headline}</div>
+                            </div>
+                            {isActive && <span style={{ fontSize: 9, color: "#818cf8", fontWeight: 700, flexShrink: 0 }}>ACTIVE</span>}
+                          </button>
+                        );
+                      })}
+                      <Paginator page={switcherPage} total={validRows.length} perPage={ADS_PER_PAGE} onChange={p => setSwitcherPage(p)} />
+                    </>
                   );
-                })}
+                })()}
               </div>
             )}
 
@@ -2806,8 +2834,8 @@ STRICT rules:
                     </div>
                   )}
 
-                  {/* History items with checkboxes */}
-                  {history.map((h, i) => {
+                  {/* History items with checkboxes — paginated */}
+                  {history.slice(historyPage * ADS_PER_PAGE, (historyPage + 1) * ADS_PER_PAGE).map((h, i) => {
                     const isSelected = selectedForExport.has(h.id);
                     return (
                       <div key={h.id} style={{
@@ -2861,6 +2889,8 @@ STRICT rules:
                       </div>
                     );
                   })}
+
+                  <Paginator page={historyPage} total={history.length} perPage={ADS_PER_PAGE} onChange={p => setHistoryPage(p)} />
 
                   {/* Multi-export tray — shows when anything is selected */}
                   {(currentAdSelected || selectedForExport.size > 0) && (() => {
