@@ -285,14 +285,17 @@ async function getSitemapsFromRobots(origin) {
     .filter(u => u.startsWith("http"));
 }
 
-async function collectFromSitemapXml(xml, sourceUrl, visited = new Set()) {
+async function collectFromSitemapXml(xml, sourceUrl, visited = new Set(), maxChildren = 30) {
   const all = [];
   visited.add(sourceUrl);
   if (isSitemapIndex(xml)) {
     const children = extractLocs(xml).filter(u => u.endsWith(".xml"));
+    let fetched = 0;
     for (const child of children) {
       if (visited.has(child)) continue;
+      if (fetched >= maxChildren) break;
       visited.add(child);
+      fetched++;
       const { body } = await fetchUrl(child);
       if (!body) continue;
       all.push(...extractLocs(body).filter(u => !u.endsWith(".xml")));
@@ -310,18 +313,25 @@ async function collectScopedUrls(origin, localeSlug) {
   let allUrls = [];
   let method = "";
 
-  // Try locale-specific sitemap paths first
+  // Try locale-specific sitemap paths first — many variations
+  const slugFlat = localeSlug.replace("/", "-");
+  const slugUnder = localeSlug.replace("/", "_");
   const localeSitemapPaths = [
     `${localePath}/sitemap.xml`,
     `${localePath}/sitemap_index.xml`,
-    `/sitemap_${localeSlug}.xml`,
-    `/sitemap-${localeSlug}.xml`,
+    `${localePath}/sitemap-index.xml`,
+    `${localePath}/sitemaps/sitemap.xml`,
+    `/sitemap_${slugFlat}.xml`,
+    `/sitemap-${slugFlat}.xml`,
+    `/sitemap_${slugUnder}.xml`,
+    `/sitemap_${localeSlug.split("/")[0]}.xml`,
+    `/sitemaps/${slugFlat}-sitemap.xml`,
   ];
 
   for (const path of localeSitemapPaths) {
     const { body, code } = await fetchUrl(origin + path);
     if (!body || !isXml(body) || code !== 200) continue;
-    const urls = await collectFromSitemapXml(body, origin + path);
+    const urls = await collectFromSitemapXml(body, origin + path, new Set(), 8);
     const scoped = urls.filter(u => u.includes(localePath));
     if (scoped.length > 0) { allUrls = scoped; method = "locale sitemap"; break; }
   }
@@ -459,10 +469,13 @@ function groupIntoCategories(allUrls, localeSlug) {
   const groups = {};
   for (const url of filtered) {
     const segs = getPathSegments(url);
-    const catIdx = slugParts.length; // skip all locale parts
+    // Start after known locale prefix, then skip any additional locale-like segments
+    // e.g. /de/de_de/kleidung → slugParts=["de"], skip "de_de" too → catSeg="kleidung"
+    let catIdx = slugParts.length;
+    while (catIdx < segs.length && isLocaleSegment(segs[catIdx])) catIdx++;
     const catSeg = segs[catIdx];
-    if (!catSeg || isLocaleSegment(catSeg)) continue;
-    if (localeSlug && segs.length <= slugParts.length) continue; // skip locale root itself
+    if (!catSeg) continue;
+    if (localeSlug && catIdx >= segs.length) continue; // nothing after locale segments
     if (!groups[catSeg]) groups[catSeg] = [];
     groups[catSeg].push(url);
   }
