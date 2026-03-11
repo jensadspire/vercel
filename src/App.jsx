@@ -2970,7 +2970,7 @@ STRICT rules:
                 <span>⟳</span> Google will rotate all {row.headlines.filter(h => h.text.trim()).length} headlines automatically
               </div>
             )}
-          </div>
+          </div>}
 
           {/* All Headlines grid preview */}
           {generated && (
