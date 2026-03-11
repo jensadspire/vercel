@@ -389,6 +389,7 @@ function RSAStudio() {
   const [batchUrls, setBatchUrls] = useState([]); // [{ url, category, selected }]
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+  const [showAdSwitcher, setShowAdSwitcher] = useState(false);
   // ── PMax Image Assets ─────────────────────────────────────────────────────
   const [showImagePanel, setShowImagePanel] = useState(false);
   const [imageFile, setImageFile] = useState(null);
@@ -2614,8 +2615,55 @@ STRICT rules:
           <div style={S.card}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...S.sectionLabel, margin: 0 }}>Google SERP Preview</span>
-              <span style={{ fontSize: 10, color: "#8fa3b8", fontStyle: "italic" }}>Shows first 3 headlines · first 2 descriptions</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 10, color: "#8fa3b8", fontStyle: "italic" }}>Shows first 3 headlines · first 2 descriptions</span>
+                {rows.filter(r => r.headlines.some(h => h.text)).length > 1 && (
+                  <button onClick={() => setShowAdSwitcher(v => !v)} style={{
+                    fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 6,
+                    background: showAdSwitcher ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.05)",
+                    border: "1px solid " + (showAdSwitcher ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.08)"),
+                    color: showAdSwitcher ? "#a5b4fc" : "#7e92a8", cursor: "pointer", whiteSpace: "nowrap",
+                  }}>
+                    {showAdSwitcher ? "▲" : "▼"} View all {rows.filter(r => r.headlines.some(h => h.text)).length} ads
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* Ad Switcher Accordion */}
+            {showAdSwitcher && (
+              <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+                {rows.map((r, i) => {
+                  if (!r.headlines.some(h => h.text)) return null;
+                  const isActive = i === activeRow;
+                  const label = r.adGroup || r.campaign || (() => { try { return new URL(r.finalUrl || "").hostname; } catch { return "Ad " + (i + 1); } })();
+                  const headline = r.headlines.find(h => h.text)?.text || "—";
+                  return (
+                    <button key={r.id} onClick={() => { setActiveRow(i); setUrl(r.finalUrl || ""); }} style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+                      borderRadius: 7, border: "1px solid " + (isActive ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.05)"),
+                      background: isActive ? "rgba(99,102,241,0.1)" : "rgba(255,255,255,0.02)",
+                      cursor: "pointer", textAlign: "left", transition: "all 0.15s",
+                    }}>
+                      <div style={{
+                        width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                        background: isActive ? "#818cf8" : "rgba(255,255,255,0.15)",
+                      }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#a5b4fc" : "#7e92a8", marginBottom: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {label}
+                        </div>
+                        <div style={{ fontSize: 11, color: isActive ? "#e2e8f0" : "#4a5568", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {headline}
+                        </div>
+                      </div>
+                      {isActive && <span style={{ fontSize: 9, color: "#818cf8", fontWeight: 700, flexShrink: 0 }}>ACTIVE</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <div style={{ padding: "18px" }}>
               <SerpPreview row={row} />
             </div>
