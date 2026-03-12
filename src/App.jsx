@@ -3796,8 +3796,7 @@ STRICT rules:
                                   metaResult.imageUrl || "",
                                 ])
                               ];
-                              const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("
-");
+                              const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
                               const blob = new Blob([csv], { type: "text/csv" });
                               const a = document.createElement("a");
                               a.href = URL.createObjectURL(blob);
