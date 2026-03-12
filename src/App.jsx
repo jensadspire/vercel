@@ -3115,47 +3115,52 @@ STRICT rules:
                                     {/* History items with checkboxes — paginated */}
                   {history.slice(historyPage * ADS_PER_PAGE, (historyPage + 1) * ADS_PER_PAGE).map((h, i) => {
                     const isSelected = selectedForExport.has(h.id);
+                    const isMeta = h.format === "meta";
+                    // Meta entries: distinct styling, CSV-only button, excluded from Google export checkbox
                     return (
                       <div key={h.id} style={{
                         padding: "10px 12px", borderRadius: 8,
-                        background: isSelected ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${isSelected ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.07)"}`,
+                        background: isMeta
+                          ? "rgba(14,165,233,0.05)"
+                          : isSelected ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
+                        border: `1px solid ${isMeta ? "rgba(14,165,233,0.2)" : isSelected ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.07)"}`,
                         display: "flex", alignItems: "center", gap: 10,
                         transition: "all 0.15s",
                       }}>
-                        {/* Checkbox */}
-                        <button onClick={() => {
-                          // Toggle export selection
-                          setSelectedForExport(prev => {
-                            const next = new Set(prev);
-                            next.has(h.id) ? next.delete(h.id) : next.add(h.id);
-                            return next;
-                          });
-                          // Also switch active preview to this ad
-                          setRows(h.rows);
-                          setActiveRow(0);
-                          setUrl(h.url);
-                          setGenerated(true);
-                          if (h.format) setAdFormat(h.format);
-                          // Load Meta result if stored, or enable checkbox for fresh generation
-                          if (h.metaResult) {
-                            setMetaResult(h.metaResult);
-                            setMetaError("");
-                          } else {
-                            setMetaResult(null);
-                            setGenerateMeta(false); // reset so user consciously opts in
-                          }
-                        }} style={{
-                          width: 18, height: 18, borderRadius: 4, border: "none", cursor: "pointer", flexShrink: 0,
-                          background: isSelected ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(255,255,255,0.08)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          transition: "background 0.15s",
-                        }}>
-                          {isSelected && <span style={{ color: "white", fontSize: 10, fontWeight: 900 }}>✓</span>}
-                        </button>
+                        {/* Checkbox for RSA/PMax only — Meta entries get CSV button instead */}
+                        {isMeta ? (
+                          <div style={{ width: 18, flexShrink: 0 }} />
+                        ) : (
+                          <button onClick={() => {
+                            setSelectedForExport(prev => {
+                              const next = new Set(prev);
+                              next.has(h.id) ? next.delete(h.id) : next.add(h.id);
+                              return next;
+                            });
+                            setRows(h.rows);
+                            setActiveRow(0);
+                            setUrl(h.url);
+                            setGenerated(true);
+                            if (h.format) setAdFormat(h.format);
+                            if (h.metaResult) {
+                              setMetaResult(h.metaResult);
+                              setMetaError("");
+                            } else {
+                              setMetaResult(null);
+                              setGenerateMeta(false);
+                            }
+                          }} style={{
+                            width: 18, height: 18, borderRadius: 4, border: "none", cursor: "pointer", flexShrink: 0,
+                            background: isSelected ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(255,255,255,0.08)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            transition: "background 0.15s",
+                          }}>
+                            {isSelected && <span style={{ color: "white", fontSize: 10, fontWeight: 900 }}>✓</span>}
+                          </button>
+                        )}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {h.rows[0]?.campaign || new URL(h.url).hostname}
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center" }}>
+                            {h.rows[0]?.campaign || (() => { try { return new URL(h.url).hostname; } catch { return h.url; } })()}
                             {h.metaResult && (
                               <span style={{
                                 marginLeft: 5, fontSize: 8, fontWeight: 700,
@@ -3165,17 +3170,49 @@ STRICT rules:
                               }}>◉ META</span>
                             )}
                           </div>
-                          <div style={{ fontSize: 10, color: "#8fa3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.url}</div>
+                          <div style={{ fontSize: 10, color: "#8fa3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {h.url}
+                          </div>
                           <div style={{ fontSize: 9, color: "#8fa3b8", marginTop: 2 }}>
                             {h.timestamp}
                             {h.format === "pmax"
-                              ? <span style={{ marginLeft: 6, padding: "1px 5px", background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: 3, color: "#34d399", fontWeight: 700 }}>PMax</span>
-                              : <span style={{ marginLeft: 6, padding: "1px 5px", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 3, color: "#a5b4fc", fontWeight: 700 }}>RSA</span>
+                              ? <span style={{ marginLeft: 6, padding: "1px 5px", background: "rgba(99,102,241,0.15)", borderRadius: 3, color: "#a5b4fc" }}>PMax</span>
+                              : <span style={{ marginLeft: 6, padding: "1px 5px", background: "rgba(59,130,246,0.15)", borderRadius: 3, color: "#93c5fd" }}>RSA</span>
                             }
-                            {h.format !== "pmax" && <span style={{ marginLeft: 4 }}>· {h.rows[0]?.headlines.filter(hl => hl.text).length} headlines</span>}
+                            {h.format !== "pmax" && h.rows[0]?.headlines?.[0]?.text && (
+                              <span style={{ marginLeft: 4 }}>· {h.rows[0].headlines[0].text.slice(0, 28)}{h.rows[0].headlines[0].text.length > 28 ? "…" : ""}</span>
+                            )}
                           </div>
                         </div>
-                        <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                        <div style={{ display: "flex", gap: 5, flexShrink: 0, alignItems: "center" }}>
+                          {/* Meta CSV button — only on entries with metaResult */}
+                          {h.metaResult && (
+                            <button onClick={() => {
+                              const r = h.metaResult;
+                              const csvRows = [
+                                ["Ad Name", "Primary Text", "Headline", "Description", "Call to Action", "Destination URL", "Image URL"],
+                                ...(r.primaryTexts || []).map((pt, i) => [
+                                  `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
+                                  pt,
+                                  r.headlines?.[i] || r.headlines?.[0] || "",
+                                  r.descriptions?.[i] || r.descriptions?.[0] || "",
+                                  "Learn More",
+                                  h.url,
+                                  r.imageUrl || "",
+                                ])
+                              ];
+                              const csv = csvRows.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+                              const blob = new Blob([csv], { type: "text/csv" });
+                              const a = document.createElement("a");
+                              a.href = URL.createObjectURL(blob);
+                              a.download = "meta-ads-export.csv";
+                              a.click();
+                            }} style={{
+                              padding: "4px 8px", fontSize: 10, fontWeight: 700,
+                              background: "rgba(14,165,233,0.12)", color: "#38bdf8",
+                              border: "1px solid rgba(14,165,233,0.25)", borderRadius: 5, cursor: "pointer",
+                            }}>◉ CSV</button>
+                          )}
                           <button onClick={() => {
                             setRows(h.rows);
                             setActiveRow(0);
@@ -3183,6 +3220,10 @@ STRICT rules:
                             setGenerated(true);
                             setShowHistory(false);
                             if (h.format) setAdFormat(h.format);
+                            if (h.metaResult) {
+                              setMetaResult(h.metaResult);
+                              setMetaError("");
+                            }
                           }} style={{
                             padding: "5px 10px", fontSize: 11, fontWeight: 700,
                             background: "rgba(59,130,246,0.15)", color: "#60a5fa",
@@ -3191,14 +3232,16 @@ STRICT rules:
                         </div>
                       </div>
                     );
-                  })}
+                                    })}
 
                   <Paginator page={historyPage} total={history.length} perPage={ADS_PER_PAGE} onChange={p => setHistoryPage(p)} />
 
-                  {/* Multi-export tray — shows when anything is selected */}
+                  {/* Multi-export tray — Google RSA/PMax only, Meta entries excluded */}
                   {selectedForExport.size > 0 && (() => {
-                    const selectedRows = history.filter(h => selectedForExport.has(h.id)).flatMap(h => h.rows);
-                    const totalSelected = selectedForExport.size;
+                    // Only include non-Meta entries in Google export
+                    const googleSelected = history.filter(h => selectedForExport.has(h.id) && h.format !== "meta");
+                    const selectedRows = googleSelected.flatMap(h => h.rows);
+                    const totalSelected = googleSelected.length;
                     const multiTsv = buildTSV(selectedRows, omitGroupMulti, adFormat);
 
                     const handleMultiCopy = async () => {
@@ -3522,158 +3565,6 @@ STRICT rules:
 
                 return (
                   <>
-                    {/* ── Meta Ad Preview ───────────────────────────────── */}
-                    {(() => {
-                      const brand = row.campaign || (() => { try { return new URL(url).hostname.replace("www.", ""); } catch { return "Your Brand"; } })();
-                      const domain = (() => { try { return new URL(url).hostname.replace("www.", ""); } catch { return ""; } })();
-                      const pt = metaResult.primaryTexts?.[metaActiveVariants.pt] || "";
-                      const hl = metaResult.headlines?.[metaActiveVariants.hl] || "";
-                      const d  = metaResult.descriptions?.[metaActiveVariants.d] || "";
-                      const img = metaResult.imageUrl;
-                      const isStory = metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story";
-                      const isIG = metaPreviewFormat === "ig-feed" || metaPreviewFormat === "ig-story";
-
-                      const FORMATS = [
-                        { id: "fb-feed",  label: "FB Feed",  icon: "▣" },
-                        { id: "ig-feed",  label: "IG Feed",  icon: "◎" },
-                        { id: "ig-story", label: "IG Story", icon: "▯" },
-                        { id: "fb-story", label: "FB Story", icon: "▮" },
-                      ];
-
-                      return (
-                        <div style={S.card}>
-                          {/* Header + format switcher */}
-                          <div style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                            <span style={S.sectionLabel}>Ad Preview</span>
-                            <div style={{ display: "flex", gap: 4 }}>
-                              {FORMATS.map(f => (
-                                <button key={f.id} onClick={() => setMetaPreviewFormat(f.id)} style={{
-                                  padding: "3px 8px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 700,
-                                  background: metaPreviewFormat === f.id ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.04)",
-                                  color: metaPreviewFormat === f.id ? "#a5b4fc" : "#4a5568",
-                                  transition: "all 0.15s",
-                                }}>{f.icon} {f.label}</button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div style={{ padding: "16px", display: "flex", justifyContent: "center" }}>
-                            {/* Story format */}
-                            {isStory ? (
-                              <div style={{
-                                width: 220, height: 390, borderRadius: 14, overflow: "hidden", position: "relative",
-                                background: img ? "transparent" : "linear-gradient(160deg,#1e293b,#0f172a)",
-                                boxShadow: "0 4px 24px rgba(0,0,0,0.5)", flexShrink: 0,
-                              }}>
-                                {/* Background image */}
-                                {img && <img src={img} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
-                                {/* Dark overlay */}
-                                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 35%, transparent 55%, rgba(0,0,0,0.7) 100%)" }} />
-                                {/* Top bar */}
-                                <div style={{ position: "absolute", top: 10, left: 10, right: 10 }}>
-                                  {/* Progress bar */}
-                                  <div style={{ height: 2, background: "rgba(255,255,255,0.3)", borderRadius: 1, marginBottom: 8 }}>
-                                    <div style={{ width: "60%", height: "100%", background: "white", borderRadius: 1 }} />
-                                  </div>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                    <div style={{ width: 24, height: 24, borderRadius: "50%", background: isIG ? "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" : "linear-gradient(135deg,#0ea5e9,#6366f1)", flexShrink: 0, border: "1.5px solid white" }} />
-                                    <span style={{ fontSize: 10, fontWeight: 700, color: "white" }}>{brand}</span>
-                                    <span style={{ fontSize: 9, color: "rgba(255,255,255,0.7)", marginLeft: 2 }}>· Sponsored</span>
-                                  </div>
-                                </div>
-                                {/* Bottom copy */}
-                                <div style={{ position: "absolute", bottom: 48, left: 12, right: 12 }}>
-                                  <div style={{ fontSize: 11, color: "white", fontWeight: 700, marginBottom: 4, lineHeight: 1.3 }}>{hl}</div>
-                                  <div style={{ fontSize: 9, color: "rgba(255,255,255,0.85)", lineHeight: 1.4 }}>{pt.slice(0, 80)}{pt.length > 80 ? "…" : ""}</div>
-                                </div>
-                                {/* CTA button */}
-                                <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)" }}>
-                                  <div style={{ background: "white", borderRadius: 20, padding: "5px 18px", fontSize: 10, fontWeight: 800, color: "#050505", whiteSpace: "nowrap" }}>
-                                    Learn More ↑
-                                  </div>
-                                </div>
-                                {/* IG indicator */}
-                                {isIG && (
-                                  <div style={{ position: "absolute", top: 10, right: 10, fontSize: 14 }}>✕</div>
-                                )}
-                              </div>
-                            ) : (
-                              /* Feed format */
-                              <div style={{
-                                width: 300, background: "white", borderRadius: 10, overflow: "hidden",
-                                boxShadow: "0 2px 16px rgba(0,0,0,0.45)", flexShrink: 0,
-                              }}>
-                                {/* Header */}
-                                <div style={{ padding: "8px 10px", display: "flex", alignItems: "center", gap: 8, borderBottom: isIG ? "none" : "1px solid #f0f0f0" }}>
-                                  <div style={{
-                                    width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
-                                    background: isIG ? "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" : "linear-gradient(135deg,#0ea5e9,#6366f1)",
-                                    padding: isIG ? 2 : 0, boxSizing: "border-box",
-                                  }}>
-                                    <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: "linear-gradient(135deg,#0ea5e9,#6366f1)", border: isIG ? "2px solid white" : "none" }} />
-                                  </div>
-                                  <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: "#1c1e21", lineHeight: 1.2 }}>{brand}</div>
-                                    {!isIG ? <div style={{ fontSize: 9, color: "#65676b" }}>Sponsored · 🌐</div>
-                                    : null}
-                                    {isIG ? <div style={{ fontSize: 9, color: "#8e8e8e" }}>Sponsored</div>
-                                    : null}
-                                  </div>
-                                  <div style={{ fontSize: 16, color: "#65676b", cursor: "pointer" }}>···</div>
-                                </div>
-                                {/* FB primary text above image */}
-                                {!isIG && pt && (
-                                  <div style={{ padding: "8px 10px 6px", fontSize: 12, color: "#1c1e21", lineHeight: 1.5 }}>
-                                    {pt.slice(0, 125)}{pt.length > 125 ? "…" : ""}
-                                  </div>
-                                )}
-                                {/* Image */}
-                                <div style={{ aspectRatio: "1/1", background: "#f0f0f0", overflow: "hidden" }}>
-                                  {img
-                                    ? <img src={img} alt="Ad" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                                    : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,rgba(99,102,241,0.15),rgba(14,165,233,0.15))", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                        <span style={{ fontSize: 24, opacity: 0.3 }}>◉</span>
-                                      </div>
-                                  }</div>
-                                {/* IG caption below image */}
-                                {isIG && (
-                                  <div style={{ padding: "6px 10px 4px" }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                                      <div style={{ display: "flex", gap: 10, fontSize: 18 }}>♡ △ ✈</div>
-                                      <div style={{ fontSize: 16 }}>⊠</div>
-                                    </div>
-                                    <div style={{ fontSize: 10, color: "#262626", lineHeight: 1.4 }}>
-                                      <span style={{ fontWeight: 700 }}>{brand}</span> {pt.slice(0, 100)}{pt.length > 100 ? "…" : ""}
-                                    </div>
-                                  </div>
-                                )}
-                                {/* FB link bar */}
-                                {!isIG && (
-                                  <div style={{ padding: "8px 10px", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ fontSize: 9, color: "#65676b", textTransform: "uppercase", marginBottom: 1 }}>{domain}</div>
-                                      <div style={{ fontSize: 11, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hl}</div>
-                                      <div style={{ fontSize: 10, color: "#65676b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d}</div>
-                                    </div>
-                                    <button style={{ padding: "5px 10px", background: "#e4e6eb", border: "none", borderRadius: 5, fontSize: 10, fontWeight: 700, color: "#050505", cursor: "pointer", flexShrink: 0 }}>
-                                      Learn More
-                                    </button>
-                                  </div>
-                                )}
-                                {/* IG CTA */}
-                                {isIG && (
-                                  <div style={{ padding: "6px 10px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                    <div style={{ fontSize: 10, color: "#262626" }}><span style={{ fontWeight: 700 }}>Learn more</span> · {domain}</div>
-                                    <div style={{ fontSize: 10, color: "#0095f6", fontWeight: 700 }}>Shop Now</div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })()}
-
                     {/* Primary Text variants */}
                     <div style={S.card}>
                       <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
