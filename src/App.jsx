@@ -988,6 +988,7 @@ Rules:
               format: "pmax",
               timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: pmaxParsed } : r))),
+              metaResult: metaResult || null,
             };
             return [snapshot, ...prev].slice(0, 20);
           });
@@ -1122,6 +1123,7 @@ STRICT rules:
             path2: (p.path2 || "").slice(0, PATH_LIMIT),
             finalUrl: url,
           } : r))),
+          metaResult: metaResult || null,
         };
         const updated = [snapshot, ...prev].slice(0, 20);
         setHistoryPage(0);
@@ -1144,6 +1146,15 @@ STRICT rules:
             setMetaError("");
             setMetaResult(metaData);
             setAdFormat("meta"); // switch to meta tab only after success
+            // Persist metaResult into the most recent history entry for this URL
+            setHistory(prev => {
+              if (!prev.length) return prev;
+              const updated = [...prev];
+              // Find the most recent entry matching this URL
+              const idx = updated.findIndex(h => h.url === url);
+              if (idx !== -1) updated[idx] = { ...updated[idx], metaResult: metaData };
+              return updated;
+            });
           }
         } catch (e) {
           console.error("Meta generation failed:", e.message);
@@ -1609,21 +1620,35 @@ STRICT rules:
               style={{ ...S.inputBase, paddingLeft: 34, fontSize: 13 }}
             />
           </div>
-          {/* Meta opt-in checkbox */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px" }}>
-            <button onClick={() => setGenerateMeta(v => !v)} style={{
-              width: 16, height: 16, borderRadius: 3, border: "none", cursor: "pointer", flexShrink: 0,
-              background: generateMeta ? "linear-gradient(135deg,#0ea5e9,#6366f1)" : "rgba(255,255,255,0.08)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "background 0.15s",
-            }}>
-              {generateMeta && <span style={{ color: "white", fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>}
-            </button>
-            <span style={{ fontSize: 11, color: generateMeta ? "#93c5fd" : "#4a5568", cursor: "pointer", userSelect: "none" }}
-              onClick={() => setGenerateMeta(v => !v)}>
-              Also generate Meta ads <span style={{ fontSize: 10, color: "#2d3748" }}>(Facebook / Instagram)</span>
-            </span>
-          </div>
+          {/* Meta opt-in checkbox — disabled during batch mode */}
+          {(() => {
+            const metaDisabled = batchRunning || !generated;
+            const metaTooltip = batchRunning
+              ? "Meta generation is disabled during batch mode — load a single ad from the history tray to generate Meta"
+              : !generated
+              ? "Generate a Google ad first, then enable Meta generation"
+              : "";
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", opacity: metaDisabled ? 0.4 : 1, transition: "opacity 0.2s" }}
+                title={metaTooltip}>
+                <button onClick={() => !metaDisabled && setGenerateMeta(v => !v)} style={{
+                  width: 16, height: 16, borderRadius: 3, border: "none",
+                  cursor: metaDisabled ? "not-allowed" : "pointer", flexShrink: 0,
+                  background: generateMeta && !metaDisabled ? "linear-gradient(135deg,#0ea5e9,#6366f1)" : "rgba(255,255,255,0.08)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "background 0.15s",
+                }}>
+                  {generateMeta && !metaDisabled && <span style={{ color: "white", fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                </button>
+                <span style={{ fontSize: 11, color: generateMeta && !metaDisabled ? "#93c5fd" : "#4a5568",
+                  cursor: metaDisabled ? "not-allowed" : "pointer", userSelect: "none" }}
+                  onClick={() => !metaDisabled && setGenerateMeta(v => !v)}>
+                  Also generate Meta ads <span style={{ fontSize: 10, color: "#2d3748" }}>(Facebook / Instagram)</span>
+                  {batchRunning && <span style={{ fontSize: 9, color: "#4a5568", marginLeft: 6 }}>· unavailable in batch mode</span>}
+                </span>
+              </div>
+            );
+          })()}
 
           <button onClick={generate} disabled={loading} style={{
             padding: "9px 22px", fontSize: 13, fontWeight: 700,
@@ -3112,6 +3137,14 @@ STRICT rules:
                           setUrl(h.url);
                           setGenerated(true);
                           if (h.format) setAdFormat(h.format);
+                          // Load Meta result if stored, or enable checkbox for fresh generation
+                          if (h.metaResult) {
+                            setMetaResult(h.metaResult);
+                            setMetaError("");
+                          } else {
+                            setMetaResult(null);
+                            setGenerateMeta(false); // reset so user consciously opts in
+                          }
                         }} style={{
                           width: 18, height: 18, borderRadius: 4, border: "none", cursor: "pointer", flexShrink: 0,
                           background: isSelected ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(255,255,255,0.08)",
@@ -3123,6 +3156,14 @@ STRICT rules:
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {h.rows[0]?.campaign || new URL(h.url).hostname}
+                            {h.metaResult && (
+                              <span style={{
+                                marginLeft: 5, fontSize: 8, fontWeight: 700,
+                                color: "#0ea5e9", background: "rgba(14,165,233,0.1)",
+                                border: "1px solid rgba(14,165,233,0.2)",
+                                borderRadius: 3, padding: "1px 4px", flexShrink: 0,
+                              }}>◉ META</span>
+                            )}
                           </div>
                           <div style={{ fontSize: 10, color: "#8fa3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.url}</div>
                           <div style={{ fontSize: 9, color: "#8fa3b8", marginTop: 2 }}>
@@ -3741,6 +3782,33 @@ STRICT rules:
                               background: "linear-gradient(135deg,#0ea5e9,#6366f1)", color: "white",
                               textDecoration: "none",
                             }}>⬇ Download 1:1 Image</a>
+                            <button onClick={() => {
+                              // Meta Ads Manager CSV export format
+                              const rows = [
+                                ["Ad Name", "Primary Text", "Headline", "Description", "Call to Action", "Destination URL", "Image URL"],
+                                ...(metaResult.primaryTexts || []).map((pt, i) => [
+                                  `Meta Ad ${i + 1}`,
+                                  pt,
+                                  metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
+                                  metaResult.descriptions?.[i] || metaResult.descriptions?.[0] || "",
+                                  "Learn More",
+                                  url,
+                                  metaResult.imageUrl || "",
+                                ])
+                              ];
+                              const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("
+");
+                              const blob = new Blob([csv], { type: "text/csv" });
+                              const a = document.createElement("a");
+                              a.href = URL.createObjectURL(blob);
+                              a.download = "meta-ads-export.csv";
+                              a.click();
+                            }} style={{
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                              padding: "8px 14px", borderRadius: 7, fontSize: 11, fontWeight: 700,
+                              background: "rgba(255,255,255,0.06)", color: "#94a3b8",
+                              border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer",
+                            }}>⬇ Export CSV for Meta Ads Manager</button>
                             <div style={{
                               padding: "8px 12px", borderRadius: 7, fontSize: 10, color: "#4a5568",
                               background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
