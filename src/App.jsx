@@ -1675,22 +1675,24 @@ STRICT rules:
             );
           })()}
 
-          <button onClick={generate} disabled={loading} style={{
+          <button onClick={generate} disabled={loading || batchRunning} style={{
             padding: "9px 22px", fontSize: 13, fontWeight: 700,
-            background: loading
+            background: loading || batchRunning
               ? "linear-gradient(135deg,#d97706,#f59e0b)"
               : "linear-gradient(135deg,#3b82f6,#6366f1)",
             color: "white", border: "none",
-            borderRadius: 8, cursor: loading ? "not-allowed" : "pointer",
+            borderRadius: 8, cursor: loading || batchRunning ? "not-allowed" : "pointer",
             display: "flex", alignItems: "center", gap: 7, flexShrink: 0,
             transition: "all 0.3s ease",
-            boxShadow: loading
+            boxShadow: loading || batchRunning
               ? "0 0 16px rgba(245,158,11,0.5)"
               : "0 4px 14px rgba(99,102,241,0.3)",
-            animation: loading ? "pulse 1.5s ease-in-out infinite" : "none",
+            animation: loading || batchRunning ? "pulse 1.5s ease-in-out infinite" : "none",
           }}>
             {loading
               ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block", fontSize: 14 }}>◌</span> Generating…</>
+              : batchRunning
+              ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block", fontSize: 14 }}>◌</span> Batch {batchProgress.current}/{batchProgress.total}</>
               : "✦ Generate"}
           </button>
           {generated && !loading && (
