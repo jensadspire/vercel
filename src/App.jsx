@@ -642,6 +642,7 @@ function RSAStudio() {
     if (!selected.length) return;
     setBatchRunning(true);
     setBatchProgress({ current: 0, total: selected.length });
+    setUrl(""); // Clear single URL so colour coding reacts to batchRunning
     const newRows = [];
     for (let i = 0; i < selected.length; i++) {
       setBatchProgress({ current: i + 1, total: selected.length });
@@ -1607,7 +1608,16 @@ STRICT rules:
       </div>
 
       {/* ── URL Bar ── */}
-      <div style={{ padding: "16px 24px", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(6,13,26,0.6)" }}>
+      <div style={{
+        padding: "16px 24px",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        background: batchRunning
+          ? "rgba(99,102,241,0.06)"
+          : loading
+          ? "rgba(245,158,11,0.06)"
+          : "rgba(6,13,26,0.6)",
+        transition: "background 0.4s ease",
+      }}>
         <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", gap: 10 }}>
           <div style={{ flex: 1, position: "relative" }}>
             <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#7e92a8", fontSize: 13 }}>🔗</span>
@@ -1616,7 +1626,7 @@ STRICT rules:
               value={url}
               onChange={e => setUrl(e.target.value)}
               onKeyDown={e => e.key === "Enter" && generate()}
-              placeholder="https://yoursite.com/landing-page → press Enter or click Generate"
+              placeholder={batchRunning ? `Batch generating ${batchProgress.current} of ${batchProgress.total}…` : "https://yoursite.com/landing-page → press Enter or click Generate"}
               style={{
                 ...S.inputBase, paddingLeft: 34, fontSize: 13,
                 border: loading
