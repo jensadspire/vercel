@@ -3189,10 +3189,11 @@ STRICT rules:
                                     {/* History items with checkboxes — paginated */}
                   {history.slice(historyPage * ADS_PER_PAGE, (historyPage + 1) * ADS_PER_PAGE).map((h, i) => {
                     const isSelected = selectedForExport.has(h.id);
-                    const isMeta = h.format === "meta";
+                    const isMeta = !!h.metaResult; // has Meta ad stored
+                    const isGoogleOnly = !h.metaResult;  // RSA/PMax with no Meta result
                     // Meta entries: distinct styling, CSV-only button, excluded from Google export checkbox
                     return (() => {
-                      const inactive = (adFormat === "meta" && !isMeta) || (adFormat !== "meta" && isMeta);
+                      const inactive = adFormat === "meta" && !isMeta; // only dim on Meta tab if no Meta result
                       return (
                       <div key={h.id} style={{
                         padding: "10px 12px", borderRadius: 8,
