@@ -3223,12 +3223,11 @@ STRICT rules:
                           }} style={{
                             width: 18, height: 18, borderRadius: 4, border: "none", flexShrink: 0,
                             cursor: adFormat === "meta" ? "pointer" : "default",
-                            background: adFormat === "meta"
-                              ? (isSelected ? "linear-gradient(135deg,#0ea5e9,#6366f1)" : "rgba(255,255,255,0.08)")
-                              : "rgba(255,255,255,0.03)",
+                            background: isSelected && adFormat === "meta"
+                              ? "linear-gradient(135deg,#0ea5e9,#6366f1)"
+                              : "rgba(255,255,255,0.08)",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             transition: "background 0.15s",
-                            opacity: adFormat === "meta" ? 1 : 0.3,
                           }}>
                             {isSelected && adFormat === "meta" && <span style={{ color: "white", fontSize: 10, fontWeight: 900 }}>✓</span>}
                           </button>
