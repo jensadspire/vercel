@@ -3191,10 +3191,9 @@ STRICT rules:
                     const isSelected = selectedForExport.has(h.id);
                     const isMeta = h.format === "meta";
                     // Meta entries: distinct styling, CSV-only button, excluded from Google export checkbox
-                    return (
-                      {(() => {
-                        const inactive = (adFormat === "meta" && !isMeta) || (adFormat !== "meta" && isMeta);
-                        return (
+                    return (() => {
+                      const inactive = (adFormat === "meta" && !isMeta) || (adFormat !== "meta" && isMeta);
+                      return (
                       <div key={h.id} style={{
                         padding: "10px 12px", borderRadius: 8,
                         background: isMeta
@@ -3310,10 +3309,10 @@ STRICT rules:
                           }}>Load</button>
                         </div>
                       </div>
-                        );
-                      })()}
-                    );
+                      );
+                    })()
                   })}
+
                   <Paginator page={historyPage} total={history.length} perPage={ADS_PER_PAGE} onChange={p => setHistoryPage(p)} />
 
                   {/* Multi-export tray — Google RSA/PMax only, Meta entries excluded */}
