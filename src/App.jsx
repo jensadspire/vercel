@@ -1335,16 +1335,18 @@ STRICT rules:
           Unlock unlimited access + pro tools
         </div>
         <div style={{ fontSize: 13, color: "#8fa3b8", lineHeight: 1.6, marginBottom: 24 }}>
-          You've used your 10 free generations. Sign up free to keep going and unlock powerful tools built for serious advertisers.
+          You've requested a pro feature or used your 10 free generations. Sign up free to keep going and unlock powerful tools built for serious advertisers.
         </div>
 
         {/* Feature grid */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 28, textAlign: "left" }}>
           {[
-            { icon: "∞", label: "Unlimited generations", color: "#34d399" },
-            { icon: "🎯", label: "Custom audience modifiers", color: "#818cf8" },
-            { icon: "📈", label: "Google Trends integration", color: "#60a5fa" },
-            { icon: "📋", label: "Export to Ads Editor", color: "#34d399" },
+            { icon: "∞",  label: "Unlimited generations",       color: "#34d399" },
+            { icon: "🎯", label: "Custom audience modifiers",    color: "#818cf8" },
+            { icon: "📈", label: "Google Trends integration",    color: "#60a5fa" },
+            { icon: "◉",  label: "Meta Ad generation",           color: "#0ea5e9" },
+            { icon: "🔍", label: "Domain scan + URL import",     color: "#f59e0b" },
+            { icon: "📋", label: "Export to Google / Meta",      color: "#34d399" },
           ].map(f => (
             <div key={f.label} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
               <span style={{ fontSize: 14, flexShrink: 0, color: f.color }}>{f.icon}</span>
