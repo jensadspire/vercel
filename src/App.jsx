@@ -1617,7 +1617,22 @@ STRICT rules:
               onChange={e => setUrl(e.target.value)}
               onKeyDown={e => e.key === "Enter" && generate()}
               placeholder="https://yoursite.com/landing-page → press Enter or click Generate"
-              style={{ ...S.inputBase, paddingLeft: 34, fontSize: 13 }}
+              style={{
+                ...S.inputBase, paddingLeft: 34, fontSize: 13,
+                border: loading
+                  ? "1.5px solid rgba(245,158,11,0.7)"
+                  : batchRunning
+                  ? "1.5px solid rgba(99,102,241,0.6)"
+                  : generated
+                  ? "1.5px solid rgba(59,130,246,0.4)"
+                  : "1.5px solid rgba(255,255,255,0.1)",
+                boxShadow: loading
+                  ? "0 0 10px rgba(245,158,11,0.2)"
+                  : batchRunning
+                  ? "0 0 10px rgba(99,102,241,0.2)"
+                  : "none",
+                transition: "border 0.3s ease, box-shadow 0.3s ease",
+              }}
             />
           </div>
           {/* Meta opt-in checkbox — disabled during batch mode */}
@@ -1936,12 +1951,29 @@ STRICT rules:
             ) : (
               /* Select & generate step */
               <div style={{ padding: "16px 18px" }}>
-                <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span>Step 2 — Select URLs to generate ({batchUrls.filter(b => b.selected).length} of {batchUrls.length} selected)</span>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setBatchUrls(prev => prev.map(b => ({ ...b, selected: true })))} style={{ fontSize: 10, fontWeight: 700, color: "#60a5fa", background: "none", border: "none", cursor: "pointer" }}>Select all</button>
-                    <button onClick={() => setBatchUrls(prev => prev.map(b => ({ ...b, selected: false })))} style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>Clear all</button>
-                    <button onClick={() => { setBatchUrls([]); setBatchPasteText(""); }} style={{ fontSize: 10, fontWeight: 700, color: "#f87171", background: "none", border: "none", cursor: "pointer" }}>← Re-paste</button>
+                <div style={{ marginBottom: 10 }}>
+                  {/* Back button row */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <button onClick={() => { setBatchUrls([]); setSelectedCategory(null); }} style={{
+                      display: "flex", alignItems: "center", gap: 5,
+                      fontSize: 10, fontWeight: 700, color: "#94a3b8",
+                      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: 6, padding: "4px 10px", cursor: "pointer",
+                    }}>← Back to categories</button>
+                    {selectedCategory && (
+                      <span style={{ fontSize: 10, color: "#4a5568" }}>
+                        Browsing: <span style={{ color: "#a5b4fc", fontWeight: 700 }}>{selectedCategory.name}</span>
+                      </span>
+                    )}
+                  </div>
+                  {/* Step label + controls */}
+                  <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>Step 2 — Select URLs to generate ({batchUrls.filter(b => b.selected).length} of {batchUrls.length} selected)</span>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => setBatchUrls(prev => prev.map(b => ({ ...b, selected: true })))} style={{ fontSize: 10, fontWeight: 700, color: "#60a5fa", background: "none", border: "none", cursor: "pointer" }}>Select all</button>
+                      <button onClick={() => setBatchUrls(prev => prev.map(b => ({ ...b, selected: false })))} style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", background: "none", border: "none", cursor: "pointer" }}>Clear all</button>
+                      <button onClick={() => { setBatchUrls([]); setBatchPasteText(""); }} style={{ fontSize: 10, fontWeight: 700, color: "#f87171", background: "none", border: "none", cursor: "pointer" }}>← Re-paste</button>
+                    </div>
                   </div>
                 </div>
 
@@ -2019,15 +2051,29 @@ STRICT rules:
                     </button>
                     <button
                       onClick={runBatchGeneration}
-                      disabled={batchUrls.filter(b => b.selected).length === 0}
+                      disabled={batchUrls.filter(b => b.selected).length === 0 || batchRunning}
                       style={{
-                        padding: "8px 22px", borderRadius: 8, border: "none", cursor: "pointer",
-                        background: batchUrls.filter(b => b.selected).length > 0 ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.05)",
+                        padding: "8px 22px", borderRadius: 8, border: "none",
+                        cursor: batchRunning || batchUrls.filter(b => b.selected).length === 0 ? "not-allowed" : "pointer",
+                        background: batchRunning
+                          ? "linear-gradient(135deg,#d97706,#f59e0b)"
+                          : batchUrls.filter(b => b.selected).length > 0
+                          ? "linear-gradient(135deg,#3b82f6,#6366f1)"
+                          : "rgba(255,255,255,0.05)",
                         color: batchUrls.filter(b => b.selected).length > 0 ? "white" : "#4a5568",
                         fontWeight: 700, fontSize: 12,
-                        boxShadow: batchUrls.filter(b => b.selected).length > 0 ? "0 4px 14px rgba(99,102,241,0.3)" : "none",
+                        boxShadow: batchRunning
+                          ? "0 0 16px rgba(245,158,11,0.5)"
+                          : batchUrls.filter(b => b.selected).length > 0
+                          ? "0 4px 14px rgba(99,102,241,0.3)"
+                          : "none",
+                        animation: batchRunning ? "pulse 1.5s ease-in-out infinite" : "none",
+                        transition: "all 0.3s ease",
                       }}>
-                      ✦ Generate {batchUrls.filter(b => b.selected).length} ad{batchUrls.filter(b => b.selected).length !== 1 ? "s" : ""}
+                      {batchRunning
+                        ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block", marginRight: 6 }}>⟳</span>Generating…</>
+                        : <>✦ Generate {batchUrls.filter(b => b.selected).length} ad{batchUrls.filter(b => b.selected).length !== 1 ? "s" : ""}</>
+                      }
                     </button>
                   </div>
                 )}
