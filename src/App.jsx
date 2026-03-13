@@ -3206,9 +3206,32 @@ STRICT rules:
                         opacity: inactive ? 0.35 : 1,
                         pointerEvents: inactive ? "none" : "auto",
                       }}>
-                        {/* Checkbox for RSA/PMax only — Meta entries get CSV button instead */}
+                        {/* Checkbox — RSA/PMax entries for Google export; Meta entries selectable on Meta tab */}
                         {isMeta ? (
-                          <div style={{ width: 18, flexShrink: 0 }} />
+                          <button onClick={() => {
+                            if (adFormat !== "meta") return; // only active on Meta tab
+                            setSelectedForExport(prev => {
+                              const next = new Set(prev);
+                              next.has(h.id) ? next.delete(h.id) : next.add(h.id);
+                              return next;
+                            });
+                            setRows(h.rows);
+                            setActiveRow(0);
+                            setUrl(h.url);
+                            setGenerated(true);
+                            if (h.metaResult) { setMetaResult(h.metaResult); setMetaError(""); }
+                          }} style={{
+                            width: 18, height: 18, borderRadius: 4, border: "none", flexShrink: 0,
+                            cursor: adFormat === "meta" ? "pointer" : "default",
+                            background: adFormat === "meta"
+                              ? (isSelected ? "linear-gradient(135deg,#0ea5e9,#6366f1)" : "rgba(255,255,255,0.08)")
+                              : "rgba(255,255,255,0.03)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            transition: "background 0.15s",
+                            opacity: adFormat === "meta" ? 1 : 0.3,
+                          }}>
+                            {isSelected && adFormat === "meta" && <span style={{ color: "white", fontSize: 10, fontWeight: 900 }}>✓</span>}
+                          </button>
                         ) : (
                           <button onClick={() => {
                             setSelectedForExport(prev => {
