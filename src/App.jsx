@@ -220,7 +220,7 @@ function AdStrengthRing({ headlines, descriptions }) {
   );
 }
 
-function SerpPreview({ row }) {
+function SerpPreview({ row, favicon }) {
   const hs = row.headlines.map(h => h.text).filter(Boolean);
   const ds = row.descriptions.map(d => d.text).filter(Boolean);
   const domain = (row.finalUrl || "yoursite.com").replace(/https?:\/\/(www\.)?/, "").split("/")[0];
@@ -241,15 +241,31 @@ function SerpPreview({ row }) {
       fontFamily: "Arial, sans-serif",
       boxShadow: "0 2px 16px rgba(0,0,0,0.18)",
     }}>
-      {/* Ad badge + URL */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-        <span style={{
-          fontSize: 10, fontWeight: 700, color: "#006621",
-          border: "1px solid #006621", borderRadius: 3, padding: "1px 4px"
-        }}>Ad</span>
-        <span style={{ fontSize: 13, color: "#202124" }}>
-          {displayUrl || "yoursite.com"}
-        </span>
+      {/* Favicon + Ad badge + URL */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <div style={{
+          width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+          background: "#f1f3f4", overflow: "hidden",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          border: "1px solid #e8eaed",
+        }}>
+          {favicon
+            ? <img src={favicon} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={e => { e.target.style.display = "none"; }} />
+            : <span style={{ fontSize: 11, color: "#5f6368", fontWeight: 700 }}>{domain[0]?.toUpperCase()}</span>
+          }
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: "#202124", fontWeight: 500, lineHeight: 1.2 }}>{domain || "yoursite.com"}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{
+              fontSize: 10, fontWeight: 700, color: "#006621",
+              border: "1px solid #006621", borderRadius: 3, padding: "0px 3px"
+            }}>Ad</span>
+            <span style={{ fontSize: 11, color: "#5f6368" }}>
+              {displayUrl || "yoursite.com"}
+            </span>
+          </div>
+        </div>
       </div>
       {/* Headline */}
       <div style={{ fontSize: 19, color: "#1a0dab", lineHeight: 1.25, marginBottom: 5, fontWeight: 400 }}>
@@ -3060,7 +3076,7 @@ STRICT rules:
             )}
 
             <div style={{ padding: "18px" }}>
-              <SerpPreview row={row} />
+              <SerpPreview row={row} favicon={pmaxLogo} />
             </div>
             {/* Headline rotation hint */}
             {row.headlines.filter(h => h.text.trim()).length > 3 && (
@@ -3176,6 +3192,9 @@ STRICT rules:
                     const isMeta = h.format === "meta";
                     // Meta entries: distinct styling, CSV-only button, excluded from Google export checkbox
                     return (
+                      {(() => {
+                        const inactive = (adFormat === "meta" && !isMeta) || (adFormat !== "meta" && isMeta);
+                        return (
                       <div key={h.id} style={{
                         padding: "10px 12px", borderRadius: 8,
                         background: isMeta
@@ -3183,7 +3202,9 @@ STRICT rules:
                           : isSelected ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
                         border: `1px solid ${isMeta ? "rgba(14,165,233,0.2)" : isSelected ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.07)"}`,
                         display: "flex", alignItems: "center", gap: 10,
-                        transition: "all 0.15s",
+                        transition: "all 0.2s",
+                        opacity: inactive ? 0.35 : 1,
+                        pointerEvents: inactive ? "none" : "auto",
                       }}>
                         {/* Checkbox for RSA/PMax only — Meta entries get CSV button instead */}
                         {isMeta ? (
@@ -3289,9 +3310,10 @@ STRICT rules:
                           }}>Load</button>
                         </div>
                       </div>
+                        );
+                      })()}
                     );
-                                    })}
-
+                  })}
                   <Paginator page={historyPage} total={history.length} perPage={ADS_PER_PAGE} onChange={p => setHistoryPage(p)} />
 
                   {/* Multi-export tray — Google RSA/PMax only, Meta entries excluded */}
@@ -3346,7 +3368,7 @@ STRICT rules:
                             transition: "all 0.3s",
                           }}>
                             <span>{multiCopied ? "✓" : "📋"}</span>
-                            {multiCopied ? "Copied!" : "Copy all to Editor"}
+                            {multiCopied ? "Copied!" : adFormat === "meta" ? "Copy for Meta Ads" : "Copy all to Editor"}
                           </button>
                           <button onClick={handleMultiDownload} style={{
                             padding: "9px 12px", fontSize: 12, fontWeight: 700,
@@ -3431,7 +3453,14 @@ STRICT rules:
                               <div style={{ width: "60%", height: "100%", background: "white", borderRadius: 1 }} />
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <div style={{ width: 22, height: 22, borderRadius: "50%", background: isIG ? "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" : "linear-gradient(135deg,#0ea5e9,#6366f1)", flexShrink: 0, border: "1.5px solid white" }} />
+                              <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                                background: isIG ? "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" : "linear-gradient(135deg,#1877f2,#0ea5e9)",
+                                padding: 2, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                                {pmaxLogo
+                                  ? <img src={pmaxLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "50%", border: "1.5px solid white" }} onError={e => { e.target.style.display="none"; }} />
+                                  : <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: "rgba(255,255,255,0.3)", display:"flex", alignItems:"center", justifyContent:"center", fontSize: 8, fontWeight:700, color:"white" }}>{brand?.[0]?.toUpperCase()}</div>
+                                }
+                              </div>
                               <span style={{ fontSize: 9, fontWeight: 700, color: "white" }}>{brand}</span>
                             </div>
                           </div>
@@ -3447,7 +3476,10 @@ STRICT rules:
                         <div style={{ width: 260, background: "white", borderRadius: 10, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.45)", flexShrink: 0 }}>
                           <div style={{ padding: "8px 10px", display: "flex", alignItems: "center", gap: 7 }}>
                             <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, background: isIG ? "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" : "linear-gradient(135deg,#0ea5e9,#6366f1)", padding: isIG ? 2 : 0, boxSizing: "border-box" }}>
-                              <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: "linear-gradient(135deg,#0ea5e9,#6366f1)", border: isIG ? "2px solid white" : "none" }} />
+                              {pmaxLogo
+                                ? <img src={pmaxLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "50%", border: isIG ? "2px solid white" : "none" }} onError={e => { e.target.style.display="none"; }} />
+                                : <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: "linear-gradient(135deg,#0ea5e9,#6366f1)", border: isIG ? "2px solid white" : "none", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"white" }}>{brand?.[0]?.toUpperCase()}</div>
+                              }
                             </div>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{brand}</div>
