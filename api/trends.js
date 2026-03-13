@@ -52,10 +52,12 @@ Rules:
 - Include a mix of: style/trend queries, occasion-based, comparison, seasonal, intent-based
 - Each query should be 2-5 words max
 - Do NOT just append "kaufen/buy/online" to the keyword — be creative
+- NEVER include a specific year or date (no 2024, 2025, 2026, "this year", "new for 2025" etc.) — angles must be evergreen
+- NEVER use hollow superlatives like "best", "top", "award-winning", "industry-leading", "world-class" unless directly supported by the page content
 - Return ONLY a JSON array of 6 strings, no other text
 
 Example for "kurze kleider" in German:
-["Sommerkleid Trends 2026", "Festival Outfit Damen", "Midi Kleid casual", "Partykleid kurz elegant", "Boho Kleid Sommer", "Kleid Hochzeit Gast"]`
+["Festival Outfit Damen", "Midi Kleid casual", "Partykleid kurz elegant", "Boho Kleid Sommer", "Kleid Hochzeit Gast", "Sommerkleid leicht"]`
         }],
       }),
     });
