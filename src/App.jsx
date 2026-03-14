@@ -3355,7 +3355,6 @@ STRICT rules:
                       ]);
                     });
                     const metaCsvStr = "Campaign Name\tCampaign Status\tCampaign Objective\tBuying Type\tCampaign Daily Budget\tNew Objective\tAd Set Run Status\tAd Set Name\tLink\tCountries\tOptimization Goal\tBilling Event\tAd Status\tAd Name\tTitle\tBody\tImage File Name\tCreative Type\tCall to Action\tImage URL (download & attach)\n" + metaCsvRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
-                    const metaCsvStr = metaCsvRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
 
                     const handleMultiCopy = async () => {
                       const payload = isMetaTab ? metaCsvStr : multiTsv;
