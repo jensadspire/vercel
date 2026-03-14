@@ -3293,27 +3293,14 @@ STRICT rules:
                             <button onClick={() => {
                               const r = h.metaResult;
                               const csvRows = [
-                                ["Campaign name", "Objective", "Ad set name", "Daily budget", "Ad status", "Ad name", "Creative type", "Body", "Title", "Call to Action", "Link", "Image", "Image URL (download & attach)"],
+                                ["Campaign Name", "Campaign Objective", "Buying Type", "Campaign Status", "Ad Set Name", "Ad Set Daily Budget", "Ad Set Run Status", "Optimization Goal", "Billing Event", "Ad Name", "Ad Status", "Creative Type", "Body", "Title", "Call to Action", "Link", "Image File Name", "Image URL (download & attach)"],
                                 ...(r.primaryTexts || []).length > 0 ? [
-                                  // Campaign row
-                                  [h.rows[0]?.campaign || "RSA Studio Campaign", "OUTCOME_TRAFFIC", "", "", "", "", "", "", "", "", "", "", ""],
-                                  // Ad set row
-                                  [h.rows[0]?.campaign || "RSA Studio Campaign", "", "RSA Studio Ad Set", "1000", "Active", "", "", "", "", "", "", "", ""],
-                                  // Ad rows
+                                  [h.rows[0]?.campaign || "RSA Studio Campaign", "Traffic", "AUCTION", "ACTIVE", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+                                  [h.rows[0]?.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "1000", "ACTIVE", "LINK_CLICKS", "IMPRESSIONS", "", "", "", "", "", "", "", "", ""],
                                   ...(r.primaryTexts || []).map((pt, i) => [
-                                    h.rows[0]?.campaign || "RSA Studio Campaign",
-                                    "",
-                                    "RSA Studio Ad Set",
-                                    "",
-                                    "",
-                                    `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
-                                    "Page Post Ad",
-                                    pt,
-                                    r.headlines?.[i] || r.headlines?.[0] || "",
-                                    "LEARN_MORE",
-                                    h.url,
-                                    "",
-                                    r.imageUrl || "",
+                                    h.rows[0]?.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "", "", "", "",
+                                    `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, "ACTIVE", "Page Post Ad",
+                                    pt, r.headlines?.[i] || r.headlines?.[0] || "", "LEARN_MORE", h.url, "", r.imageUrl || "",
                                   ]),
                                 ] : []
                               ];
@@ -3363,17 +3350,16 @@ STRICT rules:
                     const selectedRows = googleSelected.flatMap(h => h.rows);
                     const multiTsv = buildTSV(selectedRows, omitGroupMulti, adFormat);
                     const metaCsvRows = [
-                      ["Campaign name", "Objective", "Ad set name", "Daily budget", "Ad status", "Ad name", "Creative type", "Body", "Title", "Call to Action", "Link", "Image", "Image URL (download & attach)"],
+                      ["Campaign Name", "Campaign Objective", "Buying Type", "Campaign Status", "Ad Set Name", "Ad Set Daily Budget", "Ad Set Run Status", "Optimization Goal", "Billing Event", "Ad Name", "Ad Status", "Creative Type", "Body", "Title", "Call to Action", "Link", "Image File Name", "Image URL (download & attach)"],
                       ...metaSelected.flatMap(h => {
                         const cn = h.rows[0]?.campaign || "RSA Studio Campaign";
                         return [
-                          [cn, "OUTCOME_TRAFFIC", "", "", "", "", "", "", "", "", "", "", ""],
-                          [cn, "", "RSA Studio Ad Set", "1000", "Active", "", "", "", "", "", "", "", ""],
+                          [cn, "Traffic", "AUCTION", "ACTIVE", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+                          [cn, "", "", "", "RSA Studio Ad Set", "1000", "ACTIVE", "LINK_CLICKS", "IMPRESSIONS", "", "", "", "", "", "", "", "", ""],
                           ...(h.metaResult.primaryTexts || []).map((pt, i) => [
-                            cn, "", "RSA Studio Ad Set", "", "",
-                            `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
-                            "Page Post Ad", pt,
-                            h.metaResult.headlines?.[i] || h.metaResult.headlines?.[0] || "",
+                            cn, "", "", "", "RSA Studio Ad Set", "", "", "", "",
+                            `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, "ACTIVE", "Page Post Ad",
+                            pt, h.metaResult.headlines?.[i] || h.metaResult.headlines?.[0] || "",
                             "LEARN_MORE", h.url, "", h.metaResult.imageUrl || "",
                           ]),
                         ];
@@ -3823,14 +3809,14 @@ STRICT rules:
                             }}>⬇ Download 1:1 Image</a>
                             <button onClick={async () => {
                               const rows = [
-                                ["Campaign name", "Objective", "Ad set name", "Daily budget", "Ad status", "Ad name", "Creative type", "Body", "Title", "Call to Action", "Link", "Image", "Image URL (download & attach)"],
+                                ["Campaign Name", "Campaign Objective", "Buying Type", "Campaign Status", "Ad Set Name", "Ad Set Daily Budget", "Ad Set Run Status", "Optimization Goal", "Billing Event", "Ad Name", "Ad Status", "Creative Type", "Body", "Title", "Call to Action", "Link", "Image File Name", "Image URL (download & attach)"],
                                 ...(metaResult.primaryTexts || []).length > 0 ? [
-                                  [row.campaign || "RSA Studio Campaign", "OUTCOME_TRAFFIC", "", "", "", "", "", "", "", "", "", "", ""],
-                                  [row.campaign || "RSA Studio Campaign", "", "RSA Studio Ad Set", "1000", "Active", "", "", "", "", "", "", "", ""],
+                                  [row.campaign || "RSA Studio Campaign", "Traffic", "AUCTION", "ACTIVE", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+                                  [row.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "1000", "ACTIVE", "LINK_CLICKS", "IMPRESSIONS", "", "", "", "", "", "", "", "", ""],
                                   ...(metaResult.primaryTexts || []).map((pt, i) => [
-                                    row.campaign || "RSA Studio Campaign", "", "RSA Studio Ad Set", "", "",
-                                    `Meta Ad ${i + 1}`, "Page Post Ad", pt,
-                                    metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
+                                    row.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "", "", "", "",
+                                    `Meta Ad ${i + 1}`, "ACTIVE", "Page Post Ad",
+                                    pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
                                     "LEARN_MORE", url, "", metaResult.imageUrl || "",
                                   ]),
                                 ] : []
@@ -3851,14 +3837,14 @@ STRICT rules:
                             <button onClick={() => {
                               // Meta Ads Manager CSV export format
                               const rows = [
-                                ["Campaign name", "Objective", "Ad set name", "Daily budget", "Ad status", "Ad name", "Creative type", "Body", "Title", "Call to Action", "Link", "Image", "Image URL (download & attach)"],
+                                ["Campaign Name", "Campaign Objective", "Buying Type", "Campaign Status", "Ad Set Name", "Ad Set Daily Budget", "Ad Set Run Status", "Optimization Goal", "Billing Event", "Ad Name", "Ad Status", "Creative Type", "Body", "Title", "Call to Action", "Link", "Image File Name", "Image URL (download & attach)"],
                                 ...(metaResult.primaryTexts || []).length > 0 ? [
-                                  [row.campaign || "RSA Studio Campaign", "OUTCOME_TRAFFIC", "", "", "", "", "", "", "", "", "", "", ""],
-                                  [row.campaign || "RSA Studio Campaign", "", "RSA Studio Ad Set", "1000", "Active", "", "", "", "", "", "", "", ""],
+                                  [row.campaign || "RSA Studio Campaign", "Traffic", "AUCTION", "ACTIVE", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+                                  [row.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "1000", "ACTIVE", "LINK_CLICKS", "IMPRESSIONS", "", "", "", "", "", "", "", "", ""],
                                   ...(metaResult.primaryTexts || []).map((pt, i) => [
-                                    row.campaign || "RSA Studio Campaign", "", "RSA Studio Ad Set", "", "",
-                                    `Meta Ad ${i + 1}`, "Page Post Ad", pt,
-                                    metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
+                                    row.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "", "", "", "",
+                                    `Meta Ad ${i + 1}`, "ACTIVE", "Page Post Ad",
+                                    pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
                                     "LEARN_MORE", url, "", metaResult.imageUrl || "",
                                   ]),
                                 ] : []
