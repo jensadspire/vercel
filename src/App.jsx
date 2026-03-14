@@ -3802,19 +3802,7 @@ STRICT rules:
                               const rows = (metaResult.primaryTexts || []).map((pt, i) => [
                                 "", row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
                                 "", "", "", "Yes", "", "", "", "",
-                                "", "ACTIVE", "", (h.rows[0]?.campaign || "RSA Studio") + " - Ad Set", "", "", "", "", "", "",
-                                url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(), "", "", "", "", "", "", "", "",
-                                "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
-                                "", "", "", "ACTIVE", "", "",
-                                `Meta Ad ${i + 1}`, pt,
-                                metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
-                                "", "", "Page Post Ad", "", "", "", "LEARN_MORE",
-                                "", "", "", "",
-                              ]);
-                              const rows = (metaResult.primaryTexts || []).map((pt, i) => [
-                                "", row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
-                                "", "", "", "Yes", "", "", "", "",
-                                "", "ACTIVE", "", (h.rows[0]?.campaign || "RSA Studio") + " - Ad Set", "", "", "", "", "", "",
+                                "", "ACTIVE", "", (row.campaign || "RSA Studio") + " - Ad Set", "", "", "", "", "", "",
                                 url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(), "", "", "", "", "", "", "", "",
                                 "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
                                 "", "", "", "ACTIVE", "", "",
@@ -3824,3 +3812,83 @@ STRICT rules:
                                 "", "", "", "",
                               ]);
                               const csv = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + rows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                              try { await navigator.clipboard.writeText(csv); } catch (_) {
+                                const ta = document.createElement("textarea"); ta.value = csv;
+                                ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
+                                document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+                              }
+                              setMetaCopied(true); setTimeout(() => setMetaCopied(false), 2500);
+                            }} style={{
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                              padding: "8px 14px", borderRadius: 7, fontSize: 11, fontWeight: 700,
+                              background: "linear-gradient(135deg,rgba(14,165,233,0.25),rgba(99,102,241,0.25))",
+                              color: "#38bdf8", border: "1px solid rgba(14,165,233,0.35)", cursor: "pointer",
+                            }}>{metaCopied ? "✓ Copied!" : "📋 Copy for Meta Ads"}</button>
+                            <button onClick={() => {
+                              const rows2 = (metaResult.primaryTexts || []).map((pt, i) => [
+                                "", row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
+                                "", "", "", "Yes", "", "", "", "",
+                                "", "ACTIVE", "", (row.campaign || "RSA Studio") + " - Ad Set", "", "", "", "", "", "",
+                                url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(), "", "", "", "", "", "", "", "",
+                                "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
+                                "", "", "", "ACTIVE", "", "",
+                                `Meta Ad ${i + 1}`, pt,
+                                metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
+                                "", "", "Page Post Ad", "", "", "", "LEARN_MORE",
+                                "", "", "", "",
+                              ]);
+                              const csv2 = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + rows2.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                              const blob = new Blob([csv2], { type: "text/plain" });
+                              const a = document.createElement("a");
+                              a.href = URL.createObjectURL(blob);
+                              a.download = "meta-ads-export.txt";
+                              a.click();
+                            }} style={{
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                              padding: "8px 14px", borderRadius: 7, fontSize: 11, fontWeight: 700,
+                              background: "rgba(255,255,255,0.06)", color: "#94a3b8",
+                              border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer",
+                            }}>⬇ Download CSV for Meta</button>
+                            <div style={{
+                              padding: "8px 12px", borderRadius: 7, fontSize: 10, color: "#4a5568",
+                              background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
+                              textAlign: "center",
+                            }}>
+                              🎬 Reel / Story export <span style={{ color: "#2d3748" }}>— coming soon</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Regenerate */}
+                    <div style={{ textAlign: "center", paddingBottom: 8 }}>
+                      <button onClick={() => { setMetaResult(null); setGenerateMeta(true); setAdFormat("rsa");
+                        setTimeout(() => document.querySelector('[data-tab="rsa"]')?.click(), 50);
+                      }} style={{
+                        fontSize: 11, color: "#4a5568", background: "none", border: "none", cursor: "pointer",
+                      }}>← Back to Google ads · regenerate Meta from RSA tab</button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      {showCopyModal && <CopyModal />}
+      {showGateModal && <GateModal />}
+      {showAuthModal && <AuthModal />}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+      `}</style>
+    </div>
+  );
+}
