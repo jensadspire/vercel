@@ -3813,28 +3813,6 @@ STRICT rules:
                               "", "", "", "", "", "",
                               url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(),
                               "", "", "", "", "", "", "", "", "",
-                              "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
-                              "", "", "",
-                              "ACTIVE", "", "",
-                              `Meta Ad ${i + 1}`, pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
-                              "", "", "Page Post Ad",
-                              "", "", "", "LEARN_MORE",
-                              "", "", "", "",
-                            ]);
-                            const csv = "Campaign ID\tCampaign Name\tCampaign Status\tCampaign Objective\tBuying Type\tCampaign Daily Budget\tCampaign Bid Strategy\tCampaign Start Time\tNew Objective\tBuy With Prime Type\tIs Budget Scheduling Enabled For Campaign\tCampaign High Demand Periods\tBuy With Integration Partner\tAd Set ID\tAd Set Run Status\tAd Set Lifetime Impressions\tAd Set Name\tAd Set Time Start\tDestination Type\tUse Accelerated Delivery\tIs Budget Scheduling Enabled For Ad Set\tAd Set High Demand Periods\tLink Object ID\tLink\tDisplay Link\tCountries\tLocation Types\tAge Min\tAge Max\tExcluded Custom Audiences\tAdvantage Audience\tAge Range\tTargeting Optimization\tBrand Safety Inventory Filtering Levels\tOptimization Goal\tAttribution Spec\tBilling Event\tRegional Regulated Categories\tStory ID\tAd ID\tAd Status\tPreview Link\tInstagram Preview Link\tAd Name\tBody\tTitle\tOptimize text per person\tOptimized Ad Creative\tCreative Type\tURL Tags\tVideo ID\tInstagram Account ID\tCall to Action\tAdditional Custom Tracking Specs\tVideo Retargeting\tPermalink\tUse Page as Actor\n" + rows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
-                            try { await navigator.clipboard.writeText(csv); } catch (_) {
-                              const ta = document.createElement("textarea"); ta.value = csv;
-                              ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
-                              document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
-                            }
-                            setMetaCopied(true); setTimeout(() => setMetaCopied(false), 2500);
-                          }} style={{
-                            width: "100%", padding: "11px", fontSize: 12, fontWeight: 700,
-                            background: "linear-gradient(135deg,rgba(14,165,233,0.3),rgba(99,102,241,0.3))",
-                            color: "#38bdf8", border: "1px solid rgba(14,165,233,0.4)",
-                            borderRadius: 8, cursor: "pointer", marginBottom: 8,
-                            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                          }}>{metaCopied ? "✓ Copied!" : "📋 Copy for Meta Ads"}</button>
                           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
                             <a href={metaResult.imageUrl} download="meta-creative.png" style={{
                               display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
