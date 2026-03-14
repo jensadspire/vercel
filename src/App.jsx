@@ -3389,7 +3389,7 @@ STRICT rules:
                         : "data:text/tab-separated-values;charset=utf-8," + encodeURIComponent(multiTsv);
                       const a = document.createElement("a");
                       a.href = encoded;
-                      a.download = isMetaCsv ? `meta_ads_${totalSelected}_variants.csv` : `rsa_ads_${totalSelected}_versions.csv`;
+                      a.download = isMetaDl ? `meta_ads_${totalSelected}_variants.csv` : `rsa_ads_${totalSelected}_versions.csv`;cted}_versions.csv`;
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);
@@ -3406,11 +3406,6 @@ STRICT rules:
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button onClick={handleMultiCopy} style={{
-                    const handleMultiDownload = () => {
-                      const isMetaCsv = adFormat === "meta";
-                      const encoded = isMetaCsv
-                        ? "data:text/csv;charset=utf-8," + encodeURIComponent(metaCsvStr)
-                        : "data:text/tab-separated-values;charset=utf-8," + encodeURIComponent(multiTsv);
                             display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                             transition: "all 0.3s",
                           }}>
