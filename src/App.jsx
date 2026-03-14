@@ -3617,7 +3617,23 @@ STRICT rules:
                 {adFormat === "meta" && (
                   <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 6 }}>
                     <button onClick={async () => {
-                      const payload = metaCsvStr;
+                      const r = metaResult || {};
+                      const dataRows = (r.primaryTexts || []).map((pt, i) => [
+                        "", row?.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
+                        "", "", "", "Yes", "", "", "", "",
+                        "", "ACTIVE", "", (row?.campaign || "RSA Studio") + " - Ad Set",
+                        "", "", "", "", "", "",
+                        url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(),
+                        "", "", "", "", "", "", "", "", "",
+                        "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
+                        "", "", "",
+                        "ACTIVE", "", "",
+                        "Meta Ad " + (i + 1), pt, r.headlines?.[i] || r.headlines?.[0] || "",
+                        "", "", "Page Post Ad",
+                        "", "", "", "LEARN_MORE",
+                        "", "", "", "",
+                      ]);
+                      const payload = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + dataRows.map(r => r.map(v => String(v).replace(/\t/g," ").replace(/\n/g," ")).join("\t")).join("\n");
                       try { await navigator.clipboard.writeText(payload); } catch(_) {
                         const ta = document.createElement("textarea"); ta.value = payload;
                         ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
