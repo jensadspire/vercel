@@ -3582,7 +3582,7 @@ STRICT rules:
           {/* Export + Guide */}
           <div style={S.card}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ ...S.sectionLabel, margin: 0 }}>Export to Google Ads Editor</span>
+              <span style={{ ...S.sectionLabel, margin: 0 }}>{adFormat === "meta" ? "Export for Meta Ads" : "Export to Google Ads Editor"}</span>
               <button onClick={() => setShowGuide(!showGuide)} style={{
                 fontSize: 11, fontWeight: 700, color: "#7e92a8",
                 background: "none", border: "none", cursor: "pointer", letterSpacing: "0.04em",
@@ -3611,6 +3611,29 @@ STRICT rules:
                   }}>
                     {copiedNoGroup ? "✓ copied without campaign/ad group!" : "copy without campaign / ad group"}
                   </button>
+                {adFormat === "meta" && (
+                  <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <button onClick={async () => {
+                      const payload = metaCsvStr;
+                      try { await navigator.clipboard.writeText(payload); } catch(_) {
+                        const ta = document.createElement("textarea"); ta.value = payload;
+                        ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
+                        document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+                      }
+                      setMultiCopied(true); setTimeout(() => setMultiCopied(false), 2500);
+                    }} style={{
+                      width: "100%", padding: "11px 16px", fontSize: 13, fontWeight: 700,
+                      background: multiCopied ? "linear-gradient(135deg,#0369a1,#0ea5e9)" : "linear-gradient(135deg,rgba(14,165,233,0.3),rgba(99,102,241,0.3))",
+                      color: multiCopied ? "white" : "#38bdf8",
+                      border: "1px solid rgba(14,165,233,0.4)", borderRadius: 8, cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                      transition: "all 0.3s",
+                    }}>
+                      <span style={{ fontSize: 16 }}>{multiCopied ? "✓" : "📋"}</span>
+                      {multiCopied ? "Copied to clipboard!" : "Copy for Meta Ads"}
+                    </button>
+                  </div>
+                )}
                 </div>
                 <button onClick={downloadCSV} style={{
                   padding: "11px 16px", fontSize: 13, fontWeight: 700,
