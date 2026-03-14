@@ -3417,7 +3417,7 @@ STRICT rules:
                             padding: "9px 16px", fontSize: 12, fontWeight: 700, borderRadius: 7,
                             cursor: "pointer", transition: "all 0.3s", flex: 1,
                             background: adFormat === "meta"
-                              ? "linear-gradient(135deg,rgba(14,165,233,0.25),rgba(99,102,241,0.25))",
+                              ? "linear-gradient(135deg,rgba(14,165,233,0.25),rgba(99,102,241,0.25))"
                               : "linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.25))",
                             color: adFormat === "meta" ? "#38bdf8" : "#a5b4fc",
                             border: adFormat === "meta"
