@@ -3293,13 +3293,13 @@ STRICT rules:
                             <button onClick={() => {
                               const r = h.metaResult;
                               const csvRows = [
-                                ["Ad Name", "Primary Text", "Headline", "Description", "Call to Action", "Destination URL", "Image URL"],
+                                ["Ad name", "Body", "Title", "Description", "Call to action type", "Website URL", "Image"],
                                 ...(r.primaryTexts || []).map((pt, i) => [
                                   `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
                                   pt,
                                   r.headlines?.[i] || r.headlines?.[0] || "",
                                   r.descriptions?.[i] || r.descriptions?.[0] || "",
-                                  "Learn More",
+                                  "LEARN_MORE",
                                   h.url,
                                   r.imageUrl || "",
                                 ])
@@ -3342,18 +3342,36 @@ STRICT rules:
 
                   {/* Multi-export tray — Google RSA/PMax only, Meta entries excluded */}
                   {selectedForExport.size > 0 && (() => {
-                    // Only include non-Meta entries in Google export
-                    const googleSelected = history.filter(h => selectedForExport.has(h.id) && h.format !== "meta");
+                    // Meta tab: build Meta CSV; Google tabs: build Google TSV
+                    const isMetaTab = adFormat === "meta";
+                    const metaSelected = history.filter(h => selectedForExport.has(h.id) && h.metaResult);
+                    const googleSelected = history.filter(h => selectedForExport.has(h.id) && !h.metaResult);
+                    const totalSelected = (isMetaTab ? metaSelected : googleSelected).length;
                     const selectedRows = googleSelected.flatMap(h => h.rows);
-                    const totalSelected = googleSelected.length;
                     const multiTsv = buildTSV(selectedRows, omitGroupMulti, adFormat);
+                    const metaCsvRows = [
+                      ["Ad name", "Body", "Title", "Description", "Call to action type", "Website URL", "Image"],
+                      ...metaSelected.flatMap(h =>
+                        (h.metaResult.primaryTexts || []).map((pt, i) => [
+                          `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
+                          pt,
+                          h.metaResult.headlines?.[i] || h.metaResult.headlines?.[0] || "",
+                          h.metaResult.descriptions?.[i] || h.metaResult.descriptions?.[0] || "",
+                          "LEARN_MORE",
+                          h.url,
+                          h.metaResult.imageUrl || "",
+                        ])
+                      ),
+                    ];
+                    const metaCsvStr = metaCsvRows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
 
                     const handleMultiCopy = async () => {
+                      const payload = isMetaTab ? metaCsvStr : multiTsv;
                       try {
-                        await navigator.clipboard.writeText(multiTsv);
+                        await navigator.clipboard.writeText(payload);
                       } catch (_) {
                         const ta = document.createElement("textarea");
-                        ta.value = multiTsv;
+                        ta.value = payload;
                         ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
                         document.body.appendChild(ta);
                         ta.select();
@@ -3365,10 +3383,13 @@ STRICT rules:
                     };
 
                     const handleMultiDownload = () => {
-                      const encoded = "data:text/tab-separated-values;charset=utf-8," + encodeURIComponent(multiTsv);
+                      const isMetaDl = adFormat === "meta";
+                      const encoded = isMetaDl
+                        ? "data:text/csv;charset=utf-8," + encodeURIComponent(metaCsvStr)
+                        : "data:text/tab-separated-values;charset=utf-8," + encodeURIComponent(multiTsv);
                       const a = document.createElement("a");
                       a.href = encoded;
-                      a.download = `rsa_ads_${totalSelected}_versions.csv`;
+                      a.download = isMetaCsv ? `meta_ads_${totalSelected}_variants.csv` : `rsa_ads_${totalSelected}_versions.csv`;
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);
@@ -3385,9 +3406,11 @@ STRICT rules:
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button onClick={handleMultiCopy} style={{
-                            flex: 1, padding: "9px 12px", fontSize: 12, fontWeight: 700,
-                            background: multiCopied ? "linear-gradient(135deg,#059669,#10b981)" : "linear-gradient(135deg,#3b82f6,#6366f1)",
-                            color: "white", border: "none", borderRadius: 7, cursor: "pointer",
+                    const handleMultiDownload = () => {
+                      const isMetaCsv = adFormat === "meta";
+                      const encoded = isMetaCsv
+                        ? "data:text/csv;charset=utf-8," + encodeURIComponent(metaCsvStr)
+                        : "data:text/tab-separated-values;charset=utf-8," + encodeURIComponent(multiTsv);
                             display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                             transition: "all 0.3s",
                           }}>
@@ -3404,7 +3427,7 @@ STRICT rules:
                           </button>
                         </div>
                         <div style={{ fontSize: 10, color: "#8fa3b8", marginTop: 8 }}>
-                          All {totalSelected} versions exported as separate rows — paste directly into Google Ads Editor
+                          {adFormat === "meta" ? `All ${totalSelected} Meta ad variants ready — paste into Meta Ads Manager` : `All ${totalSelected} versions exported as separate rows — paste directly into Google Ads Editor`}
                         </div>
                       </div>
                     );
@@ -3790,13 +3813,13 @@ STRICT rules:
                             <button onClick={() => {
                               // Meta Ads Manager CSV export format
                               const rows = [
-                                ["Ad Name", "Primary Text", "Headline", "Description", "Call to Action", "Destination URL", "Image URL"],
+                                ["Ad name", "Body", "Title", "Description", "Call to action type", "Website URL", "Image"],
                                 ...(metaResult.primaryTexts || []).map((pt, i) => [
                                   `Meta Ad ${i + 1}`,
                                   pt,
                                   metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
                                   metaResult.descriptions?.[i] || metaResult.descriptions?.[0] || "",
-                                  "Learn More",
+                                  "LEARN_MORE",
                                   url,
                                   metaResult.imageUrl || "",
                                 ])
