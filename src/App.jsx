@@ -3293,22 +3293,19 @@ STRICT rules:
                             <button onClick={() => {
                               const r = h.metaResult;
                               const csvRows = [
-                                ["Campaign Name", "Campaign Objective", "Buying Type", "Campaign Status", "Ad Set Name", "Ad Set Daily Budget", "Ad Set Run Status", "Optimization Goal", "Billing Event", "Countries", "Ad Name", "Ad Status", "Creative Type", "Body", "Title", "Call to Action", "Link", "Image File Name", "Image URL (download & attach)"],
-                                ...(r.primaryTexts || []).length > 0 ? [
-                                  [h.rows[0]?.campaign || "RSA Studio Campaign", "Traffic", "AUCTION", "ACTIVE", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-                                  [h.rows[0]?.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "1000", "ACTIVE", "LINK_CLICKS", "LINK_CLICKS", "Worldwide", "", "", "", "", "", "", "", ""],
-                                  ...(r.primaryTexts || []).map((pt, i) => [
-                                    h.rows[0]?.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "", "", "", "", "",
-                                    `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, "ACTIVE", "Page Post Ad",
-                                    pt, r.headlines?.[i] || r.headlines?.[0] || "", "LEARN_MORE", h.url, "", r.imageUrl || "",
-                                  ]),
-                                ] : []
+                                "Campaign Name\tCampaign Status\tCampaign Objective\tBuying Type\tCampaign Daily Budget\tNew Objective\tAd Set Run Status\tAd Set Name\tLink\tCountries\tOptimization Goal\tBilling Event\tAd Status\tAd Name\tTitle\tBody\tImage File Name\tCreative Type\tCall to Action\tImage URL (download & attach)",
+                                ...(r.primaryTexts || []).map((pt, i) => [
+                                  h.rows[0]?.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION", "", "Yes", "ACTIVE", "RSA Studio Ad Set",
+                                  h.url, "", "LANDING_PAGE_VIEWS", "IMPRESSIONS", "ACTIVE",
+                                  `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
+                                  r.headlines?.[i] || r.headlines?.[0] || "", pt, "", "Page Post Ad", "LEARN_MORE", r.imageUrl || "",
+                                ])
                               ];
-                              const csv = csvRows.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-                              const blob = new Blob([csv], { type: "text/csv" });
+                              const csv = csvRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                              const blob = new Blob([csv], { type: "text/plain" });
                               const a = document.createElement("a");
                               a.href = URL.createObjectURL(blob);
-                              a.download = "meta-ads-export.csv";
+                              a.download = "meta-ads-export.txt";
                               a.click();
                             }} style={{
                               padding: "4px 8px", fontSize: 10, fontWeight: 700,
@@ -3350,22 +3347,19 @@ STRICT rules:
                     const selectedRows = googleSelected.flatMap(h => h.rows);
                     const multiTsv = buildTSV(selectedRows, omitGroupMulti, adFormat);
                     const metaCsvRows = [
-                      ["Campaign Name", "Campaign Objective", "Buying Type", "Campaign Status", "Ad Set Name", "Ad Set Daily Budget", "Ad Set Run Status", "Optimization Goal", "Billing Event", "Countries", "Ad Name", "Ad Status", "Creative Type", "Body", "Title", "Call to Action", "Link", "Image File Name", "Image URL (download & attach)"],
+                      "Campaign Name\tCampaign Status\tCampaign Objective\tBuying Type\tCampaign Daily Budget\tNew Objective\tAd Set Run Status\tAd Set Name\tLink\tCountries\tOptimization Goal\tBilling Event\tAd Status\tAd Name\tTitle\tBody\tImage File Name\tCreative Type\tCall to Action\tImage URL (download & attach)",
                       ...metaSelected.flatMap(h => {
                         const cn = h.rows[0]?.campaign || "RSA Studio Campaign";
-                        return [
-                          [cn, "Traffic", "AUCTION", "ACTIVE", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-                          [cn, "", "", "", "RSA Studio Ad Set", "1000", "ACTIVE", "LINK_CLICKS", "LINK_CLICKS", "Worldwide", "", "", "", "", "", "", "", ""],
-                          ...(h.metaResult.primaryTexts || []).map((pt, i) => [
-                            cn, "", "", "", "RSA Studio Ad Set", "", "", "", "", "",
-                            `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, "ACTIVE", "Page Post Ad",
-                            pt, h.metaResult.headlines?.[i] || h.metaResult.headlines?.[0] || "",
-                            "LEARN_MORE", h.url, "", h.metaResult.imageUrl || "",
-                          ]),
-                        ];
+                        return (h.metaResult.primaryTexts || []).map((pt, i) => [
+                          cn, "ACTIVE", "Traffic", "AUCTION", "", "Yes", "ACTIVE", "RSA Studio Ad Set",
+                          h.url, "", "LANDING_PAGE_VIEWS", "IMPRESSIONS", "ACTIVE",
+                          `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
+                          h.metaResult.headlines?.[i] || h.metaResult.headlines?.[0] || "", pt,
+                          "", "Page Post Ad", "LEARN_MORE", h.metaResult.imageUrl || "",
+                        ]);
                       }),
                     ];
-                    const metaCsvStr = metaCsvRows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+                    const metaCsvStr = metaCsvRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
 
                     const handleMultiCopy = async () => {
                       const payload = isMetaTab ? metaCsvStr : multiTsv;
@@ -3809,19 +3803,16 @@ STRICT rules:
                             }}>⬇ Download 1:1 Image</a>
                             <button onClick={async () => {
                               const rows = [
-                                ["Campaign Name", "Campaign Objective", "Buying Type", "Campaign Status", "Ad Set Name", "Ad Set Daily Budget", "Ad Set Run Status", "Optimization Goal", "Billing Event", "Countries", "Ad Name", "Ad Status", "Creative Type", "Body", "Title", "Call to Action", "Link", "Image File Name", "Image URL (download & attach)"],
-                                ...(metaResult.primaryTexts || []).length > 0 ? [
-                                  [row.campaign || "RSA Studio Campaign", "Traffic", "AUCTION", "ACTIVE", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-                                  [row.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "1000", "ACTIVE", "LINK_CLICKS", "LINK_CLICKS", "Worldwide", "", "", "", "", "", "", "", ""],
-                                  ...(metaResult.primaryTexts || []).map((pt, i) => [
-                                    row.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "", "", "", "", "",
-                                    `Meta Ad ${i + 1}`, "ACTIVE", "Page Post Ad",
-                                    pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
-                                    "LEARN_MORE", url, "", metaResult.imageUrl || "",
-                                  ]),
-                                ] : []
+                                "Campaign Name\tCampaign Status\tCampaign Objective\tBuying Type\tCampaign Daily Budget\tNew Objective\tAd Set Run Status\tAd Set Name\tLink\tCountries\tOptimization Goal\tBilling Event\tAd Status\tAd Name\tTitle\tBody\tImage File Name\tCreative Type\tCall to Action\tImage URL (download & attach)",
+                                ...(metaResult.primaryTexts || []).map((pt, i) => [
+                                  row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION", "", "Yes", "ACTIVE", "RSA Studio Ad Set",
+                                  url, "", "LANDING_PAGE_VIEWS", "IMPRESSIONS", "ACTIVE",
+                                  `Meta Ad ${i + 1}`,
+                                  metaResult.headlines?.[i] || metaResult.headlines?.[0] || "", pt,
+                                  "", "Page Post Ad", "LEARN_MORE", metaResult.imageUrl || "",
+                                ])
                               ];
-                              const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+                              const csv = rows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
                               try { await navigator.clipboard.writeText(csv); } catch (_) {
                                 const ta = document.createElement("textarea"); ta.value = csv;
                                 ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
@@ -3835,25 +3826,22 @@ STRICT rules:
                               color: "#38bdf8", border: "1px solid rgba(14,165,233,0.35)", cursor: "pointer",
                             }}>{metaCopied ? "✓ Copied!" : "📋 Copy for Meta Ads"}</button>
                             <button onClick={() => {
-                              // Meta Ads Manager CSV export format
+                              // Meta Ads Manager TSV export format (matches Meta template)
                               const rows = [
-                                ["Campaign Name", "Campaign Objective", "Buying Type", "Campaign Status", "Ad Set Name", "Ad Set Daily Budget", "Ad Set Run Status", "Optimization Goal", "Billing Event", "Countries", "Ad Name", "Ad Status", "Creative Type", "Body", "Title", "Call to Action", "Link", "Image File Name", "Image URL (download & attach)"],
-                                ...(metaResult.primaryTexts || []).length > 0 ? [
-                                  [row.campaign || "RSA Studio Campaign", "Traffic", "AUCTION", "ACTIVE", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-                                  [row.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "1000", "ACTIVE", "LINK_CLICKS", "LINK_CLICKS", "Worldwide", "", "", "", "", "", "", "", ""],
-                                  ...(metaResult.primaryTexts || []).map((pt, i) => [
-                                    row.campaign || "RSA Studio Campaign", "", "", "", "RSA Studio Ad Set", "", "", "", "", "",
-                                    `Meta Ad ${i + 1}`, "ACTIVE", "Page Post Ad",
-                                    pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
-                                    "LEARN_MORE", url, "", metaResult.imageUrl || "",
-                                  ]),
-                                ] : []
+                                "Campaign Name\tCampaign Status\tCampaign Objective\tBuying Type\tCampaign Daily Budget\tNew Objective\tAd Set Run Status\tAd Set Name\tLink\tCountries\tOptimization Goal\tBilling Event\tAd Status\tAd Name\tTitle\tBody\tImage File Name\tCreative Type\tCall to Action\tImage URL (download & attach)",
+                                ...(metaResult.primaryTexts || []).map((pt, i) => [
+                                  row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION", "", "Yes", "ACTIVE", "RSA Studio Ad Set",
+                                  url, "", "LANDING_PAGE_VIEWS", "IMPRESSIONS", "ACTIVE",
+                                  `Meta Ad ${i + 1}`,
+                                  metaResult.headlines?.[i] || metaResult.headlines?.[0] || "", pt,
+                                  "", "Page Post Ad", "LEARN_MORE", metaResult.imageUrl || "",
+                                ])
                               ];
-                              const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-                              const blob = new Blob([csv], { type: "text/csv" });
+                              const csv = rows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                              const blob = new Blob([csv], { type: "text/plain" });
                               const a = document.createElement("a");
                               a.href = URL.createObjectURL(blob);
-                              a.download = "meta-ads-export.csv";
+                              a.download = "meta-ads-export.txt";
                               a.click();
                             }} style={{
                               display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
