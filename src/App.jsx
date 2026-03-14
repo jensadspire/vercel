@@ -3304,7 +3304,7 @@ STRICT rules:
                                 "", "", "",
                                 "ACTIVE", "", "",
                                 `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, pt, r.headlines?.[i] || r.headlines?.[0] || "",
-                                "", "", "Page Post Ad"
+                                "", "", "Page Post Ad",
                                 "", "", "", "LEARN_MORE",
                                 "", "", "", "",
                               ]);
@@ -3365,7 +3365,7 @@ STRICT rules:
                         "", "", "",
                         "ACTIVE", "", "",
                         `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, pt, h.metaResult.headlines?.[i] || h.metaResult.headlines?.[0] || "",
-                        "", "", "Page Post Ad"
+                        "", "", "Page Post Ad",
                         "", "", "", "LEARN_MORE",
                         "", "", "", "",
                       ]);
@@ -3858,7 +3858,7 @@ STRICT rules:
                                 "", "", "",
                                 "ACTIVE", "", "",
                                 `Meta Ad ${i + 1}`, pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
-                                "", "", "Page Post Ad"
+                                "", "", "Page Post Ad",
                                 "", "", "", "LEARN_MORE",
                                 "", "", "", "",
                               ]);
@@ -3888,7 +3888,7 @@ STRICT rules:
                                 "", "", "",
                                 "ACTIVE", "", "",
                                 `Meta Ad ${i + 1}`, pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
-                                "", "", "Page Post Ad"
+                                "", "", "Page Post Ad",
                                 "", "", "", "LEARN_MORE",
                                 "", "", "", "",
                               ]);
