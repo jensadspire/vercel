@@ -556,6 +556,7 @@ function RSAStudio() {
   const [selectedForExport, setSelectedForExport] = useState(new Set()); // history ids selected
   const [currentAdSelected, setCurrentAdSelected] = useState(true); // current ad included in multi-export
   const [multiCopied, setMultiCopied] = useState(false);
+  const [metaCopied, setMetaCopied] = useState(false);
   const [omitGroupMulti, setOmitGroupMulti] = useState(false); // toggle campaign/ad group in multi-export
 
   const row = rows[activeRow];
@@ -3293,12 +3294,14 @@ STRICT rules:
                             <button onClick={() => {
                               const r = h.metaResult;
                               const csvRows = [
-                                ["Ad name", "Body", "Title", "Description", "Call to action type", "Website URL", "Image"],
+                                ["Campaign name", "Ad set name", "Ad name", "Creative type", "Body", "Title", "Call to Action", "Link", "Image"],
                                 ...(r.primaryTexts || []).map((pt, i) => [
+                                  h.rows[0]?.campaign || "RSA Studio Campaign",
+                                  "RSA Studio Ad Set",
                                   `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
+                                  "Image Ad",
                                   pt,
                                   r.headlines?.[i] || r.headlines?.[0] || "",
-                                  r.descriptions?.[i] || r.descriptions?.[0] || "",
                                   "LEARN_MORE",
                                   h.url,
                                   r.imageUrl || "",
@@ -3350,13 +3353,15 @@ STRICT rules:
                     const selectedRows = googleSelected.flatMap(h => h.rows);
                     const multiTsv = buildTSV(selectedRows, omitGroupMulti, adFormat);
                     const metaCsvRows = [
-                      ["Ad name", "Body", "Title", "Description", "Call to action type", "Website URL", "Image"],
+                      ["Campaign name", "Ad set name", "Ad name", "Creative type", "Body", "Title", "Call to Action", "Link", "Image"],
                       ...metaSelected.flatMap(h =>
                         (h.metaResult.primaryTexts || []).map((pt, i) => [
+                          h.rows[0]?.campaign || "RSA Studio Campaign",
+                          "RSA Studio Ad Set",
                           `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
+                          "Image Ad",
                           pt,
                           h.metaResult.headlines?.[i] || h.metaResult.headlines?.[0] || "",
-                          h.metaResult.descriptions?.[i] || h.metaResult.descriptions?.[0] || "",
                           "LEARN_MORE",
                           h.url,
                           h.metaResult.imageUrl || "",
@@ -3805,15 +3810,45 @@ STRICT rules:
                               background: "linear-gradient(135deg,#0ea5e9,#6366f1)", color: "white",
                               textDecoration: "none",
                             }}>⬇ Download 1:1 Image</a>
+                            <button onClick={async () => {
+                              const rows = [
+                                ["Campaign name", "Ad set name", "Ad name", "Creative type", "Body", "Title", "Call to Action", "Link", "Image"],
+                                ...(metaResult.primaryTexts || []).map((pt, i) => [
+                                  row.campaign || "RSA Studio Campaign",
+                                  "RSA Studio Ad Set",
+                                  `Meta Ad ${i + 1}`,
+                                  "Image Ad",
+                                  pt,
+                                  metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
+                                  "LEARN_MORE",
+                                  url,
+                                  metaResult.imageUrl || "",
+                                ])
+                              ];
+                              const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+                              try { await navigator.clipboard.writeText(csv); } catch (_) {
+                                const ta = document.createElement("textarea"); ta.value = csv;
+                                ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
+                                document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+                              }
+                              setMetaCopied(true); setTimeout(() => setMetaCopied(false), 2500);
+                            }} style={{
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                              padding: "8px 14px", borderRadius: 7, fontSize: 11, fontWeight: 700,
+                              background: "linear-gradient(135deg,rgba(14,165,233,0.25),rgba(99,102,241,0.25))",
+                              color: "#38bdf8", border: "1px solid rgba(14,165,233,0.35)", cursor: "pointer",
+                            }}>{metaCopied ? "✓ Copied!" : "📋 Copy for Meta Ads"}</button>
                             <button onClick={() => {
                               // Meta Ads Manager CSV export format
                               const rows = [
-                                ["Ad name", "Body", "Title", "Description", "Call to action type", "Website URL", "Image"],
+                                ["Campaign name", "Ad set name", "Ad name", "Creative type", "Body", "Title", "Call to Action", "Link", "Image"],
                                 ...(metaResult.primaryTexts || []).map((pt, i) => [
+                                  row.campaign || "RSA Studio Campaign",
+                                  "RSA Studio Ad Set",
                                   `Meta Ad ${i + 1}`,
+                                  "Image Ad",
                                   pt,
                                   metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
-                                  metaResult.descriptions?.[i] || metaResult.descriptions?.[0] || "",
                                   "LEARN_MORE",
                                   url,
                                   metaResult.imageUrl || "",
@@ -3830,7 +3865,7 @@ STRICT rules:
                               padding: "8px 14px", borderRadius: 7, fontSize: 11, fontWeight: 700,
                               background: "rgba(255,255,255,0.06)", color: "#94a3b8",
                               border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer",
-                            }}>⬇ Export CSV for Meta Ads Manager</button>
+                            }}>⬇ Download CSV for Meta</button>
                             <div style={{
                               padding: "8px 12px", borderRadius: 7, fontSize: 10, color: "#4a5568",
                               background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
