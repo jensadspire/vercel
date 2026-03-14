@@ -3304,11 +3304,11 @@ STRICT rules:
                                 "", "", "",
                                 "ACTIVE", "", "",
                                 `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, pt, r.headlines?.[i] || r.headlines?.[0] || "",
-                                "", "", "Page Post Ad", r.imageUrl || "",
+                                "", "", "Page Post Ad"
                                 "", "", "", "LEARN_MORE",
                                 "", "", "", "",
                               ]);
-                              const csv = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	Image File Name	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + dataRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                              const csv = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + dataRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
                               const blob = new Blob([csv], { type: "text/plain" });
                               const a = document.createElement("a");
                               a.href = URL.createObjectURL(blob);
@@ -3365,12 +3365,12 @@ STRICT rules:
                         "", "", "",
                         "ACTIVE", "", "",
                         `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, pt, h.metaResult.headlines?.[i] || h.metaResult.headlines?.[0] || "",
-                        "", "", "Page Post Ad", h.metaResult.imageUrl || "",
+                        "", "", "Page Post Ad"
                         "", "", "", "LEARN_MORE",
                         "", "", "", "",
                       ]);
                     });
-                    const metaCsvStr = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	Image File Name	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + metaCsvRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                    const metaCsvStr = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + metaCsvRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
 
                     const handleMultiCopy = async () => {
                       const payload = isMetaTab ? metaCsvStr : multiTsv;
@@ -3805,13 +3805,46 @@ STRICT rules:
                         </div>
                         <div style={{ padding: "16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                           <img src={metaResult.imageUrl} alt="Meta creative" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                          <button onClick={async () => {
+                            const rows = (metaResult.primaryTexts || []).map((pt, i) => [
+                              "", row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
+                              "", "", "", "Yes", "", "", "", "",
+                              "", "ACTIVE", "", (row.campaign || "RSA Studio") + " - Ad Set",
+                              "", "", "", "", "", "",
+                              url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(),
+                              "", "", "", "", "", "", "", "", "",
+                              "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
+                              "", "", "",
+                              "ACTIVE", "", "",
+                              `Meta Ad ${i + 1}`, pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
+                              "", "", "Page Post Ad",
+                              "", "", "", "LEARN_MORE",
+                              "", "", "", "",
+                            ]);
+                            const csv = "Campaign ID\tCampaign Name\tCampaign Status\tCampaign Objective\tBuying Type\tCampaign Daily Budget\tCampaign Bid Strategy\tCampaign Start Time\tNew Objective\tBuy With Prime Type\tIs Budget Scheduling Enabled For Campaign\tCampaign High Demand Periods\tBuy With Integration Partner\tAd Set ID\tAd Set Run Status\tAd Set Lifetime Impressions\tAd Set Name\tAd Set Time Start\tDestination Type\tUse Accelerated Delivery\tIs Budget Scheduling Enabled For Ad Set\tAd Set High Demand Periods\tLink Object ID\tLink\tDisplay Link\tCountries\tLocation Types\tAge Min\tAge Max\tExcluded Custom Audiences\tAdvantage Audience\tAge Range\tTargeting Optimization\tBrand Safety Inventory Filtering Levels\tOptimization Goal\tAttribution Spec\tBilling Event\tRegional Regulated Categories\tStory ID\tAd ID\tAd Status\tPreview Link\tInstagram Preview Link\tAd Name\tBody\tTitle\tOptimize text per person\tOptimized Ad Creative\tCreative Type\tURL Tags\tVideo ID\tInstagram Account ID\tCall to Action\tAdditional Custom Tracking Specs\tVideo Retargeting\tPermalink\tUse Page as Actor\n" + rows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                            try { await navigator.clipboard.writeText(csv); } catch (_) {
+                              const ta = document.createElement("textarea"); ta.value = csv;
+                              ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
+                              document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+                            }
+                            setMetaCopied(true); setTimeout(() => setMetaCopied(false), 2500);
+                          }} style={{
+                            width: "100%", padding: "11px", fontSize: 12, fontWeight: 700,
+                            background: "linear-gradient(135deg,rgba(14,165,233,0.3),rgba(99,102,241,0.3))",
+                            color: "#38bdf8", border: "1px solid rgba(14,165,233,0.4)",
+                            borderRadius: 8, cursor: "pointer", marginBottom: 8,
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                          }}>{metaCopied ? "✓ Copied!" : "📋 Copy for Meta Ads"}</button>
                           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
                             <a href={metaResult.imageUrl} download="meta-creative.png" style={{
                               display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                               padding: "8px 14px", borderRadius: 7, fontSize: 11, fontWeight: 700,
                               background: "linear-gradient(135deg,#0ea5e9,#6366f1)", color: "white",
                               textDecoration: "none",
-                            }}>⬇ Download 1:1 Image</a>
+                            }}>⬇ Download Image (attach during Meta import)</a>
+                            <div style={{ fontSize: 10, color: "#4a5568", textAlign: "center", lineHeight: 1.5, padding: "4px 8px", background: "rgba(14,165,233,0.06)", borderRadius: 6, border: "1px solid rgba(14,165,233,0.12)" }}>
+                              💡 Download image first — attach it when Meta prompts during import
+                            </div>
                             <button onClick={async () => {
                               const rows = (metaResult.primaryTexts || []).map((pt, i) => [
                                 "", row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
@@ -3825,11 +3858,11 @@ STRICT rules:
                                 "", "", "",
                                 "ACTIVE", "", "",
                                 `Meta Ad ${i + 1}`, pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
-                                "", "", "Page Post Ad", metaResult.imageUrl || "",
+                                "", "", "Page Post Ad"
                                 "", "", "", "LEARN_MORE",
                                 "", "", "", "",
                               ]);
-                              const csv = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	Image File Name	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + rows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                              const csv = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + rows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
                               try { await navigator.clipboard.writeText(csv); } catch (_) {
                                 const ta = document.createElement("textarea"); ta.value = csv;
                                 ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
@@ -3855,11 +3888,11 @@ STRICT rules:
                                 "", "", "",
                                 "ACTIVE", "", "",
                                 `Meta Ad ${i + 1}`, pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
-                                "", "", "Page Post Ad", metaResult.imageUrl || "",
+                                "", "", "Page Post Ad"
                                 "", "", "", "LEARN_MORE",
                                 "", "", "", "",
                               ]);
-                              const csv2 = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	Image File Name	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + rows2.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                              const csv2 = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + rows2.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
                               const blob = new Blob([csv2], { type: "text/plain" });
                               const a = document.createElement("a");
                               a.href = URL.createObjectURL(blob);
