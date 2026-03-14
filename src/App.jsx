@@ -3802,17 +3802,14 @@ STRICT rules:
                               textDecoration: "none",
                             }}>⬇ Download 1:1 Image</a>
                             <button onClick={async () => {
-                              const rows = [
-                                "Campaign Name\tCampaign Status\tCampaign Objective\tBuying Type\tCampaign Daily Budget\tNew Objective\tAd Set Run Status\tAd Set Name\tLink\tCountries\tOptimization Goal\tBilling Event\tAd Status\tAd Name\tTitle\tBody\tImage File Name\tCreative Type\tCall to Action\tImage URL (download & attach)",
-                                ...(metaResult.primaryTexts || []).map((pt, i) => [
-                                  row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION", "", "Yes", "ACTIVE", "RSA Studio Ad Set",
-                                  url, "", "LANDING_PAGE_VIEWS", "IMPRESSIONS", "ACTIVE",
-                                  `Meta Ad ${i + 1}`,
-                                  metaResult.headlines?.[i] || metaResult.headlines?.[0] || "", pt,
-                                  "", "Page Post Ad", "LEARN_MORE", metaResult.imageUrl || "",
-                                ])
-                              ];
-                              const csv = rows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                              const rows = (metaResult.primaryTexts || []).map((pt, i) => [
+                                row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION", "", "Yes", "ACTIVE", "RSA Studio Ad Set",
+                                url, "", "LANDING_PAGE_VIEWS", "IMPRESSIONS", "ACTIVE",
+                                `Meta Ad ${i + 1}`,
+                                metaResult.headlines?.[i] || metaResult.headlines?.[0] || "", pt,
+                                "", "Page Post Ad", "LEARN_MORE", metaResult.imageUrl || "",
+                              ]);
+                              const csv = "Campaign Name\tCampaign Status\tCampaign Objective\tBuying Type\tCampaign Daily Budget\tNew Objective\tAd Set Run Status\tAd Set Name\tLink\tCountries\tOptimization Goal\tBilling Event\tAd Status\tAd Name\tTitle\tBody\tImage File Name\tCreative Type\tCall to Action\tImage URL (download & attach)\n" + rows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
                               try { await navigator.clipboard.writeText(csv); } catch (_) {
                                 const ta = document.createElement("textarea"); ta.value = csv;
                                 ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
