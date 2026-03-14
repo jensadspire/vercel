@@ -3292,16 +3292,13 @@ STRICT rules:
                           {h.metaResult && (
                             <button onClick={() => {
                               const r = h.metaResult;
-                              const csvRows = [
-                                "Campaign Name\tCampaign Status\tCampaign Objective\tBuying Type\tCampaign Daily Budget\tNew Objective\tAd Set Run Status\tAd Set Name\tLink\tCountries\tOptimization Goal\tBilling Event\tAd Status\tAd Name\tTitle\tBody\tImage File Name\tCreative Type\tCall to Action\tImage URL (download & attach)",
-                                ...(r.primaryTexts || []).map((pt, i) => [
-                                  h.rows[0]?.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION", "", "Yes", "ACTIVE", "RSA Studio Ad Set",
-                                  h.url, "", "LANDING_PAGE_VIEWS", "IMPRESSIONS", "ACTIVE",
-                                  `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
-                                  r.headlines?.[i] || r.headlines?.[0] || "", pt, "", "Page Post Ad", "LEARN_MORE", r.imageUrl || "",
-                                ])
-                              ];
-                              const csv = csvRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                              const dataRows = (r.primaryTexts || []).map((pt, i) => [
+                                h.rows[0]?.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION", "", "Yes", "ACTIVE", "RSA Studio Ad Set",
+                                h.url, "", "LANDING_PAGE_VIEWS", "IMPRESSIONS", "ACTIVE",
+                                `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
+                                r.headlines?.[i] || r.headlines?.[0] || "", pt, "", "Page Post Ad", "LEARN_MORE", r.imageUrl || "",
+                              ]);
+                              const csv = "Campaign Name\tCampaign Status\tCampaign Objective\tBuying Type\tCampaign Daily Budget\tNew Objective\tAd Set Run Status\tAd Set Name\tLink\tCountries\tOptimization Goal\tBilling Event\tAd Status\tAd Name\tTitle\tBody\tImage File Name\tCreative Type\tCall to Action\tImage URL (download & attach)\n" + dataRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
                               const blob = new Blob([csv], { type: "text/plain" });
                               const a = document.createElement("a");
                               a.href = URL.createObjectURL(blob);
