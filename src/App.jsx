@@ -3591,6 +3591,7 @@ STRICT rules:
 
             <div style={{ padding: "14px 18px" }}>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+                {adFormat !== "meta" && (
                 <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 5 }}>
                   <button onClick={copyTSV} style={{
                     width: "100%", padding: "11px 16px", fontSize: 13, fontWeight: 700,
@@ -3611,6 +3612,7 @@ STRICT rules:
                   }}>
                     {copiedNoGroup ? "✓ copied without campaign/ad group!" : "copy without campaign / ad group"}
                   </button>
+                )}
                 {adFormat === "meta" && (
                   <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 6 }}>
                     <button onClick={async () => {
