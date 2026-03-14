@@ -3389,7 +3389,7 @@ STRICT rules:
                         : "data:text/tab-separated-values;charset=utf-8," + encodeURIComponent(multiTsv);
                       const a = document.createElement("a");
                       a.href = encoded;
-                      a.download = isMetaDl ? `meta_ads_${totalSelected}_variants.csv` : `rsa_ads_${totalSelected}_versions.csv`;cted}_versions.csv`;
+                      a.download = isMetaDl ? `meta_ads_${totalSelected}_variants.csv` : `rsa_ads_${totalSelected}_versions.csv`;
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);
