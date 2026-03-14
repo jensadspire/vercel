@@ -115,6 +115,26 @@ Rules:
       });
       const imgData = await imgRes.json();
       imageUrl = imgData.data?.[0]?.url || null;
+
+      // ── Upload to Vercel Blob for persistence (DALL-E URLs expire after ~2h) ──
+      if (imageUrl && process.env.BLOB_READ_WRITE_TOKEN) {
+        try {
+          const { put } = await import("@vercel/blob");
+          // Fetch the DALL-E image
+          const imgFetch = await fetch(imageUrl);
+          const imgBuffer = await imgFetch.arrayBuffer();
+          const filename = `meta-ad-${Date.now()}.png`;
+          const blob = await put(filename, Buffer.from(imgBuffer), {
+            access: "public",
+            contentType: "image/png",
+            token: process.env.BLOB_READ_WRITE_TOKEN,
+          });
+          imageUrl = blob.url; // replace expiring URL with permanent Vercel Blob URL
+        } catch (e) {
+          console.warn("Vercel Blob upload failed, using DALL-E URL:", e.message);
+          // imageUrl stays as the DALL-E URL — graceful fallback
+        }
+      }
     } catch {}
   }
 
