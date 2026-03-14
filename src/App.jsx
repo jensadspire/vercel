@@ -3592,26 +3592,27 @@ STRICT rules:
             <div style={{ padding: "14px 18px" }}>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
                 {adFormat !== "meta" && (
-                <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 5 }}>
-                  <button onClick={copyTSV} style={{
-                    width: "100%", padding: "11px 16px", fontSize: 13, fontWeight: 700,
-                    background: copied ? "linear-gradient(135deg,#059669,#10b981)" : "linear-gradient(135deg,#3b82f6,#06b6d4)",
-                    color: "white", border: "none", borderRadius: 8, cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-                    transition: "all 0.3s", boxShadow: copied ? "0 0 20px rgba(16,185,129,0.3)" : "0 0 20px rgba(59,130,246,0.2)",
-                  }}>
-                    <span style={{ fontSize: 16 }}>{copied ? "✓" : "📋"}</span>
-                    {copied ? "Copied to clipboard!" : "Copy for Google Ads Editor"}
-                  </button>
-                  <button onClick={copyTSVNoGroup} style={{
-                    background: "none", border: "none", cursor: "pointer",
-                    fontSize: 11, color: copiedNoGroup ? "#34d399" : "#e2e8f0",
-                    textDecoration: "underline", textDecorationStyle: "dotted",
-                    letterSpacing: "0.02em", textAlign: "center", padding: "2px 0",
-                    transition: "color 0.2s",
-                  }}>
-                    {copiedNoGroup ? "✓ copied without campaign/ad group!" : "copy without campaign / ad group"}
-                  </button>
+                  <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <button onClick={copyTSV} style={{
+                      width: "100%", padding: "11px 16px", fontSize: 13, fontWeight: 700,
+                      background: copied ? "linear-gradient(135deg,#059669,#10b981)" : "linear-gradient(135deg,#3b82f6,#6366f1)",
+                      color: "white", border: "none", borderRadius: 8, cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                      transition: "all 0.3s", boxShadow: copied ? "0 0 20px rgba(16,185,129,0.3)" : "0 0 14px rgba(99,102,241,0.3)",
+                    }}>
+                      <span style={{ fontSize: 16 }}>{copied ? "✓" : "📋"}</span>
+                      {copied ? "Copied to clipboard!" : "Copy for Google Ads Editor"}
+                    </button>
+                    <button onClick={copyTSVNoGroup} style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      fontSize: 11, color: copiedNoGroup ? "#34d399" : "#e2e8f0",
+                      textDecoration: "underline", textDecorationStyle: "dotted",
+                      letterSpacing: "0.02em", textAlign: "center", padding: "2px 0",
+                      transition: "color 0.2s",
+                    }}>
+                      {copiedNoGroup ? "✓ copied without campaign/ad group!" : "copy without campaign / ad group"}
+                    </button>
+                  </div>
                 )}
                 {adFormat === "meta" && (
                   <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -3636,7 +3637,6 @@ STRICT rules:
                     </button>
                   </div>
                 )}
-                </div>
                 <button onClick={downloadCSV} style={{
                   padding: "11px 16px", fontSize: 13, fontWeight: 700,
                   background: "rgba(255,255,255,0.05)", color: "#8fa3b8",
