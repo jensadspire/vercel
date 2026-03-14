@@ -424,7 +424,7 @@ function RSAStudio() {
   const [metaResult, setMetaResult] = useState(null);       // { primaryTexts, headlines, descriptions, imageUrl }
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaError, setMetaError] = useState("");
-  const [metaCopied, setMetaCopied] = useState({});
+  const [metaCopied, setMetaCopied] = useState(false);
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   const [metaActiveVariants, setMetaActiveVariants] = useState({ pt: 0, hl: 0, d: 0 }); // active variant indices
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
@@ -556,7 +556,6 @@ function RSAStudio() {
   const [selectedForExport, setSelectedForExport] = useState(new Set()); // history ids selected
   const [currentAdSelected, setCurrentAdSelected] = useState(true); // current ad included in multi-export
   const [multiCopied, setMultiCopied] = useState(false);
-  const [metaCopied, setMetaCopied] = useState(false);
   const [omitGroupMulti, setOmitGroupMulti] = useState(false); // toggle campaign/ad group in multi-export
 
   const row = rows[activeRow];
