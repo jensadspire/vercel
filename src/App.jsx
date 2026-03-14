@@ -3812,14 +3812,6 @@ STRICT rules:
                         </div>
                         <div style={{ padding: "16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                           <img src={metaResult.imageUrl} alt="Meta creative" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
-                          <button onClick={async () => {
-                            const rows = (metaResult.primaryTexts || []).map((pt, i) => [
-                              "", row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
-                              "", "", "", "Yes", "", "", "", "",
-                              "", "ACTIVE", "", (row.campaign || "RSA Studio") + " - Ad Set",
-                              "", "", "", "", "", "",
-                              url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(),
-                              "", "", "", "", "", "", "", "", "",
                           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ fontSize: 10, color: "#4a5568", textAlign: "center", lineHeight: 1.5, padding: "4px 8px", background: "rgba(14,165,233,0.06)", borderRadius: 6, border: "1px solid rgba(14,165,233,0.12)" }}>
                               💡 Download image first — attach it when Meta prompts during import
