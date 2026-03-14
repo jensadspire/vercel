@@ -3859,13 +3859,6 @@ STRICT rules:
                               background: "rgba(255,255,255,0.06)", color: "#94a3b8",
                               border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer",
                             }}>⬇ Download CSV for Meta</button>
-                            <div style={{
-                              padding: "8px 12px", borderRadius: 7, fontSize: 10, color: "#4a5568",
-                              background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
-                              textAlign: "center",
-                            }}>
-                              🎬 Reel / Story export <span style={{ color: "#2d3748" }}>— coming soon</span>
-                            </div>
                           </div>
                         </div>
                       </div>
