@@ -3291,13 +3291,24 @@ STRICT rules:
                           {/* Meta CSV button — only on entries with metaResult */}
                           {h.metaResult && (
                             <button onClick={() => {
-                              const r = h.metaResult;
+                                                            const r = h.metaResult;
                               const dataRows = (r.primaryTexts || []).map((pt, i) => [
-                                h.rows[0]?.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION", "", "Yes", "ACTIVE", "RSA Studio Ad Set",
-                                h.url, "", "LANDING_PAGE_VIEWS", "IMPRESSIONS", "ACTIVE",
-                                `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`,
-                                r.headlines?.[i] || r.headlines?.[0] || "", pt, "", "Page Post Ad", "LEARN_MORE", r.imageUrl || "",
+                                "", h.rows[0]?.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
+                                "", "", "", "Yes",
+                                "", "", "", "", "",
+                                "ACTIVE", "", (h.rows[0]?.campaign || "RSA Studio") + " - Ad Set",
+                                "", "", "", "", "", "",
+                                h.url, (() => { try { return new URL(h.url).hostname.replace("www.",""); } catch(_){return "";} })(),
+                                "", "", "", "", "", "", "", "", "",
+                                "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
+                                "", "", "",
+                                "ACTIVE", "", "",
+                                `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, pt, r.headlines?.[i] || r.headlines?.[0] || "",
+                                "", "", "Page Post Ad",
+                                "", "", "", "LEARN_MORE",
+                                "", "", "", "",
                               ]);
+                              const csv = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + dataRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
                               const csv = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + dataRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
                               const blob = new Blob([csv], { type: "text/plain" });
                               const a = document.createElement("a");
@@ -3345,14 +3356,18 @@ STRICT rules:
                       const cn = h.rows[0]?.campaign || "RSA Studio Campaign";
                       return (h.metaResult.primaryTexts || []).map((pt, i) => [
                         "", cn, "ACTIVE", "Traffic", "AUCTION",
-                        "", "", "", "Yes", "", "", "", "",
-                        "", "ACTIVE", "", cn + " - Ad Set", "", "", "", "", "", "",
-                        h.url, (() => { try { return new URL(h.url).hostname.replace("www.",""); } catch(_){return "";} })(), "", "", "", "", "", "", "", "",
+                        "", "", "", "Yes",
+                        "", "", "", "", "",
+                        "ACTIVE", "", cn + " - Ad Set",
+                        "", "", "", "", "", "",
+                        h.url, (() => { try { return new URL(h.url).hostname.replace("www.",""); } catch(_){return "";} })(),
+                        "", "", "", "", "", "", "", "", "",
                         "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
-                        "", "", "", "ACTIVE", "", "",
-                        `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, pt,
-                        h.metaResult.headlines?.[i] || h.metaResult.headlines?.[0] || "",
-                        "", "", "Page Post Ad", "", "", "", "LEARN_MORE",
+                        "", "", "",
+                        "ACTIVE", "", "",
+                        `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, pt, h.metaResult.headlines?.[i] || h.metaResult.headlines?.[0] || "",
+                        "", "", "Page Post Ad",
+                        "", "", "", "LEARN_MORE",
                         "", "", "", "",
                       ]);
                     });
@@ -3801,14 +3816,18 @@ STRICT rules:
                             <button onClick={async () => {
                               const rows = (metaResult.primaryTexts || []).map((pt, i) => [
                                 "", row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
-                                "", "", "", "Yes", "", "", "", "",
-                                "", "ACTIVE", "", (row.campaign || "RSA Studio") + " - Ad Set", "", "", "", "", "", "",
-                                url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(), "", "", "", "", "", "", "", "",
+                                "", "", "", "Yes",
+                                "", "", "", "", "",
+                                "ACTIVE", "", (row.campaign || "RSA Studio") + " - Ad Set",
+                                "", "", "", "", "", "",
+                                url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(),
+                                "", "", "", "", "", "", "", "", "",
                                 "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
-                                "", "", "", "ACTIVE", "", "",
-                                `Meta Ad ${i + 1}`, pt,
-                                metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
-                                "", "", "Page Post Ad", "", "", "", "LEARN_MORE",
+                                "", "", "",
+                                "ACTIVE", "", "",
+                                `Meta Ad ${i + 1}`, pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
+                                "", "", "Page Post Ad",
+                                "", "", "", "LEARN_MORE",
                                 "", "", "", "",
                               ]);
                               const csv = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + rows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
@@ -3827,16 +3846,21 @@ STRICT rules:
                             <button onClick={() => {
                               const rows2 = (metaResult.primaryTexts || []).map((pt, i) => [
                                 "", row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
-                                "", "", "", "Yes", "", "", "", "",
-                                "", "ACTIVE", "", (row.campaign || "RSA Studio") + " - Ad Set", "", "", "", "", "", "",
-                                url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(), "", "", "", "", "", "", "", "",
+                                "", "", "", "Yes",
+                                "", "", "", "", "",
+                                "ACTIVE", "", (row.campaign || "RSA Studio") + " - Ad Set",
+                                "", "", "", "", "", "",
+                                url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(),
+                                "", "", "", "", "", "", "", "", "",
                                 "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
-                                "", "", "", "ACTIVE", "", "",
-                                `Meta Ad ${i + 1}`, pt,
-                                metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
-                                "", "", "Page Post Ad", "", "", "", "LEARN_MORE",
+                                "", "", "",
+                                "ACTIVE", "", "",
+                                `Meta Ad ${i + 1}`, pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
+                                "", "", "Page Post Ad",
+                                "", "", "", "LEARN_MORE",
                                 "", "", "", "",
                               ]);
+                              const csv2 = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + rows2.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
                               const csv2 = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + rows2.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
                               const blob = new Blob([csv2], { type: "text/plain" });
                               const a = document.createElement("a");
