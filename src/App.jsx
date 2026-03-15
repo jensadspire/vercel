@@ -3945,8 +3945,7 @@ STRICT rules:
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
       `}</style>
-    </div>
-
+      {/* ── Imagen Modal ──────────────────────────────────────────── */}
       {imagenOpen && (
         <div onClick={() => setImagenOpen(false)} style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
@@ -4135,7 +4134,6 @@ STRICT rules:
           </div>
         </div>
       )}
-      `}</style>
     </div>
   );
 }
