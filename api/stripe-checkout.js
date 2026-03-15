@@ -14,8 +14,15 @@ export default async function handler(req, res) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeKey) return res.status(500).json({ error: 'Stripe not configured' });
 
-  const { priceId, userId, email } = req.body || {};
-  if (!priceId || !userId) return res.status(400).json({ error: 'priceId and userId required' });
+  const { priceId: directPriceId, plan, userId, email } = req.body || {};
+  if (!userId) return res.status(400).json({ error: 'userId required' });
+
+  const priceId = directPriceId || (
+    plan === 'annual'
+      ? process.env.STRIPE_PRO_ANNUAL_PRICE_ID
+      : process.env.STRIPE_PRO_MONTHLY_PRICE_ID
+  );
+  if (!priceId) return res.status(500).json({ error: 'Price ID not configured — check Vercel env vars' });
 
   const successUrl = process.env.STRIPE_SUCCESS_URL || 'https://rsa-studio.vercel.app?upgraded=true';
   const cancelUrl  = process.env.STRIPE_CANCEL_URL  || 'https://rsa-studio.vercel.app';
