@@ -4075,9 +4075,35 @@ STRICT rules:
                       </div>
                     </div>
                   )}
-                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 8 }}>Describe the scene or environment <span style={{ color: "#4a5568" }}>(optional)</span></div>
+                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 8 }}>Describe the scene or environment <span style={{ color: "#4a5568" }}>(optional — or pick a template below)</span></div>
+
+                  {/* ── Prompt templates ───────────────────────────────── */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, color: "#4a5568", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Quick templates</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {[
+                        { label: "🌿 Garden / Outdoor", text: "in a natural Scandinavian garden setting with a well-maintained lawn, wooden decking and soft daylight" },
+                        { label: "🛋️ Living Room", text: "in a bright minimalist Scandinavian living room with oak floors, large windows and soft natural light" },
+                        { label: "🍳 Kitchen", text: "in a modern Scandinavian kitchen with marble countertops, clean white surfaces and warm ambient lighting" },
+                        { label: "🏪 Retail / Store", text: "displayed in a clean modern retail environment with professional studio lighting and a neutral background" },
+                        { label: "🌲 Nature / Forest", text: "in a natural forest or woodland setting with dappled sunlight filtering through the trees" },
+                        { label: "🏙️ Urban / City", text: "in a modern urban setting on a clean city street with contemporary architecture in the background" },
+                        { label: "⚡ In Action", text: "shown in action performing its primary task, dynamic angle, natural environment, motion implied" },
+                        { label: "📸 Studio", text: "on a clean white studio background with soft professional lighting and subtle shadow, product centred" },
+                      ].map(t => (
+                        <button key={t.label} onClick={() => setImagenStylePrompt(t.text)} style={{
+                          padding: "5px 10px", fontSize: 10, fontWeight: 600, borderRadius: 20,
+                          cursor: "pointer", transition: "all 0.15s",
+                          background: imagenStylePrompt === t.text ? "linear-gradient(135deg,rgba(99,102,241,0.4),rgba(14,165,233,0.4))" : "rgba(255,255,255,0.05)",
+                          color: imagenStylePrompt === t.text ? "#a5b4fc" : "#4a5568",
+                          border: imagenStylePrompt === t.text ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(255,255,255,0.07)",
+                        }}>{t.label}</button>
+                      ))}
+                    </div>
+                  </div>
+
                   <textarea value={imagenStylePrompt} onChange={e => setImagenStylePrompt(e.target.value)}
-                    placeholder="e.g. A grey fabric lounge chair in a bright Scandinavian living room with oak floors and large windows"
+                    placeholder="e.g. This is a Worx Robot Lawn Mower. Please insert it into a Danish garden setting on a well-maintained lawn on a sunny summer day"
                     rows={3} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, fontSize: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", outline: "none", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
                   />
                   <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
@@ -4085,12 +4111,12 @@ STRICT rules:
                     <button onClick={async () => {
                       setImagenGenerating(true); setImagenError('');
                       try {
-                        const productDesc = metaResult?.headlines?.[0] || 'furniture';
-                        const scene = imagenStylePrompt.trim() || 'in a natural outdoor garden setting with soft daylight';
+                        const productDesc = metaResult?.headlines?.[0] || 'product';
+                        const scene = imagenStylePrompt.trim() || 'in a natural lifestyle setting with soft professional lighting';
                         const hasRef = !!(imagenSelected?.base64 || imagenSelected?.imageUrl);
                         const fullPrompt = hasRef
-                          ? `Place this exact product into the following scene: ${scene}. Keep the product clearly visible and true to its original appearance — same shape, color and design. Full product visible, not cropped. Photorealistic commercial photography, no text, no people, no logos.`
-                          : `Professional advertising photograph of ${productDesc} ${scene}. Photorealistic, high-end commercial photography, full product visible, no people, no text, no logos, no food.`;
+                          ? `This is a ${productDesc}. Please insert this exact product into the following scene: ${scene}. Keep the product clearly visible, true to its original shape, colour and design — do not alter the product appearance. Show the full product, not cropped. Photorealistic commercial photography, no text, no people, no logos.`
+                          : `Professional advertising photograph of ${productDesc} ${scene}. Photorealistic, high-end commercial photography, full product visible, no people, no text, no logos.`;
                         const body = { prompt: fullPrompt };
                         if (imagenSelected?.base64) {
                           body.imageBase64 = imagenSelected.base64;
