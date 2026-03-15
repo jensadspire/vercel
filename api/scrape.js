@@ -171,7 +171,7 @@ export default async function handler(req, res) {
 
     // ── Image extraction ──────────────────────────────────────────────────────
     const baseUrl = new URL(url).origin;
-    const imgMatches = [...html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi)];
+    const imgMatches = [...html.matchAll(/<img[^>]+(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*>/gi)];
     const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
     const rawImages = [
       ogImage,

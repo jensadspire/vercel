@@ -4,7 +4,7 @@
  * Returns: { imageUrl } (Vercel Blob permanent URL)
  */
 
-const { put } = require('@vercel/blob');
+
 
 // Get a Google OAuth2 access token from a service account key
 async function getAccessToken(serviceAccountKey) {
@@ -131,6 +131,7 @@ export default async function handler(req, res) {
     if (!b64) return res.status(500).json({ error: 'No image returned from Imagen' });
 
     // ── Upload to Vercel Blob for permanent URL ────────────────────────────────
+    const { put } = await import('@vercel/blob');
     const imageBuffer = Buffer.from(b64, 'base64');
     const filename = `imagen-${Date.now()}.png`;
 
