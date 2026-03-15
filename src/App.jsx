@@ -4052,15 +4052,9 @@ STRICT rules:
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
                     {imagenParsedImages.map((src, i) => (
                       <div key={i} onClick={() => {
-                        fetch(src).then(r => r.blob()).then(blob => {
-                          const reader = new FileReader();
-                          reader.onload = ev => {
-                            const dataUrl = ev.target.result;
-                            setImagenSelected({ src, base64: dataUrl.split(',')[1], mimeType: blob.type || 'image/jpeg' });
-                            setImagenStep(3);
-                          };
-                          reader.readAsDataURL(blob);
-                        }).catch(() => { setImagenSelected({ src, base64: null, mimeType: 'image/jpeg' }); setImagenStep(3); });
+                        // For URL-parsed images, just store the URL — server will fetch it
+                        setImagenSelected({ src, imageUrl: src, base64: null, mimeType: 'image/jpeg' });
+                        setImagenStep(3);
                       }} style={{ aspectRatio: "1", borderRadius: 8, overflow: "hidden", border: "2px solid rgba(255,255,255,0.06)", cursor: "pointer" }}>
                         <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       </div>
@@ -4095,7 +4089,12 @@ STRICT rules:
                         const scene = imagenStylePrompt.trim() || 'placed in a natural lifestyle setting with soft professional lighting';
                         const fullPrompt = `High quality product advertisement photo of ${productDesc}. ${scene}. Clean composition, photorealistic, suitable for Facebook and Instagram ads.`;
                         const body = { prompt: fullPrompt };
-                        if (imagenSelected?.base64) { body.imageBase64 = imagenSelected.base64; body.imageMimeType = imagenSelected.mimeType; }
+                        if (imagenSelected?.base64) {
+                          body.imageBase64 = imagenSelected.base64;
+                          body.imageMimeType = imagenSelected.mimeType;
+                        } else if (imagenSelected?.imageUrl) {
+                          body.imageUrl = imagenSelected.imageUrl;
+                        }
                         const r = await fetch('/api/imagen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                         const d = await r.json();
                         if (d.imageUrl) { setImagenPreview(d.imageUrl); setImagenStep(4); }

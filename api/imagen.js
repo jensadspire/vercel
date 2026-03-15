@@ -71,8 +71,24 @@ export default async function handler(req, res) {
   const saKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   if (!saKey) return res.status(500).json({ error: 'Google service account not configured' });
 
-  const { prompt, imageBase64, imageMimeType = 'image/jpeg' } = req.body || {};
+  const { prompt, imageBase64, imageMimeType = 'image/jpeg', imageUrl } = req.body || {};
   if (!prompt) return res.status(400).json({ error: 'prompt is required' });
+
+  // If imageUrl provided, fetch it server-side to avoid client payload limits
+  let finalBase64 = imageBase64;
+  let finalMimeType = imageMimeType;
+  if (!finalBase64 && imageUrl) {
+    try {
+      const imgRes = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      if (imgRes.ok) {
+        const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+        finalBase64 = imgBuffer.toString('base64');
+        finalMimeType = imgRes.headers.get('content-type') || 'image/jpeg';
+      }
+    } catch(e) {
+      console.warn('Could not fetch reference image:', e.message);
+    }
+  }
 
   const projectId = JSON.parse(saKey).project_id;
 
@@ -84,12 +100,12 @@ export default async function handler(req, res) {
     const instances = [{ prompt }];
 
     // If a reference image is provided, add it for image editing / style transfer
-    if (imageBase64) {
+    if (finalBase64) {
       instances[0].referenceImages = [{
         referenceType: 'REFERENCE_TYPE_STYLE',
         referenceImage: {
-          bytesBase64Encoded: imageBase64,
-          mimeType: imageMimeType,
+          bytesBase64Encoded: finalBase64,
+          mimeType: finalMimeType,
         },
       }];
     }
