@@ -3873,7 +3873,7 @@ STRICT rules:
                         <div style={{ padding: "16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                           <div style={{ position: "relative", width: 120, flexShrink: 0 }}>
                           <img src={metaResult.imageUrl} alt="Meta creative" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
-                          <button onClick={() => { setImagenOpen(true); setImagenStep(1); setImagenUrlInput(url); setImagenParsedImages([]); setImagenSelected(null); setImagenPreview(null); setImagenError(""); }} style={{
+                          <button onClick={() => { if (!isPro) { setUpgradeFeature('imagen'); setShowUpgradeModal(true); return; } setImagenOpen(true); setImagenStep(1); setImagenUrlInput(url); setImagenParsedImages([]); setImagenSelected(null); setImagenPreview(null); setImagenError(''); }} style={{
                             position: "absolute", bottom: 4, left: 0, right: 0,
                             fontSize: 9, fontWeight: 700, padding: "4px 0", borderRadius: "0 0 4px 4px",
                             background: "rgba(99,102,241,0.9)", color: "white",
