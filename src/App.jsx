@@ -4087,7 +4087,7 @@ STRICT rules:
                       try {
                         const productDesc = metaResult?.headlines?.[0] || 'product';
                         const scene = imagenStylePrompt.trim() || 'placed in a natural lifestyle setting with soft professional lighting';
-                        const fullPrompt = `High quality product advertisement photo of ${productDesc}. ${scene}. Clean composition, photorealistic, suitable for Facebook and Instagram ads.`;
+                        const fullPrompt = `High quality product advertisement photo. Product: ${productDesc}. Scene: ${scene}. Clean composition, photorealistic, commercial photography style, suitable for Facebook and Instagram ads. No text or logos.`;
                         const body = { prompt: fullPrompt };
                         if (imagenSelected?.base64) {
                           body.imageBase64 = imagenSelected.base64;

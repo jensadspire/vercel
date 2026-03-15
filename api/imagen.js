@@ -96,20 +96,8 @@ export default async function handler(req, res) {
     // ── Get access token ──────────────────────────────────────────────────────
     const accessToken = await getAccessToken(saKey);
 
-    // ── Build Imagen request ──────────────────────────────────────────────────
+    // Build Imagen request — text prompt only (reference image via prompt description)
     const instances = [{ prompt }];
-
-    // If a reference image is provided, add it for image editing / style transfer
-    if (finalBase64) {
-      instances[0].referenceImages = [{
-        referenceId: 1,
-        referenceType: 'REFERENCE_TYPE_STYLE',
-        referenceImage: {
-          bytesBase64Encoded: finalBase64,
-          mimeType: finalMimeType,
-        },
-      }];
-    }
 
     console.log('Calling Imagen for project:', projectId);
     const imagenRes = await fetch(
