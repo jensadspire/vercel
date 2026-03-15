@@ -94,6 +94,7 @@ export default async function handler(req, res) {
       }];
     }
 
+    console.log('Calling Imagen for project:', projectId);
     const imagenRes = await fetch(
       `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagen-3.0-generate-001:predict`,
       {
@@ -114,11 +115,16 @@ export default async function handler(req, res) {
       }
     );
 
-    const imagenData = await imagenRes.json();
+    let imagenData;
+    const rawText = await imagenRes.text();
+    try { imagenData = JSON.parse(rawText); } catch(_) {
+      console.error('Imagen non-JSON response:', rawText.slice(0, 300));
+      return res.status(500).json({ error: 'Imagen returned non-JSON: ' + rawText.slice(0, 100) });
+    }
 
     if (!imagenRes.ok) {
       console.error('Imagen error:', JSON.stringify(imagenData));
-      return res.status(500).json({ error: imagenData.error?.message || 'Imagen generation failed' });
+      return res.status(500).json({ error: imagenData.error?.message || 'Imagen generation failed', details: imagenData });
     }
 
     const b64 = imagenData.predictions?.[0]?.bytesBase64Encoded;

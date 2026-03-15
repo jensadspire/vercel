@@ -169,6 +169,22 @@ export default async function handler(req, res) {
       signals: { htmlLang, ogLocale, headerLang, hreflang, urlLang, subdomainLang, tldLang, tld },
     };
 
+    // ── Image extraction ──────────────────────────────────────────────────────
+    const baseUrl = new URL(url).origin;
+    const imgMatches = [...html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi)];
+    const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const rawImages = [
+      ogImage,
+      ...imgMatches.map(m => m[1]),
+    ].filter(Boolean).map(src => {
+      if (src.startsWith('http')) return src;
+      if (src.startsWith('//')) return 'https:' + src;
+      if (src.startsWith('/')) return baseUrl + src;
+      return null;
+    }).filter(src => src && !src.includes('data:') && !src.includes('svg') && !src.includes('icon') && !src.includes('logo') && !src.includes('placeholder'));
+    // Deduplicate
+    result.images = [...new Set(rawImages)].slice(0, 16);
+
     // ── Cache the result for 24 hours ─────────────────────────────────────────
     try {
       await redis("SET", cacheKey, JSON.stringify(result), "EX", CACHE_TTL);
