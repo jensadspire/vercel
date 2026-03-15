@@ -4086,11 +4086,11 @@ STRICT rules:
                       setImagenGenerating(true); setImagenError('');
                       try {
                         const productDesc = metaResult?.headlines?.[0] || 'furniture';
-                        const scene = imagenStylePrompt.trim() || 'in a modern Scandinavian living room with soft natural light';
-                        const selectedImageHint = imagenSelected?.src
-                          ? `The product is shown at this URL for reference: ${imagenSelected.src}. `
-                          : '';
-                        const fullPrompt = `Professional advertising photograph of a single furniture piece or product for a Facebook/Instagram ad. ${selectedImageHint}The item should be shown ${scene}. Photorealistic, high-end commercial photography, clean background, no people, no text, no logos, no food. The product is: ${productDesc}.`;
+                        const scene = imagenStylePrompt.trim() || 'in a natural outdoor garden setting with soft daylight';
+                        const hasRef = !!(imagenSelected?.base64 || imagenSelected?.imageUrl);
+                        const fullPrompt = hasRef
+                          ? `Place this exact product into the following scene: ${scene}. Keep the product clearly visible and true to its original appearance — same shape, color and design. Full product visible, not cropped. Photorealistic commercial photography, no text, no people, no logos.`
+                          : `Professional advertising photograph of ${productDesc} ${scene}. Photorealistic, high-end commercial photography, full product visible, no people, no text, no logos, no food.`;
                         const body = { prompt: fullPrompt };
                         if (imagenSelected?.base64) {
                           body.imageBase64 = imagenSelected.base64;

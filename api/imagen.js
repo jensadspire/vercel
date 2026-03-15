@@ -1,12 +1,13 @@
 /**
- * /api/imagen — Google Vertex AI Imagen 3 image generation
- * Accepts: { prompt, imageBase64?, imageMimeType? }
+ * /api/imagen — Google Vertex AI Imagen 3 image generation/editing
+ * Accepts: { prompt, imageBase64?, imageMimeType?, imageUrl? }
  * Returns: { imageUrl } (Vercel Blob permanent URL)
+ *
+ * If a reference image is provided, uses imagen-3.0-capability-001 with
+ * REFERENCE_TYPE_SUBJECT to keep the product and place it in a new scene.
+ * Otherwise falls back to imagen-3.0-generate-001 for text-to-image.
  */
 
-
-
-// Get a Google OAuth2 access token from a service account key
 async function getAccessToken(serviceAccountKey) {
   const key = typeof serviceAccountKey === 'string'
     ? JSON.parse(serviceAccountKey)
@@ -22,18 +23,13 @@ async function getAccessToken(serviceAccountKey) {
     exp: now + 3600,
   };
 
-  // Build JWT
   const enc = obj => Buffer.from(JSON.stringify(obj)).toString('base64url');
   const signingInput = `${enc(header)}.${enc(payload)}`;
 
-  // Sign with RS256 using the private key via Web Crypto
-  const pemKey = key.private_key;
-  const pemBody = pemKey.replace(/-----[^-]+-----/g, '').replace(/\s/g, '');
-  const keyDer = Buffer.from(pemBody, 'base64');
-
+  const pemBody = key.private_key.replace(/-----[^-]+-----/g, '').replace(/\s/g, '');
   const cryptoKey = await crypto.subtle.importKey(
     'pkcs8',
-    keyDer,
+    Buffer.from(pemBody, 'base64'),
     { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
     false,
     ['sign']
@@ -47,7 +43,6 @@ async function getAccessToken(serviceAccountKey) {
 
   const jwt = `${signingInput}.${Buffer.from(signature).toString('base64url')}`;
 
-  // Exchange JWT for access token
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -55,9 +50,7 @@ async function getAccessToken(serviceAccountKey) {
   });
 
   const tokenData = await tokenRes.json();
-  if (!tokenData.access_token) {
-    throw new Error(`Auth failed: ${JSON.stringify(tokenData)}`);
-  }
+  if (!tokenData.access_token) throw new Error(`Auth failed: ${JSON.stringify(tokenData)}`);
   return tokenData.access_token;
 }
 
@@ -74,34 +67,55 @@ export default async function handler(req, res) {
   const { prompt, imageBase64, imageMimeType = 'image/jpeg', imageUrl } = req.body || {};
   if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-  // If imageUrl provided, fetch it server-side to avoid client payload limits
-  let finalBase64 = imageBase64;
-  let finalMimeType = imageMimeType;
-  if (!finalBase64 && imageUrl) {
-    try {
-      const imgRes = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-      if (imgRes.ok) {
-        const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-        finalBase64 = imgBuffer.toString('base64');
-        finalMimeType = imgRes.headers.get('content-type') || 'image/jpeg';
-      }
-    } catch(e) {
-      console.warn('Could not fetch reference image:', e.message);
-    }
-  }
-
   const projectId = JSON.parse(saKey).project_id;
 
   try {
-    // ── Get access token ──────────────────────────────────────────────────────
+    // ── Resolve reference image ───────────────────────────────────────────────
+    let finalBase64 = imageBase64;
+    let finalMimeType = imageMimeType;
+
+    if (!finalBase64 && imageUrl) {
+      try {
+        const imgRes = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (imgRes.ok) {
+          finalBase64 = Buffer.from(await imgRes.arrayBuffer()).toString('base64');
+          finalMimeType = imgRes.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+        }
+      } catch(e) {
+        console.warn('Could not fetch reference image:', e.message);
+      }
+    }
+
     const accessToken = await getAccessToken(saKey);
+    const hasReference = !!finalBase64;
 
-    // Build Imagen request — text prompt only (reference image via prompt description)
-    const instances = [{ prompt }];
+    // ── Choose model and build request ────────────────────────────────────────
+    // With reference image: use capability model with SUBJECT mode (product in new scene)
+    // Without: use generate model for text-to-image
+    const model = hasReference
+      ? 'imagen-3.0-capability-001'
+      : 'imagen-3.0-generate-001';
 
-    console.log('Calling Imagen for project:', projectId);
+    const instance = { prompt };
+
+    if (hasReference) {
+      instance.referenceImages = [
+        {
+          referenceId: 1,
+          referenceType: 'REFERENCE_TYPE_SUBJECT',
+          subjectImageConfig: { subjectType: 'SUBJECT_TYPE_PRODUCT' },
+          referenceImage: {
+            bytesBase64Encoded: finalBase64,
+            mimeType: finalMimeType,
+          },
+        },
+      ];
+    }
+
+    console.log(`Calling Imagen model: ${model}, hasReference: ${hasReference}`);
+
     const imagenRes = await fetch(
-      `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagen-3.0-generate-001:predict`,
+      `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/${model}:predict`,
       {
         method: 'POST',
         headers: {
@@ -109,7 +123,7 @@ export default async function handler(req, res) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          instances,
+          instances: [instance],
           parameters: {
             sampleCount: 1,
             aspectRatio: '1:1',
@@ -124,23 +138,41 @@ export default async function handler(req, res) {
     const rawText = await imagenRes.text();
     try { imagenData = JSON.parse(rawText); } catch(_) {
       console.error('Imagen non-JSON response:', rawText.slice(0, 300));
-      return res.status(500).json({ error: 'Imagen returned non-JSON: ' + rawText.slice(0, 100) });
+      return res.status(500).json({ error: 'Imagen returned non-JSON: ' + rawText.slice(0, 200) });
     }
 
     if (!imagenRes.ok) {
       console.error('Imagen error:', JSON.stringify(imagenData));
-      return res.status(500).json({ error: imagenData.error?.message || 'Imagen generation failed', details: imagenData });
+      // If capability model fails, fall back to generate model
+      if (hasReference && imagenData.error) {
+        console.log('Capability model failed, falling back to generate model');
+        const fallbackRes = await fetch(
+          `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagen-3.0-generate-001:predict`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              instances: [{ prompt }],
+              parameters: { sampleCount: 1, aspectRatio: '1:1', safetyFilterLevel: 'block_some' },
+            }),
+          }
+        );
+        const fallbackText = await fallbackRes.text();
+        try { imagenData = JSON.parse(fallbackText); } catch(_) {
+          return res.status(500).json({ error: 'Fallback also failed: ' + fallbackText.slice(0, 100) });
+        }
+        if (!fallbackRes.ok) return res.status(500).json({ error: imagenData.error?.message || 'Generation failed' });
+      } else {
+        return res.status(500).json({ error: imagenData.error?.message || 'Imagen generation failed' });
+      }
     }
 
     const b64 = imagenData.predictions?.[0]?.bytesBase64Encoded;
-    if (!b64) return res.status(500).json({ error: 'No image returned from Imagen' });
+    if (!b64) return res.status(500).json({ error: 'No image returned from Imagen', raw: imagenData });
 
-    // ── Upload to Vercel Blob for permanent URL ────────────────────────────────
+    // ── Upload to Vercel Blob ─────────────────────────────────────────────────
     const { put } = await import('@vercel/blob');
-    const imageBuffer = Buffer.from(b64, 'base64');
-    const filename = `imagen-${Date.now()}.png`;
-
-    const blob = await put(filename, imageBuffer, {
+    const blob = await put(`imagen-${Date.now()}.png`, Buffer.from(b64, 'base64'), {
       access: 'public',
       contentType: 'image/png',
       token: process.env.BLOB_READ_WRITE_TOKEN,
