@@ -4077,7 +4077,7 @@ STRICT rules:
                   )}
                   <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 8 }}>Describe the scene or environment <span style={{ color: "#4a5568" }}>(optional)</span></div>
                   <textarea value={imagenStylePrompt} onChange={e => setImagenStylePrompt(e.target.value)}
-                    placeholder="e.g. Placed on a rustic wooden table with soft morning light and green plants in the background"
+                    placeholder="e.g. A grey fabric lounge chair in a bright Scandinavian living room with oak floors and large windows"
                     rows={3} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, fontSize: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", outline: "none", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
                   />
                   <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
@@ -4085,9 +4085,12 @@ STRICT rules:
                     <button onClick={async () => {
                       setImagenGenerating(true); setImagenError('');
                       try {
-                        const productDesc = metaResult?.headlines?.[0] || 'product';
-                        const scene = imagenStylePrompt.trim() || 'placed in a natural lifestyle setting with soft professional lighting';
-                        const fullPrompt = `High quality product advertisement photo. Product: ${productDesc}. Scene: ${scene}. Clean composition, photorealistic, commercial photography style, suitable for Facebook and Instagram ads. No text or logos.`;
+                        const productDesc = metaResult?.headlines?.[0] || 'furniture';
+                        const scene = imagenStylePrompt.trim() || 'in a modern Scandinavian living room with soft natural light';
+                        const selectedImageHint = imagenSelected?.src
+                          ? `The product is shown at this URL for reference: ${imagenSelected.src}. `
+                          : '';
+                        const fullPrompt = `Professional advertising photograph of a single furniture piece or product for a Facebook/Instagram ad. ${selectedImageHint}The item should be shown ${scene}. Photorealistic, high-end commercial photography, clean background, no people, no text, no logos, no food. The product is: ${productDesc}.`;
                         const body = { prompt: fullPrompt };
                         if (imagenSelected?.base64) {
                           body.imageBase64 = imagenSelected.base64;
