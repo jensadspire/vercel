@@ -3871,18 +3871,30 @@ STRICT rules:
                             fontSize: 9, fontWeight: 700, padding: "4px 0", borderRadius: "0 0 4px 4px",
                             background: "rgba(99,102,241,0.9)", color: "white",
                             border: "none", cursor: "pointer", width: "100%", textAlign: "center",
-                          }}>✦ Recreate with Imagen</button>
+                          }}>{imagenPreview ? "✓ Imagen version" : "✦ Recreate with Imagen"}</button>
                           </div>
                           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ fontSize: 10, color: "#4a5568", textAlign: "center", lineHeight: 1.5, padding: "4px 8px", background: "rgba(14,165,233,0.06)", borderRadius: 6, border: "1px solid rgba(14,165,233,0.12)" }}>
                               💡 Download image first — attach it when Meta prompts during import
                             </div>
-                            <a href={metaResult.imageUrl} download="meta-creative.png" style={{
+                            <button onClick={async () => {
+                              try {
+                                const res = await fetch(metaResult.imageUrl);
+                                const blob = await res.blob();
+                                const a = document.createElement('a');
+                                a.href = URL.createObjectURL(blob);
+                                a.download = 'meta-creative.png';
+                                a.click();
+                                URL.revokeObjectURL(a.href);
+                              } catch(_) {
+                                window.open(metaResult.imageUrl, '_blank');
+                              }
+                            }} style={{
                               display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                               padding: "8px 14px", borderRadius: 7, fontSize: 11, fontWeight: 700,
                               background: "linear-gradient(135deg,#0ea5e9,#6366f1)", color: "white",
-                              textDecoration: "none",
-                            }}>⬇ Download Image (attach during Meta import)</a>
+                              border: "none", cursor: "pointer",
+                            }}>⬇ Download Image (attach during Meta import)</button>
                             <button onClick={() => {
                               const rows2 = (metaResult.primaryTexts || []).map((pt, i) => [
                                 "", row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
@@ -4009,11 +4021,19 @@ STRICT rules:
                       />
                       <label htmlFor="imagen-upload" style={{
                         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        gap: 10, padding: "40px 20px", borderRadius: 12, cursor: "pointer",
-                        border: "2px dashed rgba(99,102,241,0.3)", background: "rgba(99,102,241,0.04)",
+                        gap: 10, padding: imagenSelected?.src ? "12px" : "40px 20px", borderRadius: 12, cursor: "pointer",
+                        border: imagenSelected?.src ? "2px solid rgba(99,102,241,0.5)" : "2px dashed rgba(99,102,241,0.3)",
+                        background: imagenSelected?.src ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.04)",
+                        minHeight: 160,
                       }}>
-                        <span style={{ fontSize: 36 }}>📸</span>
-                        <span style={{ fontSize: 13, color: "#7e92a8", textAlign: "center" }}>Click to upload a product image<br/><span style={{ fontSize: 11, color: "#4a5568" }}>JPG, PNG or WebP — max 5MB</span></span>
+                        {imagenSelected?.src ? (
+                          <img src={imagenSelected.src} alt="preview" style={{ maxWidth: "100%", maxHeight: 200, objectFit: "contain", borderRadius: 8 }} />
+                        ) : (
+                          <>
+                            <span style={{ fontSize: 36 }}>📸</span>
+                            <span style={{ fontSize: 13, color: "#7e92a8", textAlign: "center" }}>Click to upload a product image<br/><span style={{ fontSize: 11, color: "#4a5568" }}>JPG, PNG or WebP — max 5MB</span></span>
+                          </>
+                        )}
                       </label>
                     </div>
                   ) : (
