@@ -428,6 +428,18 @@ function RSAStudio() {
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   const [metaActiveVariants, setMetaActiveVariants] = useState({ pt: 0, hl: 0, d: 0 }); // active variant indices
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
+  // Imagen modal state
+  const [imagenOpen, setImagenOpen] = useState(false);
+  const [imagenStep, setImagenStep] = useState(1);
+  const [imagenTab, setImagenTab] = useState('upload'); // 'upload' | 'url'
+  const [imagenUrlInput, setImagenUrlInput] = useState('');
+  const [imagenParsedImages, setImagenParsedImages] = useState([]);
+  const [imagenParsing, setImagenParsing] = useState(false);
+  const [imagenSelected, setImagenSelected] = useState(null); // { src, base64, mimeType }
+  const [imagenStylePrompt, setImagenStylePrompt] = useState('');
+  const [imagenGenerating, setImagenGenerating] = useState(false);
+  const [imagenPreview, setImagenPreview] = useState(null);
+  const [imagenError, setImagenError] = useState('');
   // ── Batch mode state ──────────────────────────────────────────────────────
   const [showBatchPanel, setShowBatchPanel] = useState(false);
   const [batchTab, setBatchTab] = useState("scan"); // "scan" | "paste"
@@ -3852,7 +3864,15 @@ STRICT rules:
                           <span style={{ fontSize: 10, padding: "2px 8px", background: "rgba(14,165,233,0.1)", border: "1px solid rgba(14,165,233,0.2)", borderRadius: 4, color: "#38bdf8", fontWeight: 700 }}>1:1 Feed</span>
                         </div>
                         <div style={{ padding: "16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                          <div style={{ position: "relative", width: 120, flexShrink: 0 }}>
                           <img src={metaResult.imageUrl} alt="Meta creative" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                          <button onClick={() => { setImagenOpen(true); setImagenStep(1); setImagenUrlInput(url); setImagenParsedImages([]); setImagenSelected(null); setImagenPreview(null); setImagenError(""); }} style={{
+                            position: "absolute", bottom: 4, left: 0, right: 0,
+                            fontSize: 9, fontWeight: 700, padding: "4px 0", borderRadius: "0 0 4px 4px",
+                            background: "rgba(99,102,241,0.9)", color: "white",
+                            border: "none", cursor: "pointer", width: "100%", textAlign: "center",
+                          }}>✦ Recreate with Imagen</button>
+                          </div>
                           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ fontSize: 10, color: "#4a5568", textAlign: "center", lineHeight: 1.5, padding: "4px 8px", background: "rgba(14,165,233,0.06)", borderRadius: 6, border: "1px solid rgba(14,165,233,0.12)" }}>
                               💡 Download image first — attach it when Meta prompts during import
@@ -3924,6 +3944,361 @@ STRICT rules:
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+      `}</style>
+    </div>
+
+                </div>
+              )}
+
+              {/* ── Step 2: Select image ──────────────────────────────────── */}
+              {imagenStep === 2 && (
+                <div>
+                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 12 }}>Select a product image to use as reference:</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+                    {imagenParsedImages.map((src, i) => (
+                      <div key={i} onClick={() => {
+                        fetch(src)
+                          .then(r => r.blob())
+                          .then(blob => {
+                            const reader = new FileReader();
+                            reader.onload = ev => {
+                              const dataUrl = ev.target.result;
+                              const base64 = dataUrl.split(',')[1];
+                              setImagenSelected({ src, base64, mimeType: blob.type || 'image/jpeg' });
+                              setImagenStep(3);
+                            };
+                            reader.readAsDataURL(blob);
+                          })
+                          .catch(() => {
+                            setImagenSelected({ src, base64: null, mimeType: 'image/jpeg' });
+                            setImagenStep(3);
+                          });
+                      }} style={{
+                        aspectRatio: "1", borderRadius: 8, overflow: "hidden",
+                        border: "2px solid rgba(255,255,255,0.06)", cursor: "pointer",
+                        transition: "all 0.2s",
+                      }}>
+                        <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => setImagenStep(1)} style={{
+                    marginTop: 16, fontSize: 11, color: "#4a5568", background: "none", border: "none", cursor: "pointer",
+                  }}>← Back</button>
+                </div>
+              )}
+
+              {/* ── Step 3: Style prompt ──────────────────────────────────── */}
+              {imagenStep === 3 && (
+                <div>
+                  {imagenSelected?.src && (
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 16 }}>
+                      <img src={imagenSelected.src} alt="selected" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, border: "1px solid rgba(99,102,241,0.3)" }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, color: "#34d399", fontWeight: 700 }}>✓ Image selected</div>
+                        <div style={{ fontSize: 10, color: "#4a5568", marginTop: 4 }}>This product will appear in your generated scene</div>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 8 }}>
+                    Describe the scene or environment <span style={{ color: "#4a5568" }}>(optional)</span>
+                  </div>
+                  <textarea
+                    value={imagenStylePrompt}
+                    onChange={e => setImagenStylePrompt(e.target.value)}
+                    placeholder="e.g. Placed on a rustic wooden table with soft morning light and green plants in the background"
+                    rows={3}
+                    style={{
+                      width: "100%", padding: "10px 12px", borderRadius: 8, fontSize: 12,
+                      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#e2e8f0", outline: "none", resize: "vertical", fontFamily: "inherit",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                    <button onClick={() => setImagenStep(imagenTab === 'upload' ? 1 : 2)} style={{
+                      flex: 1, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8,
+                      background: "rgba(255,255,255,0.04)", color: "#7e92a8",
+                      border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer",
+                    }}>← Back</button>
+                    <button onClick={async () => {
+                      setImagenGenerating(true);
+                      setImagenError('');
+                      try {
+                        const productDesc = metaResult?.headlines?.[0] || 'product';
+                        const scenePrompt = imagenStylePrompt.trim()
+                          ? imagenStylePrompt.trim()
+                          : 'placed in a natural lifestyle setting with soft professional lighting';
+                        const fullPrompt = `High quality product advertisement photo of ${productDesc}. ${scenePrompt}. Clean composition, photorealistic, suitable for Facebook and Instagram ads.`;
+                        const body = { prompt: fullPrompt };
+                        if (imagenSelected?.base64) {
+                          body.imageBase64 = imagenSelected.base64;
+                          body.imageMimeType = imagenSelected.mimeType;
+                        }
+                        const r = await fetch('/api/imagen', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(body),
+                        });
+                        const d = await r.json();
+                        if (d.imageUrl) {
+                          setImagenPreview(d.imageUrl);
+                          setImagenStep(4);
+                        } else {
+                          setImagenError(d.error || 'Generation failed');
+                        }
+                      } catch(e) {
+                        setImagenError(e.message || 'Generation failed');
+                      }
+                      setImagenGenerating(false);
+                    }} style={{
+                      flex: 2, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8,
+                      background: imagenGenerating ? "rgba(99,102,241,0.2)" : "linear-gradient(135deg,#6366f1,#0ea5e9)",
+                      color: "white", border: "none", cursor: imagenGenerating ? "default" : "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    }}>
+                      {imagenGenerating ? (
+                        <><span style={{ fontSize: 16, animation: "spin 1s linear infinite" }}>✦</span> Generating...</>
+                      ) : "✦ Generate with Imagen"}
+                    </button>
+                  </div>
+                  {imagenError && <div style={{ fontSize: 11, color: "#f87171", marginTop: 10 }}>{imagenError}</div>}
+                </div>
+              )}
+
+              {/* ── Step 4: Preview & confirm ─────────────────────────────── */}
+              {imagenStep === 4 && (
+                <div>
+                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 12 }}>Your generated image — confirm to replace the Meta ad preview:</div>
+                  <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 6, textAlign: "center" }}>Current</div>
+                      <img src={metaResult?.imageUrl} alt="current" style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)" }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: "#34d399", fontWeight: 700, marginBottom: 6, textAlign: "center" }}>✦ New</div>
+                      <img src={imagenPreview} alt="generated" style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 10, border: "1px solid rgba(99,102,241,0.4)" }} />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setImagenStep(3)} style={{
+                      flex: 1, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8,
+                      background: "rgba(255,255,255,0.04)", color: "#7e92a8",
+                      border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer",
+                      border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer",
+                    }}>← Regenerate</button>
+                    <button onClick={() => {
+                      setMetaResult(prev => ({ ...prev, imageUrl: imagenPreview }));
+                      setImagenOpen(false);
+                    }} style={{
+                      flex: 2, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8,
+                      background: "linear-gradient(135deg,#059669,#10b981)",
+                      color: "white", border: "none", cursor: "pointer",
+                    }}>✓ Use this image</button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+      {/* ── Imagen Modal ──────────────────────────────────────────── */}
+      {imagenOpen && (
+        <div onClick={() => setImagenOpen(false)} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+          backdropFilter: "blur(6px)", zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: "#0f1623", border: "1px solid rgba(99,102,241,0.3)",
+            borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "90vh",
+            overflow: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+          }}>
+            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#e2e8f0" }}>✦ Recreate with Imagen</div>
+                <div style={{ fontSize: 11, color: "#4a5568", marginTop: 2 }}>
+                  {imagenStep === 1 ? "Step 1 — Choose a product image" :
+                   imagenStep === 2 ? "Step 2 — Select an image" :
+                   imagenStep === 3 ? "Step 3 — Style your scene" : "Step 4 — Preview & confirm"}
+                </div>
+              </div>
+              <button onClick={() => setImagenOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+            </div>
+            <div style={{ display: "flex", gap: 6, padding: "12px 24px 0" }}>
+              {[1,2,3,4].map(s => (
+                <div key={s} style={{
+                  flex: 1, height: 3, borderRadius: 2,
+                  background: s <= imagenStep ? "linear-gradient(90deg,#6366f1,#0ea5e9)" : "rgba(255,255,255,0.08)",
+                  transition: "all 0.3s",
+                }} />
+              ))}
+            </div>
+            <div style={{ padding: "20px 24px 24px" }}>
+
+              {imagenStep === 1 && (
+                <div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                    {["upload","url"].map(t => (
+                      <button key={t} onClick={() => setImagenTab(t)} style={{
+                        flex: 1, padding: "8px 0", fontSize: 12, fontWeight: 700,
+                        borderRadius: 8, cursor: "pointer", transition: "all 0.2s",
+                        background: imagenTab === t ? "linear-gradient(135deg,rgba(99,102,241,0.3),rgba(14,165,233,0.3))" : "rgba(255,255,255,0.04)",
+                        color: imagenTab === t ? "#a5b4fc" : "#4a5568",
+                        border: imagenTab === t ? "1px solid rgba(99,102,241,0.4)" : "1px solid rgba(255,255,255,0.06)",
+                      }}>{t === "upload" ? "📁 Upload Image" : "🔗 Capture from URL"}</button>
+                    ))}
+                  </div>
+                  {imagenTab === "upload" ? (
+                    <div>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} id="imagen-upload"
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = ev => {
+                            const dataUrl = ev.target.result;
+                            setImagenSelected({ src: dataUrl, base64: dataUrl.split(',')[1], mimeType: file.type });
+                            setImagenStep(3);
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                      <label htmlFor="imagen-upload" style={{
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                        gap: 10, padding: "40px 20px", borderRadius: 12, cursor: "pointer",
+                        border: "2px dashed rgba(99,102,241,0.3)", background: "rgba(99,102,241,0.04)",
+                      }}>
+                        <span style={{ fontSize: 36 }}>📸</span>
+                        <span style={{ fontSize: 13, color: "#7e92a8", textAlign: "center" }}>Click to upload a product image<br/><span style={{ fontSize: 11, color: "#4a5568" }}>JPG, PNG or WebP — max 5MB</span></span>
+                      </label>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 8 }}>Parse product images from your URL:</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input value={imagenUrlInput} onChange={e => setImagenUrlInput(e.target.value)}
+                          placeholder="https://your-product-url.com"
+                          style={{ flex: 1, padding: "10px 12px", borderRadius: 8, fontSize: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", outline: "none" }}
+                        />
+                        <button onClick={async () => {
+                          if (!imagenUrlInput) return;
+                          setImagenParsing(true); setImagenError('');
+                          try {
+                            const r = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: imagenUrlInput }) });
+                            const d = await r.json();
+                            const imgs = (d.images || []).filter(s => s && s.startsWith('http')).slice(0, 12);
+                            if (!imgs.length) setImagenError('No images found at this URL');
+                            setImagenParsedImages(imgs);
+                            if (imgs.length) setImagenStep(2);
+                          } catch(e) { setImagenError('Failed to parse URL'); }
+                          setImagenParsing(false);
+                        }} style={{ padding: "10px 16px", fontSize: 12, fontWeight: 700, borderRadius: 8, background: "linear-gradient(135deg,rgba(99,102,241,0.3),rgba(14,165,233,0.3))", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.4)", cursor: "pointer" }}>
+                          {imagenParsing ? "Parsing..." : "Parse"}
+                        </button>
+                      </div>
+                      {imagenError && <div style={{ fontSize: 11, color: "#f87171", marginTop: 8 }}>{imagenError}</div>}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {imagenStep === 2 && (
+                <div>
+                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 12 }}>Select a product image to use as reference:</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+                    {imagenParsedImages.map((src, i) => (
+                      <div key={i} onClick={() => {
+                        fetch(src).then(r => r.blob()).then(blob => {
+                          const reader = new FileReader();
+                          reader.onload = ev => {
+                            const dataUrl = ev.target.result;
+                            setImagenSelected({ src, base64: dataUrl.split(',')[1], mimeType: blob.type || 'image/jpeg' });
+                            setImagenStep(3);
+                          };
+                          reader.readAsDataURL(blob);
+                        }).catch(() => { setImagenSelected({ src, base64: null, mimeType: 'image/jpeg' }); setImagenStep(3); });
+                      }} style={{ aspectRatio: "1", borderRadius: 8, overflow: "hidden", border: "2px solid rgba(255,255,255,0.06)", cursor: "pointer" }}>
+                        <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => setImagenStep(1)} style={{ marginTop: 16, fontSize: 11, color: "#4a5568", background: "none", border: "none", cursor: "pointer" }}>← Back</button>
+                </div>
+              )}
+
+              {imagenStep === 3 && (
+                <div>
+                  {imagenSelected?.src && (
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 16 }}>
+                      <img src={imagenSelected.src} alt="selected" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, border: "1px solid rgba(99,102,241,0.3)" }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, color: "#34d399", fontWeight: 700 }}>✓ Image selected</div>
+                        <div style={{ fontSize: 10, color: "#4a5568", marginTop: 4 }}>This product will appear in your generated scene</div>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 8 }}>Describe the scene or environment <span style={{ color: "#4a5568" }}>(optional)</span></div>
+                  <textarea value={imagenStylePrompt} onChange={e => setImagenStylePrompt(e.target.value)}
+                    placeholder="e.g. Placed on a rustic wooden table with soft morning light and green plants in the background"
+                    rows={3} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, fontSize: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", outline: "none", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
+                  />
+                  <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                    <button onClick={() => setImagenStep(imagenTab === 'upload' ? 1 : 2)} style={{ flex: 1, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8, background: "rgba(255,255,255,0.04)", color: "#7e92a8", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}>← Back</button>
+                    <button onClick={async () => {
+                      setImagenGenerating(true); setImagenError('');
+                      try {
+                        const productDesc = metaResult?.headlines?.[0] || 'product';
+                        const scene = imagenStylePrompt.trim() || 'placed in a natural lifestyle setting with soft professional lighting';
+                        const fullPrompt = `High quality product advertisement photo of ${productDesc}. ${scene}. Clean composition, photorealistic, suitable for Facebook and Instagram ads.`;
+                        const body = { prompt: fullPrompt };
+                        if (imagenSelected?.base64) { body.imageBase64 = imagenSelected.base64; body.imageMimeType = imagenSelected.mimeType; }
+                        const r = await fetch('/api/imagen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                        const d = await r.json();
+                        if (d.imageUrl) { setImagenPreview(d.imageUrl); setImagenStep(4); }
+                        else setImagenError(d.error || 'Generation failed');
+                      } catch(e) { setImagenError(e.message || 'Generation failed'); }
+                      setImagenGenerating(false);
+                    }} style={{ flex: 2, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8, background: imagenGenerating ? "rgba(99,102,241,0.2)" : "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", border: "none", cursor: imagenGenerating ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                      {imagenGenerating ? <><span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>✦</span> Generating...</> : "✦ Generate with Imagen"}
+                    </button>
+                  </div>
+                  {imagenError && <div style={{ fontSize: 11, color: "#f87171", marginTop: 10 }}>{imagenError}</div>}
+                </div>
+              )}
+
+              {imagenStep === 4 && (
+                <div>
+                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 12 }}>Your generated image — confirm to replace the Meta ad preview:</div>
+                  <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 6, textAlign: "center" }}>Current</div>
+                      <img src={metaResult?.imageUrl} alt="current" style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)" }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: "#34d399", fontWeight: 700, marginBottom: 6, textAlign: "center" }}>✦ New</div>
+                      <img src={imagenPreview} alt="generated" style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 10, border: "1px solid rgba(99,102,241,0.4)" }} />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setImagenStep(3)} style={{ flex: 1, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8, background: "rgba(255,255,255,0.04)", color: "#7e92a8", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}>← Regenerate</button>
+                    <button onClick={() => { setMetaResult(prev => ({ ...prev, imageUrl: imagenPreview })); setImagenOpen(false); }} style={{ flex: 2, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8, background: "linear-gradient(135deg,#059669,#10b981)", color: "white", border: "none", cursor: "pointer" }}>✓ Use this image</button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
       `}</style>
     </div>
   );
