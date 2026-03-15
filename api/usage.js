@@ -13,8 +13,8 @@ const LIMITS = {
 };
 
 async function redis(command, ...args) {
-  const url   = process.env.KV_REST_API_URL;
-  const token = process.env.KV_REST_API_TOKEN;
+  const url   = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) throw new Error('KV not configured');
   const r = await fetch(`${url}/${command}/${args.map(encodeURIComponent).join('/')}`, {
     headers: { Authorization: `Bearer ${token}` },
