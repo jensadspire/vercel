@@ -2658,9 +2658,9 @@ STRICT rules:
                     updateRow(activeRow, row => ({
                       ...row,
                       pmaxResult: {
-                        businessName: r.adGroup || "",
+                        businessName: (r.campaign || "").split(" ").slice(0, 3).join(" ").substring(0, 25) || "",
                         headlines: rsaHeadlines.slice(0, 5),
-                        longHeadlines: rsaHeadlines.slice(5, 10).concat(Array(Math.max(0, 5 - Math.max(0, rsaHeadlines.length - 5))).fill("")),
+                        longHeadlines: [...rsaHeadlines.slice(5, 20), ...Array(Math.max(0, 15 - Math.max(0, rsaHeadlines.length - 5))).fill("")],
                         descriptions: rsaDescs.slice(0, 5),
                         callToAction: "Shop Now",
                       }
