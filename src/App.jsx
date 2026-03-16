@@ -3335,31 +3335,29 @@ STRICT rules:
 
                   {/* Multi-export tray — Google RSA/PMax only, Meta entries excluded */}
                   {selectedForExport.size > 0 && (() => {
-                    // Meta tab: build Meta CSV; Google tabs: build Google TSV
+                    // Meta tab: build Meta CSV from current ad only; Google tabs: build Google TSV
                     const isMetaTab = adFormat === "meta";
-                    const metaSelected = history.filter(h => selectedForExport.has(h.id) && h.metaResult);
                     const googleSelected = history.filter(h => selectedForExport.has(h.id) && !h.metaResult);
-                    const totalSelected = (isMetaTab ? metaSelected : googleSelected).length;
-                    const metaCsvRows = metaSelected.flatMap(h => {
-                      const cn = h.rows[0]?.campaign || "RSA Studio Campaign";
-                      return (h.metaResult.primaryTexts || []).map((pt, i) => [
-                        "", cn, "ACTIVE", "Traffic", "AUCTION",
-                        "", "", "", "Yes",
-                        "", "", "", "", "",
-                        "ACTIVE", "", cn + " - Ad Set",
-                        "", "", "", "", "", "",
-                        h.url, (() => { try { return new URL(h.url).hostname.replace("www.",""); } catch(_){return "";} })(),
-                        "", "", "", "", "", "", "", "", "",
-                        "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
-                        "", "", "",
-                        "ACTIVE", "", "",
-                        `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, pt, h.metaResult.headlines?.[i] || h.metaResult.headlines?.[0] || "",
-                        "", "", "Page Post Ad",
-                        "", "", "", "LEARN_MORE",
-                        "", "", "", "",
-                      ]);
-                    });
-                    const metaCsvStr = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + metaCsvRows.map(row => row.map(v => String(v).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")).join("\n");
+                    const metaSelectedCount = metaResult ? 1 : 0;
+                    const totalSelected = isMetaTab ? metaSelectedCount : googleSelected.length;
+                    // Current Meta ad only (not all history)
+                    const metaCsvRows = metaResult ? (metaResult.primaryTexts || []).map((pt, i) => [
+                      "", row?.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
+                      "", "", "", "Yes", "", "", "", "",
+                      "", "ACTIVE", "", (row?.campaign || "RSA Studio") + " - Ad Set",
+                      "", "", "", "", "", "",
+                      url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(),
+                      "", "", "", "", "", "", "", "", "",
+                      "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
+                      "", "", "",
+                      "ACTIVE", "", "",
+                      `Meta Ad ${i + 1}`, pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
+                      "", "", "Page Post Ad",
+                      "", "", "", "LEARN_MORE",
+                      "", "", "", "",
+                    ]) : [];
+                    const metaCsvStr = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + metaCsvRows.map(r => r.map(v => String(v).replace(/	/g," ").replace(/
+/g," ")).join("\t")).join("\n");
 
                     const handleMultiCopy = async () => {
                       const payload = isMetaTab ? metaCsvStr : multiTsv;
@@ -3380,31 +3378,28 @@ STRICT rules:
 
                     const handleMultiDownload = () => {
                       if (adFormat === "meta") {
-                        // Meta TSV export
-                        const selectedMeta = history.filter(h => selectedForExport.has(h.id) && h.metaResult);
-                        if (!selectedMeta.length) return;
-                        const dataRows = selectedMeta.flatMap(h => {
-                          const r = h.metaResult;
-                          return (r.primaryTexts || []).map((pt, i) => [
-                            "", h.rows[0]?.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
-                            "", "", "", "Yes", "", "", "", "",
-                            "", "ACTIVE", "", (h.rows[0]?.campaign || "RSA Studio") + " - Ad Set",
-                            "", "", "", "", "", "",
-                            h.url, (() => { try { return new URL(h.url).hostname.replace("www.",""); } catch(_){return "";} })(),
-                            "", "", "", "", "", "", "", "", "",
-                            "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
-                            "", "", "",
-                            "ACTIVE", "", "",
-                            `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, pt, r.headlines?.[i] || r.headlines?.[0] || "",
-                            "", "", "Page Post Ad",
-                            "", "", "", "LEARN_MORE",
-                            "", "", "", "",
-                          ]);
-                        });
-                        const tsv = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + dataRows.map(r => r.map(v => String(v).replace(/\t/g," ").replace(/\n/g," ")).join("\t")).join("\n");
+                        // Export current Meta ad only
+                        if (!metaResult) return;
+                        const dataRows = (metaResult.primaryTexts || []).map((pt, i) => [
+                          "", row?.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
+                          "", "", "", "Yes", "", "", "", "",
+                          "", "ACTIVE", "", (row?.campaign || "RSA Studio") + " - Ad Set",
+                          "", "", "", "", "", "",
+                          url, (() => { try { return new URL(url).hostname.replace("www.",""); } catch(_){return "";} })(),
+                          "", "", "", "", "", "", "", "", "",
+                          "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
+                          "", "", "",
+                          "ACTIVE", "", "",
+                          `Meta Ad ${i + 1}`, pt, metaResult.headlines?.[i] || metaResult.headlines?.[0] || "",
+                          "", "", "Page Post Ad",
+                          "", "", "", "LEARN_MORE",
+                          "", "", "", "",
+                        ]);
+                        const tsv = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + dataRows.map(r => r.map(v => String(v).replace(/	/g," ").replace(/
+/g," ")).join("\t")).join("\n");
                         const a = document.createElement("a");
                         a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(tsv);
-                        a.download = `meta_ads_${selectedMeta.length}_variants.txt`;
+                        a.download = "meta-ads-export.txt";
                         document.body.appendChild(a); a.click(); document.body.removeChild(a);
                       } else {
                         const encoded = "data:text/tab-separated-values;charset=utf-8," + encodeURIComponent(multiTsv);
