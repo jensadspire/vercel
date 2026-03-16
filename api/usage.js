@@ -8,7 +8,7 @@
 const LIMITS = {
   rsa:    { anon: 10,  free: 999, pro: 999, past_due: 20  },
   meta:   { anon: 3,   free: 20,  pro: 999, past_due: 5   },
-  imagen: { anon: 0,   free: 3,   pro: 999, past_due: 0   },
+  imagen: { anon: 0,   free: 5,   pro: 999, past_due: 0   },
   batch:  { anon: 0,   free: 0,   pro: 999, past_due: 0   },
 };
 

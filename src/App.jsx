@@ -72,7 +72,7 @@ function buildTSV(rows, omitGroup = false, format = "rsa") {
           ...cells,
           p.businessName || "",
           ...(p.headlines || Array(5).fill("")),
-          ...(p.longHeadlines || Array(5).fill("")),
+          ...(p.longHeadlines ? [...p.longHeadlines.slice(0, 15), ...Array(Math.max(0, 15 - p.longHeadlines.length)).fill("")] : Array(15).fill("")),
           ...(p.descriptions || Array(5).fill("")),
           p.callToAction || "",
         ].join("\t");
@@ -992,7 +992,7 @@ Return ONLY valid JSON — no prose, no markdown fences:
 Rules:
 - businessName: max 25 chars — use brand name only
 - headlines: exactly 5, max 30 chars each — short punchy phrases
-- longHeadlines: exactly 5, max 90 chars each — complete value proposition sentences, no punctuation at end
+- longHeadlines: exactly 15, max 90 chars each — complete value proposition sentences, no punctuation at end. IMPORTANT: longHeadlines[0] must be max 60 chars (stricter Google limit for position 1). All others max 90 chars.
 - descriptions: exactly 5, max 90 chars each — benefit-focused, include CTA
 - callToAction: pick the single most relevant option from the list above`
             }],
@@ -1595,35 +1595,16 @@ STRICT rules:
           }}>+ Ad</button>
         </div>
 
-        {/* Export buttons */}
+        {/* Demo video + auth */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-            <button onClick={copyTSV} style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "7px 16px", fontSize: 12, fontWeight: 700,
-              background: copied ? "linear-gradient(135deg,#059669,#10b981)" : "linear-gradient(135deg,#3b82f6,#06b6d4)",
-              color: "white", border: "none", borderRadius: 7, cursor: "pointer",
-              transition: "all 0.3s",
-            }}>
-              {copied ? "✓ Copied!" : "📋 Copy for Editor"}
-            </button>
-            <button onClick={copyTSVNoGroup} style={{
-              background: "none", border: "none", cursor: "pointer",
-              fontSize: 10, color: copiedNoGroup ? "#34d399" : "#e2e8f0",
-              textDecoration: "underline", textDecorationStyle: "dotted",
-              letterSpacing: "0.02em", padding: "0 2px",
-              transition: "color 0.2s",
-            }}>
-              {copiedNoGroup ? "✓ copied!" : "copy without campaign/ad group"}
-            </button>
-          </div>
-          <button onClick={downloadCSV} style={{
-            padding: "7px 14px", fontSize: 12, fontWeight: 700,
-            background: "rgba(255,255,255,0.06)",
-            color: "#adbccb", border: "1px solid rgba(255,255,255,0.09)",
-            borderRadius: 7, cursor: "pointer",
-          }}>⬇ CSV</button>
-          {/* Auth button */}
+          <a href="https://www.youtube.com/watch?v=DEMO_PLACEHOLDER" target="_blank" rel="noopener noreferrer" style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "7px 14px", fontSize: 11, fontWeight: 700,
+            background: "rgba(255,255,255,0.06)", color: "#e2e8f0",
+            border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7,
+            textDecoration: "none", flexShrink: 0,
+          }}>▶ Watch demo</a>
+                    {/* Auth button */}
           {isSignedIn ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ fontSize: 10, color: "#8fa3b8", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -3409,16 +3390,40 @@ STRICT rules:
                     };
 
                     const handleMultiDownload = () => {
-                      const isMetaDl = adFormat === "meta";
-                      const encoded = isMetaDl
-                        ? "data:text/csv;charset=utf-8," + encodeURIComponent(metaCsvStr)
-                        : "data:text/tab-separated-values;charset=utf-8," + encodeURIComponent(multiTsv);
-                      const a = document.createElement("a");
-                      a.href = encoded;
-                      a.download = isMetaDl ? `meta_ads_${totalSelected}_variants.csv` : `rsa_ads_${totalSelected}_versions.csv`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
+                      if (adFormat === "meta") {
+                        // Meta TSV export
+                        const selectedMeta = history.filter(h => selectedForExport.has(h.id) && h.metaResult);
+                        if (!selectedMeta.length) return;
+                        const dataRows = selectedMeta.flatMap(h => {
+                          const r = h.metaResult;
+                          return (r.primaryTexts || []).map((pt, i) => [
+                            "", h.rows[0]?.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
+                            "", "", "", "Yes", "", "", "", "",
+                            "", "ACTIVE", "", (h.rows[0]?.campaign || "RSA Studio") + " - Ad Set",
+                            "", "", "", "", "", "",
+                            h.url, (() => { try { return new URL(h.url).hostname.replace("www.",""); } catch(_){return "";} })(),
+                            "", "", "", "", "", "", "", "", "",
+                            "LANDING_PAGE_VIEWS", "", "IMPRESSIONS",
+                            "", "", "",
+                            "ACTIVE", "", "",
+                            `Meta Ad ${i + 1} — ${h.rows[0]?.campaign || h.url}`, pt, r.headlines?.[i] || r.headlines?.[0] || "",
+                            "", "", "Page Post Ad",
+                            "", "", "", "LEARN_MORE",
+                            "", "", "", "",
+                          ]);
+                        });
+                        const tsv = "Campaign ID	Campaign Name	Campaign Status	Campaign Objective	Buying Type	Campaign Daily Budget	Campaign Bid Strategy	Campaign Start Time	New Objective	Buy With Prime Type	Is Budget Scheduling Enabled For Campaign	Campaign High Demand Periods	Buy With Integration Partner	Ad Set ID	Ad Set Run Status	Ad Set Lifetime Impressions	Ad Set Name	Ad Set Time Start	Destination Type	Use Accelerated Delivery	Is Budget Scheduling Enabled For Ad Set	Ad Set High Demand Periods	Link Object ID	Link	Display Link	Countries	Location Types	Age Min	Age Max	Excluded Custom Audiences	Advantage Audience	Age Range	Targeting Optimization	Brand Safety Inventory Filtering Levels	Optimization Goal	Attribution Spec	Billing Event	Regional Regulated Categories	Story ID	Ad ID	Ad Status	Preview Link	Instagram Preview Link	Ad Name	Body	Title	Optimize text per person	Optimized Ad Creative	Creative Type	URL Tags	Video ID	Instagram Account ID	Call to Action	Additional Custom Tracking Specs	Video Retargeting	Permalink	Use Page as Actor\n" + dataRows.map(r => r.map(v => String(v).replace(/\t/g," ").replace(/\n/g," ")).join("\t")).join("\n");
+                        const a = document.createElement("a");
+                        a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(tsv);
+                        a.download = `meta_ads_${selectedMeta.length}_variants.txt`;
+                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                      } else {
+                        const encoded = "data:text/tab-separated-values;charset=utf-8," + encodeURIComponent(multiTsv);
+                        const a = document.createElement("a");
+                        a.href = encoded;
+                        a.download = `rsa_ads_${totalSelected}_variants.tsv`;
+                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                      }
                     };
 
                     return (
@@ -3986,7 +3991,7 @@ STRICT rules:
                  "🚀 Unlock Pro features"}
               </div>
               <div style={{ fontSize: 12, color: "#7e92a8", marginTop: 6 }}>
-                {upgradeFeature === 'imagen' ? "You've used your 3 free Imagen generations. Upgrade for unlimited." :
+                {upgradeFeature === 'imagen' ? "You've used your 5 free Imagen generations. Upgrade for unlimited." :
                  upgradeFeature === 'batch' ? "Process multiple URLs at once with the batch uploader." :
                  "Get unlimited access to all RSA Studio features."}
               </div>
