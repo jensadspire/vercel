@@ -3893,7 +3893,7 @@ STRICT rules:
                             fontSize: 9, fontWeight: 700, padding: "4px 0", borderRadius: "0 0 4px 4px",
                             background: "rgba(99,102,241,0.9)", color: "white",
                             border: "none", cursor: "pointer", width: "100%", textAlign: "center",
-                          }}>{imagenPreview ? (imageModel === "imagen" ? "✓ Recreate with DALL-E" : "✓ Recreate with Imagen") : (imageModel === "imagen" ? "✦ Regenerate with Imagen" : "✦ Recreate with Imagen")}</button>
+                          }}>{imagenPreview ? "✓ Imagen version" : "✦ Create with own assets"}</button>
                           </div>
                           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ fontSize: 10, color: "#4a5568", textAlign: "center", lineHeight: 1.5, padding: "4px 8px", background: "rgba(14,165,233,0.06)", borderRadius: 6, border: "1px solid rgba(14,165,233,0.12)" }}>
