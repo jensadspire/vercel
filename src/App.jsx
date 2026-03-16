@@ -3439,6 +3439,7 @@ STRICT rules:
                           }}>
                             {multiCopied ? "Copied!" : adFormat === "meta" ? "Copy for Meta Ads" : "Copy all to Editor"}
                           </button>
+                          {adFormat !== "meta" && (
                           <button onClick={handleMultiDownload} style={{
                             padding: "9px 12px", fontSize: 12, fontWeight: 700,
                             background: "rgba(255,255,255,0.06)", color: "#8fa3b8",
@@ -3447,6 +3448,7 @@ STRICT rules:
                           }}>
                             ⬇ CSV
                           </button>
+                          )}
                         </div>
                         <div style={{ fontSize: 10, color: "#8fa3b8", marginTop: 8 }}>
                           {adFormat === "meta" ? `All ${totalSelected} Meta ad variants ready — paste into Meta Ads Manager` : `All ${totalSelected} versions exported as separate rows — paste directly into Google Ads Editor`}
