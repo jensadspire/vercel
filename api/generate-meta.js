@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "API key not configured" });
 
-  const { url, language = "English" } = req.body || {};
+  const { url, language = "English", imageModel = "dalle" } = req.body || {};
   if (!url) return res.status(400).json({ error: "url is required" });
 
   // ── Step 1: Scrape the URL ────────────────────────────────────────────────
@@ -96,47 +96,65 @@ Rules:
 
   // ── Step 3: Generate image via DALL-E ─────────────────────────────────────
   let imageUrl = null;
-  const dalleKey = process.env.OPENAI_API_KEY;
-  if (dalleKey && parsed.imagePrompt) {
-    try {
-      const imgRes = await fetch("https://api.openai.com/v1/images/generations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${dalleKey}`,
-        },
-        body: JSON.stringify({
-          model: "dall-e-3",
-          prompt: parsed.imagePrompt,
-          n: 1,
-          size: "1024x1024",
-          quality: "standard",
-        }),
-      });
-      const imgData = await imgRes.json();
-      imageUrl = imgData.data?.[0]?.url || null;
 
-      // ── Upload to Vercel Blob for persistence (DALL-E URLs expire after ~2h) ──
-      if (imageUrl && process.env.BLOB_READ_WRITE_TOKEN) {
-        try {
-          const { put } = await import("@vercel/blob");
-          // Fetch the DALL-E image
-          const imgFetch = await fetch(imageUrl);
-          const imgBuffer = await imgFetch.arrayBuffer();
-          const filename = `meta-ad-${Date.now()}.png`;
-          const blob = await put(filename, Buffer.from(imgBuffer), {
-            access: "public",
-            contentType: "image/png",
-            token: process.env.BLOB_READ_WRITE_TOKEN,
-          });
-          imageUrl = blob.url; // replace expiring URL with permanent Vercel Blob URL
-        } catch (e) {
-          console.warn("Vercel Blob upload failed, using DALL-E URL:", e.message);
-          // imageUrl stays as the DALL-E URL — graceful fallback
-        }
+  if (parsed.imagePrompt) {
+    if (imageModel === 'imagen' && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+      // ── Imagen 3 via Vertex AI ──────────────────────────────────────────────
+      try {
+        const origin = req.headers.origin || 'https://rsa-studio.vercel.app';
+        const imagenRes = await fetch(`${origin}/api/imagen`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: parsed.imagePrompt }),
+        });
+        const imagenData = await imagenRes.json();
+        if (imagenData.imageUrl) imageUrl = imagenData.imageUrl;
+      } catch (e) {
+        console.warn('Imagen generation failed, falling back to DALL-E:', e.message);
       }
-    } catch {}
-  }
+    }
+
+    // ── DALL-E 3 (default or Imagen fallback) ────────────────────────────────
+    if (!imageUrl) {
+      const dalleKey = process.env.OPENAI_API_KEY;
+      if (dalleKey) try {
+        const imgRes = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${dalleKey}`,
+          },
+          body: JSON.stringify({
+            model: "dall-e-3",
+            prompt: parsed.imagePrompt,
+            n: 1,
+            size: "1024x1024",
+            quality: "standard",
+          }),
+        });
+        const imgData = await imgRes.json();
+        imageUrl = imgData.data?.[0]?.url || null;
+
+        // ── Upload to Vercel Blob for persistence (DALL-E URLs expire after ~2h) ──
+        if (imageUrl && process.env.BLOB_READ_WRITE_TOKEN) {
+          try {
+            const { put } = await import("@vercel/blob");
+            const imgFetch = await fetch(imageUrl);
+            const imgBuffer = await imgFetch.arrayBuffer();
+            const filename = `meta-ad-${Date.now()}.png`;
+            const blob = await put(filename, Buffer.from(imgBuffer), {
+              access: "public",
+              contentType: "image/png",
+              token: process.env.BLOB_READ_WRITE_TOKEN,
+            });
+            imageUrl = blob.url;
+          } catch (e) {
+            console.warn("Vercel Blob upload failed, using DALL-E URL:", e.message);
+          }
+        }
+      } catch {}
+    } // end if (!imageUrl)
+  } // end if (parsed.imagePrompt)
 
   return res.json({
     primaryTexts: parsed.primaryTexts || [],

@@ -421,6 +421,7 @@ function RSAStudio() {
   const [url, setUrl] = useState("");
   const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax" | "meta"
   const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
+  const [imageModel, setImageModel] = useState('dalle'); // 'dalle' | 'imagen'
   const [metaResult, setMetaResult] = useState(null);       // { primaryTexts, headlines, descriptions, imageUrl }
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaError, setMetaError] = useState("");
@@ -1172,7 +1173,7 @@ STRICT rules:
           const metaRes = await fetch("/api/generate-meta", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta.language }),
+            body: JSON.stringify({ url, language: pageMeta.language, imageModel }),
           });
           const metaData = await metaRes.json();
           if (metaData.error) {
@@ -1689,6 +1690,18 @@ STRICT rules:
                   Also generate Meta ads <span style={{ fontSize: 10, color: "#2d3748" }}>(Facebook / Instagram)</span>
                   {batchRunning && <span style={{ fontSize: 9, color: "#4a5568", marginLeft: 6 }}>· unavailable in batch mode</span>}
                 </span>
+                {generateMeta && !metaDisabled && (
+                  <div style={{ display: "flex", background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: 2, marginLeft: 4 }}>
+                    {["dalle","imagen"].map(m => (
+                      <button key={m} onClick={e => { e.stopPropagation(); setImageModel(m); }} style={{
+                        padding: "2px 8px", fontSize: 9, fontWeight: 700, borderRadius: 4,
+                        border: "none", cursor: "pointer", transition: "all 0.15s",
+                        background: imageModel === m ? "linear-gradient(135deg,#6366f1,#0ea5e9)" : "transparent",
+                        color: imageModel === m ? "white" : "#4a5568",
+                      }}>{m === "dalle" ? "DALL-E" : "✦ Imagen"}</button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -3880,7 +3893,7 @@ STRICT rules:
                             fontSize: 9, fontWeight: 700, padding: "4px 0", borderRadius: "0 0 4px 4px",
                             background: "rgba(99,102,241,0.9)", color: "white",
                             border: "none", cursor: "pointer", width: "100%", textAlign: "center",
-                          }}>{imagenPreview ? "✓ Imagen version" : "✦ Recreate with Imagen"}</button>
+                          }}>{imagenPreview ? (imageModel === "imagen" ? "✓ Recreate with DALL-E" : "✓ Recreate with Imagen") : (imageModel === "imagen" ? "✦ Regenerate with Imagen" : "✦ Recreate with Imagen")}</button>
                           </div>
                           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ fontSize: 10, color: "#4a5568", textAlign: "center", lineHeight: 1.5, padding: "4px 8px", background: "rgba(14,165,233,0.06)", borderRadius: 6, border: "1px solid rgba(14,165,233,0.12)" }}>
