@@ -23,7 +23,7 @@ const PMAX_TSV_HEADERS = [
   "Campaign", "Asset Group",
   "Business Name",
   ...Array.from({ length: 5 }, (_, i) => `Headline ${i + 1}`),
-  ...Array.from({ length: 5 }, (_, i) => `Long Headline ${i + 1}`),
+  ...Array.from({ length: 15 }, (_, i) => `Long Headline ${i + 1}`),
   ...Array.from({ length: 5 }, (_, i) => `Description ${i + 1}`),
   "Call to Action",
 ];
@@ -984,7 +984,7 @@ Return ONLY valid JSON — no prose, no markdown fences:
 {
   "businessName": "max 25 chars",
   "headlines": ["h1","h2","h3","h4","h5"],
-  "longHeadlines": ["lh1","lh2","lh3","lh4","lh5"],
+  "longHeadlines": ["lh1","lh2","lh3","lh4","lh5","lh6","lh7","lh8","lh9","lh10","lh11","lh12","lh13","lh14","lh15"],
   "descriptions": ["d1","d2","d3","d4","d5"],
   "callToAction": "one of: Shop Now, Learn More, Sign Up, Get Quote, Apply Now, Book Now, Contact Us, Download, Get Offer, Order Now, Subscribe, Visit Site"
 }
@@ -2744,24 +2744,13 @@ STRICT rules:
 
                   {/* Copy Button */}
                   <button onClick={() => {
-                    const txt = [
-                      "=== PMAX ASSET GROUP ===",
-                      "",
-                      "BUSINESS NAME",
-                      p.businessName,
-                      "",
-                      "HEADLINES",
-                      ...(p.headlines || []),
-                      "",
-                      "LONG HEADLINES",
-                      ...(p.longHeadlines || []),
-                      "",
-                      "DESCRIPTIONS",
-                      ...(p.descriptions || []),
-                      "",
-                      "CALL TO ACTION",
-                      p.callToAction,
-                    ].join("\n");
+                    // Build TSV row matching PMAX_TSV_HEADERS
+                    const lhPadded = [...(p.longHeadlines || []).slice(0,15), ...Array(Math.max(0,15-(p.longHeadlines||[]).length)).fill("")];
+                    const hlPadded = [...(p.headlines || []).slice(0,5), ...Array(Math.max(0,5-(p.headlines||[]).length)).fill("")];
+                    const dPadded = [...(p.descriptions || []).slice(0,5), ...Array(Math.max(0,5-(p.descriptions||[]).length)).fill("")];
+                    const hdr = ["Asset Group","Business Name",...Array.from({length:5},(_,i)=>`Headline ${i+1}`),...Array.from({length:15},(_,i)=>`Long Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Description ${i+1}`),"Call to Action"].join("\t");
+                    const row = [rows[activeRow]?.adGroup||"Asset Group 1", p.businessName||"", ...hlPadded, ...lhPadded, ...dPadded, p.callToAction||""].join("\t");
+                    const txt = hdr + "\n" + row;
                     navigator.clipboard.writeText(txt);
                   }} style={{
                     width: "100%", padding: "10px 0", borderRadius: 8, border: "none",
@@ -3878,7 +3867,18 @@ STRICT rules:
                         <div style={{ padding: "16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                           <div style={{ position: "relative", width: 120, flexShrink: 0 }}>
                           <img src={metaResult.imageUrl} alt="Meta creative" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
-                          <button onClick={() => { if (!isPro) { setUpgradeFeature('imagen'); setShowUpgradeModal(true); return; } setImagenOpen(true); setImagenStep(1); setImagenUrlInput(url); setImagenParsedImages([]); setImagenSelected(null); setImagenPreview(null); setImagenError(''); }} style={{
+                          <button onClick={async () => {
+                            if (!isSignedIn) { setUpgradeFeature('imagen'); setShowUpgradeModal(true); return; }
+                            if (!isPro) {
+                              // Check usage count before gating
+                              try {
+                                const r = await fetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, feature: 'imagen', action: 'check', plan }) });
+                                const d = await r.json();
+                                if (!d.allowed) { setUpgradeFeature('imagen'); setShowUpgradeModal(true); return; }
+                              } catch(_) {} // fail open
+                            }
+                            setImagenOpen(true); setImagenStep(1); setImagenUrlInput(url); setImagenParsedImages([]); setImagenSelected(null); setImagenPreview(null); setImagenError('');
+                          }} style={{
                             position: "absolute", bottom: 4, left: 0, right: 0,
                             fontSize: 9, fontWeight: 700, padding: "4px 0", borderRadius: "0 0 4px 4px",
                             background: "rgba(99,102,241,0.9)", color: "white",
@@ -4272,7 +4272,13 @@ STRICT rules:
                         }
                         const r = await fetch('/api/imagen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                         const d = await r.json();
-                        if (d.imageUrl) { setImagenPreview(d.imageUrl); setImagenStep(4); }
+                        if (d.imageUrl) {
+                          setImagenPreview(d.imageUrl); setImagenStep(4);
+                          // Increment usage counter for non-pro users
+                          if (!isPro && isSignedIn) {
+                            fetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, feature: 'imagen', action: 'increment', plan }) }).catch(()=>{});
+                          }
+                        }
                         else setImagenError(d.error || 'Generation failed');
                       } catch(e) { setImagenError(e.message || 'Generation failed'); }
                       setImagenGenerating(false);
