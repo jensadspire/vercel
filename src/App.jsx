@@ -2745,9 +2745,9 @@ STRICT rules:
                   {/* Copy Button */}
                   <button onClick={() => {
                     // Build TSV row matching PMAX_TSV_HEADERS
-                    const lhPadded = [...(p.longHeadlines || []).slice(0,5), ...Array(Math.max(0,5-(p.longHeadlines||[]).length)).fill("")],
-                    const hlPadded = [...(p.headlines || []).slice(0,15), ...Array(Math.max(0,15-(p.headlines||[]).length)).fill("")],
-                    const dPadded = [...(p.descriptions || []).slice(0,5), ...Array(Math.max(0,5-(p.descriptions||[]).length)).fill("")],
+                    const lhPadded = [...(p.longHeadlines || []).slice(0,5), ...Array(Math.max(0,5-(p.longHeadlines||[]).length)).fill("")]
+                    const hlPadded = [...(p.headlines || []).slice(0,15), ...Array(Math.max(0,15-(p.headlines||[]).length)).fill("")]
+                    const dPadded = [...(p.descriptions || []).slice(0,5), ...Array(Math.max(0,5-(p.descriptions||[]).length)).fill("")]
                     const hdr = ["Asset Group","Business Name",...Array.from({length:15},(_,i)=>`Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Long Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Description ${i+1}`),"Call to Action"].join("\t");
                     const row = [rows[activeRow]?.adGroup||"Asset Group 1", p.businessName||"", ...hlPadded, ...lhPadded, ...dPadded, p.callToAction||""].join("\t");
                     const txt = hdr + "\n" + row;
