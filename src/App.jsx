@@ -2725,7 +2725,7 @@ STRICT rules:
                   {/* Long Headlines */}
                   <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px" }}>
                     <SectionLabel>Long Headlines (90 chars)</SectionLabel>
-                    {(p.longHeadlines || []).map((h, i) => <AssetRow key={i} text={h} limit={90} color="#34d399" />)}
+                    {(p.longHeadlines || []).map((h, i) => <AssetRow key={i} text={h} limit={i === 0 ? 60 : 90} color="#34d399" />)}
                   </div>
 
                   {/* Descriptions */}
@@ -2748,8 +2748,8 @@ STRICT rules:
                     const lhPadded = [...(p.longHeadlines || []).slice(0,5), ...Array(Math.max(0,5-(p.longHeadlines||[]).length)).fill("")]
                     const hlPadded = [...(p.headlines || []).slice(0,15), ...Array(Math.max(0,15-(p.headlines||[]).length)).fill("")]
                     const dPadded = [...(p.descriptions || []).slice(0,5), ...Array(Math.max(0,5-(p.descriptions||[]).length)).fill("")]
-                    const hdr = ["Asset Group","Business Name",...Array.from({length:15},(_,i)=>`Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Long Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Description ${i+1}`),"Call to Action"].join("\t");
-                    const row = [rows[activeRow]?.adGroup||"Asset Group 1", p.businessName||"", ...hlPadded, ...lhPadded, ...dPadded, p.callToAction||""].join("\t");
+                    const hdr = ["Asset Group","Business Name",...Array.from({length:15},(_,i)=>`Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Long Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Description ${i+1}`),"Call to Action","Final URL"].join("\t");
+                    const row = [rows[activeRow]?.adGroup||"Asset Group 1", p.businessName||"", ...hlPadded, ...lhPadded, ...dPadded, p.callToAction||"", rows[activeRow]?.finalUrl||""].join("\t");
                     const txt = hdr + "\n" + row;
                     navigator.clipboard.writeText(txt);
                   }} style={{
