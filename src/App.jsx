@@ -22,8 +22,8 @@ const TSV_HEADERS = [
 const PMAX_TSV_HEADERS = [
   "Campaign", "Asset Group",
   "Business Name",
-  ...Array.from({ length: 5 }, (_, i) => `Headline ${i + 1}`),
-  ...Array.from({ length: 15 }, (_, i) => `Long Headline ${i + 1}`),
+  ...Array.from({ length: 15 }, (_, i) => `Headline ${i + 1}`),
+  ...Array.from({ length: 5 }, (_, i) => `Long Headline ${i + 1}`),
   ...Array.from({ length: 5 }, (_, i) => `Description ${i + 1}`),
   "Call to Action",
 ];
@@ -71,8 +71,8 @@ function buildTSV(rows, omitGroup = false, format = "rsa") {
         return [
           ...cells,
           p.businessName || "",
-          ...(p.headlines || Array(5).fill("")),
-          ...(p.longHeadlines ? [...p.longHeadlines.slice(0, 15), ...Array(Math.max(0, 15 - p.longHeadlines.length)).fill("")] : Array(15).fill("")),
+          ...(p.headlines || Array(15).fill("")),
+          ...(p.longHeadlines ? [...p.longHeadlines.slice(0, 5), ...Array(Math.max(0, 5 - p.longHeadlines.length)).fill("")] : Array(5).fill("")),
           ...(p.descriptions || Array(5).fill("")),
           p.callToAction || "",
         ].join("\t");
@@ -983,16 +983,16 @@ ${audienceInstruction}
 Return ONLY valid JSON — no prose, no markdown fences:
 {
   "businessName": "max 25 chars",
-  "headlines": ["h1","h2","h3","h4","h5"],
-  "longHeadlines": ["lh1","lh2","lh3","lh4","lh5","lh6","lh7","lh8","lh9","lh10","lh11","lh12","lh13","lh14","lh15"],
-  "descriptions": ["d1","d2","d3","d4","d5"],
+  "businessName": "max 25 chars",
+  "headlines": ["h1","h2","h3","h4","h5","h6","h7","h8","h9","h10","h11","h12","h13","h14","h15"],
+  "longHeadlines": ["lh1 max 60 chars","lh2","lh3","lh4","lh5"],
   "callToAction": "one of: Shop Now, Learn More, Sign Up, Get Quote, Apply Now, Book Now, Contact Us, Download, Get Offer, Order Now, Subscribe, Visit Site"
 }
 
 Rules:
 - businessName: max 25 chars — use brand name only
-- headlines: exactly 5, max 30 chars each — short punchy phrases
-- longHeadlines: exactly 15, max 90 chars each — complete value proposition sentences, no punctuation at end. IMPORTANT: longHeadlines[0] must be max 60 chars (stricter Google limit for position 1). All others max 90 chars.
+- headlines: exactly 15, max 30 chars each — short punchy phrases
+- longHeadlines: exactly 5, max 90 chars each — complete value propositions, no punctuation at end. IMPORTANT: longHeadlines[0] must be max 60 chars. longHeadlines[1-4] max 90 chars.
 - descriptions: exactly 5, max 90 chars each — benefit-focused, include CTA
 - callToAction: pick the single most relevant option from the list above`
             }],
@@ -2658,9 +2658,9 @@ STRICT rules:
                     updateRow(activeRow, row => ({
                       ...row,
                       pmaxResult: {
-                        businessName: (r.campaign || "").split(" ").slice(0, 3).join(" ").substring(0, 25) || "",
-                        headlines: rsaHeadlines.slice(0, 5),
-                        longHeadlines: [...rsaHeadlines.slice(5, 20), ...Array(Math.max(0, 15 - Math.max(0, rsaHeadlines.length - 5))).fill("")],
+                        businessName: "",
+                        headlines: [...rsaHeadlines.slice(0, 15), ...Array(Math.max(0, 15 - rsaHeadlines.length)).fill("")],
+                        longHeadlines: Array(5).fill(""),
                         descriptions: rsaDescs.slice(0, 5),
                         callToAction: "Shop Now",
                       }
@@ -2745,10 +2745,10 @@ STRICT rules:
                   {/* Copy Button */}
                   <button onClick={() => {
                     // Build TSV row matching PMAX_TSV_HEADERS
-                    const lhPadded = [...(p.longHeadlines || []).slice(0,15), ...Array(Math.max(0,15-(p.longHeadlines||[]).length)).fill("")];
-                    const hlPadded = [...(p.headlines || []).slice(0,5), ...Array(Math.max(0,5-(p.headlines||[]).length)).fill("")];
-                    const dPadded = [...(p.descriptions || []).slice(0,5), ...Array(Math.max(0,5-(p.descriptions||[]).length)).fill("")];
-                    const hdr = ["Asset Group","Business Name",...Array.from({length:5},(_,i)=>`Headline ${i+1}`),...Array.from({length:15},(_,i)=>`Long Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Description ${i+1}`),"Call to Action"].join("\t");
+                    const lhPadded = [...(p.longHeadlines || []).slice(0,5), ...Array(Math.max(0,5-(p.longHeadlines||[]).length)).fill("")],
+                    const hlPadded = [...(p.headlines || []).slice(0,15), ...Array(Math.max(0,15-(p.headlines||[]).length)).fill("")],
+                    const dPadded = [...(p.descriptions || []).slice(0,5), ...Array(Math.max(0,5-(p.descriptions||[]).length)).fill("")],
+                    const hdr = ["Asset Group","Business Name",...Array.from({length:15},(_,i)=>`Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Long Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Description ${i+1}`),"Call to Action"].join("\t");
                     const row = [rows[activeRow]?.adGroup||"Asset Group 1", p.businessName||"", ...hlPadded, ...lhPadded, ...dPadded, p.callToAction||""].join("\t");
                     const txt = hdr + "\n" + row;
                     navigator.clipboard.writeText(txt);
