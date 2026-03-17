@@ -1867,6 +1867,7 @@ STRICT rules:
                         <div style={{ marginTop: 10, fontSize: 10, color: "#2d3748" }}>
                           Works for most sites with XML sitemaps · Add /de-de to scan a specific market directly
                         </div>
+          </>)
                       </>
                     )}
 
@@ -3000,7 +3001,7 @@ STRICT rules:
         ) : (
           /* ── RSA/Meta Output Panel ── */
           <>
-          {adFormat !== "meta" && (
+          {adFormat !== "meta" && (<>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div>
               <span style={S.sectionLabel}>Ad Strength</span>
@@ -3138,6 +3139,7 @@ STRICT rules:
               </div>
             </div>
           )}
+          </>)}
           </>
         )}
           {adFormat === 'meta' && metaResult && (
