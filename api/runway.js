@@ -56,7 +56,7 @@ export default async function handler(req, res) {
         promptImage: imageUrl,
         promptText: motionPrompt,
         duration,
-        ratio: '1:1',
+        ratio: '9:16',
         watermark: false,
       }),
     });
