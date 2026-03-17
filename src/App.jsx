@@ -1867,7 +1867,6 @@ STRICT rules:
                         <div style={{ marginTop: 10, fontSize: 10, color: "#2d3748" }}>
                           Works for most sites with XML sitemaps · Add /de-de to scan a specific market directly
                         </div>
-          </>)
                       </>
                     )}
 
