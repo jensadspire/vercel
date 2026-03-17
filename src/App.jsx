@@ -3140,7 +3140,6 @@ STRICT rules:
             </div>
           )}
           )}
-
           {/* Meta FB/IG Feed Preview */}
           {adFormat === 'meta' && metaResult && (
             <div style={S.card}>
@@ -3208,6 +3207,7 @@ STRICT rules:
             </div>
           )}
           {/* History panel */}
+
           {history.length > 0 && (
             <div style={S.card}>
               <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
