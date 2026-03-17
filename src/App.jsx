@@ -1712,7 +1712,7 @@ STRICT rules:
                 <span style={{ fontSize: 11, color: generateMeta && !metaDisabled ? "#93c5fd" : "#4a5568",
                   cursor: metaDisabled ? "not-allowed" : "pointer", userSelect: "none" }}
                   onClick={() => !metaDisabled && setGenerateMeta(v => !v)}>
-                  Also generate Meta ads <span style={{ fontSize: 10, color: "#2d3748" }}>(Facebook / Instagram)</span>
+                  Also generate Meta ads <span style={{ fontSize: 10, color: "#4a5568" }}>(FB / IG / Instagram)</span>
                   {batchRunning && <span style={{ fontSize: 9, color: "#4a5568", marginLeft: 6 }}>· unavailable in batch mode</span>}
                 </span>
                 {generateMeta && !metaDisabled && (
@@ -1732,7 +1732,7 @@ STRICT rules:
           })()}
 
           <button onClick={generate} disabled={loading || batchRunning} style={{
-            padding: "9px 22px", fontSize: 13, fontWeight: 700,
+            padding: "9px 14px", fontSize: 12, fontWeight: 700,
             background: loading || batchRunning
               ? "linear-gradient(135deg,#d97706,#f59e0b)"
               : "linear-gradient(135deg,#3b82f6,#6366f1)",
@@ -1785,7 +1785,7 @@ STRICT rules:
               color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.09)",
               borderRadius: 8, cursor: "pointer", flexShrink: 0,
               transition: "all 0.2s", whiteSpace: "nowrap",
-            }}>↺ Clear & new URL</button>
+            }}>↺ New URL</button>
           )}
           {/* Batch Mode — inline next to Clear button, signed-in only */}
           {isSignedIn && !batchRunning && (
