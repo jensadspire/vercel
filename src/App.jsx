@@ -3166,7 +3166,7 @@ STRICT rules:
                       {(rows[activeRow]?.campaign || url || 'B').charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{rows[activeRow]?.campaign || new URL(url).hostname.replace('www.','')}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{rows[activeRow]?.campaign || (() => { try { return new URL(url).hostname.replace('www.',''); } catch(_) { return url || 'Brand'; } })()}</div>
                       <div style={{ fontSize: 10, color: '#8a8a8a' }}>Sponsored · {metaPreviewFormat === 'fb-feed' ? '🌐' : '📱'}</div>
                     </div>
                   </div>
@@ -3182,7 +3182,7 @@ STRICT rules:
                   <div style={{ padding: '10px 12px', background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
                       <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{metaResult.headlines?.[metaActiveVariants.hl] || ''}</div>
-                      <div style={{ fontSize: 11, color: '#8a8a8a' }}>{new URL(url).hostname.replace('www.','')}</div>
+                      <div style={{ fontSize: 11, color: '#8a8a8a' }}>{(() => { try { return new URL(url).hostname.replace('www.',''); } catch(_) { return url; } })()}</div>
                     </div>
                     <div style={{ background: '#0866ff', color: 'white', fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 6, whiteSpace: 'nowrap' }}>Learn More</div>
                   </div>
