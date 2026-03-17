@@ -3138,8 +3138,6 @@ STRICT rules:
               </div>
             </div>
           )}
-          </div>
-          )}
           </>
         )}
           {adFormat === 'meta' && metaResult && (
