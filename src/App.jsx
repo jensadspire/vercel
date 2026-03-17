@@ -3091,8 +3091,8 @@ STRICT rules:
           </div></>)}
 
           {/* All Headlines grid preview */}
-          {generated && (
-            <div style={S.card}>
+          {/* All Headlines grid preview — hidden on Meta tab */}
+          {adFormat !== 'meta' && generated && (
               <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                 <span style={{ ...S.sectionLabel, margin: 0 }}>All Headlines</span>
               </div>
@@ -3138,7 +3138,74 @@ STRICT rules:
               </div>
             </div>
           )}
+          )}
 
+          {/* Meta FB/IG Feed Preview */}
+          {adFormat === 'meta' && metaResult && (
+            <div style={S.card}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ ...S.sectionLabel, margin: 0 }}>Meta Ad Preview</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {['fb-feed','ig-feed'].map(fmt => (
+                    <button key={fmt} onClick={() => setMetaPreviewFormat(fmt)} style={{
+                      fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 5,
+                      border: 'none', cursor: 'pointer',
+                      background: metaPreviewFormat === fmt ? 'linear-gradient(135deg,#0ea5e9,#6366f1)' : 'rgba(255,255,255,0.06)',
+                      color: metaPreviewFormat === fmt ? 'white' : '#4a5568',
+                    }}>{fmt === 'fb-feed' ? 'Facebook' : 'Instagram'}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ padding: '16px' }}>
+                {/* FB/IG Feed Card */}
+                <div style={{ background: '#fff', borderRadius: 10, overflow: 'hidden', maxWidth: 380, margin: '0 auto', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
+                  {/* Page header */}
+                  <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: 'white' }}>
+                      {(rows[activeRow]?.campaign || url || 'B').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{rows[activeRow]?.campaign || new URL(url).hostname.replace('www.','')}</div>
+                      <div style={{ fontSize: 10, color: '#8a8a8a' }}>Sponsored · {metaPreviewFormat === 'fb-feed' ? '🌐' : '📱'}</div>
+                    </div>
+                  </div>
+                  {/* Primary text */}
+                  <div style={{ padding: '0 12px 10px', fontSize: 13, color: '#1a1a1a', lineHeight: 1.5 }}>
+                    {(metaResult.primaryTexts?.[metaActiveVariants.pt] || '').slice(0, 120)}{(metaResult.primaryTexts?.[metaActiveVariants.pt] || '').length > 120 ? '... See more' : ''}
+                  </div>
+                  {/* Ad image */}
+                  {metaResult.imageUrl && (
+                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
+                  )}
+                  {/* Headline + CTA bar */}
+                  <div style={{ padding: '10px 12px', background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{metaResult.headlines?.[metaActiveVariants.hl] || ''}</div>
+                      <div style={{ fontSize: 11, color: '#8a8a8a' }}>{new URL(url).hostname.replace('www.','')}</div>
+                    </div>
+                    <div style={{ background: '#0866ff', color: 'white', fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 6, whiteSpace: 'nowrap' }}>Learn More</div>
+                  </div>
+                </div>
+                {/* Variant selectors */}
+                <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  {(metaResult.primaryTexts || []).length > 1 && (metaResult.primaryTexts || []).map((_, i) => (
+                    <button key={i} onClick={() => setMetaActiveVariants(v => ({...v, pt: i}))} style={{
+                      fontSize: 9, padding: '2px 7px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                      background: metaActiveVariants.pt === i ? 'rgba(14,165,233,0.3)' : 'rgba(255,255,255,0.06)',
+                      color: metaActiveVariants.pt === i ? '#38bdf8' : '#4a5568',
+                    }}>Text {i+1}</button>
+                  ))}
+                  {(metaResult.headlines || []).length > 1 && (metaResult.headlines || []).map((_, i) => (
+                    <button key={i} onClick={() => setMetaActiveVariants(v => ({...v, hl: i}))} style={{
+                      fontSize: 9, padding: '2px 7px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                      background: metaActiveVariants.hl === i ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.06)',
+                      color: metaActiveVariants.hl === i ? '#a5b4fc' : '#4a5568',
+                    }}>HL {i+1}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
           {/* History panel */}
           {history.length > 0 && (
             <div style={S.card}>
