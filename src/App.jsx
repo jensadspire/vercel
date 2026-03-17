@@ -3001,6 +3001,7 @@ STRICT rules:
           /* ── RSA Output (existing) ── */
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
+          {adFormat !== "meta"  (
           {/* Ad Strength + Score */}
           <div style={{ ...S.card, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
             <div>
@@ -3022,6 +3023,7 @@ STRICT rules:
                   </div>
                 ))}
               </div>
+          )}
             </div>
           </div>
 
