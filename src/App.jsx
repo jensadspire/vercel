@@ -2997,10 +2997,10 @@ STRICT rules:
               );
             })()}
           </div>
-        ) : adFormat === "meta" ? null : (
+        ) : (
           /* ── RSA Output (existing) ── */
+          {adFormat !== "meta" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
           {/* Ad Strength + Score */}
           <div style={{ ...S.card, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
             <div>
@@ -3140,8 +3140,8 @@ STRICT rules:
             </div>
           )}
           </div>
+          )}
         )}
-          {/* Meta FB/IG Feed Preview */}
           {adFormat === 'meta' && metaResult && (
             <div style={S.card}>
               <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
