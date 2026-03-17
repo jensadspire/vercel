@@ -2997,7 +2997,7 @@ STRICT rules:
               );
             })()}
           </div>
-        ) : (
+        ) : adFormat === "meta" ? null : (
           /* ── RSA Output (existing) ── */
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
