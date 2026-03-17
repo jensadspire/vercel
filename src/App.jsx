@@ -2998,11 +2998,10 @@ STRICT rules:
             })()}
           </div>
         ) : (
-          /* ── RSA Output (existing) ── */
+          /* ── RSA/Meta Output Panel ── */
+          <>
           {adFormat !== "meta" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Ad Strength + Score */}
-          <div style={{ ...S.card, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
             <div>
               <span style={S.sectionLabel}>Ad Strength</span>
               <AdStrengthRing headlines={row.headlines} descriptions={row.descriptions} />
@@ -3141,6 +3140,7 @@ STRICT rules:
           )}
           </div>
           )}
+          </>
         )}
           {adFormat === 'meta' && metaResult && (
             <div style={S.card}>
