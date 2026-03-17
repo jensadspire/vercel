@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "API key not configured" });
 
-  const { url, language = "English", imageModel = "dalle" } = req.body || {};
+  const { url, language = "English", imageModel = "dalle", isPro = false } = req.body || {};
   if (!url) return res.status(400).json({ error: "url is required" });
 
   // ── Step 1: Scrape the URL ────────────────────────────────────────────────
@@ -32,6 +32,19 @@ export default async function handler(req, res) {
   } catch (e) {
     pageContent = url; // fallback to URL only
   }
+
+  // ── Gender signal detection ───────────────────────────────────────────────
+  const genderSignals = {
+    female: ['damen','women','woman','female','femme','donna','mujer','kvinder','dame','ladies','girl','she/her'],
+    male:   ['herren','men','man','male','homme','uomo','hombre','herr','mænd','guys','he/him'],
+  };
+  const textToScan = (url + ' ' + pageContent.slice(0, 500)).toLowerCase();
+  const femaleScore = genderSignals.female.filter(w => textToScan.includes(w)).length;
+  const maleScore   = genderSignals.male.filter(w => textToScan.includes(w)).length;
+  const genderHint  = femaleScore > maleScore ? 'female' : maleScore > femaleScore ? 'male' : null;
+  const modelHint   = genderHint === 'female' ? ' Feature a female model if people are shown.'
+                    : genderHint === 'male'   ? ' Feature a male model if people are shown.'
+                    : '';
 
   // ── Step 2: Generate Meta copy via Claude ─────────────────────────────────
   const prompt = `You are an expert Meta (Facebook & Instagram) ads copywriter.
@@ -60,7 +73,7 @@ Return ONLY valid JSON — no markdown, no preamble:
     "Link description 1 (max 30 chars)",
     "Link description 2 (max 30 chars)"
   ],
-  "imagePrompt": "Detailed DALL-E prompt for a 1:1 Meta ad image — photorealistic, clean composition, no text overlays, suitable for Facebook/Instagram feed"
+  "imagePrompt": "Detailed prompt for a 1:1 Meta ad image — photorealistic, clean composition, no text overlays, no logos.${modelHint} Show the product in a lifestyle setting relevant to the brand." overlays, suitable for Facebook/Instagram feed"
 }
 
 Rules:
@@ -94,66 +107,84 @@ Rules:
     return res.status(500).json({ error: "Copy generation failed", detail: e.message });
   }
 
-  // ── Step 3: Generate image via DALL-E ─────────────────────────────────────
+  // ── Step 3: Generate image variations in parallel ───────────────────────────
   let imageUrl = null;
+  let imageVariations = []; // up to 4 variations for Pro users
 
   if (parsed.imagePrompt) {
-    if (imageModel === 'imagen' && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-      // ── Imagen 3 via Vertex AI ──────────────────────────────────────────────
+    const origin = req.headers.origin || 'https://rsa-studio.vercel.app';
+    const basePrompt = parsed.imagePrompt + modelHint;
+    const dalleKey = process.env.OPENAI_API_KEY;
+    const hasImagen = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+
+    // Helper: upload a URL to Blob for permanence
+    async function uploadToBlob(srcUrl, suffix = '') {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) return srcUrl;
       try {
-        const origin = req.headers.origin || 'https://rsa-studio.vercel.app';
-        const imagenRes = await fetch(`${origin}/api/imagen`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: parsed.imagePrompt }),
+        const { put } = await import("@vercel/blob");
+        const buf = Buffer.from(await (await fetch(srcUrl)).arrayBuffer());
+        const blob = await put(`meta-ad-${Date.now()}${suffix}.png`, buf, {
+          access: "public", contentType: "image/png",
+          token: process.env.BLOB_READ_WRITE_TOKEN,
         });
-        const imagenData = await imagenRes.json();
-        if (imagenData.imageUrl) imageUrl = imagenData.imageUrl;
-      } catch (e) {
-        console.warn('Imagen generation failed, falling back to DALL-E:', e.message);
-      }
+        return blob.url;
+      } catch { return srcUrl; }
     }
 
-    // ── DALL-E 3 (default or Imagen fallback) ────────────────────────────────
-    if (!imageUrl) {
-      const dalleKey = process.env.OPENAI_API_KEY;
-      if (dalleKey) try {
-        const imgRes = await fetch("https://api.openai.com/v1/images/generations", {
+    // Helper: call DALL-E
+    async function genDalle(prompt, suffix = '') {
+      if (!dalleKey) return null;
+      try {
+        const r = await fetch("https://api.openai.com/v1/images/generations", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${dalleKey}`,
-          },
-          body: JSON.stringify({
-            model: "dall-e-3",
-            prompt: parsed.imagePrompt,
-            n: 1,
-            size: "1024x1024",
-            quality: "standard",
-          }),
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${dalleKey}` },
+          body: JSON.stringify({ model: "dall-e-3", prompt, n: 1, size: "1024x1024", quality: "standard" }),
         });
-        const imgData = await imgRes.json();
-        imageUrl = imgData.data?.[0]?.url || null;
+        const d = await r.json();
+        const url = d.data?.[0]?.url || null;
+        return url ? await uploadToBlob(url, suffix) : null;
+      } catch { return null; }
+    }
 
-        // ── Upload to Vercel Blob for persistence (DALL-E URLs expire after ~2h) ──
-        if (imageUrl && process.env.BLOB_READ_WRITE_TOKEN) {
-          try {
-            const { put } = await import("@vercel/blob");
-            const imgFetch = await fetch(imageUrl);
-            const imgBuffer = await imgFetch.arrayBuffer();
-            const filename = `meta-ad-${Date.now()}.png`;
-            const blob = await put(filename, Buffer.from(imgBuffer), {
-              access: "public",
-              contentType: "image/png",
-              token: process.env.BLOB_READ_WRITE_TOKEN,
-            });
-            imageUrl = blob.url;
-          } catch (e) {
-            console.warn("Vercel Blob upload failed, using DALL-E URL:", e.message);
-          }
-        }
-      } catch {}
-    } // end if (!imageUrl)
+    // Helper: call Imagen
+    async function genImagen(prompt, suffix = '') {
+      if (!hasImagen) return null;
+      try {
+        const r = await fetch(`${origin}/api/imagen`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt }),
+        });
+        const d = await r.json();
+        return d.imageUrl || null;
+      } catch { return null; }
+    }
+
+    if (isPro) {
+      // ── Pro: 4 variations in parallel ──────────────────────────────────────
+      const lifestylePrompt = basePrompt.replace('Clean composition', 'Lifestyle setting, people using the product');
+      const environmentPrompt = basePrompt + ' Natural outdoor environment, contextual setting.';
+      const minimalPrompt = basePrompt + ' Minimal clean studio background, product hero shot.';
+
+      const [v1, v2, v3, v4] = await Promise.all([
+        imageModel === 'imagen' ? genImagen(basePrompt, '-v1') : genDalle(basePrompt, '-v1'),
+        imageModel === 'imagen' ? genImagen(environmentPrompt, '-v2') : genDalle(lifestylePrompt, '-v2'),
+        genImagen(basePrompt, '-v3'),
+        genDalle(minimalPrompt, '-v4'),
+      ]);
+
+      imageVariations = [v1, v2, v3, v4].filter(Boolean);
+      imageUrl = imageVariations[0] || null;
+    } else {
+      // ── Free/standard: single image ────────────────────────────────────────
+      if (imageModel === 'imagen' && hasImagen) {
+        imageUrl = await genImagen(basePrompt);
+      }
+      if (!imageUrl) {
+        imageUrl = await genDalle(basePrompt);
+      }
+      imageVariations = imageUrl ? [imageUrl] : [];
+    }
   } // end if (parsed.imagePrompt)
 
   return res.json({
@@ -161,6 +192,7 @@ Rules:
     headlines: (parsed.headlines || []).map(h => h.slice(0, 40)),
     descriptions: (parsed.descriptions || []).map(d => d.slice(0, 30)),
     imageUrl,
+    imageVariations,
     imagePrompt: parsed.imagePrompt,
   });
 }

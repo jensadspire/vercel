@@ -622,7 +622,9 @@ function RSAStudio() {
   const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax" | "meta"
   const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
   const [imageModel, setImageModel] = useState('dalle'); // 'dalle' | 'imagen'
-  const [metaResult, setMetaResult] = useState(null);       // { primaryTexts, headlines, descriptions, imageUrl }
+  const [metaResult, setMetaResult] = useState(null);
+  const [activeImageVariant, setActiveImageVariant] = useState(0);
+  const [videoTask, setVideoTask] = useState(null);   // { taskId, status, videoUrl, polling }       // { primaryTexts, headlines, descriptions, imageUrl }
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaError, setMetaError] = useState("");
   const [metaCopied, setMetaCopied] = useState(false);
@@ -1394,7 +1396,7 @@ STRICT rules:
           const metaRes = await fetch("/api/generate-meta", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta.language, imageModel }),
+            body: JSON.stringify({ url, language: pageMeta.language, imageModel, isPro }),
           });
           const metaData = await metaRes.json();
           if (metaData.error) {
@@ -1402,6 +1404,8 @@ STRICT rules:
           } else {
             setMetaError("");
             setMetaResult(metaData);
+            setActiveImageVariant(0);
+            setVideoTask(null);
             setAdFormat("meta"); // switch to meta tab only after success
             // Persist metaResult into the most recent history entry for this URL
             setHistory(prev => {
@@ -4258,7 +4262,23 @@ STRICT rules:
                           <span style={{ fontSize: 10, padding: "2px 8px", background: "rgba(14,165,233,0.1)", border: "1px solid rgba(14,165,233,0.2)", borderRadius: 4, color: "#38bdf8", fontWeight: 700 }}>1:1 Feed</span>
                         </div>
                         <div style={{ padding: "16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
-                          <div style={{ position: "relative", width: 120, flexShrink: 0 }}>
+                          <div style={{ position: "relative", flexShrink: 0 }}>
+                          {/* ── Image variations grid (Pro: 2x2, Free: 1x1) ── */}
+                          {isPro && metaResult.imageVariations && metaResult.imageVariations.length > 1 ? (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, width: 248 }}>
+                              {metaResult.imageVariations.map((imgUrl, vi) => (
+                                <div key={vi} onClick={() => { setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
+                                  position: "relative", cursor: "pointer", borderRadius: 6, overflow: "hidden",
+                                  border: activeImageVariant === vi ? "2px solid #6366f1" : "2px solid transparent",
+                                  transition: "border 0.15s",
+                                }}>
+                                  <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
+                                  <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>V{vi+1}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ position: "relative", width: 120 }}>
                           <img src={metaResult.imageUrl} alt="Meta creative" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
                           <button onClick={async () => {
                             if (!isSignedIn) { setUpgradeFeature('imagen'); setShowUpgradeModal(true); return; }
@@ -4277,6 +4297,8 @@ STRICT rules:
                             background: "rgba(99,102,241,0.9)", color: "white",
                             border: "none", cursor: "pointer", width: "100%", textAlign: "center",
                           }}>{imagenPreview ? "✓ Imagen version" : "✦ Create with own assets"}</button>
+                          </div>
+                          )}
                           </div>
                           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ fontSize: 10, color: "#4a5568", textAlign: "center", lineHeight: 1.5, padding: "4px 8px", background: "rgba(14,165,233,0.06)", borderRadius: 6, border: "1px solid rgba(14,165,233,0.12)" }}>
@@ -4300,6 +4322,50 @@ STRICT rules:
                               background: "linear-gradient(135deg,#0ea5e9,#6366f1)", color: "white",
                               border: "none", cursor: "pointer",
                             }}>⬇ Download Image (attach during Meta import)</button>
+                            {isPro && metaResult.imageUrl && (
+                              <button onClick={async () => {
+                                if (videoTask?.polling) return;
+                                setVideoTask({ status: 'PENDING', polling: true });
+                                try {
+                                  const motionPrompt = (metaResult.headlines?.[0] || '') + ' — smooth cinematic product advertisement, subtle elegant motion';
+                                  const r = await fetch('/api/runway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: metaResult.imageUrl, prompt: motionPrompt, duration: 5 }) });
+                                  const d = await r.json();
+                                  if (!d.taskId) { setVideoTask({ status: 'FAILED' }); return; }
+                                  // Poll for completion
+                                  let attempts = 0;
+                                  const poll = async () => {
+                                    if (attempts++ > 30) { setVideoTask({ status: 'FAILED' }); return; }
+                                    const pr = await fetch('/api/runway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', taskId: d.taskId }) });
+                                    const pd = await pr.json();
+                                    if (pd.status === 'SUCCEEDED') {
+                                      setVideoTask({ status: 'SUCCEEDED', videoUrl: pd.videoUrl, polling: false });
+                                    } else if (pd.status === 'FAILED') {
+                                      setVideoTask({ status: 'FAILED', polling: false });
+                                    } else {
+                                      setVideoTask({ status: pd.status, progress: pd.progress, polling: true, taskId: d.taskId });
+                                      setTimeout(poll, 3000);
+                                    }
+                                  };
+                                  poll();
+                                } catch(e) { setVideoTask({ status: 'FAILED', polling: false }); }
+                              }} style={{
+                                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                                padding: "8px 14px", borderRadius: 7, fontSize: 11, fontWeight: 700,
+                                background: videoTask?.status === 'SUCCEEDED' ? "linear-gradient(135deg,#34d399,#059669)" : "linear-gradient(135deg,#7c3aed,#db2777)",
+                                color: "white", border: "none", cursor: videoTask?.polling ? "wait" : "pointer",
+                                opacity: videoTask?.polling ? 0.8 : 1,
+                              }}>
+                                {videoTask?.polling ? '⏳ Generating video...' : videoTask?.status === 'SUCCEEDED' ? '✓ Video ready' : '▶ Create Video'}
+                              </button>
+                            )}
+                            {videoTask?.status === 'SUCCEEDED' && videoTask.videoUrl && (
+                              <a href={videoTask.videoUrl} download="meta-ad-video.mp4" target="_blank" rel="noopener noreferrer" style={{
+                                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                                padding: "8px 14px", borderRadius: 7, fontSize: 11, fontWeight: 700,
+                                background: "rgba(52,211,153,0.15)", color: "#34d399",
+                                border: "1px solid rgba(52,211,153,0.3)", textDecoration: "none",
+                              }}>⬇ Download Video</a>
+                            )}
                             <button onClick={() => {
                               const rows2 = (metaResult.primaryTexts || []).map((pt, i) => [
                                 "", row.campaign || "RSA Studio Campaign", "ACTIVE", "Traffic", "AUCTION",
