@@ -165,6 +165,56 @@ function scoreDescription(text) {
 function Paginator({ page, total, perPage, onChange }) {
   const totalPages = Math.ceil(total / perPage);
   if (totalPages <= 1) return null;
+  // ── Feedback score widget helper ──────────────────────────────────────────
+  const ScoreWidget = ({ outputId, format, label = "Rate this output" }) => {
+    if (!isSignedIn) return null;
+    const fb = feedback[outputId] || {};
+    const submit = async (score, comment = '') => {
+      setFeedback(prev => ({ ...prev, [outputId]: { score, comment, submitted: true } }));
+      setFeedbackOpen(null);
+      try {
+        await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'submit', userId: user.id, outputId, format, url, score, comment }),
+        });
+      } catch(_) {}
+    };
+    return (
+      <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: '#4a5568', fontWeight: 700 }}>{label}</span>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {[1,2,3,4,5].map(s => (
+            <button key={s} onClick={() => {
+              submit(s);
+              if (s <= 3) setFeedbackOpen(outputId);
+            }} style={{
+              fontSize: 16, background: 'none', border: 'none', cursor: 'pointer',
+              color: (fb.score || 0) >= s ? '#f59e0b' : '#2d3748',
+              transition: 'color 0.15s', padding: '0 1px',
+            }}>★</button>
+          ))}
+        </div>
+        {fb.submitted && !feedbackOpen && (
+          <span style={{ fontSize: 10, color: '#34d399' }}>✓ Thanks!</span>
+        )}
+        {feedbackOpen === outputId && (
+          <div style={{ display: 'flex', gap: 6, flex: 1, minWidth: 200 }}>
+            <input
+              autoFocus
+              placeholder="What could be better? (optional)"
+              defaultValue={fb.comment}
+              onKeyDown={e => { if (e.key === 'Enter') { submit(fb.score, e.target.value); } }}
+              style={{ flex: 1, padding: '4px 8px', fontSize: 11, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', outline: 'none' }}
+            />
+            <button onClick={e => submit(fb.score, e.target.previousSibling.value)} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, borderRadius: 6, background: 'rgba(245,158,11,0.2)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer' }}>Send</button>
+            <button onClick={() => setFeedbackOpen(null)} style={{ padding: '4px 8px', fontSize: 10, borderRadius: 6, background: 'none', color: '#4a5568', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>Skip</button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "6px 0 2px" }}>
       <button onClick={() => onChange(page - 1)} disabled={page === 0} style={{
@@ -194,6 +244,56 @@ function AdStrengthRing({ headlines, descriptions }) {
 
   const r = 28, circ = 2 * Math.PI * r;
   const dash = (score / 100) * circ;
+
+  // ── Feedback score widget helper ──────────────────────────────────────────
+  const ScoreWidget = ({ outputId, format, label = "Rate this output" }) => {
+    if (!isSignedIn) return null;
+    const fb = feedback[outputId] || {};
+    const submit = async (score, comment = '') => {
+      setFeedback(prev => ({ ...prev, [outputId]: { score, comment, submitted: true } }));
+      setFeedbackOpen(null);
+      try {
+        await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'submit', userId: user.id, outputId, format, url, score, comment }),
+        });
+      } catch(_) {}
+    };
+    return (
+      <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: '#4a5568', fontWeight: 700 }}>{label}</span>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {[1,2,3,4,5].map(s => (
+            <button key={s} onClick={() => {
+              submit(s);
+              if (s <= 3) setFeedbackOpen(outputId);
+            }} style={{
+              fontSize: 16, background: 'none', border: 'none', cursor: 'pointer',
+              color: (fb.score || 0) >= s ? '#f59e0b' : '#2d3748',
+              transition: 'color 0.15s', padding: '0 1px',
+            }}>★</button>
+          ))}
+        </div>
+        {fb.submitted && !feedbackOpen && (
+          <span style={{ fontSize: 10, color: '#34d399' }}>✓ Thanks!</span>
+        )}
+        {feedbackOpen === outputId && (
+          <div style={{ display: 'flex', gap: 6, flex: 1, minWidth: 200 }}>
+            <input
+              autoFocus
+              placeholder="What could be better? (optional)"
+              defaultValue={fb.comment}
+              onKeyDown={e => { if (e.key === 'Enter') { submit(fb.score, e.target.value); } }}
+              style={{ flex: 1, padding: '4px 8px', fontSize: 11, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', outline: 'none' }}
+            />
+            <button onClick={e => submit(fb.score, e.target.previousSibling.value)} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, borderRadius: 6, background: 'rgba(245,158,11,0.2)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer' }}>Send</button>
+            <button onClick={() => setFeedbackOpen(null)} style={{ padding: '4px 8px', fontSize: 10, borderRadius: 6, background: 'none', color: '#4a5568', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>Skip</button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -232,6 +332,56 @@ function SerpPreview({ row, favicon }) {
   const pick = (arr, n) => arr.length <= n ? arr : arr.slice(0, n);
   const shownH = pick(hs, 3);
   const shownD = pick(ds, 2);
+
+  // ── Feedback score widget helper ──────────────────────────────────────────
+  const ScoreWidget = ({ outputId, format, label = "Rate this output" }) => {
+    if (!isSignedIn) return null;
+    const fb = feedback[outputId] || {};
+    const submit = async (score, comment = '') => {
+      setFeedback(prev => ({ ...prev, [outputId]: { score, comment, submitted: true } }));
+      setFeedbackOpen(null);
+      try {
+        await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'submit', userId: user.id, outputId, format, url, score, comment }),
+        });
+      } catch(_) {}
+    };
+    return (
+      <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: '#4a5568', fontWeight: 700 }}>{label}</span>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {[1,2,3,4,5].map(s => (
+            <button key={s} onClick={() => {
+              submit(s);
+              if (s <= 3) setFeedbackOpen(outputId);
+            }} style={{
+              fontSize: 16, background: 'none', border: 'none', cursor: 'pointer',
+              color: (fb.score || 0) >= s ? '#f59e0b' : '#2d3748',
+              transition: 'color 0.15s', padding: '0 1px',
+            }}>★</button>
+          ))}
+        </div>
+        {fb.submitted && !feedbackOpen && (
+          <span style={{ fontSize: 10, color: '#34d399' }}>✓ Thanks!</span>
+        )}
+        {feedbackOpen === outputId && (
+          <div style={{ display: 'flex', gap: 6, flex: 1, minWidth: 200 }}>
+            <input
+              autoFocus
+              placeholder="What could be better? (optional)"
+              defaultValue={fb.comment}
+              onKeyDown={e => { if (e.key === 'Enter') { submit(fb.score, e.target.value); } }}
+              style={{ flex: 1, padding: '4px 8px', fontSize: 11, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', outline: 'none' }}
+            />
+            <button onClick={e => submit(fb.score, e.target.previousSibling.value)} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, borderRadius: 6, background: 'rgba(245,158,11,0.2)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer' }}>Send</button>
+            <button onClick={() => setFeedbackOpen(null)} style={{ padding: '4px 8px', fontSize: 10, borderRadius: 6, background: 'none', color: '#4a5568', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>Skip</button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div style={{
@@ -320,6 +470,56 @@ function EditableField({ label, value, limit, onChange, pinValue, onPinChange, m
     } finally {
       setRefining(false);
     }
+  };
+
+  // ── Feedback score widget helper ──────────────────────────────────────────
+  const ScoreWidget = ({ outputId, format, label = "Rate this output" }) => {
+    if (!isSignedIn) return null;
+    const fb = feedback[outputId] || {};
+    const submit = async (score, comment = '') => {
+      setFeedback(prev => ({ ...prev, [outputId]: { score, comment, submitted: true } }));
+      setFeedbackOpen(null);
+      try {
+        await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'submit', userId: user.id, outputId, format, url, score, comment }),
+        });
+      } catch(_) {}
+    };
+    return (
+      <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: '#4a5568', fontWeight: 700 }}>{label}</span>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {[1,2,3,4,5].map(s => (
+            <button key={s} onClick={() => {
+              submit(s);
+              if (s <= 3) setFeedbackOpen(outputId);
+            }} style={{
+              fontSize: 16, background: 'none', border: 'none', cursor: 'pointer',
+              color: (fb.score || 0) >= s ? '#f59e0b' : '#2d3748',
+              transition: 'color 0.15s', padding: '0 1px',
+            }}>★</button>
+          ))}
+        </div>
+        {fb.submitted && !feedbackOpen && (
+          <span style={{ fontSize: 10, color: '#34d399' }}>✓ Thanks!</span>
+        )}
+        {feedbackOpen === outputId && (
+          <div style={{ display: 'flex', gap: 6, flex: 1, minWidth: 200 }}>
+            <input
+              autoFocus
+              placeholder="What could be better? (optional)"
+              defaultValue={fb.comment}
+              onKeyDown={e => { if (e.key === 'Enter') { submit(fb.score, e.target.value); } }}
+              style={{ flex: 1, padding: '4px 8px', fontSize: 11, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', outline: 'none' }}
+            />
+            <button onClick={e => submit(fb.score, e.target.previousSibling.value)} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, borderRadius: 6, background: 'rgba(245,158,11,0.2)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer' }}>Send</button>
+            <button onClick={() => setFeedbackOpen(null)} style={{ padding: '4px 8px', fontSize: 10, borderRadius: 6, background: 'none', color: '#4a5568', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>Skip</button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -585,6 +785,10 @@ function RSAStudio() {
   const [brandTone, setBrandTone] = useState("Professional");
   const [history, setHistory] = useState([]);          // last 5 generations
   const [library, setLibrary] = useState([]);
+  const [feedback, setFeedback] = useState({});     // { outputId: { score, comment, submitted } }
+  const [feedbackOpen, setFeedbackOpen] = useState(null); // outputId with open comment box
+  const [showFeedbackDash, setShowFeedbackDash] = useState(false);
+  const [feedbackDashData, setFeedbackDashData] = useState([]);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [librarySaving, setLibrarySaving] = useState(null);
@@ -1545,6 +1749,56 @@ STRICT rules:
     );
   };
 
+  // ── Feedback score widget helper ──────────────────────────────────────────
+  const ScoreWidget = ({ outputId, format, label = "Rate this output" }) => {
+    if (!isSignedIn) return null;
+    const fb = feedback[outputId] || {};
+    const submit = async (score, comment = '') => {
+      setFeedback(prev => ({ ...prev, [outputId]: { score, comment, submitted: true } }));
+      setFeedbackOpen(null);
+      try {
+        await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'submit', userId: user.id, outputId, format, url, score, comment }),
+        });
+      } catch(_) {}
+    };
+    return (
+      <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: '#4a5568', fontWeight: 700 }}>{label}</span>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {[1,2,3,4,5].map(s => (
+            <button key={s} onClick={() => {
+              submit(s);
+              if (s <= 3) setFeedbackOpen(outputId);
+            }} style={{
+              fontSize: 16, background: 'none', border: 'none', cursor: 'pointer',
+              color: (fb.score || 0) >= s ? '#f59e0b' : '#2d3748',
+              transition: 'color 0.15s', padding: '0 1px',
+            }}>★</button>
+          ))}
+        </div>
+        {fb.submitted && !feedbackOpen && (
+          <span style={{ fontSize: 10, color: '#34d399' }}>✓ Thanks!</span>
+        )}
+        {feedbackOpen === outputId && (
+          <div style={{ display: 'flex', gap: 6, flex: 1, minWidth: 200 }}>
+            <input
+              autoFocus
+              placeholder="What could be better? (optional)"
+              defaultValue={fb.comment}
+              onKeyDown={e => { if (e.key === 'Enter') { submit(fb.score, e.target.value); } }}
+              style={{ flex: 1, padding: '4px 8px', fontSize: 11, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', outline: 'none' }}
+            />
+            <button onClick={e => submit(fb.score, e.target.previousSibling.value)} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, borderRadius: 6, background: 'rgba(245,158,11,0.2)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer' }}>Send</button>
+            <button onClick={() => setFeedbackOpen(null)} style={{ padding: '4px 8px', fontSize: 10, borderRadius: 6, background: 'none', color: '#4a5568', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>Skip</button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -1622,6 +1876,19 @@ STRICT rules:
             border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7,
             textDecoration: "none", flexShrink: 0,
           }}>▶ Watch demo</a>
+          {isAdmin && (
+            <button onClick={async () => {
+              const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'dashboard', adminKey: import.meta.env.VITE_ADMIN_KEY }) });
+              const d = await r.json();
+              setFeedbackDashData(d.entries || []);
+              setShowFeedbackDash(true);
+            }} style={{
+              padding: '7px 14px', fontSize: 11, fontWeight: 700,
+              background: 'rgba(99,102,241,0.12)', color: '#a5b4fc',
+              border: '1px solid rgba(99,102,241,0.25)', borderRadius: 7,
+              cursor: 'pointer', flexShrink: 0,
+            }}>📊 Feedback</button>
+          )}
           {isSignedIn && library.length > 0 && (
             <button onClick={() => setShowLibrary(true)} style={{
               padding: '7px 14px', fontSize: 11, fontWeight: 700,
@@ -3800,6 +4067,7 @@ STRICT rules:
                 </button>
               </div>
 
+              <ScoreWidget outputId={'rsa-' + rows[activeRow]?.id} format="rsa" label="Rate this RSA copy" />
               {/* TSV mini-preview */}
               <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 7, padding: "10px 12px", overflowX: "auto" }}>
                 <div style={{ fontSize: 9, color: "#8fa3b8", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>TSV preview — {rows.length} ad{rows.length > 1 ? "s" : ""}</div>
@@ -3918,6 +4186,7 @@ STRICT rules:
                         })}
                       </div>
                     </div>
+                    <ScoreWidget outputId={"meta-copy-" + (metaResult.primaryTexts && metaResult.primaryTexts[0] ? metaResult.primaryTexts[0].slice(0,20) : "copy")} format="meta-copy" label="Rate this Meta copy" />
 
                     {/* Headlines */}
                     <div style={S.card}>
@@ -4061,6 +4330,7 @@ STRICT rules:
                               border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer",
                             }}>⬇ Download CSV for Meta</button>
                           </div>
+                        <ScoreWidget outputId={"meta-img-" + (metaResult.imageUrl ? metaResult.imageUrl.slice(-20) : "img")} format="meta-image" label="Rate this image" />
                         </div>
                       </div>
                     )}
@@ -4204,6 +4474,61 @@ STRICT rules:
           display: "flex", alignItems: "center", gap: 8,
         }}>
           🎉 Welcome to Pro! All features are now unlocked.
+        </div>
+      )}
+
+      {/* ── Feedback Dashboard Modal ─────────────────────────────── */}
+      {showFeedbackDash && (
+        <div onClick={() => setShowFeedbackDash(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(6px)', zIndex: 1001,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#0f1623', border: '1px solid rgba(99,102,241,0.3)',
+            borderRadius: 16, width: '100%', maxWidth: 700, maxHeight: '85vh',
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+          }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>📊 Feedback Dashboard</div>
+                <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>
+                  {feedbackDashData.length} responses · avg score: {feedbackDashData.length ? (feedbackDashData.reduce((s, e) => s + e.score, 0) / feedbackDashData.length).toFixed(1) : '—'} / 5
+                </div>
+              </div>
+              <button onClick={() => setShowFeedbackDash(false)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            {/* Summary */}
+            <div style={{ padding: '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', gap: 16, flexShrink: 0 }}>
+              {['rsa', 'meta-copy', 'meta-image'].map(fmt => {
+                const entries = feedbackDashData.filter(e => e.format === fmt);
+                const avg = entries.length ? (entries.reduce((s, e) => s + e.score, 0) / entries.length).toFixed(1) : '—';
+                return (
+                  <div key={fmt} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '8px 14px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 9, color: '#4a5568', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{fmt === 'rsa' ? 'RSA Copy' : fmt === 'meta-copy' ? 'Meta Copy' : 'Image'}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#e2e8f0', marginTop: 2 }}>{avg}</div>
+                    <div style={{ fontSize: 9, color: '#4a5568' }}>{entries.length} ratings</div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Entries */}
+            <div style={{ overflowY: 'auto', padding: '12px 16px', flex: 1 }}>
+              {feedbackDashData.map((entry, i) => (
+                <div key={i} style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 6, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 14, color: '#f59e0b', flexShrink: 0 }}>{'★'.repeat(entry.score)}{'☆'.repeat(5 - entry.score)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, color: '#7e92a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {entry.format} · {(() => { try { return new URL(entry.url).hostname; } catch(_) { return entry.url || '—'; } })()}
+                    </div>
+                    {entry.comment && <div style={{ fontSize: 11, color: '#e2e8f0', marginTop: 3 }}>{entry.comment}</div>}
+                  </div>
+                  <div style={{ fontSize: 9, color: '#2d3748', flexShrink: 0 }}>{new Date(entry.timestamp).toLocaleDateString()}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
