@@ -3093,6 +3093,7 @@ STRICT rules:
           {/* All Headlines grid preview */}
           {/* All Headlines grid preview — hidden on Meta tab */}
           {adFormat !== 'meta' && generated && (
+            <div style={S.card}>
               <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                 <span style={{ ...S.sectionLabel, margin: 0 }}>All Headlines</span>
               </div>
@@ -3138,6 +3139,7 @@ STRICT rules:
               </div>
             </div>
           )}
+            </div>
           )}
 
           {/* Meta FB/IG Feed Preview */}
