@@ -3452,8 +3452,8 @@ STRICT rules:
                               color: library.some(e => e.id === h.id) ? '#fbbf24' : '#4a5568',
                               border: '1px solid ' + (library.some(e => e.id === h.id) ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.08)'),
                               borderRadius: 6, cursor: 'pointer', transition: 'all 0.2s',
-                              title: library.some(e => e.id === h.id) ? 'Remove from library' : 'Save to library',
-                            }}>{librarySaving === h.id ? '...' : library.some(e => e.id === h.id) ? '★' : '☆'}</button>
+                              borderRadius: 6, cursor: 'pointer', transition: 'all 0.2s',
+                            }} title={library.some(e => e.id === h.id) ? 'Remove from library' : 'Save to library'}>{librarySaving === h.id ? '...' : library.some(e => e.id === h.id) ? '★' : '☆'}</button>
                           )}
                         </div>
                       </div>
