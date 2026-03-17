@@ -3139,7 +3139,6 @@ STRICT rules:
               </div>
             </div>
           )}
-          )}
 
           {/* Meta FB/IG Feed Preview */}
           {adFormat === 'meta' && metaResult && (
