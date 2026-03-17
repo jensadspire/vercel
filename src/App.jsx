@@ -499,6 +499,19 @@ function RSAStudio() {
   const [trendsLoading, setTrendsLoading] = useState(false);
   const [selectedTrends, setSelectedTrends] = useState([]);
   const [showTrendsPanel, setShowTrendsPanel] = useState(false);
+  // ── Load library on sign-in ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isSignedIn || !user?.id || libraryLoaded) return;
+    fetch('/api/library', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'load', userId: user.id, plan }),
+    }).then(r => r.json()).then(d => {
+      if (d.entries) setLibrary(d.entries);
+      setLibraryLoaded(true);
+    }).catch(() => setLibraryLoaded(true));
+  }, [isSignedIn, user?.id]);
+
   // Load saved audiences from Redis when user signs in
   useEffect(() => {
     if (!isSignedIn || !user?.id) return;
@@ -571,6 +584,10 @@ function RSAStudio() {
   const [brandBanned, setBrandBanned] = useState("");
   const [brandTone, setBrandTone] = useState("Professional");
   const [history, setHistory] = useState([]);          // last 5 generations
+  const [library, setLibrary] = useState([]);          // persistent saved outputs
+  const [libraryLoaded, setLibraryLoaded] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [librarySaving, setLibrarySaving] = useState(null); // entry id being saved
   const [showHistory, setShowHistory] = useState(false);
   const [selectedForExport, setSelectedForExport] = useState(new Set()); // history ids selected
   const [currentAdSelected, setCurrentAdSelected] = useState(true); // current ad included in multi-export
@@ -1605,6 +1622,14 @@ STRICT rules:
             border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7,
             textDecoration: "none", flexShrink: 0,
           }}>▶ Watch demo</a>
+          {isSignedIn && library.length > 0 && (
+            <button onClick={() => setShowLibrary(true)} style={{
+              padding: '7px 14px', fontSize: 11, fontWeight: 700,
+              background: 'rgba(245,158,11,0.12)', color: '#fbbf24',
+              border: '1px solid rgba(245,158,11,0.25)', borderRadius: 7,
+              cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
+            }}>★ Library <span style={{ background: 'rgba(245,158,11,0.3)', borderRadius: 10, padding: '1px 6px', fontSize: 9 }}>{library.length}</span></button>
+          )}
                     {/* Auth button */}
           {isSignedIn ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2998,11 +3023,10 @@ STRICT rules:
             })()}
           </div>
         ) : (
-          /* ── RSA Output (existing) ── */
+          /* ── RSA/Meta Output Panel ── */
+          <>
+          {adFormat !== "meta" && (<>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-          {/* Ad Strength + Score */}
-          <div style={{ ...S.card, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
             <div>
               <span style={S.sectionLabel}>Ad Strength</span>
               <AdStrengthRing headlines={row.headlines} descriptions={row.descriptions} />
@@ -3139,8 +3163,9 @@ STRICT rules:
               </div>
             </div>
           )}
-
-          {/* Meta FB/IG Feed Preview */}
+          </>)}
+          </>
+        )}
           {adFormat === 'meta' && metaResult && (
             <div style={S.card}>
               <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -3207,6 +3232,7 @@ STRICT rules:
             </div>
           )}
           {/* History panel */}
+
           {history.length > 0 && (
             <div style={S.card}>
               <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
@@ -3405,6 +3431,30 @@ STRICT rules:
                             background: "rgba(59,130,246,0.15)", color: "#60a5fa",
                             border: "1px solid rgba(59,130,246,0.25)", borderRadius: 6, cursor: "pointer",
                           }}>Load</button>
+                          {isSignedIn && (
+                            <button onClick={async () => {
+                              const alreadySaved = library.some(e => e.id === h.id);
+                              if (alreadySaved) {
+                                // Remove from library
+                                await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: h.id }) });
+                                setLibrary(prev => prev.filter(e => e.id !== h.id));
+                              } else {
+                                setLibrarySaving(h.id);
+                                const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry: h, plan }) });
+                                const d = await r.json();
+                                if (d.ok) setLibrary(prev => [{ ...h, savedAt: new Date().toISOString() }, ...prev]);
+                                else if (d.limitReached) alert('Library limit reached (' + d.limit + '). Remove some saved outputs first.');
+                                setLibrarySaving(null);
+                              }
+                            }} style={{
+                              padding: '5px 8px', fontSize: 13, fontWeight: 700,
+                              background: library.some(e => e.id === h.id) ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.05)',
+                              color: library.some(e => e.id === h.id) ? '#fbbf24' : '#4a5568',
+                              border: '1px solid ' + (library.some(e => e.id === h.id) ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.08)'),
+                              borderRadius: 6, cursor: 'pointer', transition: 'all 0.2s',
+                              title: library.some(e => e.id === h.id) ? 'Remove from library' : 'Save to library',
+                            }}>{librarySaving === h.id ? '...' : library.some(e => e.id === h.id) ? '★' : '☆'}</button>
+                          )}
                         </div>
                       </div>
                       );
@@ -4157,6 +4207,89 @@ STRICT rules:
           display: "flex", alignItems: "center", gap: 8,
         }}>
           🎉 Welcome to Pro! All features are now unlocked.
+        </div>
+      )}
+
+
+      {/* ── Library Modal ────────────────────────────────────────────── */}
+      {showLibrary && (
+        <div onClick={() => setShowLibrary(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(6px)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#0f1623', border: '1px solid rgba(245,158,11,0.3)',
+            borderRadius: 16, width: '100%', maxWidth: 600, maxHeight: '85vh',
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+          }}>
+            {/* Header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>★ Saved Library</div>
+                <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>{library.length} saved output{library.length !== 1 ? 's' : ''} — click Replay to reload any generation</div>
+              </div>
+              <button onClick={() => setShowLibrary(false)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+
+            {/* Entries */}
+            <div style={{ overflowY: 'auto', padding: '12px 16px', flex: 1 }}>
+              {library.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#4a5568' }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>☆</div>
+                  <div style={{ fontSize: 14, color: '#7e92a8' }}>No saved outputs yet</div>
+                  <div style={{ fontSize: 11, marginTop: 6 }}>Click ☆ on any history entry to save it</div>
+                </div>
+              ) : library.map(entry => (
+                <div key={entry.id} style={{
+                  padding: '12px 14px', borderRadius: 10, marginBottom: 8,
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                  {/* Meta image thumbnail if available */}
+                  {entry.metaResult?.imageUrl && (
+                    <img src={entry.metaResult.imageUrl} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {(() => { try { return new URL(entry.url).hostname.replace('www.',''); } catch(_) { return entry.url; } })()}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#4a5568', marginTop: 2 }}>
+                      {entry.rows?.[0]?.headlines?.[0]?.text?.slice(0, 50) || entry.metaResult?.headlines?.[0]?.slice(0, 50) || ''}
+                    </div>
+                    <div style={{ fontSize: 9, color: '#2d3748', marginTop: 3, display: 'flex', gap: 8 }}>
+                      <span>{entry.format === 'pmax' ? '◈ PMax' : entry.metaResult ? '◉ Meta' : '◎ RSA'}</span>
+                      <span>{entry.savedAt ? new Date(entry.savedAt).toLocaleDateString() : entry.timestamp}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => {
+                      setRows(entry.rows);
+                      setActiveRow(0);
+                      setUrl(entry.url);
+                      setGenerated(true);
+                      if (entry.format) setAdFormat(entry.format);
+                      if (entry.metaResult) { setMetaResult(entry.metaResult); setMetaError(''); }
+                      setShowLibrary(false);
+                    }} style={{
+                      padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 7,
+                      background: 'linear-gradient(135deg,rgba(99,102,241,0.3),rgba(14,165,233,0.3))',
+                      color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)', cursor: 'pointer',
+                    }}>▶ Replay</button>
+                    <button onClick={async () => {
+                      await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
+                      setLibrary(prev => prev.filter(e => e.id !== entry.id));
+                    }} style={{
+                      padding: '6px 8px', fontSize: 11, borderRadius: 7,
+                      background: 'rgba(255,255,255,0.04)', color: '#4a5568',
+                      border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer',
+                    }}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
