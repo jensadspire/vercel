@@ -1712,7 +1712,7 @@ STRICT rules:
                 <span style={{ fontSize: 11, color: generateMeta && !metaDisabled ? "#93c5fd" : "#4a5568",
                   cursor: metaDisabled ? "not-allowed" : "pointer", userSelect: "none" }}
                   onClick={() => !metaDisabled && setGenerateMeta(v => !v)}>
-                  Also generate Meta ads <span style={{ fontSize: 10, color: "#4a5568" }}>(FB / IG / Instagram)</span>
+                  Also generate Meta ads <span style={{ fontSize: 10, color: "#4a5568" }}>(FB / IG)</span>
                   {batchRunning && <span style={{ fontSize: 9, color: "#4a5568", marginLeft: 6 }}>· unavailable in batch mode</span>}
                 </span>
                 {generateMeta && !metaDisabled && (
