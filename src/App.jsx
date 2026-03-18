@@ -1938,7 +1938,7 @@ STRICT rules:
         transition: "background 0.4s ease",
       }}>
         <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ flex: 1, position: "relative" }}>
             <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#7e92a8", fontSize: 13 }}>🔗</span>
             <input
@@ -2006,8 +2006,8 @@ STRICT rules:
               </div>
             );
           })()}
-          </div>
 
+          </div>
           {/* ── Audience Brief Input ─────────────────────────────────────── */}
           {isSignedIn && (
             <div style={{ marginBottom: 8 }}>
