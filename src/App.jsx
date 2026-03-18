@@ -4323,6 +4323,7 @@ STRICT rules:
                           <div style={{ position: "relative", flexShrink: 0 }}>
                           {/* ── Image variations grid (Pro: 2x2, Free: 1x1) ── */}
                           {isPro && metaResult.imageVariations && metaResult.imageVariations.length > 1 ? (
+                            <>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, width: 248 }}>
                               {metaResult.imageVariations.map((imgUrl, vi) => (
                                 <div key={vi} onClick={() => { setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
@@ -4351,6 +4352,7 @@ STRICT rules:
                               background: 'rgba(99,102,241,0.15)', color: '#a5b4fc',
                               border: '1px solid rgba(99,102,241,0.3)', borderRadius: 6, cursor: 'pointer',
                             }}>✦ Create with own assets</button>
+                            </>
                           ) : (
                             <div style={{ position: "relative", width: 120 }}>
                           <img src={metaResult.imageUrl} alt="Meta creative" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
