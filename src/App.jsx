@@ -791,6 +791,7 @@ function RSAStudio() {
   const [audienceBrief, setAudienceBrief] = useState(null);
   const [audienceLoading, setAudienceLoading] = useState(false);
   const [showAudienceBrief, setShowAudienceBrief] = useState(false);
+  const [audienceBriefEdits, setAudienceBriefEdits] = useState({}); // user overrides
   const [feedback, setFeedback] = useState({});     // { outputId: { score, comment, submitted } }
   const [feedbackOpen, setFeedbackOpen] = useState(null); // outputId with open comment box
   const [showFeedbackDash, setShowFeedbackDash] = useState(false);
@@ -2037,6 +2038,7 @@ STRICT rules:
                     });
                     const brief = await r.json();
                     setAudienceBrief(brief);
+                    setAudienceBriefEdits({});
                     setShowAudienceBrief(true);
                   } catch(e) { console.error(e); }
                   setAudienceLoading(false);
@@ -4686,7 +4688,7 @@ STRICT rules:
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>🎯 {audienceBrief.audienceName}</div>
-                <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>Audience brief — feeds into ad copy generation</div>
+                <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>Audience brief — <span style={{ color: '#fbbf24' }}>fields are editable</span> — feeds into ad copy generation</div>
               </div>
               <button onClick={() => setShowAudienceBrief(false)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 20, cursor: 'pointer' }}>✕</button>
             </div>
@@ -4698,8 +4700,18 @@ STRICT rules:
                 <div style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
                   ✦ Meta Advantage+ — "Describe Your Audience" (ready to paste)
                 </div>
-                <div style={{ fontSize: 12, color: '#e2e8f0', lineHeight: 1.6 }}>{audienceBrief.metaDescription}</div>
-                <button onClick={() => navigator.clipboard.writeText(audienceBrief.metaDescription)} style={{
+                <textarea
+                  value={audienceBriefEdits.metaDescription !== undefined ? audienceBriefEdits.metaDescription : audienceBrief.metaDescription}
+                  onChange={e => setAudienceBriefEdits(prev => ({ ...prev, metaDescription: e.target.value }))}
+                  rows={3}
+                  style={{
+                    width: '100%', fontSize: 12, color: audienceBriefEdits.metaDescription !== undefined ? '#fbbf24' : '#e2e8f0',
+                    lineHeight: 1.6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 6, padding: '6px 8px', outline: 'none', resize: 'vertical',
+                    fontFamily: 'inherit', boxSizing: 'border-box',
+                  }}
+                />
+                <button onClick={() => navigator.clipboard.writeText(audienceBriefEdits.metaDescription !== undefined ? audienceBriefEdits.metaDescription : audienceBrief.metaDescription)} style={{
                   marginTop: 8, padding: '4px 10px', fontSize: 10, fontWeight: 700, borderRadius: 5,
                   background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', cursor: 'pointer',
                 }}>Copy</button>
@@ -4710,20 +4722,38 @@ STRICT rules:
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px' }}>
                   <div style={{ fontSize: 10, fontWeight: 800, color: '#7e92a8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Demographics</div>
                   {[
-                    ['Age', audienceBrief.demographics?.ageRange],
-                    ['Gender', audienceBrief.demographics?.gender],
-                    ['Income', audienceBrief.demographics?.income],
-                    ['Locations', (audienceBrief.demographics?.locations || []).join(', ')],
-                  ].map(([label, val]) => val ? (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 11 }}>
-                      <span style={{ color: '#4a5568', fontWeight: 700 }}>{label}</span>
-                      <span style={{ color: '#e2e8f0', textAlign: 'right', maxWidth: '60%' }}>{val}</span>
+                    ['Age', 'ageRange', audienceBrief.demographics?.ageRange],
+                    ['Gender', 'gender', audienceBrief.demographics?.gender],
+                    ['Income', 'income', audienceBrief.demographics?.income],
+                    ['Locations', 'locations', (audienceBrief.demographics?.locations || []).join(', ')],
+                  ].map(([label, field, val]) => val ? (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, fontSize: 11, gap: 8 }}>
+                      <span style={{ color: '#4a5568', fontWeight: 700, flexShrink: 0 }}>{label}</span>
+                      <input
+                        value={audienceBriefEdits[field] !== undefined ? audienceBriefEdits[field] : val}
+                        onChange={e => setAudienceBriefEdits(prev => ({ ...prev, [field]: e.target.value }))}
+                        style={{
+                          flex: 1, textAlign: 'right', background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4,
+                          color: audienceBriefEdits[field] !== undefined ? '#fbbf24' : '#e2e8f0',
+                          fontSize: 11, padding: '2px 6px', outline: 'none',
+                        }}
+                      />
                     </div>
                   ) : null)}
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px' }}>
                   <div style={{ fontSize: 10, fontWeight: 800, color: '#7e92a8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Messaging Tone</div>
-                  <div style={{ fontSize: 11, color: '#e2e8f0', lineHeight: 1.5, marginBottom: 10 }}>{audienceBrief.messagingTone}</div>
+                  <input
+                    value={audienceBriefEdits.messagingTone !== undefined ? audienceBriefEdits.messagingTone : audienceBrief.messagingTone}
+                    onChange={e => setAudienceBriefEdits(prev => ({ ...prev, messagingTone: e.target.value }))}
+                    style={{
+                      width: '100%', fontSize: 11, lineHeight: 1.5, marginBottom: 10,
+                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 4, color: audienceBriefEdits.messagingTone !== undefined ? '#fbbf24' : '#e2e8f0',
+                      padding: '3px 6px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                    }}
+                  />
                   <div style={{ fontSize: 10, fontWeight: 800, color: '#7e92a8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Copy Angles</div>
                   {(audienceBrief.copySignals || []).map((s, i) => (
                     <div key={i} style={{ fontSize: 11, color: '#a5b4fc', marginBottom: 4 }}>→ {s}</div>
@@ -4765,7 +4795,24 @@ STRICT rules:
 
             {/* Footer — generate with brief */}
             <div style={{ padding: '14px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, flexShrink: 0 }}>
-              <button onClick={() => { setShowAudienceBrief(false); }} style={{
+              <button onClick={() => {
+                  // Merge edits into the brief before using
+                  if (Object.keys(audienceBriefEdits).length > 0) {
+                    setAudienceBrief(prev => ({
+                      ...prev,
+                      metaDescription: audienceBriefEdits.metaDescription ?? prev.metaDescription,
+                      messagingTone: audienceBriefEdits.messagingTone ?? prev.messagingTone,
+                      demographics: {
+                        ...prev.demographics,
+                        ageRange: audienceBriefEdits.ageRange ?? prev.demographics?.ageRange,
+                        gender: audienceBriefEdits.gender ?? prev.demographics?.gender,
+                        income: audienceBriefEdits.income ?? prev.demographics?.income,
+                        locations: audienceBriefEdits.locations ? audienceBriefEdits.locations.split(',').map(s => s.trim()) : prev.demographics?.locations,
+                      },
+                    }));
+                  }
+                  setShowAudienceBrief(false);
+                }} style={{
                 flex: 1, padding: '10px', fontSize: 12, fontWeight: 700, borderRadius: 8,
                 background: 'linear-gradient(135deg,#3b82f6,#6366f1)', color: 'white',
                 border: 'none', cursor: 'pointer',
