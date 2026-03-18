@@ -3488,6 +3488,7 @@ STRICT rules:
 
           {/* Meta FB/IG Feed Preview */}
           {adFormat === 'meta' && metaResult && (
+            <>
             <div style={S.card}>
               <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ ...S.sectionLabel, margin: 0 }}>Meta Ad Preview</span>
@@ -3552,6 +3553,8 @@ STRICT rules:
               </div>
             </div>
           <div style={{ fontSize: 9, color: '#2d3748', padding: '4px 2px', display: 'flex', gap: 4 }}>⚠️ AI-generated content — always review before publishing. You are responsible for final ad content.</div>
+            </div>
+          </>
           )}
           {/* History panel */}
           {history.length > 0 && (
