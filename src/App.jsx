@@ -2009,21 +2009,19 @@ STRICT rules:
           {/* ── Audience Brief Input ─────────────────────────────────────── */}
           {isSignedIn && (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                <div style={{ flex: 1, position: 'relative' }}>
-                  <textarea
-                    value={audienceDesc}
-                    onChange={e => setAudienceDesc(e.target.value)}
-                    placeholder="Describe your target audience (optional) — e.g. 'Active women 25-40 interested in fitness and healthy lifestyle, middle income, urban areas'"
-                    rows={2}
-                    style={{
-                      width: '100%', padding: '8px 12px', fontSize: 11, borderRadius: 8,
-                      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#e2e8f0', outline: 'none', resize: 'none', lineHeight: 1.5,
-                      fontFamily: 'inherit', boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
+              <textarea
+                value={audienceDesc}
+                onChange={e => setAudienceDesc(e.target.value)}
+                placeholder="Describe your target audience (optional) — e.g. 'Active women 25-40 interested in fitness and healthy lifestyle, middle income, urban areas'"
+                rows={2}
+                style={{
+                  width: '100%', padding: '8px 12px', fontSize: 11, borderRadius: 8,
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#e2e8f0', outline: 'none', resize: 'none', lineHeight: 1.5,
+                  fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6,
+                }}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button onClick={async () => {
                   if (!url) return;
                   setAudienceLoading(true);
@@ -2041,22 +2039,22 @@ STRICT rules:
                   } catch(e) { console.error(e); }
                   setAudienceLoading(false);
                 }} disabled={!url || audienceLoading} style={{
-                  padding: '8px 12px', fontSize: 11, fontWeight: 700, borderRadius: 8, flexShrink: 0,
+                  padding: '7px 14px', fontSize: 11, fontWeight: 700, borderRadius: 8, flexShrink: 0,
                   background: audienceBrief ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.06)',
                   color: audienceBrief ? '#a5b4fc' : '#7e92a8',
                   border: '1px solid ' + (audienceBrief ? 'rgba(99,102,241,0.35)' : 'rgba(255,255,255,0.1)'),
                   cursor: !url || audienceLoading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
                 }}>
-                  {audienceLoading ? '⏳' : audienceBrief ? '✓ Brief ready' : '🎯 Build Audience'}
+                  {audienceLoading ? '⏳ Building...' : audienceBrief ? '✓ Brief ready' : '🎯 Build Audience'}
                 </button>
+                {audienceBrief && (
+                  <button onClick={() => setShowAudienceBrief(v => !v)} style={{
+                    fontSize: 10, color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  }}>
+                    {showAudienceBrief ? '▲ Hide brief' : '▼ View brief'}
+                  </button>
+                )}
               </div>
-              {audienceBrief && (
-                <button onClick={() => setShowAudienceBrief(v => !v)} style={{
-                  marginTop: 4, fontSize: 10, color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                }}>
-                  {showAudienceBrief ? '▲ Hide brief' : '▼ View audience brief'}
-                </button>
-              )}
             </div>
           )}
 
