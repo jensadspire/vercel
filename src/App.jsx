@@ -1002,6 +1002,25 @@ function RSAStudio() {
 
   const generate = async () => {
     if (!url.trim()) { setError("Please enter a URL first"); return; }
+
+    // ── Auto-build audience brief if text entered but not yet built ───────────
+    if (audienceDesc.trim() && !audienceBrief) {
+      setAudienceLoading(true);
+      try {
+        const scrapeRes = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+        const scrapeData = await scrapeRes.json();
+        const r = await fetch('/api/audience', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, pageContent: scrapeData.content || '', audienceDescription: audienceDesc, language: 'English' }),
+        });
+        const brief = await r.json();
+        setAudienceBrief(brief);
+        setAudienceBriefEdits({});
+      } catch(e) { console.warn('Auto audience build failed:', e); }
+      setAudienceLoading(false);
+    }
+
     setLoading(true); setError("");
     // Clear trends on new generation, clear audiences if not sticky
     setTrends([]);
@@ -1945,7 +1964,7 @@ STRICT rules:
             <input
               type="url"
               value={url}
-              onChange={e => setUrl(e.target.value)}
+              onChange={e => { setUrl(e.target.value); setAudienceBrief(null); setAudienceBriefEdits({}); }}
               onKeyDown={e => e.key === "Enter" && generate()}
               placeholder={batchRunning ? `Batch generating ${batchProgress.current} of ${batchProgress.total}…` : "https://yoursite.com/landing-page → press Enter or click Generate"}
               style={{
@@ -2049,8 +2068,7 @@ STRICT rules:
                   border: '1px solid ' + (audienceBrief ? 'rgba(99,102,241,0.35)' : 'rgba(255,255,255,0.1)'),
                   cursor: !url || audienceLoading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
                 }}>
-                  {audienceLoading ? '⏳ Building...' : audienceBrief ? '✓ Brief ready' : '🎯 Build Audience'}
-                </button>
+                  {audienceLoading ? '⏳ Building...' : audienceBrief ? '✓ Brief ready' : '🎯 Build Audience'}                </button>
                 {audienceBrief && (
                   <button onClick={() => setShowAudienceBrief(v => !v)} style={{
                     fontSize: 10, color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
