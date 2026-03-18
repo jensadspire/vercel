@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "API key not configured" });
 
-  const { url, language = "English", imageModel = "dalle", isPro = false } = req.body || {};
+  const { url, language = "English", imageModel = "dalle", isPro = false, audienceBrief = null } = req.body || {};
   if (!url) return res.status(400).json({ error: "url is required" });
 
   // ── Step 1: Scrape the URL ────────────────────────────────────────────────
@@ -76,6 +76,14 @@ Return ONLY valid JSON — no markdown, no preamble:
   "imagePrompt": "Detailed prompt for a 1:1 Meta ad image — photorealistic, clean composition, no text overlays, no logos.${modelHint} Show the product in a lifestyle setting relevant to the brand." overlays, suitable for Facebook/Instagram feed"
 }
 
+${audienceBrief ? `
+Audience Brief:
+- Messaging tone: ${audienceBrief.messagingTone || ''}
+- Copy angles: ${(audienceBrief.copySignals || []).join(', ')}
+- Pain points: ${(audienceBrief.painPoints || []).join(', ')}
+- Demographics: ${JSON.stringify(audienceBrief.demographics || {})}
+Use these signals to sharpen the ad copy. The primary text should speak directly to the pain points and motivations of this audience.
+` : ''}
 Rules:
 - Write in ${language}
 - Primary text must open with a hook — a question, bold claim, or pattern interrupt

@@ -621,7 +621,7 @@ function RSAStudio() {
   const [url, setUrl] = useState("");
   const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax" | "meta"
   const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
-  const [imageModel, setImageModel] = useState('dalle'); // 'dalle' | 'imagen'
+  const [imageModel, setImageModel] = useState('imagen'); // 'dalle' | 'imagen'
   const [metaResult, setMetaResult] = useState(null);
   const [activeImageVariant, setActiveImageVariant] = useState(0);
   const [videoTask, setVideoTask] = useState(null);   // { taskId, status, videoUrl, polling }       // { primaryTexts, headlines, descriptions, imageUrl }
@@ -787,6 +787,10 @@ function RSAStudio() {
   const [brandTone, setBrandTone] = useState("Professional");
   const [history, setHistory] = useState([]);          // last 5 generations
   const [library, setLibrary] = useState([]);
+  const [audienceDesc, setAudienceDesc] = useState('');
+  const [audienceBrief, setAudienceBrief] = useState(null);
+  const [audienceLoading, setAudienceLoading] = useState(false);
+  const [showAudienceBrief, setShowAudienceBrief] = useState(false);
   const [feedback, setFeedback] = useState({});     // { outputId: { score, comment, submitted } }
   const [feedbackOpen, setFeedbackOpen] = useState(null); // outputId with open comment box
   const [showFeedbackDash, setShowFeedbackDash] = useState(false);
@@ -1396,7 +1400,7 @@ STRICT rules:
           const metaRes = await fetch("/api/generate-meta", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta.language, imageModel, isPro }),
+            body: JSON.stringify({ url, language: pageMeta.language, imageModel, isPro, audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
           });
           const metaData = await metaRes.json();
           if (metaData.error) {
@@ -2001,6 +2005,60 @@ STRICT rules:
               </div>
             );
           })()}
+
+          {/* ── Audience Brief Input ─────────────────────────────────────── */}
+          {isSignedIn && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <textarea
+                    value={audienceDesc}
+                    onChange={e => setAudienceDesc(e.target.value)}
+                    placeholder="Describe your target audience (optional) — e.g. 'Active women 25-40 interested in fitness and healthy lifestyle, middle income, urban areas'"
+                    rows={2}
+                    style={{
+                      width: '100%', padding: '8px 12px', fontSize: 11, borderRadius: 8,
+                      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#e2e8f0', outline: 'none', resize: 'none', lineHeight: 1.5,
+                      fontFamily: 'inherit', boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+                <button onClick={async () => {
+                  if (!url) return;
+                  setAudienceLoading(true);
+                  try {
+                    const scrapeRes = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+                    const scrapeData = await scrapeRes.json();
+                    const r = await fetch('/api/audience', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ url, pageContent: scrapeData.content || '', audienceDescription: audienceDesc, language: 'English' }),
+                    });
+                    const brief = await r.json();
+                    setAudienceBrief(brief);
+                    setShowAudienceBrief(true);
+                  } catch(e) { console.error(e); }
+                  setAudienceLoading(false);
+                }} disabled={!url || audienceLoading} style={{
+                  padding: '8px 12px', fontSize: 11, fontWeight: 700, borderRadius: 8, flexShrink: 0,
+                  background: audienceBrief ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.06)',
+                  color: audienceBrief ? '#a5b4fc' : '#7e92a8',
+                  border: '1px solid ' + (audienceBrief ? 'rgba(99,102,241,0.35)' : 'rgba(255,255,255,0.1)'),
+                  cursor: !url || audienceLoading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+                }}>
+                  {audienceLoading ? '⏳' : audienceBrief ? '✓ Brief ready' : '🎯 Build Audience'}
+                </button>
+              </div>
+              {audienceBrief && (
+                <button onClick={() => setShowAudienceBrief(v => !v)} style={{
+                  marginTop: 4, fontSize: 10, color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                }}>
+                  {showAudienceBrief ? '▲ Hide brief' : '▼ View audience brief'}
+                </button>
+              )}
+            </div>
+          )}
 
           <button onClick={generate} disabled={loading || batchRunning} style={{
             padding: "9px 14px", fontSize: 12, fontWeight: 700,
@@ -3461,7 +3519,7 @@ STRICT rules:
                       {(rows[activeRow]?.campaign || url || 'B').charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{rows[activeRow]?.campaign || (() => { try { return new URL(url).hostname.replace('www.',''); } catch(_) { return url || 'Brand'; } })()}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{(() => { try { const h = new URL(url).hostname.replace('www.','').split('.')[0]; return h.charAt(0).toUpperCase() + h.slice(1); } catch(_) { return rows[activeRow]?.campaign || 'Brand'; } })()}</div>
                       <div style={{ fontSize: 10, color: '#8a8a8a' }}>Sponsored · {metaPreviewFormat === 'fb-feed' ? '🌐' : '📱'}</div>
                     </div>
                   </div>
@@ -4277,6 +4335,22 @@ STRICT rules:
                                 </div>
                               ))}
                             </div>
+                            {/* Upload own assets button */}
+                            <button onClick={async () => {
+                              if (!isSignedIn) { setUpgradeFeature('imagen'); setShowUpgradeModal(true); return; }
+                              if (!isPro) {
+                                try {
+                                  const r = await fetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'check', userId: user.id, feature: 'imagen' }) });
+                                  const d = await r.json();
+                                  if (!d.allowed) { setUpgradeFeature('imagen'); setShowUpgradeModal(true); return; }
+                                } catch(_) {}
+                              }
+                              setImagenOpen(true); setImagenStep(1); setImagenUrlInput(url); setImagenPreview(null);
+                            }} style={{
+                              marginTop: 6, width: '100%', padding: '5px 0', fontSize: 9, fontWeight: 700,
+                              background: 'rgba(99,102,241,0.15)', color: '#a5b4fc',
+                              border: '1px solid rgba(99,102,241,0.3)', borderRadius: 6, cursor: 'pointer',
+                            }}>✦ Create with own assets</button>
                           ) : (
                             <div style={{ position: "relative", width: 120 }}>
                           <img src={metaResult.imageUrl} alt="Meta creative" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
@@ -4593,6 +4667,117 @@ STRICT rules:
                   <div style={{ fontSize: 9, color: '#2d3748', flexShrink: 0 }}>{new Date(entry.timestamp).toLocaleDateString()}</div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Audience Brief Modal ──────────────────────────────────────── */}
+      {showAudienceBrief && audienceBrief && (
+        <div onClick={() => setShowAudienceBrief(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(6px)', zIndex: 1001,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#0f1623', border: '1px solid rgba(99,102,241,0.3)',
+            borderRadius: 16, width: '100%', maxWidth: 680, maxHeight: '88vh',
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+          }}>
+            {/* Header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>🎯 {audienceBrief.audienceName}</div>
+                <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>Audience brief — feeds into ad copy generation</div>
+              </div>
+              <button onClick={() => setShowAudienceBrief(false)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ overflowY: 'auto', padding: '16px 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Meta Advantage+ Description — copy-paste ready */}
+              <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 10, padding: '14px 16px' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                  ✦ Meta Advantage+ — "Describe Your Audience" (ready to paste)
+                </div>
+                <div style={{ fontSize: 12, color: '#e2e8f0', lineHeight: 1.6 }}>{audienceBrief.metaDescription}</div>
+                <button onClick={() => navigator.clipboard.writeText(audienceBrief.metaDescription)} style={{
+                  marginTop: 8, padding: '4px 10px', fontSize: 10, fontWeight: 700, borderRadius: 5,
+                  background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', cursor: 'pointer',
+                }}>Copy</button>
+              </div>
+
+              {/* Demographics + Psychographics */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#7e92a8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Demographics</div>
+                  {[
+                    ['Age', audienceBrief.demographics?.ageRange],
+                    ['Gender', audienceBrief.demographics?.gender],
+                    ['Income', audienceBrief.demographics?.income],
+                    ['Locations', (audienceBrief.demographics?.locations || []).join(', ')],
+                  ].map(([label, val]) => val ? (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 11 }}>
+                      <span style={{ color: '#4a5568', fontWeight: 700 }}>{label}</span>
+                      <span style={{ color: '#e2e8f0', textAlign: 'right', maxWidth: '60%' }}>{val}</span>
+                    </div>
+                  ) : null)}
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#7e92a8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Messaging Tone</div>
+                  <div style={{ fontSize: 11, color: '#e2e8f0', lineHeight: 1.5, marginBottom: 10 }}>{audienceBrief.messagingTone}</div>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#7e92a8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Copy Angles</div>
+                  {(audienceBrief.copySignals || []).map((s, i) => (
+                    <div key={i} style={{ fontSize: 11, color: '#a5b4fc', marginBottom: 4 }}>→ {s}</div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Interests + Behaviors */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#7e92a8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Interests</div>
+                  {(audienceBrief.interests || []).map((item, i) => (
+                    <div key={i} style={{ fontSize: 11, color: '#e2e8f0', padding: '3px 8px', background: 'rgba(99,102,241,0.1)', borderRadius: 5, marginBottom: 4, display: 'inline-block', marginRight: 4 }}>{item}</div>
+                  ))}
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#7e92a8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Pain Points</div>
+                  {(audienceBrief.painPoints || []).map((item, i) => (
+                    <div key={i} style={{ fontSize: 11, color: '#f87171', marginBottom: 5 }}>✗ {item}</div>
+                  ))}
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#7e92a8', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '10px 0 6px' }}>Motivations</div>
+                  {(audienceBrief.motivations || []).map((item, i) => (
+                    <div key={i} style={{ fontSize: 11, color: '#34d399', marginBottom: 5 }}>✓ {item}</div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Psychographics */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#7e92a8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Psychographic Profile</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {(audienceBrief.psychographics || []).map((item, i) => (
+                    <span key={i} style={{ fontSize: 11, color: '#fbbf24', padding: '3px 10px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 20 }}>{item}</span>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer — generate with brief */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, flexShrink: 0 }}>
+              <button onClick={() => { setShowAudienceBrief(false); }} style={{
+                flex: 1, padding: '10px', fontSize: 12, fontWeight: 700, borderRadius: 8,
+                background: 'linear-gradient(135deg,#3b82f6,#6366f1)', color: 'white',
+                border: 'none', cursor: 'pointer',
+              }}>✓ Use this brief — close and generate</button>
+              <button onClick={() => { setAudienceBrief(null); setShowAudienceBrief(false); }} style={{
+                padding: '10px 16px', fontSize: 12, borderRadius: 8,
+                background: 'rgba(255,255,255,0.05)', color: '#4a5568',
+                border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer',
+              }}>Clear</button>
             </div>
           </div>
         </div>
