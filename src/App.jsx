@@ -1962,9 +1962,9 @@ STRICT rules:
                   : "none",
                 transition: "border 0.3s ease, box-shadow 0.3s ease",
               }}
+              title="💡 Tip: Product or landing page URLs generate stronger ad copy than category pages"
             />
           </div>
-          {/* Meta opt-in checkbox — disabled during batch mode */}
           {(() => {
             const metaDisabled = batchRunning || !generated;
             const metaTooltip = batchRunning
@@ -2133,19 +2133,6 @@ STRICT rules:
             <span>⚠</span> {error}
           </div>
         )}
-        {!generated && !loading && (
-          <div style={{ maxWidth: 900, margin: "6px auto 0", fontSize: 11, color: "#8fa3b8", display: "flex", alignItems: "center", gap: 5 }}>
-            <span>💡</span>
-            <span>Tip: Product or landing page URLs generate stronger ad copy than category pages</span>
-          </div>
-        )}
-          {/* AI disclaimer */}
-          <div style={{ maxWidth: 900, margin: "4px auto 0", padding: "7px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 6, display: "flex", alignItems: "flex-start", gap: 6 }}>
-            <span style={{ fontSize: 10, flexShrink: 0 }}>⚠️</span>
-            <span style={{ fontSize: 10, color: "#4a5568", lineHeight: 1.5 }}>
-              AI-generated copy may contain errors. Always review before importing into Google Ads. You are responsible for final ad content.
-            </span>
-          </div>
 
         {/* Batch Panel — signed-in users only */}
         {isSignedIn && showBatchPanel && (
@@ -3443,6 +3430,11 @@ STRICT rules:
               </div>
             )}
           </div></>)}
+          {generated && adFormat !== 'meta' && (
+            <div style={{ fontSize: 10, color: '#2d3748', padding: '4px 2px', display: 'flex', gap: 5, alignItems: 'flex-start' }}>
+              <span>⚠️</span><span>AI-generated copy may contain errors. Always review before importing. You are responsible for final ad content.</span>
+            </div>
+          )}
 
           {/* All Headlines grid preview */}
           {/* All Headlines grid preview — hidden on Meta tab */}
@@ -3559,6 +3551,7 @@ STRICT rules:
                 </div>
               </div>
             </div>
+          <div style={{ fontSize: 9, color: '#2d3748', padding: '4px 2px', display: 'flex', gap: 4 }}>⚠️ AI-generated content — always review before publishing. You are responsible for final ad content.</div>
           )}
           {/* History panel */}
           {history.length > 0 && (
@@ -3904,6 +3897,7 @@ STRICT rules:
                         <div style={{ fontSize: 10, color: "#8fa3b8", marginTop: 8 }}>
                           {adFormat === "meta" ? `All ${totalSelected} Meta ad variants ready — paste into Meta Ads Manager` : `All ${totalSelected} versions exported as separate rows — paste directly into Google Ads Editor`}
                         </div>
+                        <div style={{ fontSize: 9, color: "#2d3748", marginTop: 4 }}>⚠️ AI-generated content — always review before publishing. You are responsible for final ad content.</div>
                       </div>
                     );
                   })()}
