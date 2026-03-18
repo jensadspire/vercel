@@ -3552,8 +3552,7 @@ STRICT rules:
                 </div>
               </div>
             </div>
-          <div style={{ fontSize: 9, color: '#2d3748', padding: '4px 2px', display: 'flex', gap: 4 }}>⚠️ AI-generated content — always review before publishing. You are responsible for final ad content.</div>
-            </div>
+          <div style={{ fontSize: 9, color: '#2d3748', padding: '4px 2px' }}>⚠️ AI-generated content — always review before publishing. You are responsible for final ad content.</div>
           </>
           )}
           {/* History panel */}
@@ -3900,7 +3899,6 @@ STRICT rules:
                         <div style={{ fontSize: 10, color: "#8fa3b8", marginTop: 8 }}>
                           {adFormat === "meta" ? `All ${totalSelected} Meta ad variants ready — paste into Meta Ads Manager` : `All ${totalSelected} versions exported as separate rows — paste directly into Google Ads Editor`}
                         </div>
-                        <div style={{ fontSize: 9, color: "#2d3748", marginTop: 4 }}>⚠️ AI-generated content — always review before publishing. You are responsible for final ad content.</div>
                       </div>
                     );
                   })()}
