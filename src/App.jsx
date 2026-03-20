@@ -1897,7 +1897,7 @@ STRICT rules:
 
         {/* Demo video + auth */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-          <a href="https://www.loom.com/share/23cfeabeee5b465c99f9d96203d56821" target="_blank" rel="noopener noreferrer" style={{
+          <a href="https://www.loom.com/share/46a7ec33c1d24acea6bd01dac0775bab" target="_blank" rel="noopener noreferrer" style={{
             display: "flex", alignItems: "center", gap: 6,
             padding: "7px 14px", fontSize: 11, fontWeight: 700,
             background: "rgba(255,255,255,0.06)", color: "#e2e8f0",
