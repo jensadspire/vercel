@@ -3575,7 +3575,6 @@ STRICT rules:
                   ))}
                 </div>
               </div>
-            </div>
           <div style={{ fontSize: 9, color: '#2d3748', padding: '4px 2px' }}>⚠️ AI-generated content — always review before publishing. You are responsible for final ad content.</div>
           </>
           )}
