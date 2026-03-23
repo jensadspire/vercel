@@ -3542,7 +3542,7 @@ STRICT rules:
                   </div>
                   {/* Primary text */}
                   <div style={{ padding: '0 12px 10px', fontSize: 13, color: '#1a1a1a', lineHeight: 1.5 }}>
-                    {(metaResult.primaryTexts?.[metaActiveVariants.pt] || '').slice(0, 120)}{(metaResult.primaryTexts?.[metaActiveVariants.pt] || '').length > 120 ? '... See more' : ''}
+                    {(() => { const t = metaEdits[`pt-${metaActiveVariants.pt}`] !== undefined ? metaEdits[`pt-${metaActiveVariants.pt}`] : (metaResult.primaryTexts?.[metaActiveVariants.pt] || ''); return t.slice(0, 120) + (t.length > 120 ? '... See more' : ''); })()}metaActiveVariants.pt] || '').length > 120 ? '... See more' : ''}
                   </div>
                   {/* Ad image */}
                   {metaResult.imageUrl && (
@@ -3551,7 +3551,7 @@ STRICT rules:
                   {/* Headline + CTA bar */}
                   <div style={{ padding: '10px 12px', background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{metaResult.headlines?.[metaActiveVariants.hl] || ''}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{metaEdits[`hl-${metaActiveVariants.hl}`] !== undefined ? metaEdits[`hl-${metaActiveVariants.hl}`] : (metaResult.headlines?.[metaActiveVariants.hl] || '')}</div>eVariants.hl] || ''}</div>
                       <div style={{ fontSize: 11, color: '#8a8a8a' }}>{(() => { try { return new URL(url).hostname.replace('www.',''); } catch(_) { return url; } })()}</div>
                     </div>
                     <div style={{ background: '#0866ff', color: 'white', fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 6, whiteSpace: 'nowrap' }}>Learn More</div>
