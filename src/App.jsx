@@ -624,6 +624,8 @@ function RSAStudio() {
   const [imageModel, setImageModel] = useState('imagen'); // 'dalle' | 'imagen'
   const [metaResult, setMetaResult] = useState(null);
   const [activeImageVariant, setActiveImageVariant] = useState(0);
+  const [metaEdits, setMetaEdits] = useState({}); // { 'pt-0': 'text', 'hl-0': 'text', 'desc-0': 'text' }
+  const [metaEditingField, setMetaEditingField] = useState(null); // which field is open
   const [videoTask, setVideoTask] = useState(null);   // { taskId, status, videoUrl, polling }       // { primaryTexts, headlines, descriptions, imageUrl }
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaError, setMetaError] = useState("");
@@ -1430,6 +1432,8 @@ STRICT rules:
             setMetaResult(metaData);
             setActiveImageVariant(0);
             setVideoTask(null);
+            setMetaEdits({});
+            setMetaEditingField(null);
             setAdFormat("meta"); // switch to meta tab only after success
             // Persist metaResult into the most recent history entry for this URL
             setHistory(prev => {
@@ -4240,24 +4244,44 @@ STRICT rules:
                         <span style={S.sectionLabel}>Primary Text</span>
                         <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 8 }}>125 chars · hook-led · 3 variants</span>
                       </div>
-                      <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
                         {(metaResult.primaryTexts || []).map((text, i) => {
+                          const key = `pt-${i}`;
+                          const val = metaEdits[key] !== undefined ? metaEdits[key] : text;
                           const isActive = metaActiveVariants.pt === i;
+                          const isEditing = metaEditingField === key;
                           return (
-                            <div key={i} onClick={() => setMetaActiveVariants(v => ({ ...v, pt: i }))} style={{
-                              padding: "10px 12px", borderRadius: 8, cursor: "pointer",
-                              background: isActive ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
-                              border: "1px solid " + (isActive ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.07)"),
+                            <div key={i} onClick={() => !isEditing && setMetaActiveVariants(v => ({ ...v, pt: i }))} style={{
+                              padding: "10px 12px", borderRadius: 8, cursor: isEditing ? 'default' : "pointer",
+                              background: isActive ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.02)",
+                              border: "1px solid " + (isActive ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)"),
                               display: "flex", alignItems: "flex-start", gap: 10, transition: "all 0.15s",
                             }}>
-                              <span style={{ fontSize: 9, fontWeight: 800, color: isActive ? "#818cf8" : "#4a5568", paddingTop: 2, flexShrink: 0 }}>0{i+1}</span>
-                              <span style={{ flex: 1, fontSize: 12, color: isActive ? "#e2e8f0" : "#94a3b8", lineHeight: 1.55 }}>{text}</span>
-                              {isActive && <span style={{ fontSize: 9, color: "#818cf8", flexShrink: 0, paddingTop: 2 }}>● preview</span>}
-                              <button onClick={e => { e.stopPropagation(); copyField(text, `pt${i}`); }} style={{
-                                flexShrink: 0, padding: "3px 8px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 700,
-                                background: metaCopied[`pt${i}`] ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.06)",
-                                color: metaCopied[`pt${i}`] ? "#34d399" : "#7e92a8",
-                              }}>{metaCopied[`pt${i}`] ? "✓" : "Copy"}</button>
+                              <span style={{ fontSize: 9, fontWeight: 800, color: isActive ? "#818cf8" : "#2d3748", flexShrink: 0, marginTop: 2 }}>PT{i+1}</span>
+                              {isEditing ? (
+                                <textarea autoFocus value={val}
+                                  onChange={e => setMetaEdits(prev => ({ ...prev, [key]: e.target.value }))}
+                                  onBlur={() => setMetaEditingField(null)}
+                                  onKeyDown={e => { if (e.key === 'Escape') setMetaEditingField(null); }}
+                                  style={{ flex: 1, fontSize: 12, color: '#e2e8f0', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 5, padding: '4px 6px', resize: 'vertical', minHeight: 60, outline: 'none', fontFamily: 'inherit', lineHeight: 1.5 }}
+                                />
+                              ) : (
+                                <span style={{ flex: 1, fontSize: 12, color: isActive ? "#e2e8f0" : "#7e92a8", lineHeight: 1.5 }}>
+                                  {metaEdits[key] !== undefined ? <span style={{ color: '#fbbf24' }}>{val}</span> : val}
+                                </span>
+                              )}
+                              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                                <button onClick={e => { e.stopPropagation(); setMetaEditingField(isEditing ? null : key); setMetaActiveVariants(v => ({ ...v, pt: i })); }} style={{
+                                  padding: "3px 7px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 11,
+                                  background: isEditing ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.06)",
+                                  color: isEditing ? "#a5b4fc" : "#4a5568",
+                                }}>✏️</button>
+                                <button onClick={e => { e.stopPropagation(); copyField(val, `pt${i}`); }} style={{
+                                  padding: "3px 8px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 10,
+                                  background: metaCopied[`pt${i}`] ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.06)",
+                                  color: metaCopied[`pt${i}`] ? "#34d399" : "#7e92a8",
+                                }}>{metaCopied[`pt${i}`] ? "✓" : "Copy"}</button>
+                              </div>
                             </div>
                           );
                         })}
@@ -4271,25 +4295,46 @@ STRICT rules:
                         <span style={S.sectionLabel}>Headlines</span>
                         <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 8 }}>40 chars · 3 variants</span>
                       </div>
-                      <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
                         {(metaResult.headlines || []).map((text, i) => {
+                          const key = `hl-${i}`;
+                          const val = metaEdits[key] !== undefined ? metaEdits[key] : text;
                           const isActive = metaActiveVariants.hl === i;
+                          const isEditing = metaEditingField === key;
+                          const over = val.length > 40;
                           return (
-                            <div key={i} onClick={() => setMetaActiveVariants(v => ({ ...v, hl: i }))} style={{
-                              padding: "10px 12px", borderRadius: 8, cursor: "pointer",
-                              background: isActive ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
-                              border: "1px solid " + (isActive ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.07)"),
+                            <div key={i} onClick={() => !isEditing && setMetaActiveVariants(v => ({ ...v, hl: i }))} style={{
+                              padding: "10px 12px", borderRadius: 8, cursor: isEditing ? 'default' : "pointer",
+                              background: isActive ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.02)",
+                              border: "1px solid " + (isActive ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)"),
                               display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s",
                             }}>
-                              <span style={{ fontSize: 9, fontWeight: 800, color: isActive ? "#818cf8" : "#4a5568", flexShrink: 0 }}>0{i+1}</span>
-                              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: isActive ? "#e2e8f0" : "#94a3b8" }}>{text}</span>
-                              {isActive && <span style={{ fontSize: 9, color: "#818cf8", flexShrink: 0 }}>● preview</span>}
-                              <span style={{ fontSize: 9, color: text.length > 40 ? "#f87171" : "#4a5568", flexShrink: 0 }}>{text.length}/40</span>
-                              <button onClick={e => { e.stopPropagation(); copyField(text, `hl${i}`); }} style={{
-                                flexShrink: 0, padding: "3px 8px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 700,
-                                background: metaCopied[`hl${i}`] ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.06)",
-                                color: metaCopied[`hl${i}`] ? "#34d399" : "#7e92a8",
-                              }}>{metaCopied[`hl${i}`] ? "✓" : "Copy"}</button>
+                              <span style={{ fontSize: 9, fontWeight: 800, color: isActive ? "#818cf8" : "#2d3748", flexShrink: 0 }}>HL{i+1}</span>
+                              {isEditing ? (
+                                <input autoFocus value={val}
+                                  onChange={e => setMetaEdits(prev => ({ ...prev, [key]: e.target.value }))}
+                                  onBlur={() => setMetaEditingField(null)}
+                                  onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setMetaEditingField(null); }}
+                                  style={{ flex: 1, fontSize: 13, fontWeight: 600, color: over ? '#f87171' : '#e2e8f0', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 5, padding: '3px 6px', outline: 'none', fontFamily: 'inherit' }}
+                                />
+                              ) : (
+                                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: isActive ? (over ? '#f87171' : '#e2e8f0') : '#7e92a8' }}>
+                                  {metaEdits[key] !== undefined ? <span style={{ color: over ? '#f87171' : '#fbbf24' }}>{val}</span> : val}
+                                </span>
+                              )}
+                              <span style={{ fontSize: 9, color: over ? '#f87171' : '#2d3748', flexShrink: 0 }}>{val.length}/40</span>
+                              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                                <button onClick={e => { e.stopPropagation(); setMetaEditingField(isEditing ? null : key); setMetaActiveVariants(v => ({ ...v, hl: i })); }} style={{
+                                  padding: "3px 7px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 11,
+                                  background: isEditing ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.06)",
+                                  color: isEditing ? "#a5b4fc" : "#4a5568",
+                                }}>✏️</button>
+                                <button onClick={e => { e.stopPropagation(); copyField(val, `hl${i}`); }} style={{
+                                  padding: "3px 8px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 10,
+                                  background: metaCopied[`hl${i}`] ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.06)",
+                                  color: metaCopied[`hl${i}`] ? "#34d399" : "#7e92a8",
+                                }}>{metaCopied[`hl${i}`] ? "✓" : "Copy"}</button>
+                              </div>
                             </div>
                           );
                         })}
@@ -4302,25 +4347,46 @@ STRICT rules:
                         <span style={S.sectionLabel}>Link Descriptions</span>
                         <span style={{ fontSize: 10, color: "#4a5568", marginLeft: 8 }}>30 chars · 2 variants</span>
                       </div>
-                      <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
                         {(metaResult.descriptions || []).map((text, i) => {
+                          const key = `desc-${i}`;
+                          const val = metaEdits[key] !== undefined ? metaEdits[key] : text;
                           const isActive = metaActiveVariants.d === i;
+                          const isEditing = metaEditingField === key;
+                          const over = val.length > 30;
                           return (
-                            <div key={i} onClick={() => setMetaActiveVariants(v => ({ ...v, d: i }))} style={{
-                              padding: "10px 12px", borderRadius: 8, cursor: "pointer",
-                              background: isActive ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
-                              border: "1px solid " + (isActive ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.07)"),
+                            <div key={i} onClick={() => !isEditing && setMetaActiveVariants(v => ({ ...v, d: i }))} style={{
+                              padding: "10px 12px", borderRadius: 8, cursor: isEditing ? 'default' : "pointer",
+                              background: isActive ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.02)",
+                              border: "1px solid " + (isActive ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)"),
                               display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s",
                             }}>
-                              <span style={{ fontSize: 9, fontWeight: 800, color: isActive ? "#818cf8" : "#4a5568", flexShrink: 0 }}>0{i+1}</span>
-                              <span style={{ flex: 1, fontSize: 12, color: isActive ? "#e2e8f0" : "#94a3b8" }}>{text}</span>
-                              {isActive && <span style={{ fontSize: 9, color: "#818cf8", flexShrink: 0 }}>● preview</span>}
-                              <span style={{ fontSize: 9, color: text.length > 30 ? "#f87171" : "#4a5568", flexShrink: 0 }}>{text.length}/30</span>
-                              <button onClick={e => { e.stopPropagation(); copyField(text, `d${i}`); }} style={{
-                                flexShrink: 0, padding: "3px 8px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 700,
-                                background: metaCopied[`d${i}`] ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.06)",
-                                color: metaCopied[`d${i}`] ? "#34d399" : "#7e92a8",
-                              }}>{metaCopied[`d${i}`] ? "✓" : "Copy"}</button>
+                              <span style={{ fontSize: 9, fontWeight: 800, color: isActive ? "#818cf8" : "#2d3748", flexShrink: 0 }}>D{i+1}</span>
+                              {isEditing ? (
+                                <input autoFocus value={val}
+                                  onChange={e => setMetaEdits(prev => ({ ...prev, [key]: e.target.value }))}
+                                  onBlur={() => setMetaEditingField(null)}
+                                  onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setMetaEditingField(null); }}
+                                  style={{ flex: 1, fontSize: 12, color: over ? '#f87171' : '#e2e8f0', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 5, padding: '3px 6px', outline: 'none', fontFamily: 'inherit' }}
+                                />
+                              ) : (
+                                <span style={{ flex: 1, fontSize: 12, color: isActive ? (over ? '#f87171' : '#e2e8f0') : '#7e92a8' }}>
+                                  {metaEdits[key] !== undefined ? <span style={{ color: over ? '#f87171' : '#fbbf24' }}>{val}</span> : val}
+                                </span>
+                              )}
+                              <span style={{ fontSize: 9, color: over ? '#f87171' : '#2d3748', flexShrink: 0 }}>{val.length}/30</span>
+                              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                                <button onClick={e => { e.stopPropagation(); setMetaEditingField(isEditing ? null : key); setMetaActiveVariants(v => ({ ...v, d: i })); }} style={{
+                                  padding: "3px 7px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 11,
+                                  background: isEditing ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.06)",
+                                  color: isEditing ? "#a5b4fc" : "#4a5568",
+                                }}>✏️</button>
+                                <button onClick={e => { e.stopPropagation(); copyField(val, `d${i}`); }} style={{
+                                  padding: "3px 8px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 10,
+                                  background: metaCopied[`d${i}`] ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.06)",
+                                  color: metaCopied[`d${i}`] ? "#34d399" : "#7e92a8",
+                                }}>{metaCopied[`d${i}`] ? "✓" : "Copy"}</button>
+                              </div>
                             </div>
                           );
                         })}
