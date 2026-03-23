@@ -5173,6 +5173,18 @@ STRICT rules:
                   />
                   <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
                     <button onClick={() => setImagenStep(imagenTab === 'upload' ? 1 : 2)} style={{ flex: 1, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8, background: "rgba(255,255,255,0.04)", color: "#7e92a8", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}>← Back</button>
+                    <button onClick={() => {
+                      if (imagenSelected?.base64 || imagenSelected?.src) {
+                        setImagenPreview(imagenSelected.src || imagenSelected.base64);
+                        setImagenStep(4);
+                      }
+                    }} disabled={!imagenSelected?.src && !imagenSelected?.base64} style={{
+                      flex: 1, padding: "10px 0", fontSize: 11, fontWeight: 700, borderRadius: 8,
+                      background: "rgba(52,211,153,0.12)", color: "#34d399",
+                      border: "1px solid rgba(52,211,153,0.3)",
+                      cursor: (!imagenSelected?.src && !imagenSelected?.base64) ? "not-allowed" : "pointer",
+                      opacity: (!imagenSelected?.src && !imagenSelected?.base64) ? 0.5 : 1,
+                    }}>⬆ Use as-is</button>
                     <button onClick={async () => {
                       setImagenGenerating(true); setImagenError('');
                       try {
