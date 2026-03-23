@@ -3977,9 +3977,9 @@ STRICT rules:
                 {!metaLoading && metaResult && (() => {
                   const brand = row.campaign || (() => { try { return new URL(url).hostname.replace("www.", ""); } catch { return "Your Brand"; } })();
                   const domain = (() => { try { return new URL(url).hostname.replace("www.", ""); } catch { return ""; } })();
-                  const pt  = metaResult.primaryTexts?.[metaActiveVariants.pt] || "";
-                  const hl  = metaResult.headlines?.[metaActiveVariants.hl] || "";
-                  const d   = metaResult.descriptions?.[metaActiveVariants.d] || "";
+                  const pt  = metaEdits[`pt-${metaActiveVariants.pt}`] !== undefined ? metaEdits[`pt-${metaActiveVariants.pt}`] : (metaResult.primaryTexts?.[metaActiveVariants.pt] || "");
+                  const hl  = metaEdits[`hl-${metaActiveVariants.hl}`] !== undefined ? metaEdits[`hl-${metaActiveVariants.hl}`] : (metaResult.headlines?.[metaActiveVariants.hl] || "");
+                  const d   = metaEdits[`desc-${metaActiveVariants.d}`] !== undefined ? metaEdits[`desc-${metaActiveVariants.d}`] : (metaResult.descriptions?.[metaActiveVariants.d] || "");
                   const img = metaResult.imageUrl;
                   const isStory = metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story";
                   const isIG    = metaPreviewFormat === "ig-feed"  || metaPreviewFormat === "ig-story";
