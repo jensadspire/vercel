@@ -4422,7 +4422,10 @@ STRICT rules:
                                 }}>
                                   <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
                                   <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>V{vi+1}</div>
-                                  <button onClick={e => { e.stopPropagation(); setRemixSourceUrl(imgUrl); setRemixProduct(null); setRemixError(''); setRemixOpen(true); }} style={{
+                                  <button onClick={e => { e.stopPropagation(); setRemixSourceUrl(imgUrl); setRemixProduct(null); setRemixError(''); setRemixOpen(true);
+                                    if (imagenParsedImages.length === 0 && url) {
+                                      fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then(r => r.json()).then(d => { if (d.images?.length) setImagenParsedImages(d.images); }).catch(()=>{});
+                                    } }} style={{
                                     position: 'absolute', bottom: 3, right: 3,
                                     padding: '2px 6px', fontSize: 9, fontWeight: 700, borderRadius: 4,
                                     background: 'rgba(99,102,241,0.85)', color: 'white',
@@ -5050,7 +5053,7 @@ STRICT rules:
               {remixSourceUrl && (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Scene to remix into</div>
-                  <img src={remixSourceUrl} alt="scene" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }} />
+                  <img src={remixSourceUrl} alt="scene" style={{ width: '100%', maxHeight: 260, objectFit: 'contain', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.3)' }} />
                 </div>
               )}
 
@@ -5067,22 +5070,27 @@ STRICT rules:
                         border: remixProduct === img ? '2px solid #6366f1' : '2px solid rgba(255,255,255,0.06)',
                         transition: 'border 0.15s', position: 'relative',
                       }}>
-                        <img src={img} alt={'product ' + i} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={img} alt={'product ' + i} style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#fff' }} />
                         {remixProduct === img && (
-                          <div style={{ position: 'absolute', inset: 0, background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✓</div>
+                          <div style={{ position: 'absolute', inset: 0, background: 'rgba(99,102,241,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: 'white' }}>✓</div>
                         )}
                       </div>
                     ))}
                   </div>
+                  {remixProduct && (
+                    <div style={{ marginTop: 8, fontSize: 10, color: '#34d399' }}>✓ Product selected — click Generate Remix below</div>
+                  )}
                 ) : (
                   <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div style={{ fontSize: 11, color: '#4a5568', marginBottom: 10 }}>No product images loaded yet</div>
                     <button onClick={async () => {
-                      if (!url) return;
+                      const scrapeUrl = url || (() => { try { const u = new URL(remixSourceUrl || ''); return u.origin; } catch(_) { return null; } })();
+                      if (!scrapeUrl) return;
                       try {
-                        const r = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+                        const r = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: scrapeUrl }) });
                         const d = await r.json();
-                        if (d.images) setImagenParsedImages(d.images);
+                        const imgs = d.images || [];
+                        if (imgs.length > 0) setImagenParsedImages(imgs);
                       } catch(_) {}
                     }} style={{ padding: '7px 16px', fontSize: 11, fontWeight: 700, borderRadius: 7, background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', cursor: 'pointer' }}>
                       Load product images from URL
