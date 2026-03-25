@@ -2003,10 +2003,12 @@ STRICT rules:
                 <button onClick={() => !metaDisabled && setGenerateMeta(v => !v)} style={{
                   width: 16, height: 16, borderRadius: 3, border: "none",
                   cursor: metaDisabled ? "not-allowed" : "pointer", flexShrink: 0,
+                  cursor: metaDisabled ? "not-allowed" : "pointer", flexShrink: 0,
                   background: generateMeta && !metaDisabled ? "linear-gradient(135deg,#0ea5e9,#6366f1)" : "rgba(255,255,255,0.08)",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "background 0.15s",
-                }}>
+                  transition: "background 0.15s, box-shadow 0.15s",
+                  animation: generated && !generateMeta && !metaDisabled ? "metaPulse 2s ease-in-out infinite" : "none",
+                  boxShadow: generated && !generateMeta && !metaDisabled ? "0 0 0 3px rgba(14,165,233,0.4)" : "none",
                   {generateMeta && !metaDisabled && <span style={{ color: "white", fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>}
                 </button>
                 <span style={{ fontSize: 11, color: generateMeta && !metaDisabled ? "#93c5fd" : "#4a5568",
@@ -4594,6 +4596,10 @@ STRICT rules:
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes metaPulse {
+          0%, 100% { box-shadow: 0 0 0 2px rgba(14,165,233,0.3); }
+          50% { box-shadow: 0 0 0 5px rgba(14,165,233,0.6), 0 0 12px rgba(14,165,233,0.4); }
+        }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
