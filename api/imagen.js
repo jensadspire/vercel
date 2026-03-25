@@ -64,7 +64,7 @@ export default async function handler(req, res) {
   const saKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   if (!saKey) return res.status(500).json({ error: 'Google service account not configured' });
 
-  const { prompt, imageBase64, imageMimeType = 'image/jpeg', imageUrl } = req.body || {};
+  const { prompt, imageBase64, imageMimeType = 'image/jpeg', imageUrl, sceneImageUrl } = req.body || {};
   if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
   const projectId = JSON.parse(saKey).project_id;
@@ -89,16 +89,49 @@ export default async function handler(req, res) {
     const accessToken = await getAccessToken(saKey);
     const hasReference = !!finalBase64;
 
+    // ── Fetch scene image for remix mode ──────────────────────────────────────
+    let sceneBase64 = null;
+    let sceneMimeType = 'image/jpeg';
+    if (sceneImageUrl) {
+      try {
+        const sceneRes = await fetch(sceneImageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (sceneRes.ok) {
+          sceneBase64 = Buffer.from(await sceneRes.arrayBuffer()).toString('base64');
+          sceneMimeType = sceneRes.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+        }
+      } catch(e) {
+        console.warn('Could not fetch scene image:', e.message);
+      }
+    }
+    const isRemix = hasReference && !!sceneBase64;
+
     // ── Choose model and build request ────────────────────────────────────────
-    // With reference image: use capability model with SUBJECT mode (product in new scene)
-    // Without: use generate model for text-to-image
-    const model = hasReference
+    // Remix mode: capability model with SUBJECT (product) + STYLE (scene)
+    // Reference only: capability model with SUBJECT mode
+    // Text only: generate model
+    const model = (hasReference || isRemix)
       ? 'imagen-3.0-capability-001'
       : 'imagen-3.0-generate-001';
 
     const instance = { prompt };
 
-    if (hasReference) {
+    if (isRemix) {
+      // Two references: product as subject + scene as style
+      instance.referenceImages = [
+        {
+          referenceId: 1,
+          referenceType: 'REFERENCE_TYPE_SUBJECT',
+          subjectImageConfig: { subjectType: 'SUBJECT_TYPE_PRODUCT' },
+          referenceImage: { bytesBase64Encoded: finalBase64, mimeType: finalMimeType },
+        },
+        {
+          referenceId: 2,
+          referenceType: 'REFERENCE_TYPE_STYLE',
+          styleImageConfig: { styleDescription: 'lifestyle product photography scene' },
+          referenceImage: { bytesBase64Encoded: sceneBase64, mimeType: sceneMimeType },
+        },
+      ];
+    } else if (hasReference) {
       instance.referenceImages = [
         {
           referenceId: 1,
@@ -112,7 +145,7 @@ export default async function handler(req, res) {
       ];
     }
 
-    console.log(`Calling Imagen model: ${model}, hasReference: ${hasReference}`);
+    console.log(`Calling Imagen model: ${model}, hasReference: ${hasReference}, isRemix: ${isRemix}`);
 
     const imagenRes = await fetch(
       `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/${model}:predict`,

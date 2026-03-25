@@ -639,6 +639,11 @@ function RSAStudio() {
   const [imagenTab, setImagenTab] = useState('upload'); // 'upload' | 'url'
   const [imagenUrlInput, setImagenUrlInput] = useState('');
   const [imagenParsedImages, setImagenParsedImages] = useState([]);
+  const [remixOpen, setRemixOpen] = useState(false);
+  const [remixSourceUrl, setRemixSourceUrl] = useState(null); // the lifestyle image to remix into
+  const [remixProduct, setRemixProduct] = useState(null);     // selected product image
+  const [remixGenerating, setRemixGenerating] = useState(false);
+  const [remixError, setRemixError] = useState('');
   const [imagenParsing, setImagenParsing] = useState(false);
   const [imagenSelected, setImagenSelected] = useState(null); // { src, base64, mimeType }
   const [imagenStylePrompt, setImagenStylePrompt] = useState('');
@@ -4417,6 +4422,17 @@ STRICT rules:
                                 }}>
                                   <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
                                   <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>V{vi+1}</div>
+                                  <button onClick={e => { e.stopPropagation(); setRemixSourceUrl(imgUrl); setRemixProduct(null); setRemixError(''); setRemixOpen(true); }} style={{
+                                    position: 'absolute', bottom: 3, right: 3,
+                                    padding: '2px 6px', fontSize: 9, fontWeight: 700, borderRadius: 4,
+                                    background: 'rgba(99,102,241,0.85)', color: 'white',
+                                    border: 'none', cursor: 'pointer', backdropFilter: 'blur(4px)',
+                                    opacity: 0, transition: 'opacity 0.2s',
+                                  }}
+                                  onMouseOver={e => e.currentTarget.style.opacity='1'}
+                                  onMouseOut={e => e.currentTarget.style.opacity='0'}
+                                  title="Remix — insert product into this scene"
+                                  >🔀</button>
                                 </div>
                               ))}
                             </div>
@@ -5004,6 +5020,115 @@ STRICT rules:
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Remix Modal ──────────────────────────────────────────────────── */}
+      {remixOpen && (
+        <div onClick={() => setRemixOpen(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(6px)', zIndex: 1002,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#0f1623', border: '1px solid rgba(99,102,241,0.3)',
+            borderRadius: 16, width: '100%', maxWidth: 580, maxHeight: '88vh',
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+          }}>
+            {/* Header */}
+            <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#e2e8f0' }}>🔀 Remix — Insert Product into Scene</div>
+                <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>Select a product image to insert into the lifestyle scene</div>
+              </div>
+              <button onClick={() => setRemixOpen(false)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ overflowY: 'auto', padding: '16px 24px', flex: 1 }}>
+
+              {/* Scene preview */}
+              {remixSourceUrl && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Scene to remix into</div>
+                  <img src={remixSourceUrl} alt="scene" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }} />
+                </div>
+              )}
+
+              {/* Product picker */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                  Select product to insert {imagenParsedImages.length === 0 && '— scrape a URL first to load product images'}
+                </div>
+                {imagenParsedImages.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                    {imagenParsedImages.map((img, i) => (
+                      <div key={i} onClick={() => setRemixProduct(img)} style={{
+                        aspectRatio: '1', borderRadius: 6, overflow: 'hidden', cursor: 'pointer',
+                        border: remixProduct === img ? '2px solid #6366f1' : '2px solid rgba(255,255,255,0.06)',
+                        transition: 'border 0.15s', position: 'relative',
+                      }}>
+                        <img src={img} alt={'product ' + i} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {remixProduct === img && (
+                          <div style={{ position: 'absolute', inset: 0, background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✓</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ fontSize: 11, color: '#4a5568', marginBottom: 10 }}>No product images loaded yet</div>
+                    <button onClick={async () => {
+                      if (!url) return;
+                      try {
+                        const r = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+                        const d = await r.json();
+                        if (d.images) setImagenParsedImages(d.images);
+                      } catch(_) {}
+                    }} style={{ padding: '7px 16px', fontSize: 11, fontWeight: 700, borderRadius: 7, background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', cursor: 'pointer' }}>
+                      Load product images from URL
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {remixError && <div style={{ fontSize: 11, color: '#f87171', marginBottom: 12 }}>{remixError}</div>}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, flexShrink: 0 }}>
+              <button onClick={async () => {
+                if (!remixProduct || !remixSourceUrl) return;
+                setRemixGenerating(true); setRemixError('');
+                try {
+                  const productDesc = metaResult?.headlines?.[0] || 'product';
+                  const prompt = `This is a ${productDesc}. Please insert this exact product naturally into the provided scene image. Maintain the product's original appearance, shape, and details. The product should look like it belongs in the scene — use natural lighting, shadows and perspective matching. Keep the scene background intact.`;
+                  const body = {
+                    prompt,
+                    sceneImageUrl: remixSourceUrl,
+                    imageUrl: remixProduct,
+                  };
+                  const r = await fetch('/api/imagen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                  const d = await r.json();
+                  if (d.imageUrl) {
+                    setMetaResult(prev => ({ ...prev, imageUrl: d.imageUrl }));
+                    setRemixOpen(false);
+                  } else {
+                    setRemixError(d.error || 'Remix failed — try a different product image');
+                  }
+                } catch(e) { setRemixError(e.message); }
+                setRemixGenerating(false);
+              }} disabled={!remixProduct || remixGenerating} style={{
+                flex: 1, padding: '10px', fontSize: 12, fontWeight: 700, borderRadius: 8,
+                background: !remixProduct || remixGenerating ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg,#6366f1,#0ea5e9)',
+                color: !remixProduct || remixGenerating ? '#4a5568' : 'white',
+                border: 'none', cursor: !remixProduct || remixGenerating ? 'not-allowed' : 'pointer',
+              }}>
+                {remixGenerating ? '⏳ Generating remix...' : '🔀 Generate Remix'}
+              </button>
+              <button onClick={() => setRemixOpen(false)} style={{ padding: '10px 16px', fontSize: 12, borderRadius: 8, background: 'rgba(255,255,255,0.05)', color: '#4a5568', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         </div>
