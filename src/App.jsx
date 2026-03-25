@@ -2011,9 +2011,9 @@ STRICT rules:
                   cursor: metaDisabled ? "not-allowed" : "pointer", flexShrink: 0,
                   background: generateMeta && !metaDisabled ? "linear-gradient(135deg,#0ea5e9,#6366f1)" : "rgba(255,255,255,0.08)",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "background 0.15s, box-shadow 0.15s",
+                  transition: "background 0.15s",
                   animation: generated && !generateMeta && !metaDisabled ? "metaPulse 2s ease-in-out infinite" : "none",
-                  boxShadow: generated && !generateMeta && !metaDisabled ? "0 0 0 3px rgba(14,165,233,0.4)" : "none",
+                  willChange: "box-shadow",
                 }}>
                   {generateMeta && !metaDisabled && <span style={{ color: "white", fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>}
                 </button>
@@ -4614,8 +4614,8 @@ STRICT rules:
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes metaPulse {
-          0%, 100% { box-shadow: 0 0 0 2px rgba(14,165,233,0.3); }
-          50% { box-shadow: 0 0 0 5px rgba(14,165,233,0.6), 0 0 12px rgba(14,165,233,0.4); }
+          0%, 100% { box-shadow: 0 0 0 0px rgba(14,165,233,0.0); }
+          50% { box-shadow: 0 0 0 4px rgba(14,165,233,0.5), 0 0 10px rgba(14,165,233,0.3); }
         }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
