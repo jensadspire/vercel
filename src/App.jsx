@@ -5063,7 +5063,8 @@ STRICT rules:
                   Select product to insert {imagenParsedImages.length === 0 && '— scrape a URL first to load product images'}
                 </div>
                 {imagenParsedImages.length > 0 ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
                     {imagenParsedImages.map((img, i) => (
                       <div key={i} onClick={() => setRemixProduct(img)} style={{
                         aspectRatio: '1', borderRadius: 6, overflow: 'hidden', cursor: 'pointer',
@@ -5076,10 +5077,12 @@ STRICT rules:
                         )}
                       </div>
                     ))}
+                    </div>
                   </div>
                   {remixProduct && (
                     <div style={{ marginTop: 8, fontSize: 10, color: '#34d399' }}>✓ Product selected — click Generate Remix below</div>
                   )}
+                  </>
                 ) : (
                   <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div style={{ fontSize: 11, color: '#4a5568', marginBottom: 10 }}>No product images loaded yet</div>
