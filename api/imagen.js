@@ -127,7 +127,7 @@ export default async function handler(req, res) {
         {
           referenceId: 2,
           referenceType: 'REFERENCE_TYPE_STYLE',
-          styleImageConfig: { styleDescription: 'lifestyle product photography scene' },
+          styleImageConfig: { styleDescription: 'background scene and environment only — preserve exact product from subject reference' },
           referenceImage: { bytesBase64Encoded: sceneBase64, mimeType: sceneMimeType },
         },
       ];

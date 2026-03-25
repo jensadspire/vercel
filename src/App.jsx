@@ -5111,7 +5111,7 @@ STRICT rules:
                 setRemixGenerating(true); setRemixError('');
                 try {
                   const productDesc = metaResult?.headlines?.[0] || 'product';
-                  const prompt = `This is a ${productDesc}. Please insert this exact product naturally into the provided scene image. Maintain the product's original appearance, shape, and details. The product should look like it belongs in the scene — use natural lighting, shadows and perspective matching. Keep the scene background intact.`;
+                  const prompt = `Take the exact product shown in the reference image — preserve its precise shape, label design, colours, typography and packaging details exactly as they appear. Do not reimagine, recreate or stylise the product. Place this exact physical product as a tangible object in the foreground of the provided scene image. The product should appear to physically sit or stand in the scene with natural perspective, matching shadows and lighting from the environment. The surrounding scene should remain completely unchanged. The result should look like a professional product placement photograph where the real product was photographed in this setting.`;
                   const body = {
                     prompt,
                     sceneImageUrl: remixSourceUrl,
