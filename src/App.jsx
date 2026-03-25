@@ -5111,7 +5111,7 @@ STRICT rules:
                 setRemixGenerating(true); setRemixError('');
                 try {
                   const productDesc = metaResult?.headlines?.[0] || 'product';
-                  const prompt = `The scene image contains a similar product (bottle, container or packaging). Replace that existing product in the scene with the exact product shown in the reference image — preserving the product's precise label design, colours, typography, shape and packaging details exactly. The replaced product should adopt the same position, angle, lighting and shadows as the original object in the scene. The rest of the scene — background, props, lighting, atmosphere — must remain completely unchanged. The result should look like the scene was originally photographed with this exact product.`;
+                  const prompt = `You are given a reference product image and a lifestyle scene. Your task: identify the main product in the reference image (its shape, label, colours, typography and packaging). Place this exact product prominently in the foreground of the lifestyle scene. The product must be clearly recognisable with its original label and design intact. Integrate it naturally into the scene — match the lighting direction, add a subtle shadow, and ensure correct perspective. Do not add any new objects. Do not change the background, people, lighting or atmosphere of the scene. The final image should look like a professional advertising photograph of this specific product taken in this setting.`;
                   const body = {
                     prompt,
                     sceneImageUrl: remixSourceUrl,
