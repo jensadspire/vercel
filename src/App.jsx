@@ -5065,23 +5065,22 @@ STRICT rules:
                 {imagenParsedImages.length > 0 ? (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-                    {imagenParsedImages.map((img, i) => (
-                      <div key={i} onClick={() => setRemixProduct(img)} style={{
-                        aspectRatio: '1', borderRadius: 6, overflow: 'hidden', cursor: 'pointer',
-                        border: remixProduct === img ? '2px solid #6366f1' : '2px solid rgba(255,255,255,0.06)',
-                        transition: 'border 0.15s', position: 'relative',
-                      }}>
-                        <img src={img} alt={'product ' + i} style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#fff' }} />
-                        {remixProduct === img && (
-                          <div style={{ position: 'absolute', inset: 0, background: 'rgba(99,102,241,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: 'white' }}>✓</div>
-                        )}
-                      </div>
-                    ))}
+                      {imagenParsedImages.map((img, i) => (
+                        <div key={i} onClick={() => setRemixProduct(img)} style={{
+                          aspectRatio: '1', borderRadius: 6, overflow: 'hidden', cursor: 'pointer',
+                          border: remixProduct === img ? '2px solid #6366f1' : '2px solid rgba(255,255,255,0.06)',
+                          transition: 'border 0.15s', position: 'relative',
+                        }}>
+                          <img src={img} alt={'product ' + i} style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#fff' }} />
+                          {remixProduct === img && (
+                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(99,102,241,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: 'white' }}>✓</div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                  {remixProduct && (
-                    <div style={{ marginTop: 8, fontSize: 10, color: '#34d399' }}>✓ Product selected — click Generate Remix below</div>
-                  )}
+                    {remixProduct && (
+                      <div style={{ marginTop: 8, fontSize: 10, color: '#34d399' }}>✓ Product selected — click Generate Remix below</div>
+                    )}
                   </>
                 ) : (
                   <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
