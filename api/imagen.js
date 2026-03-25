@@ -116,7 +116,7 @@ export default async function handler(req, res) {
     const instance = { prompt };
 
     if (isRemix) {
-      // Two references: product as subject + scene as style
+      // Morphing mode: scene as base + product as subject to replace existing object
       instance.referenceImages = [
         {
           referenceId: 1,
@@ -127,7 +127,7 @@ export default async function handler(req, res) {
         {
           referenceId: 2,
           referenceType: 'REFERENCE_TYPE_STYLE',
-          styleImageConfig: { styleDescription: 'background scene and environment only — preserve exact product from subject reference' },
+          styleImageConfig: { styleDescription: 'exact scene composition, lighting, background and atmosphere — only replace the product object with the subject reference' },
           referenceImage: { bytesBase64Encoded: sceneBase64, mimeType: sceneMimeType },
         },
       ];

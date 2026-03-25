@@ -5111,7 +5111,7 @@ STRICT rules:
                 setRemixGenerating(true); setRemixError('');
                 try {
                   const productDesc = metaResult?.headlines?.[0] || 'product';
-                  const prompt = `Take the exact product shown in the reference image — preserve its precise shape, label design, colours, typography and packaging details exactly as they appear. Do not reimagine, recreate or stylise the product. Place this exact physical product as a tangible object in the foreground of the provided scene image. The product should appear to physically sit or stand in the scene with natural perspective, matching shadows and lighting from the environment. The surrounding scene should remain completely unchanged. The result should look like a professional product placement photograph where the real product was photographed in this setting.`;
+                  const prompt = `The scene image contains a similar product (bottle, container or packaging). Replace that existing product in the scene with the exact product shown in the reference image — preserving the product's precise label design, colours, typography, shape and packaging details exactly. The replaced product should adopt the same position, angle, lighting and shadows as the original object in the scene. The rest of the scene — background, props, lighting, atmosphere — must remain completely unchanged. The result should look like the scene was originally photographed with this exact product.`;
                   const body = {
                     prompt,
                     sceneImageUrl: remixSourceUrl,
