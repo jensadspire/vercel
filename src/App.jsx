@@ -4426,11 +4426,8 @@ STRICT rules:
                                     position: 'absolute', bottom: 3, right: 3,
                                     padding: '2px 6px', fontSize: 9, fontWeight: 700, borderRadius: 4,
                                     background: 'rgba(99,102,241,0.85)', color: 'white',
-                                    border: 'none', cursor: 'pointer', backdropFilter: 'blur(4px)',
-                                    opacity: 0, transition: 'opacity 0.2s',
+                                    border: 'none', cursor: 'pointer',
                                   }}
-                                  onMouseOver={e => e.currentTarget.style.opacity='1'}
-                                  onMouseOut={e => e.currentTarget.style.opacity='0'}
                                   title="Remix — insert product into this scene"
                                   >🔀</button>
                                 </div>
