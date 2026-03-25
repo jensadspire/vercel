@@ -1964,7 +1964,7 @@ STRICT rules:
           : loading
           ? "rgba(245,158,11,0.06)"
           : "rgba(6,13,26,0.6)",
-        transition: "background 0.4s ease",
+        transition: "background 0.6s ease",
       }}>
         <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -2100,10 +2100,8 @@ STRICT rules:
             color: "white", border: "none",
             borderRadius: 8, cursor: loading || batchRunning ? "not-allowed" : "pointer",
             display: "flex", alignItems: "center", gap: 7, flexShrink: 0,
-            transition: "all 0.3s ease",
-            boxShadow: loading || batchRunning
-              ? "0 0 16px rgba(245,158,11,0.5)"
-              : "0 4px 14px rgba(99,102,241,0.3)",
+            transition: "background 0.3s ease, opacity 0.3s ease",
+            willChange: "opacity",
             animation: loading || batchRunning ? "pulse 1.5s ease-in-out infinite" : "none",
           }}>
             {loading
@@ -2484,7 +2482,8 @@ STRICT rules:
                           ? "0 4px 14px rgba(99,102,241,0.3)"
                           : "none",
                         animation: batchRunning ? "pulse 1.5s ease-in-out infinite" : "none",
-                        transition: "all 0.3s ease",
+                        transition: "background 0.3s ease, opacity 0.3s ease",
+            willChange: "opacity",
                       }}>
                       {batchRunning
                         ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block", marginRight: 6 }}>⟳</span>Generating…</>
