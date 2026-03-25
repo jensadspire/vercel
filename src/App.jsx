@@ -935,7 +935,7 @@ function RSAStudio() {
             ...(isAdmin ? { "x-admin-key": import.meta.env.VITE_ADMIN_KEY } : {}),
             ...(isSignedIn && session ? { "x-clerk-session": await session.getToken() } : {}),
           },
-          body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
+          body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
         });
 
         if (!res.ok || res.status === 429) continue;
@@ -1215,7 +1215,7 @@ NOTE: ${activeModifiers} modifiers are active simultaneously. Balance them caref
             ...(isSignedIn && session ? { "x-clerk-session": await session.getToken() } : {}),
           },
           body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
+            model: "claude-sonnet-4-6",
             max_tokens: 2000,
             messages: [{
               role: "user",
@@ -1293,7 +1293,7 @@ Rules:
           ...(isSignedIn && session ? { "x-clerk-session": await session.getToken() } : {}),
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-6",
           max_tokens: 2000,
           messages: [{
             role: "user",
