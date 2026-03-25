@@ -5111,7 +5111,7 @@ STRICT rules:
                 setRemixGenerating(true); setRemixError('');
                 try {
                   const productDesc = metaResult?.headlines?.[0] || 'product';
-                  const prompt = `You are given a reference product image and a lifestyle scene. Your task: identify the main product in the reference image (its shape, label, colours, typography and packaging). Place this exact product prominently in the foreground of the lifestyle scene. The product must be clearly recognisable with its original label and design intact. Integrate it naturally into the scene — match the lighting direction, add a subtle shadow, and ensure correct perspective. Do not add any new objects. Do not change the background, people, lighting or atmosphere of the scene. The final image should look like a professional advertising photograph of this specific product taken in this setting.`;
+                  const prompt = `Take the exact product shown in the reference image — preserve its precise shape, label design, colours, typography and packaging details exactly as they appear. Do not reimagine, recreate or stylise the product. Place this exact physical product as a tangible object in the foreground of the provided scene image. The product should appear to physically sit or stand in the scene with natural perspective, matching shadows and lighting from the environment. The surrounding scene should remain completely unchanged. The result should look like a professional product placement photograph where the real product was photographed in this setting.`;
                   const body = {
                     prompt,
                     sceneImageUrl: remixSourceUrl,
