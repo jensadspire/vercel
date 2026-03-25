@@ -2009,6 +2009,7 @@ STRICT rules:
                   transition: "background 0.15s, box-shadow 0.15s",
                   animation: generated && !generateMeta && !metaDisabled ? "metaPulse 2s ease-in-out infinite" : "none",
                   boxShadow: generated && !generateMeta && !metaDisabled ? "0 0 0 3px rgba(14,165,233,0.4)" : "none",
+                }}>
                   {generateMeta && !metaDisabled && <span style={{ color: "white", fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>}
                 </button>
                 <span style={{ fontSize: 11, color: generateMeta && !metaDisabled ? "#93c5fd" : "#4a5568",
