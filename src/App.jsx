@@ -1424,6 +1424,10 @@ STRICT rules:
       if (generateMeta) {
         setMetaLoading(true);
         setMetaError("");
+        setMetaImagesLoading(false);
+        setMetaResult(null); // clear previous result to avoid stale images
+        setActiveImageVariant(0);
+        setMetaEdits({});
         setAdFormat("meta"); // switch to meta tab immediately so user sees spinner
         try {
           const metaRes = await fetch("/api/generate-meta", {
