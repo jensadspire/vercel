@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   ClerkProvider,
   SignIn,
@@ -641,7 +641,7 @@ function RSAStudio() {
   const [imagenParsedImages, setImagenParsedImages] = useState([]);
   const [remixOpen, setRemixOpen] = useState(false);
   const [metaImagesLoading, setMetaImagesLoading] = useState(false);
-  const metaGenId = React.useRef(0); // increments each generation to cancel stale callbacks
+  const metaGenId = useRef(0); // increments each generation to cancel stale callbacks
   const [remixSourceUrl, setRemixSourceUrl] = useState(null); // the lifestyle image to remix into
   const [remixProduct, setRemixProduct] = useState(null);     // selected product image
   const [remixGenerating, setRemixGenerating] = useState(false);
