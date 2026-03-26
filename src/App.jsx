@@ -1459,15 +1459,19 @@ STRICT rules:
               const { s1, s2, s3, v1, v2, v3 } = metaData.imagePrompts;
               const genImg = async (prompt) => {
                 if (!prompt) return null;
-                try {
-                  const r = await fetch('/api/imagen', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt }),
-                  });
-                  const d = await r.json();
-                  return d.imageUrl || null;
-                } catch(_) { return null; }
+                for (let attempt = 0; attempt < 2; attempt++) {
+                  try {
+                    const r = await fetch('/api/imagen', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt }),
+                    });
+                    const d = await r.json();
+                    if (d.imageUrl) return d.imageUrl;
+                  } catch(_) {}
+                  if (attempt === 0) await new Promise(r => setTimeout(r, 2000));
+                }
+                return null;
               };
               const thisGenId = metaGenId.current;
               Promise.all([
@@ -2130,7 +2134,7 @@ STRICT rules:
                   border: '1px solid ' + (audienceLoading ? 'rgba(245,158,11,0.4)' : audienceBrief ? 'rgba(99,102,241,0.35)' : 'rgba(255,255,255,0.1)'),
                   cursor: !url || audienceLoading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
                   animation: audienceLoading ? 'audiencePulse 1.5s ease-in-out infinite' : 'none',
-                  willChange: 'box-shadow',
+                  willChange: 'opacity',
                 }}>
                   {audienceLoading ? '⏳ Building...' : audienceBrief ? '✓ Brief ready' : '🎯 Build Audience'}                </button>
                 {audienceBrief && (
@@ -3604,6 +3608,12 @@ STRICT rules:
                     {(() => { const t = metaEdits[`pt-${metaActiveVariants.pt}`] !== undefined ? metaEdits[`pt-${metaActiveVariants.pt}`] : (metaResult.primaryTexts?.[metaActiveVariants.pt] || ''); return t.slice(0, 120) + (t.length > 120 ? '... See more' : ''); })()}
                   </div>
                   {/* Ad image */}
+                  {metaImagesLoading && !metaResult.imageUrl && (
+                    <div style={{ width: '100%', aspectRatio: '1', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ fontSize: 20, animation: 'spin 2s linear infinite' }}>✦</div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Generating image…</div>
+                    </div>
+                  )}
                   {metaResult.imageUrl && (
                     <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
                   )}
@@ -4678,8 +4688,8 @@ STRICT rules:
           50% { box-shadow: 0 0 0 4px rgba(14,165,233,0.5), 0 0 10px rgba(14,165,233,0.3); }
         }
         @keyframes audiencePulse {
-          0%, 100% { box-shadow: 0 0 0 0px rgba(245,158,11,0.0); }
-          50% { box-shadow: 0 0 0 4px rgba(245,158,11,0.5), 0 0 10px rgba(245,158,11,0.3); }
+          0%, 100% { opacity: 1; border-color: rgba(245,158,11,0.4); }
+          50% { opacity: 0.7; border-color: rgba(245,158,11,0.8); }
         }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
