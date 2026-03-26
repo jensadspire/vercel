@@ -5194,14 +5194,12 @@ STRICT rules:
                   const r = await fetch('/api/imagen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                   const d = await r.json();
                   if (d.imageUrl) {
-                    setMetaResult(prev => ({
-                      ...prev,
-                      imageUrl: d.imageUrl,
-                      imageVariations: prev.imageVariations
-                        ? [d.imageUrl, ...prev.imageVariations.slice(1)]
-                        : [d.imageUrl],
-                    }));
-                    setActiveImageVariant(0);
+                    setMetaResult(prev => {
+                      if (!prev) return prev;
+                      const variations = [...(prev.imageVariations || [])];
+                      variations[activeImageVariant] = d.imageUrl;
+                      return { ...prev, imageUrl: d.imageUrl, imageVariations: variations };
+                    });
                     setRemixOpen(false);
                   } else {
                     setRemixError(d.error || 'Remix failed — try a different product image');
