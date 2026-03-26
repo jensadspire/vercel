@@ -116,19 +116,14 @@ export default async function handler(req, res) {
     const instance = { prompt };
 
     if (isRemix) {
-      // Morphing mode: scene as base + product as subject to replace existing object
+      // Single SUBJECT reference — proven approach from v2
+      // Scene passed via prompt description only, not as style reference
       instance.referenceImages = [
         {
           referenceId: 1,
           referenceType: 'REFERENCE_TYPE_SUBJECT',
           subjectImageConfig: { subjectType: 'SUBJECT_TYPE_PRODUCT' },
           referenceImage: { bytesBase64Encoded: finalBase64, mimeType: finalMimeType },
-        },
-        {
-          referenceId: 2,
-          referenceType: 'REFERENCE_TYPE_STYLE',
-          styleImageConfig: { styleDescription: 'lifestyle scene — preserve background, lighting and atmosphere unchanged' },
-          referenceImage: { bytesBase64Encoded: sceneBase64, mimeType: sceneMimeType },
         },
       ];
     } else if (hasReference) {

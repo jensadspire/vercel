@@ -5185,7 +5185,7 @@ STRICT rules:
                 setRemixGenerating(true); setRemixError('');
                 try {
                   const productDesc = metaResult?.headlines?.[0] || 'product';
-                  const prompt = `You are compositing a product into a lifestyle scene. The scene image has a clear empty space or surface area in the foreground — this is where the product should be placed. Take the exact product shown in the reference product image and place it INTO that empty space. Size the product naturally so it fills the empty area proportionally — not too large, not too small — as if it was physically present when the photo was taken. Match the product lighting to the scene: use the same light direction, add a soft natural shadow beneath the product, and blend the edges so the product feels embedded in the scene rather than pasted on top. Preserve the product's exact label design, colours and shape. Do not change anything else in the scene. The final result should look like a professional product photograph taken in this setting with this specific product.`;
+                  const prompt = `Place the exact product from the reference image into the foreground of this lifestyle scene. The scene has an empty surface area in the foreground — position the product there. Keep the product's exact label, colours and shape. Size it proportionally to look natural in the scene, not too large. Add a soft shadow beneath it. Keep everything else in the scene unchanged.`;
                   const body = {
                     prompt,
                     sceneImageUrl: remixSourceUrl,
