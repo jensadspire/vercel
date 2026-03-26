@@ -3,7 +3,6 @@
  * Scrapes the URL then generates Facebook/Instagram ad copy via Claude.
  * Reuses the same scrape endpoint the Google flow uses.
  */
-export const config = { maxDuration: 60 };
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 

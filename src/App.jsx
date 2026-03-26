@@ -1430,7 +1430,10 @@ STRICT rules:
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ url, language: pageMeta.language, imageModel, isPro, audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
           });
-          const metaData = await metaRes.json();
+          const metaRaw = await metaRes.text();
+          let metaData;
+          try { metaData = JSON.parse(metaRaw); }
+          catch(_) { throw new Error("Server timeout — try again (image generation took too long)"); }
           if (metaData.error) {
             setMetaError("Meta generation error: " + metaData.error);
           } else if (!metaData.primaryTexts?.length && !metaData.headlines?.length) {
