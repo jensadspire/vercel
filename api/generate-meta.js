@@ -171,7 +171,6 @@ Rules:
     }
 
     if (isPro) {
-    if (isPro) {
       // ── Build scene-ready prompts and return them for async client generation
       // ── Detect product category for scene-ready prompts ────────────────────
       const pageText = (pageContent + ' ' + url).toLowerCase();
