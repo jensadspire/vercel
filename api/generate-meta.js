@@ -221,7 +221,11 @@ Rules:
       const directPrompt5 = basePrompt + ' Clean studio background, soft professional lighting, product as hero. Minimal, elegant, high-end advertising photography.';
       const directPrompt6 = basePrompt + ` Contextual ${sceneContext}, product in natural use setting. Warm natural light, editorial style.`;
 
-      // Return prompts to frontend for async image generation
+      // Return all 6 prompts for Pro, just s1+v1 for free
+      const imagePromptsToReturn = isPro
+        ? { s1: scenePrompt1, s2: scenePrompt2, s3: scenePrompt3, v1: directPrompt4, v2: directPrompt5, v3: directPrompt6 }
+        : { s1: scenePrompt1, v1: directPrompt4 };
+
       return res.json({
         primaryTexts: parsed.primaryTexts || [],
         headlines: (parsed.headlines || []).map(h => h.slice(0, 40)),
@@ -229,20 +233,9 @@ Rules:
         imageUrl: null,
         imageVariations: [],
         imagePrompt: parsed.imagePrompt,
-        imagePrompts: {
-          s1: scenePrompt1,
-          s2: scenePrompt2,
-          s3: scenePrompt3,
-          v1: directPrompt4,
-          v2: directPrompt5,
-          v3: directPrompt6,
-        },
-        isPro: true,
+        imagePrompts: imagePromptsToReturn,
+        isPro,
       });
-    } else {
-      // ── Free/standard: single DALL-E image (fast) ──────────────────────────
-      if (!imageUrl) imageUrl = await genDalle(basePrompt);
-      imageVariations = imageUrl ? [imageUrl] : [];
     }
   } // end if (parsed.imagePrompt)
 

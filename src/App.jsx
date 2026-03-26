@@ -641,6 +641,7 @@ function RSAStudio() {
   const [imagenParsedImages, setImagenParsedImages] = useState([]);
   const [remixOpen, setRemixOpen] = useState(false);
   const [metaImagesLoading, setMetaImagesLoading] = useState(false);
+  const metaGenId = React.useRef(0); // increments each generation to cancel stale callbacks
   const [remixSourceUrl, setRemixSourceUrl] = useState(null); // the lifestyle image to remix into
   const [remixProduct, setRemixProduct] = useState(null);     // selected product image
   const [remixGenerating, setRemixGenerating] = useState(false);
@@ -1426,6 +1427,7 @@ STRICT rules:
         setMetaError("");
         setMetaImagesLoading(false);
         setMetaResult(null); // clear previous result to avoid stale images
+        metaGenId.current += 1; // invalidate any in-flight async image callbacks
         setActiveImageVariant(0);
         setMetaEdits({});
         setAdFormat("meta"); // switch to meta tab immediately so user sees spinner
@@ -1452,10 +1454,11 @@ STRICT rules:
             setMetaEditingField(null);
 
             // ── Async image generation if prompts returned ──────────────────
-            if (metaData.imagePrompts && metaData.isPro) {
+            if (metaData.imagePrompts) {
               setMetaImagesLoading(true);
               const { s1, s2, s3, v1, v2, v3 } = metaData.imagePrompts;
               const genImg = async (prompt) => {
+                if (!prompt) return null;
                 try {
                   const r = await fetch('/api/imagen', {
                     method: 'POST',
@@ -1466,14 +1469,16 @@ STRICT rules:
                   return d.imageUrl || null;
                 } catch(_) { return null; }
               };
+              const thisGenId = metaGenId.current;
               Promise.all([
                 genImg(s1),
-                genImg(s2),
-                genImg(s3),
+                genImg(s2 || null),
+                genImg(s3 || null),
                 genImg(v1),
-                genImg(v2),
-                genImg(v3),
+                genImg(v2 || null),
+                genImg(v3 || null),
               ]).then(([is1, is2, is3, iv1, iv2, iv3]) => {
+                if (metaGenId.current !== thisGenId) return; // stale — newer generation started
                 setMetaImagesLoading(false);
                 const variations = [is1, is2, is3, iv1, iv2, iv3].filter(Boolean);
                 if (variations.length > 0) {
@@ -2105,12 +2110,12 @@ STRICT rules:
                   if (!url) return;
                   setAudienceLoading(true);
                   try {
-                    const scrapeRes = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
-                    const scrapeData = await scrapeRes.json();
+                    // Use already-scraped pageMeta content if available, else scrape
+                    const pageContent = pageMeta?.content || pageMeta?.description || '';
                     const r = await fetch('/api/audience', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ url, pageContent: scrapeData.content || '', audienceDescription: audienceDesc, language: 'English' }),
+                      body: JSON.stringify({ url, pageContent, audienceDescription: audienceDesc }),
                     });
                     const brief = await r.json();
                     setAudienceBrief(brief);
