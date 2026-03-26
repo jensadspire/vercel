@@ -116,8 +116,10 @@ Rules:
   }
 
   // ── Step 3: Generate image variations in parallel ───────────────────────────
+  // Images generated client-side via /api/imagen to avoid timeout
+  // Pass prompts back to frontend for async generation
   let imageUrl = null;
-  let imageVariations = []; // up to 4 variations for Pro users
+  let imageVariations = [];
 
   if (parsed.imagePrompt) {
     const origin = req.headers.origin || 'https://rsa-studio.vercel.app';
@@ -170,6 +172,7 @@ Rules:
 
     if (isPro) {
     if (isPro) {
+      // ── Build scene-ready prompts and return them for async client generation
       // ── Detect product category for scene-ready prompts ────────────────────
       const pageText = (pageContent + ' ' + url).toLowerCase();
       const isSkincare  = /skin|serum|moistur|cream|lotion|cleanser|toner|spf|sunscreen|facial|face|pleje|hudpleje/.test(pageText);
@@ -219,27 +222,25 @@ Rules:
       const directPrompt5 = basePrompt + ' Clean studio background, soft professional lighting, product as hero. Minimal, elegant, high-end advertising photography.';
       const directPrompt6 = basePrompt + ` Contextual ${sceneContext}, product in natural use setting. Warm natural light, editorial style.`;
 
-      // ── Generate 3 images in parallel (balanced speed vs variety) ────────────
-      // S1: scene-ready lifestyle, S2: flat lay, V1: direct with product
-      const [v1, v2, v3] = await Promise.all([
-        genImagen(scenePrompt1, '-v1'),
-        genImagen(scenePrompt2, '-v2'),
-        imageModel === 'imagen' ? genImagen(directPrompt4, '-v3') : genDalle(directPrompt4, '-v3'),
-      ]);
-
-      // V4: studio hero — quick DALL-E call as 4th variation
-      const v4 = await genDalle(directPrompt5, '-v4');
-
-      imageVariations = [v1, v2, v3, v4].filter(Boolean);
-      imageUrl = imageVariations[0] || null;
+      // Return prompts to frontend for async image generation
+      return res.json({
+        primaryTexts: parsed.primaryTexts || [],
+        headlines: (parsed.headlines || []).map(h => h.slice(0, 40)),
+        descriptions: (parsed.descriptions || []).map(d => d.slice(0, 30)),
+        imageUrl: null,
+        imageVariations: [],
+        imagePrompt: parsed.imagePrompt,
+        imagePrompts: {
+          s1: scenePrompt1,
+          s2: scenePrompt2,
+          v1: directPrompt4,
+          v2: directPrompt5,
+        },
+        isPro: true,
+      });
     } else {
-      // ── Free/standard: single image ────────────────────────────────────────
-      if (imageModel === 'imagen' && hasImagen) {
-        imageUrl = await genImagen(basePrompt);
-      }
-      if (!imageUrl) {
-        imageUrl = await genDalle(basePrompt);
-      }
+      // ── Free/standard: single DALL-E image (fast) ──────────────────────────
+      if (!imageUrl) imageUrl = await genDalle(basePrompt);
       imageVariations = imageUrl ? [imageUrl] : [];
     }
   } // end if (parsed.imagePrompt)

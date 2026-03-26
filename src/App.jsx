@@ -1445,6 +1445,38 @@ STRICT rules:
             setVideoTask(null);
             setMetaEdits({});
             setMetaEditingField(null);
+
+            // ── Async image generation if prompts returned ──────────────────
+            if (metaData.imagePrompts && metaData.isPro) {
+              const { s1, s2, v1, v2 } = metaData.imagePrompts;
+              const genImg = async (prompt, suffix) => {
+                try {
+                  const r = await fetch('/api/imagen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt }),
+                  });
+                  const d = await r.json();
+                  return d.imageUrl || null;
+                } catch(_) { return null; }
+              };
+              // Fire all 4 in parallel, update state as they arrive
+              Promise.all([
+                genImg(s1, '-s1'),
+                genImg(s2, '-s2'),
+                genImg(v1, '-v1'),
+                genImg(v2, '-v2'),
+              ]).then(([is1, is2, iv1, iv2]) => {
+                const variations = [is1, is2, iv1, iv2].filter(Boolean);
+                if (variations.length > 0) {
+                  setMetaResult(prev => prev ? ({
+                    ...prev,
+                    imageUrl: variations[0],
+                    imageVariations: variations,
+                  }) : prev);
+                }
+              });
+            }
             // Persist metaResult into the most recent history entry for this URL
             setHistory(prev => {
               if (!prev.length) return prev;
