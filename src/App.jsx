@@ -640,6 +640,7 @@ function RSAStudio() {
   const [imagenUrlInput, setImagenUrlInput] = useState('');
   const [imagenParsedImages, setImagenParsedImages] = useState([]);
   const [remixOpen, setRemixOpen] = useState(false);
+  const [metaImagesLoading, setMetaImagesLoading] = useState(false);
   const [remixSourceUrl, setRemixSourceUrl] = useState(null); // the lifestyle image to remix into
   const [remixProduct, setRemixProduct] = useState(null);     // selected product image
   const [remixGenerating, setRemixGenerating] = useState(false);
@@ -1448,6 +1449,7 @@ STRICT rules:
 
             // ── Async image generation if prompts returned ──────────────────
             if (metaData.imagePrompts && metaData.isPro) {
+              setMetaImagesLoading(true);
               const { s1, s2, v1, v2 } = metaData.imagePrompts;
               const genImg = async (prompt, suffix) => {
                 try {
@@ -1467,6 +1469,7 @@ STRICT rules:
                 genImg(v1, '-v1'),
                 genImg(v2, '-v2'),
               ]).then(([is1, is2, iv1, iv2]) => {
+                setMetaImagesLoading(false);
                 const variations = [is1, is2, iv1, iv2].filter(Boolean);
                 if (variations.length > 0) {
                   setMetaResult(prev => prev ? ({
@@ -4449,6 +4452,15 @@ STRICT rules:
                         <div style={{ padding: "16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                           <div style={{ position: "relative", flexShrink: 0 }}>
                           {/* ── Image variations grid (Pro: 2x2, Free: 1x1) ── */}
+                          {isPro && metaImagesLoading && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, width: 248, marginBottom: 8 }}>
+                              {[0,1,2,3].map(i => (
+                                <div key={i} style={{ aspectRatio: '1', borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <div style={{ fontSize: 9, color: '#2d3748', animation: 'pulse 1.5s ease-in-out infinite' }}>generating…</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           {isPro && metaResult.imageVariations && metaResult.imageVariations.length > 1 ? (
                             <>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, width: 248 }}>
