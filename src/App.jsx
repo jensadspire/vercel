@@ -1423,6 +1423,7 @@ STRICT rules:
       if (generateMeta) {
         setMetaLoading(true);
         setMetaError("");
+        setAdFormat("meta"); // switch to meta tab immediately so user sees spinner
         try {
           const metaRes = await fetch("/api/generate-meta", {
             method: "POST",
@@ -1432,6 +1433,8 @@ STRICT rules:
           const metaData = await metaRes.json();
           if (metaData.error) {
             setMetaError("Meta generation error: " + metaData.error);
+          } else if (!metaData.primaryTexts?.length && !metaData.headlines?.length) {
+            setMetaError("Meta generation returned empty response — please try again");
           } else {
             setMetaError("");
             setMetaResult(metaData);
@@ -1439,7 +1442,6 @@ STRICT rules:
             setVideoTask(null);
             setMetaEdits({});
             setMetaEditingField(null);
-            setAdFormat("meta"); // switch to meta tab only after success
             // Persist metaResult into the most recent history entry for this URL
             setHistory(prev => {
               if (!prev.length) return prev;
@@ -4414,7 +4416,7 @@ STRICT rules:
                           {/* ── Image variations grid (Pro: 2x2, Free: 1x1) ── */}
                           {isPro && metaResult.imageVariations && metaResult.imageVariations.length > 1 ? (
                             <>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, width: 372 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, width: 248 }}>
                               {metaResult.imageVariations.map((imgUrl, vi) => (
                                 <div key={vi} onClick={() => { setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
                                   position: "relative", cursor: "pointer", borderRadius: 6, overflow: "hidden",
@@ -4422,7 +4424,7 @@ STRICT rules:
                                   transition: "border 0.15s",
                                 }}>
                                   <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
-                                  <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi < 3 ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi < 3 ? `S${vi+1}` : `V${vi-2}`}</div>
+                                  <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi < 2 ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi < 2 ? `S${vi+1}` : `V${vi-1}`}</div>
                                   <button onClick={e => { e.stopPropagation(); setRemixSourceUrl(imgUrl); setRemixProduct(null); setRemixError(''); setRemixOpen(true);
                                     if (imagenParsedImages.length === 0 && url) {
                                       fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then(r => r.json()).then(d => { if (d.images?.length) setImagenParsedImages(d.images); }).catch(()=>{});

@@ -220,20 +220,18 @@ Rules:
       const directPrompt5 = basePrompt + ' Clean studio background, soft professional lighting, product as hero. Minimal, elegant, high-end advertising photography.';
       const directPrompt6 = basePrompt + ` Contextual ${sceneContext}, product in natural use setting. Warm natural light, editorial style.`;
 
-      // ── Generate in 2 batches: scene-ready first, then direct ─────────────
+      // ── Generate 3 images in parallel (balanced speed vs variety) ────────────
+      // S1: scene-ready lifestyle, S2: flat lay, V1: direct with product
       const [v1, v2, v3] = await Promise.all([
         genImagen(scenePrompt1, '-v1'),
         genImagen(scenePrompt2, '-v2'),
-        genImagen(scenePrompt3, '-v3'),
+        imageModel === 'imagen' ? genImagen(directPrompt4, '-v3') : genDalle(directPrompt4, '-v3'),
       ]);
 
-      const [v4, v5, v6] = await Promise.all([
-        imageModel === 'imagen' ? genImagen(directPrompt4, '-v4') : genDalle(directPrompt4, '-v4'),
-        genImagen(directPrompt5, '-v5'),
-        genDalle(directPrompt6, '-v6'),
-      ]);
+      // V4: studio hero — quick DALL-E call as 4th variation
+      const v4 = await genDalle(directPrompt5, '-v4');
 
-      imageVariations = [v1, v2, v3, v4, v5, v6].filter(Boolean);
+      imageVariations = [v1, v2, v3, v4].filter(Boolean);
       imageUrl = imageVariations[0] || null;
     } else {
       // ── Free/standard: single image ────────────────────────────────────────
