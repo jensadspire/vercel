@@ -1454,8 +1454,8 @@ STRICT rules:
             // ── Async image generation if prompts returned ──────────────────
             if (metaData.imagePrompts && metaData.isPro) {
               setMetaImagesLoading(true);
-              const { s1, s2, v1, v2 } = metaData.imagePrompts;
-              const genImg = async (prompt, suffix) => {
+              const { s1, s2, s3, v1, v2, v3 } = metaData.imagePrompts;
+              const genImg = async (prompt) => {
                 try {
                   const r = await fetch('/api/imagen', {
                     method: 'POST',
@@ -1466,15 +1466,16 @@ STRICT rules:
                   return d.imageUrl || null;
                 } catch(_) { return null; }
               };
-              // Fire all 4 in parallel, update state as they arrive
               Promise.all([
-                genImg(s1, '-s1'),
-                genImg(s2, '-s2'),
-                genImg(v1, '-v1'),
-                genImg(v2, '-v2'),
-              ]).then(([is1, is2, iv1, iv2]) => {
+                genImg(s1),
+                genImg(s2),
+                genImg(s3),
+                genImg(v1),
+                genImg(v2),
+                genImg(v3),
+              ]).then(([is1, is2, is3, iv1, iv2, iv3]) => {
                 setMetaImagesLoading(false);
-                const variations = [is1, is2, iv1, iv2].filter(Boolean);
+                const variations = [is1, is2, is3, iv1, iv2, iv3].filter(Boolean);
                 if (variations.length > 0) {
                   setMetaResult(prev => prev ? ({
                     ...prev,
@@ -4457,8 +4458,8 @@ STRICT rules:
                           <div style={{ position: "relative", flexShrink: 0 }}>
                           {/* ── Image variations grid (Pro: 2x2, Free: 1x1) ── */}
                           {isPro && metaImagesLoading && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, width: 248, marginBottom: 8 }}>
-                              {[0,1,2,3].map(i => (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, width: 372, marginBottom: 8 }}>
+                              {[0,1,2,3,4,5].map(i => (
                                 <div key={i} style={{ aspectRatio: '1', borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <div style={{ fontSize: 9, color: '#2d3748', animation: 'pulse 1.5s ease-in-out infinite' }}>generating…</div>
                                 </div>
@@ -4467,7 +4468,7 @@ STRICT rules:
                           )}
                           {isPro && metaResult.imageVariations && metaResult.imageVariations.length > 1 ? (
                             <>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, width: 248 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, width: 372 }}>
                               {metaResult.imageVariations.map((imgUrl, vi) => (
                                 <div key={vi} onClick={() => { setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
                                   position: "relative", cursor: "pointer", borderRadius: 6, overflow: "hidden",
@@ -4475,7 +4476,7 @@ STRICT rules:
                                   transition: "border 0.15s",
                                 }}>
                                   <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
-                                  <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi < 2 ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi < 2 ? `S${vi+1}` : `V${vi-1}`}</div>
+                                  <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi < 3 ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi < 3 ? `S${vi+1}` : `V${vi-2}`}</div>
                                   <button onClick={e => { e.stopPropagation(); setRemixSourceUrl(imgUrl); setRemixProduct(null); setRemixError(''); setRemixOpen(true);
                                     if (imagenParsedImages.length === 0 && url) {
                                       fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then(r => r.json()).then(d => { if (d.images?.length) setImagenParsedImages(d.images); }).catch(()=>{});

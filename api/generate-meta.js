@@ -232,8 +232,10 @@ Rules:
         imagePrompts: {
           s1: scenePrompt1,
           s2: scenePrompt2,
+          s3: scenePrompt3,
           v1: directPrompt4,
           v2: directPrompt5,
+          v3: directPrompt6,
         },
         isPro: true,
       });
