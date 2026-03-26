@@ -169,21 +169,68 @@ Rules:
     }
 
     if (isPro) {
-      // ── Pro: 4 variations in parallel ──────────────────────────────────────
-      const lifestylePrompt = basePrompt.replace('Clean composition', 'Lifestyle setting, people using the product');
-      const environmentPrompt = basePrompt + ' Natural outdoor environment, contextual setting.';
-      const minimalPrompt = basePrompt + ' Minimal clean studio background, product hero shot.';
+    if (isPro) {
+      // ── Detect product category for scene-ready prompts ────────────────────
+      const pageText = (pageContent + ' ' + url).toLowerCase();
+      const isSkincare  = /skin|serum|moistur|cream|lotion|cleanser|toner|spf|sunscreen|facial|face|pleje|hudpleje/.test(pageText);
+      const isHaircare  = /hair|shampoo|conditioner|scalp|hår/.test(pageText);
+      const isCosmetics = /makeup|lipstick|mascara|foundation|blush|eyeshadow|cosmetic|beauty/.test(pageText);
+      const isFashion   = /fashion|clothing|apparel|dress|wear|tøj|mode|jacket|shirt|shoe/.test(pageText);
+      const isFood      = /food|drink|beverage|snack|coffee|tea|wine|beer|mad|drikke/.test(pageText);
+      const isHome      = /home|interior|furniture|decor|living|kitchen|bath|hjem/.test(pageText);
 
-      const [v1, v2, v3, v4] = await Promise.all([
-        imageModel === 'imagen' ? genImagen(basePrompt, '-v1') : genDalle(basePrompt, '-v1'),
-        imageModel === 'imagen' ? genImagen(environmentPrompt, '-v2') : genDalle(lifestylePrompt, '-v2'),
-        genImagen(basePrompt, '-v3'),
-        genDalle(minimalPrompt, '-v4'),
+      let sceneLocation = 'a clean minimal surface';
+      let sceneObjects  = 'natural elements, botanicals and texture props';
+      let sceneContext  = 'lifestyle context';
+
+      if (isSkincare || isCosmetics) {
+        sceneContext  = 'bathroom or vanity setting';
+        sceneObjects  = 'soft towels, botanical ingredients, natural stones and dropper bottles';
+        sceneLocation = 'a marble bathroom shelf or white vanity surface';
+      } else if (isHaircare) {
+        sceneContext  = 'bathroom or salon setting';
+        sceneObjects  = 'towels, botanical herbs, a wooden comb and natural ingredients';
+        sceneLocation = 'a wet bathroom shelf or wooden surface';
+      } else if (isFashion) {
+        sceneContext  = 'lifestyle fashion setting';
+        sceneObjects  = 'natural textures, accessories and fabric details';
+        sceneLocation = 'a clean urban or studio environment';
+      } else if (isFood) {
+        sceneContext  = 'kitchen or dining setting';
+        sceneObjects  = 'fresh ingredients, wooden boards and natural props';
+        sceneLocation = 'a kitchen counter or dining table';
+      } else if (isHome) {
+        sceneContext  = 'interior home setting';
+        sceneObjects  = 'natural textures, plants and soft lighting elements';
+        sceneLocation = 'a living room surface or shelf';
+      }
+
+      const gender = genderHint === 'female' ? 'woman' : genderHint === 'male' ? 'man' : 'person';
+
+      // ── V1-V3: Scene-ready — empty product zone for remix ──────────────────
+      const scenePrompt1 = `Editorial lifestyle photograph. A ${gender} in the background, softly blurred, in a ${sceneContext}. In the sharp foreground: ${sceneLocation} with ${sceneObjects} arranged naturally. A clearly visible empty space on the surface — enough room for a product bottle or container to be placed. Natural soft lighting, warm atmosphere. No product packaging or bottles. Photorealistic, 1:1 square format.${modelHint}`;
+
+      const scenePrompt2 = `Professional flat lay photograph from above. A ${sceneContext} styled with ${sceneObjects} beautifully arranged. In the centre: a deliberately empty space on ${sceneLocation} — negative space where a product could be placed. Soft natural lighting, subtle shadows. No product packaging, no bottles, no containers. Photorealistic, 1:1 square format, editorial quality.`;
+
+      const scenePrompt3 = `Atmospheric lifestyle scene in a ${sceneContext}. ${sceneObjects} placed artfully around ${sceneLocation}. A prominent empty surface area in the foreground, well-lit and clearly defined. Shallow depth of field, warm natural tones. No product packaging, no bottles, no text or labels. Photorealistic, 1:1 square format.${modelHint}`;
+
+      // ── V4-V6: Direct use — AI-generated product in scene ─────────────────
+      const directPrompt4 = basePrompt + ` Lifestyle ${sceneContext}, natural ambient lighting, product prominently featured in foreground.`;
+      const directPrompt5 = basePrompt + ' Clean studio background, soft professional lighting, product as hero. Minimal, elegant, high-end advertising photography.';
+      const directPrompt6 = basePrompt + ` Contextual ${sceneContext}, product in natural use setting. Warm natural light, editorial style.`;
+
+      // ── Generate all 6 in parallel ─────────────────────────────────────────
+      const [v1, v2, v3, v4, v5, v6] = await Promise.all([
+        genImagen(scenePrompt1, '-v1'),
+        genImagen(scenePrompt2, '-v2'),
+        genImagen(scenePrompt3, '-v3'),
+        imageModel === 'imagen' ? genImagen(directPrompt4, '-v4') : genDalle(directPrompt4, '-v4'),
+        genImagen(directPrompt5, '-v5'),
+        genDalle(directPrompt6, '-v6'),
       ]);
 
-      imageVariations = [v1, v2, v3, v4].filter(Boolean);
+      imageVariations = [v1, v2, v3, v4, v5, v6].filter(Boolean);
       imageUrl = imageVariations[0] || null;
-    } else {
       // ── Free/standard: single image ────────────────────────────────────────
       if (imageModel === 'imagen' && hasImagen) {
         imageUrl = await genImagen(basePrompt);

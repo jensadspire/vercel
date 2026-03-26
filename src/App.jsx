@@ -2075,10 +2075,12 @@ STRICT rules:
                   setAudienceLoading(false);
                 }} disabled={!url || audienceLoading} style={{
                   padding: '7px 14px', fontSize: 11, fontWeight: 700, borderRadius: 8, flexShrink: 0,
-                  background: audienceBrief ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.06)',
-                  color: audienceBrief ? '#a5b4fc' : '#7e92a8',
-                  border: '1px solid ' + (audienceBrief ? 'rgba(99,102,241,0.35)' : 'rgba(255,255,255,0.1)'),
+                  background: audienceLoading ? 'rgba(245,158,11,0.15)' : audienceBrief ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.06)',
+                  color: audienceLoading ? '#fbbf24' : audienceBrief ? '#a5b4fc' : '#7e92a8',
+                  border: '1px solid ' + (audienceLoading ? 'rgba(245,158,11,0.4)' : audienceBrief ? 'rgba(99,102,241,0.35)' : 'rgba(255,255,255,0.1)'),
                   cursor: !url || audienceLoading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+                  animation: audienceLoading ? 'audiencePulse 1.5s ease-in-out infinite' : 'none',
+                  willChange: 'box-shadow',
                 }}>
                   {audienceLoading ? '⏳ Building...' : audienceBrief ? '✓ Brief ready' : '🎯 Build Audience'}                </button>
                 {audienceBrief && (
@@ -4412,7 +4414,7 @@ STRICT rules:
                           {/* ── Image variations grid (Pro: 2x2, Free: 1x1) ── */}
                           {isPro && metaResult.imageVariations && metaResult.imageVariations.length > 1 ? (
                             <>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, width: 248 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, width: 372 }}>
                               {metaResult.imageVariations.map((imgUrl, vi) => (
                                 <div key={vi} onClick={() => { setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
                                   position: "relative", cursor: "pointer", borderRadius: 6, overflow: "hidden",
@@ -4420,7 +4422,7 @@ STRICT rules:
                                   transition: "border 0.15s",
                                 }}>
                                   <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
-                                  <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>V{vi+1}</div>
+                                  <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi < 3 ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi < 3 ? `S${vi+1}` : `V${vi-2}`}</div>
                                   <button onClick={e => { e.stopPropagation(); setRemixSourceUrl(imgUrl); setRemixProduct(null); setRemixError(''); setRemixOpen(true);
                                     if (imagenParsedImages.length === 0 && url) {
                                       fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then(r => r.json()).then(d => { if (d.images?.length) setImagenParsedImages(d.images); }).catch(()=>{});
@@ -4615,6 +4617,10 @@ STRICT rules:
         @keyframes metaPulse {
           0%, 100% { box-shadow: 0 0 0 0px rgba(14,165,233,0.0); }
           50% { box-shadow: 0 0 0 4px rgba(14,165,233,0.5), 0 0 10px rgba(14,165,233,0.3); }
+        }
+        @keyframes audiencePulse {
+          0%, 100% { box-shadow: 0 0 0 0px rgba(245,158,11,0.0); }
+          50% { box-shadow: 0 0 0 4px rgba(245,158,11,0.5), 0 0 10px rgba(245,158,11,0.3); }
         }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
