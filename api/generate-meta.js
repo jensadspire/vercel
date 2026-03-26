@@ -3,6 +3,7 @@
  * Scrapes the URL then generates Facebook/Instagram ad copy via Claude.
  * Reuses the same scrape endpoint the Google flow uses.
  */
+export const config = { maxDuration: 60 };
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 
@@ -219,11 +220,14 @@ Rules:
       const directPrompt5 = basePrompt + ' Clean studio background, soft professional lighting, product as hero. Minimal, elegant, high-end advertising photography.';
       const directPrompt6 = basePrompt + ` Contextual ${sceneContext}, product in natural use setting. Warm natural light, editorial style.`;
 
-      // ── Generate all 6 in parallel ─────────────────────────────────────────
-      const [v1, v2, v3, v4, v5, v6] = await Promise.all([
+      // ── Generate in 2 batches: scene-ready first, then direct ─────────────
+      const [v1, v2, v3] = await Promise.all([
         genImagen(scenePrompt1, '-v1'),
         genImagen(scenePrompt2, '-v2'),
         genImagen(scenePrompt3, '-v3'),
+      ]);
+
+      const [v4, v5, v6] = await Promise.all([
         imageModel === 'imagen' ? genImagen(directPrompt4, '-v4') : genDalle(directPrompt4, '-v4'),
         genImagen(directPrompt5, '-v5'),
         genDalle(directPrompt6, '-v6'),
@@ -231,6 +235,7 @@ Rules:
 
       imageVariations = [v1, v2, v3, v4, v5, v6].filter(Boolean);
       imageUrl = imageVariations[0] || null;
+    } else {
       // ── Free/standard: single image ────────────────────────────────────────
       if (imageModel === 'imagen' && hasImagen) {
         imageUrl = await genImagen(basePrompt);
