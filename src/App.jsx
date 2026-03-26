@@ -1433,7 +1433,7 @@ STRICT rules:
           const metaRaw = await metaRes.text();
           let metaData;
           try { metaData = JSON.parse(metaRaw); }
-          catch(_) { throw new Error("Server timeout — try again (image generation took too long)"); }
+          catch(_) { throw new Error(`Server error (${metaRes.status}): ${metaRaw.slice(0, 120)}`); }
           if (metaData.error) {
             setMetaError("Meta generation error: " + metaData.error);
           } else if (!metaData.primaryTexts?.length && !metaData.headlines?.length) {
