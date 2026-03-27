@@ -21,6 +21,7 @@ export default async function handler(req, res) {
 
   // ── Step 1: Scrape the URL ────────────────────────────────────────────────
   let pageContent = "";
+  let scrapeImages = [];
   try {
     const scrapeRes = await fetch(`${req.headers.origin || "https://" + req.headers.host}/api/scrape`, {
       method: "POST",
@@ -29,9 +30,17 @@ export default async function handler(req, res) {
     });
     const scrapeData = await scrapeRes.json();
     pageContent = scrapeData.content || scrapeData.text || "";
+    scrapeImages = scrapeData.images || [];
   } catch (e) {
     pageContent = url; // fallback to URL only
   }
+
+  // ── Detect if this is a single product URL or a collection ─────────────────
+  // Single product: URL contains product ID patterns, scraper returns 1-3 images
+  const isSingleProduct = scrapeImages.length <= 4 || 
+    /\/p-|\/product\/|\/produkt\/|\/products\/|\/item\/|[a-f0-9]{8}-[a-f0-9]{4}/.test(url);
+  // Best product image: first scraped image if single product, else null (use AI)
+  const heroProductImage = isSingleProduct && scrapeImages[0] ? scrapeImages[0] : null;
 
   // ── Gender signal detection ───────────────────────────────────────────────
   const genderSignals = {
@@ -234,6 +243,7 @@ Rules:
         imageVariations: [],
         imagePrompt: parsed.imagePrompt,
         imagePrompts: imagePromptsToReturn,
+        heroProductImage,
         isPro,
       });
     }
@@ -246,5 +256,6 @@ Rules:
     imageUrl,
     imageVariations,
     imagePrompt: parsed.imagePrompt,
+    heroProductImage, // scraped product image for FB preview
   });
 }
