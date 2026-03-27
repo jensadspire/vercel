@@ -204,69 +204,37 @@ Rules:
 
     if (isPro) {
       // ── Build scene-ready prompts and return them for async client generation
-      // ── Detect product category for scene-ready prompts ────────────────────
-      const pageText = (pageContent + ' ' + url).toLowerCase();
-      const isSkincare  = /skin|serum|moistur|cream|lotion|cleanser|toner|spf|sunscreen|facial|face|pleje|hudpleje/.test(pageText);
-      const isHaircare  = /hair|shampoo|conditioner|scalp|hår/.test(pageText);
-      const isCosmetics = /makeup|lipstick|mascara|foundation|blush|eyeshadow|cosmetic|beauty/.test(pageText);
-      const isFashion   = /fashion|clothing|apparel|dress|wear|tøj|mode|jacket|shirt|shoe/.test(pageText);
-      const isFood      = /food|drink|beverage|snack|coffee|tea|wine|beer|mad|drikke/.test(pageText);
-      const isHome      = /home|interior|furniture|decor|living|kitchen|bath|hjem/.test(pageText);
-      const isAuto      = /car|auto|bil|dæk|tire|tyre|wheel|motor|vehicle|køretøj|daek|faelge|felg/.test(pageText);
-      const isSport     = /sport|fitness|gym|workout|yoga|running|cycling|træning|outdoor|hiking/.test(pageText);
-      const isTools     = /tool|hardware|industrial|power|drill|saw|workshop|værktøj|byggeri/.test(pageText);
-      const isTech      = /tech|electronic|computer|phone|laptop|gadget|software|digital/.test(pageText);
-      const isPet       = /pet|dog|cat|hund|kat|animal|veterinær/.test(pageText);
-      const isKids      = /kids|children|baby|toy|leg|børn|barn|junior/.test(pageText);
-
-      let sceneLocation = 'a clean modern surface';
-      let sceneObjects  = 'minimal contemporary props and clean geometric elements';
+      // ── Dynamic category detection via Claude ─────────────────────────────
       let sceneContext  = 'modern lifestyle setting';
+      let sceneObjects  = 'minimal contemporary props and clean geometric elements';
+      let sceneLocation = 'a clean modern surface';
 
-      if (isSkincare || isCosmetics) {
-        sceneContext  = 'bathroom or vanity setting';
-        sceneObjects  = 'soft towels, botanical ingredients, natural stones and dropper bottles';
-        sceneLocation = 'a marble bathroom shelf or white vanity surface';
-      } else if (isHaircare) {
-        sceneContext  = 'bathroom or salon setting';
-        sceneObjects  = 'towels, botanical herbs, a wooden comb and natural ingredients';
-        sceneLocation = 'a wet bathroom shelf or wooden surface';
-      } else if (isFashion) {
-        sceneContext  = 'lifestyle fashion setting';
-        sceneObjects  = 'natural textures, accessories and fabric details';
-        sceneLocation = 'a clean urban or studio environment';
-      } else if (isFood) {
-        sceneContext  = 'kitchen or dining setting';
-        sceneObjects  = 'fresh ingredients, wooden boards and natural props';
-        sceneLocation = 'a kitchen counter or dining table';
-      } else if (isHome) {
-        sceneContext  = 'interior home setting';
-        sceneObjects  = 'natural textures, plants and soft lighting elements';
-        sceneLocation = 'a living room surface or shelf';
-      } else if (isAuto) {
-        sceneContext  = 'automotive setting';
-        sceneObjects  = 'car keys, a steering wheel detail, road map and clean garage elements';
-        sceneLocation = 'a clean garage floor or showroom surface';
-      } else if (isSport) {
-        sceneContext  = 'active outdoor or gym setting';
-        sceneObjects  = 'water bottle, sports equipment and natural light';
-        sceneLocation = 'a gym floor or outdoor track surface';
-      } else if (isTools) {
-        sceneContext  = 'workshop or professional setting';
-        sceneObjects  = 'clean tools, metal surfaces and professional equipment';
-        sceneLocation = 'a workshop bench or industrial surface';
-      } else if (isTech) {
-        sceneContext  = 'modern tech workspace';
-        sceneObjects  = 'clean desk, minimal accessories and ambient lighting';
-        sceneLocation = 'a clean desk or tech workspace surface';
-      } else if (isPet) {
-        sceneContext  = 'cozy home pet setting';
-        sceneObjects  = 'natural textures, warm tones and pet-friendly props';
-        sceneLocation = 'a home floor or garden surface';
-      } else if (isKids) {
-        sceneContext  = 'bright playful setting';
-        sceneObjects  = 'colorful props, soft textures and playful elements';
-        sceneLocation = 'a playroom floor or bright surface';
+      try {
+        const categoryRes = await fetch(ANTHROPIC_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 200,
+            messages: [{
+              role: 'user',
+              content: `You are a product category classifier for an ad creative tool. Based on this URL and page content, identify the product category and suggest an ideal lifestyle photography scene for a Meta ad image.\n\nURL: ${url}\nPage content (first 500 chars): ${pageContent.slice(0, 500)}\n\nReturn ONLY valid JSON:\n{\n  "sceneContext": "brief setting description",\n  "sceneObjects": "3-5 props that belong in this scene (no product packaging)",\n  "sceneLocation": "specific surface or location"\n}\n\nExamples:\n- Tires/Auto: garage with car keys and tools on workshop bench\n- Skincare: marble vanity with botanical ingredients and soft towels\n- Fashion: urban street or clean studio with fabric textures\n- Food: kitchen counter with fresh ingredients and wooden boards\n- Tech: minimal desk with ambient lighting and clean accessories\n- Sports: gym or outdoor track with equipment and natural light\n\nBe specific and visual. Never use botanicals or natural elements for non-skincare products.`
+            }]
+          })
+        });
+        const catData = await categoryRes.json();
+        const catText = catData.content?.[0]?.text || '';
+        const catClean = catText.replace(/```json|```/g, '').trim();
+        const catParsed = JSON.parse(catClean);
+        if (catParsed.sceneContext) sceneContext = catParsed.sceneContext;
+        if (catParsed.sceneObjects) sceneObjects = catParsed.sceneObjects;
+        if (catParsed.sceneLocation) sceneLocation = catParsed.sceneLocation;
+      } catch(_) {
+        // Fallback to defaults if classification fails
       }
 
       const gender = genderHint === 'female' ? 'woman' : genderHint === 'male' ? 'man' : 'person';
