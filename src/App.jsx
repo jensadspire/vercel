@@ -2052,7 +2052,7 @@ STRICT rules:
             <input
               type="url"
               value={url}
-              onChange={e => { setUrl(e.target.value); setAudienceBrief(null); setAudienceBriefEdits({}); setMetaResult(null); setMetaImagesLoading(false); metaGenId.current += 1; }}({}); }}
+              onChange={e => { setUrl(e.target.value); setAudienceBrief(null); setAudienceBriefEdits({}); setMetaResult(null); setMetaImagesLoading(false); metaGenId.current += 1; }}
               onKeyDown={e => e.key === "Enter" && generate()}
               placeholder={batchRunning ? `Batch generating ${batchProgress.current} of ${batchProgress.total}…` : "https://yoursite.com/landing-page → press Enter or click Generate"}
               style={{
