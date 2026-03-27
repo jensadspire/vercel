@@ -1510,7 +1510,6 @@ STRICT rules:
                     };
                   });
                 }
-                }
               });
             }
             // Persist metaResult into the most recent history entry for this URL
