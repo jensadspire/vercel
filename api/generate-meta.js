@@ -242,14 +242,14 @@ Rules:
       const gender = genderHint === 'female' ? 'woman' : genderHint === 'male' ? 'man' : 'person';
 
       // ── V1-V3: Scene-ready — empty product zone for remix ──────────────────
+      // Add unique seed to prevent Imagen returning cached results
+      const seed = Date.now();
+
       const scenePrompt1 = `[${seed}] Editorial lifestyle photograph. A ${gender} in the background, softly blurred, in a ${sceneContext}. In the sharp foreground: ${sceneLocation} with ${sceneObjects} arranged naturally. A clearly visible empty space on the surface — enough room for a product bottle or container to be placed. Natural soft lighting, warm atmosphere. No product packaging or bottles. Photorealistic, 1:1 square format.${modelHint}`;
 
       const scenePrompt2 = `[${seed+1}] Professional flat lay photograph from above. A ${sceneContext} styled with ${sceneObjects} beautifully arranged. In the centre: a deliberately empty space on ${sceneLocation} — negative space where a product could be placed. Soft natural lighting, subtle shadows. No product packaging, no bottles, no containers. Photorealistic, 1:1 square format, editorial quality.`;
 
       const scenePrompt3 = `[${seed+2}] Atmospheric lifestyle scene in a ${sceneContext}. ${sceneObjects} placed artfully around ${sceneLocation}. A prominent empty surface area in the foreground, well-lit and clearly defined. Shallow depth of field, warm natural tones. No product packaging, no bottles, no text or labels. Photorealistic, 1:1 square format.${modelHint}`;
-
-      // Add unique seed to prevent Imagen returning cached results
-      const seed = Date.now();
 
       // ── V4-V6: Direct use — AI-generated product in scene ─────────────────
       const directPrompt4 = `[${seed+3}] ` + basePrompt + ` Lifestyle ${sceneContext}, natural ambient lighting, product prominently featured in foreground.`;
