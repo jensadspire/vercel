@@ -212,10 +212,16 @@ Rules:
       const isFashion   = /fashion|clothing|apparel|dress|wear|tøj|mode|jacket|shirt|shoe/.test(pageText);
       const isFood      = /food|drink|beverage|snack|coffee|tea|wine|beer|mad|drikke/.test(pageText);
       const isHome      = /home|interior|furniture|decor|living|kitchen|bath|hjem/.test(pageText);
+      const isAuto      = /car|auto|bil|dæk|tire|tyre|wheel|motor|vehicle|køretøj|daek|faelge|felg/.test(pageText);
+      const isSport     = /sport|fitness|gym|workout|yoga|running|cycling|træning|outdoor|hiking/.test(pageText);
+      const isTools     = /tool|hardware|industrial|power|drill|saw|workshop|værktøj|byggeri/.test(pageText);
+      const isTech      = /tech|electronic|computer|phone|laptop|gadget|software|digital/.test(pageText);
+      const isPet       = /pet|dog|cat|hund|kat|animal|veterinær/.test(pageText);
+      const isKids      = /kids|children|baby|toy|leg|børn|barn|junior/.test(pageText);
 
-      let sceneLocation = 'a clean minimal surface';
-      let sceneObjects  = 'natural elements, botanicals and texture props';
-      let sceneContext  = 'lifestyle context';
+      let sceneLocation = 'a clean modern surface';
+      let sceneObjects  = 'minimal contemporary props and clean geometric elements';
+      let sceneContext  = 'modern lifestyle setting';
 
       if (isSkincare || isCosmetics) {
         sceneContext  = 'bathroom or vanity setting';
@@ -237,6 +243,30 @@ Rules:
         sceneContext  = 'interior home setting';
         sceneObjects  = 'natural textures, plants and soft lighting elements';
         sceneLocation = 'a living room surface or shelf';
+      } else if (isAuto) {
+        sceneContext  = 'automotive setting';
+        sceneObjects  = 'car keys, a steering wheel detail, road map and clean garage elements';
+        sceneLocation = 'a clean garage floor or showroom surface';
+      } else if (isSport) {
+        sceneContext  = 'active outdoor or gym setting';
+        sceneObjects  = 'water bottle, sports equipment and natural light';
+        sceneLocation = 'a gym floor or outdoor track surface';
+      } else if (isTools) {
+        sceneContext  = 'workshop or professional setting';
+        sceneObjects  = 'clean tools, metal surfaces and professional equipment';
+        sceneLocation = 'a workshop bench or industrial surface';
+      } else if (isTech) {
+        sceneContext  = 'modern tech workspace';
+        sceneObjects  = 'clean desk, minimal accessories and ambient lighting';
+        sceneLocation = 'a clean desk or tech workspace surface';
+      } else if (isPet) {
+        sceneContext  = 'cozy home pet setting';
+        sceneObjects  = 'natural textures, warm tones and pet-friendly props';
+        sceneLocation = 'a home floor or garden surface';
+      } else if (isKids) {
+        sceneContext  = 'bright playful setting';
+        sceneObjects  = 'colorful props, soft textures and playful elements';
+        sceneLocation = 'a playroom floor or bright surface';
       }
 
       const gender = genderHint === 'female' ? 'woman' : genderHint === 'male' ? 'man' : 'person';
