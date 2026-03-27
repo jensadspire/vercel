@@ -1453,10 +1453,14 @@ STRICT rules:
             setMetaError("");
             // Use scraped product image as primary FB preview if available
             const initialImageUrl = metaData.heroProductImage || metaData.imageUrl || null;
+            const initialVariations = [
+              metaData.heroProductImage,
+              metaData.secondaryImage,
+            ].filter(Boolean);
             setMetaResult({
               ...metaData,
               imageUrl: initialImageUrl,
-              imageVariations: initialImageUrl ? [initialImageUrl] : [],
+              imageVariations: initialVariations.length > 0 ? initialVariations : [],
             });
             setActiveImageVariant(0);
             setVideoTask(null);
@@ -1500,9 +1504,12 @@ STRICT rules:
                     if (!prev) return prev;
                     // Keep hero product image as first if present, then AI variations
                     const hero = metaData.heroProductImage;
-                    const variations = hero
-                      ? [hero, ...aiVariations]
-                      : aiVariations;
+                    const secondary = metaData.secondaryImage;
+                    const variations = [
+                      hero,
+                      secondary,
+                      ...aiVariations,
+                    ].filter(Boolean);
                     return {
                       ...prev,
                       imageUrl: prev.imageUrl || variations[0],
@@ -2127,12 +2134,12 @@ STRICT rules:
                   fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6,
                 }}
               />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                {/* Build Audience button */}
                 <button onClick={async () => {
                   if (!url) return;
                   setAudienceLoading(true);
                   try {
-                    // Use already-scraped pageMeta content if available, else scrape
                     const pageContent = pageMeta?.content || pageMeta?.description || '';
                     const r = await fetch('/api/audience', {
                       method: 'POST',
@@ -2154,83 +2161,78 @@ STRICT rules:
                   animation: audienceLoading ? 'audiencePulse 1.5s ease-in-out infinite' : 'none',
                   willChange: 'opacity',
                 }}>
-                  {audienceLoading ? '⏳ Building...' : audienceBrief ? '✓ Brief ready' : '🎯 Build Audience'}                </button>
+                  {audienceLoading ? '⏳ Building...' : audienceBrief ? '✓ Brief ready' : '🎯 Build Audience'}
+                </button>
                 {audienceBrief && (
                   <button onClick={() => setShowAudienceBrief(v => !v)} style={{
-                    fontSize: 10, color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                    fontSize: 10, color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', flexShrink: 0,
                   }}>
-                    {showAudienceBrief ? '▲ Hide brief' : '▼ View brief'}
+                    {showAudienceBrief ? '▲' : '▼'}
                   </button>
                 )}
-              </div>
-            </div>
-          )}
 
-          <button onClick={generate} disabled={loading || batchRunning} style={{
-            padding: "9px 14px", fontSize: 12, fontWeight: 700,
-            background: loading || batchRunning
-              ? "linear-gradient(135deg,#d97706,#f59e0b)"
-              : "linear-gradient(135deg,#3b82f6,#6366f1)",
-            color: "white", border: "none",
-            borderRadius: 8, cursor: loading || batchRunning ? "not-allowed" : "pointer",
-            display: "flex", alignItems: "center", gap: 7, flexShrink: 0,
-            transition: "background 0.3s ease, opacity 0.3s ease",
-            willChange: "opacity",
-            animation: loading || batchRunning ? "pulse 1.5s ease-in-out infinite" : "none",
-          }}>
-            {loading
-              ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block", fontSize: 14 }}>◌</span> Generating…</>
-              : batchRunning
-              ? <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block", fontSize: 14 }}>◌</span> Batch {batchProgress.current}/{batchProgress.total}</>
-              : "✦ Generate"}
-          </button>
-          {generated && !loading && (
-            <button onClick={() => {
-              setUrl("");
-              setKeywords(["", "", ""]);
-              setKwHeadlines(5);
-              setKwInDescs(false);
-              setKwDescs(1);
-              setRows([makeRow(1)]);
-              setActiveRow(0);
-              setGenerated(false);
-              setError("");
-              setActiveTab("headlines");
-              // Reset all campaign modifiers
-              setShowModifiers(false);
-              setSeasonOn(false);
-              setSeasonPreset("");
-              setSeasonCustom("");
-              setSeasonIntensity("Moderate");
-              setDiscountOn(false);
-              setDiscountType("% Off");
-              setDiscountValue("");
-              setDiscountPlacement("Both");
-              setBrandOn(false);
-              setBrandRequired("");
-              setBrandBanned("");
-              setBrandTone("Professional");
-              // Increment clearKey to remount all EditableFields — closes any open refine panels
-              setClearKey(k => k + 1);
-            }} style={{
-              padding: "9px 14px", fontSize: 11, fontWeight: 700,
-              background: "rgba(255,255,255,0.05)",
-              color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.09)",
-              borderRadius: 8, cursor: "pointer", flexShrink: 0,
-              transition: "all 0.2s", whiteSpace: "nowrap",
-            }}>↺ New URL</button>
-          )}
-          {/* Batch Mode — inline next to Clear button, signed-in only */}
-          {isSignedIn && !batchRunning && (
-            <button onClick={() => setShowBatchPanel(v => !v)} style={{
-              padding: "9px 14px", fontSize: 11, fontWeight: 700,
-              background: showBatchPanel ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)",
-              border: "1px solid " + (showBatchPanel ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.09)"),
-              color: showBatchPanel ? "#a5b4fc" : "#7e92a8",
-              borderRadius: 8, cursor: "pointer", flexShrink: 0,
-              transition: "all 0.2s", whiteSpace: "nowrap",
-            }}>⚡ Batch</button>
-          )}
+                {/* Spacer */}
+                <div style={{ flex: 1 }} />
+
+                {/* New URL button — only after generation */}
+                {generated && !loading && (
+                  <button onClick={() => {
+                    setUrl('');
+                    setKeywords(['', '', '']);
+                    setKwHeadlines(5);
+                    setKwInDescs(false);
+                    setKwDescs(1);
+                    setRows([makeRow(1)]);
+                    setActiveRow(0);
+                    setGenerated(false);
+                    setError('');
+                    setActiveTab('headlines');
+                    setShowModifiers(false);
+                    setSeasonOn(false); setSeasonPreset(''); setSeasonCustom(''); setSeasonIntensity('Moderate');
+                    setDiscountOn(false); setDiscountType('% Off'); setDiscountValue(''); setDiscountPlacement('Both');
+                    setBrandOn(false); setBrandRequired(''); setBrandBanned(''); setBrandTone('Professional');
+                    setClearKey(k => k + 1);
+                  }} style={{
+                    padding: '9px 14px', fontSize: 11, fontWeight: 700,
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#8fa3b8', border: '1px solid rgba(255,255,255,0.09)',
+                    borderRadius: 8, cursor: 'pointer', flexShrink: 0,
+                    transition: 'all 0.2s', whiteSpace: 'nowrap',
+                  }}>↺ New URL</button>
+                )}
+
+                {/* Batch button */}
+                {isSignedIn && !batchRunning && (
+                  <button onClick={() => setShowBatchPanel(v => !v)} style={{
+                    padding: '9px 14px', fontSize: 11, fontWeight: 700,
+                    background: showBatchPanel ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.05)',
+                    border: '1px solid ' + (showBatchPanel ? 'rgba(99,102,241,0.35)' : 'rgba(255,255,255,0.09)'),
+                    color: showBatchPanel ? '#a5b4fc' : '#7e92a8',
+                    borderRadius: 8, cursor: 'pointer', flexShrink: 0,
+                    transition: 'all 0.2s', whiteSpace: 'nowrap',
+                  }}>⚡ Batch</button>
+                )}
+
+                {/* Generate button */}
+                <button onClick={generate} disabled={loading || batchRunning} style={{
+                  padding: '9px 14px', fontSize: 12, fontWeight: 700,
+                  background: loading || batchRunning
+                    ? 'linear-gradient(135deg,#d97706,#f59e0b)'
+                    : 'linear-gradient(135deg,#3b82f6,#6366f1)',
+                  color: 'white', border: 'none',
+                  borderRadius: 8, cursor: loading || batchRunning ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
+                  transition: 'background 0.3s ease, opacity 0.3s ease',
+                  willChange: 'opacity',
+                  animation: loading || batchRunning ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                }}>
+                  {loading
+                    ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating…</>
+                    : batchRunning
+                    ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Running batch…</>
+                    : '✦ Generate'}
+                </button>
+              </div>
         </div>
         {error && (
           <div style={{ maxWidth: 900, margin: "8px auto 0", fontSize: 12, color: "#f87171", display: "flex", alignItems: "center", gap: 6 }}>
@@ -4490,7 +4492,7 @@ STRICT rules:
                         <div style={{ padding: "16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                           <div style={{ position: "relative", flexShrink: 0 }}>
                           {/* ── Image variations grid (Pro: 2x2, Free: 1x1) ── */}
-                          {isPro && metaImagesLoading && (
+                          {metaImagesLoading && (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, width: 372, marginBottom: 8 }}>
                               {[0,1,2,3,4,5].map(i => (
                                 <div key={i} style={{ aspectRatio: '1', borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -4499,7 +4501,7 @@ STRICT rules:
                               ))}
                             </div>
                           )}
-                          {isPro && metaResult.imageVariations && metaResult.imageVariations.length > 1 ? (
+                          {metaResult.imageVariations && metaResult.imageVariations.length > 1 ? (
                             <>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, width: 372 }}>
                               {metaResult.imageVariations.map((imgUrl, vi) => (
@@ -4509,7 +4511,7 @@ STRICT rules:
                                   transition: "border 0.15s",
                                 }}>
                                   <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block", pointerEvents: "none" }} />
-                                  <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi === 0 && metaData?.heroProductImage ? "rgba(251,191,36,0.8)" : vi < 3 ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi === 0 && metaResult?.heroProductImage ? '📷' : vi < 3 ? `S${vi+1}` : `V${vi-2}`}</div>
+                                  <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi === 0 && metaResult?.heroProductImage ? "rgba(251,191,36,0.8)" : vi === 1 && metaResult?.secondaryImage ? "rgba(251,146,60,0.8)" : vi < (metaResult?.heroProductImage ? (metaResult?.secondaryImage ? 5 : 4) : 3) ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi === 0 && metaResult?.heroProductImage ? '📷' : vi === 1 && metaResult?.secondaryImage ? '🏠' : `${vi+1}`}</div>
                                   <button onClick={e => { e.stopPropagation(); setRemixSourceUrl(imgUrl); setRemixProduct(null); setRemixError(''); setRemixOpen(true);
                                     if (imagenParsedImages.length === 0 && url) {
                                       fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then(r => r.json()).then(d => { if (d.images?.length) setImagenParsedImages(d.images); }).catch(()=>{});
