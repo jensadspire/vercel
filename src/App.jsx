@@ -2233,6 +2233,8 @@ STRICT rules:
                     : '✦ Generate'}
                 </button>
               </div>
+            </div>
+          )}
         </div>
         {error && (
           <div style={{ maxWidth: 900, margin: "8px auto 0", fontSize: 12, color: "#f87171", display: "flex", alignItems: "center", gap: 6 }}>
