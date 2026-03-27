@@ -4508,7 +4508,7 @@ STRICT rules:
                                   border: activeImageVariant === vi ? "2px solid #6366f1" : "2px solid transparent",
                                   transition: "border 0.15s",
                                 }}>
-                                  <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block", pointerEvents: "none" }}, objectFit: "cover", display: "block" }} />
+                                  <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block", pointerEvents: "none" }} />
                                   <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi === 0 && metaData?.heroProductImage ? "rgba(251,191,36,0.8)" : vi < 3 ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi === 0 && metaResult?.heroProductImage ? '📷' : vi < 3 ? `S${vi+1}` : `V${vi-2}`}</div>
                                   <button onClick={e => { e.stopPropagation(); setRemixSourceUrl(imgUrl); setRemixProduct(null); setRemixError(''); setRemixOpen(true);
                                     if (imagenParsedImages.length === 0 && url) {
