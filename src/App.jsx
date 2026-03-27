@@ -1031,6 +1031,10 @@ function RSAStudio() {
     }
 
     setLoading(true); setError("");
+    // Clear previous meta result and cancel any in-flight image callbacks
+    setMetaResult(null);
+    setMetaImagesLoading(false);
+    metaGenId.current += 1;
     // Clear trends on new generation, clear audiences if not sticky
     setTrends([]);
     setSelectedTrends([]);
@@ -1447,7 +1451,13 @@ STRICT rules:
             setMetaError("Meta generation returned empty response — please try again");
           } else {
             setMetaError("");
-            setMetaResult(metaData);
+            // Use scraped product image as primary FB preview if available
+            const initialImageUrl = metaData.heroProductImage || metaData.imageUrl || null;
+            setMetaResult({
+              ...metaData,
+              imageUrl: initialImageUrl,
+              imageVariations: initialImageUrl ? [initialImageUrl] : [],
+            });
             setActiveImageVariant(0);
             setVideoTask(null);
             setMetaEdits({});
@@ -1484,13 +1494,22 @@ STRICT rules:
               ]).then(([is1, is2, is3, iv1, iv2, iv3]) => {
                 if (metaGenId.current !== thisGenId) return; // stale — newer generation started
                 setMetaImagesLoading(false);
-                const variations = [is1, is2, is3, iv1, iv2, iv3].filter(Boolean);
-                if (variations.length > 0) {
-                  setMetaResult(prev => prev ? ({
-                    ...prev,
-                    imageUrl: variations[0],
-                    imageVariations: variations,
-                  }) : prev);
+                const aiVariations = [is1, is2, is3, iv1, iv2, iv3].filter(Boolean);
+                if (aiVariations.length > 0) {
+                  setMetaResult(prev => {
+                    if (!prev) return prev;
+                    // Keep hero product image as first if present, then AI variations
+                    const hero = metaData.heroProductImage;
+                    const variations = hero
+                      ? [hero, ...aiVariations]
+                      : aiVariations;
+                    return {
+                      ...prev,
+                      imageUrl: prev.imageUrl || variations[0],
+                      imageVariations: variations,
+                    };
+                  });
+                }
                 }
               });
             }
@@ -4491,7 +4510,7 @@ STRICT rules:
                                   transition: "border 0.15s",
                                 }}>
                                   <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
-                                  <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi < 3 ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi < 3 ? `S${vi+1}` : `V${vi-2}`}</div>
+                                  <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi === 0 && metaData?.heroProductImage ? "rgba(251,191,36,0.8)" : vi < 3 ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi === 0 && metaResult?.heroProductImage ? '📷' : vi < 3 ? `S${vi+1}` : `V${vi-2}`}</div>
                                   <button onClick={e => { e.stopPropagation(); setRemixSourceUrl(imgUrl); setRemixProduct(null); setRemixError(''); setRemixOpen(true);
                                     if (imagenParsedImages.length === 0 && url) {
                                       fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then(r => r.json()).then(d => { if (d.images?.length) setImagenParsedImages(d.images); }).catch(()=>{});
