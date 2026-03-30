@@ -2240,7 +2240,6 @@ STRICT rules:
             </button>
           </div>
         </div>
-      </div>
         {error && (
           <div style={{ maxWidth: 900, margin: "8px auto 0", fontSize: 12, color: "#f87171", display: "flex", alignItems: "center", gap: 6 }}>
             <span>⚠</span> {error}
@@ -2597,6 +2596,7 @@ STRICT rules:
           </div>
         )}
       </div>
+      </div>  {/* closes URL bar padding div */}
 
       {/* ── Format Tab Strip ── */}
       <div style={{
