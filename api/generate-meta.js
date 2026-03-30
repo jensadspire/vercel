@@ -81,8 +81,10 @@ export default async function handler(req, res) {
   const isSingleProduct = isProductUrl || scrapeImages.length <= 6;
 
   // ── Shopify JSON API: fetch product images directly ────────────────────────────
-  // Shopify exposes product data at {productUrl}.json — works even when HTML scraping misses images
-  if (scoredImages.length < 3) {
+  // Always try for Shopify URLs — bypasses HTML scraping limitations
+  const isShopifyUrl = /\/products?\/[^\/]+(-[a-z0-9]+)*\.(html?)?$|\/collections\/|\.myshopify\.com/i.test(url) ||
+    scrapeImages.some(img => /cdn\.shopify\.com|\.myshopify\.com/i.test(img));
+  if (isShopifyUrl || scoredImages.length < 3) {
     try {
       const shopifyJsonUrl = url.split('?')[0].replace(/\/$/, '') + '.json';
       const sjRes = await fetch(shopifyJsonUrl, { 
@@ -99,6 +101,9 @@ export default async function handler(req, res) {
       }
     } catch(_) {}
   }
+
+  // Re-sort after potential Shopify additions
+  scoredImages.sort((a, b) => scoreImage(b) - scoreImage(a));
 
   // ── Secondary scraped images (2nd and 3rd best product images) ───────────────
   const secondaryImage = scoredImages[1] || null;
