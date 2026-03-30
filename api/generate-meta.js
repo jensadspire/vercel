@@ -45,9 +45,11 @@ export default async function handler(req, res) {
     let score = 0;
     if (/cdn|media|product|static|assets|img|image/i.test(img)) score += 2;
     if (/\/products?\/|\/items?\/|\/catalog/i.test(img)) score += 3;
+    if (/\/uploads\//i.test(img)) score += 2; // WooCommerce/WordPress uploads
     if (/[0-9]{4,}/.test(img)) score += 1; // has numeric ID
+    if (/\d+x\d+/i.test(img)) score += 3; // has dimensions like 1200x1200 = product image
     if (/\.jpg|\.jpeg|\.webp|\.png/i.test(img)) score += 1;
-    if (/logo|icon|banner|background|hero|bg|sprite/i.test(img)) score -= 5;
+    if (/logo|icon|banner|background|hero|bg|sprite|membership|plus|exclusive|mobil|vektor/i.test(img)) score -= 5;
     if (img.length < 40) score -= 3; // too short = likely icon
     return score;
   };

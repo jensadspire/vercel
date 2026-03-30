@@ -23,6 +23,8 @@ export default async function handler(req, res) {
 
 Analyse this product/service page and the advertiser's audience description, then build a detailed audience brief.
 
+IMPORTANT: Focus on what the BUSINESS actually sells based on the domain and page content — not just the product name. For example "Wild West Burger" is a food/restaurant product, not BBQ equipment. "Hereford" is a burger name, not a cattle breed context. Always infer the actual business type from the full context.
+
 Page URL: ${url}
 Page content: ${pageContent.slice(0, 2000)}
 Advertiser's audience description: ${audienceDescription || 'Not provided — infer from page content'}
