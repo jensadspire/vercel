@@ -2596,7 +2596,7 @@ STRICT rules:
           </div>
         )}
       </div>
-      </div>  {/* closes URL bar padding div */}
+      </div>
 
       {/* ── Format Tab Strip ── */}
       <div style={{
