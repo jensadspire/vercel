@@ -2596,7 +2596,6 @@ STRICT rules:
           </div>
         )}
       </div>
-      </div>
 
       {/* ── Format Tab Strip ── */}
       <div style={{
