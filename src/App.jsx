@@ -4500,7 +4500,7 @@ STRICT rules:
                         <div style={{ padding: "16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                           <div style={{ position: "relative", flexShrink: 0 }}>
                           {/* ── Image variations grid (Pro: 2x2, Free: 1x1) ── */}
-                          {metaImagesLoading && (
+                          {metaImagesLoading && (!metaResult.imageVariations || metaResult.imageVariations.length === 0) && (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, width: 372, marginBottom: 8 }}>
                               {[0,1,2,3,4,5].map(i => (
                                 <div key={i} style={{ aspectRatio: '1', borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -4518,7 +4518,7 @@ STRICT rules:
                                   border: activeImageVariant === vi ? "2px solid #6366f1" : "2px solid transparent",
                                   transition: "border 0.15s",
                                 }}>
-                                  <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block", pointerEvents: "none" }} />
+                                  <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block", pointerEvents: "none" }} onError={e => { e.currentTarget.parentElement.style.display = 'none'; }} />
                                   <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi === 0 && metaResult?.heroProductImage ? "rgba(251,191,36,0.8)" : vi === 1 && metaResult?.secondaryImage ? "rgba(251,146,60,0.8)" : vi < (metaResult?.heroProductImage ? (metaResult?.secondaryImage ? 5 : 4) : 3) ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi === 0 && metaResult?.heroProductImage ? '📷' : vi === 1 && metaResult?.secondaryImage ? '🏠' : `${vi+1}`}</div>
                                   <button onClick={e => { e.stopPropagation(); setRemixSourceUrl(imgUrl); setRemixProduct(null); setRemixError(''); setRemixOpen(true);
                                     if (imagenParsedImages.length === 0 && url) {
@@ -4535,6 +4535,11 @@ STRICT rules:
                               ))}
                             </div>
                             {/* Upload own assets button */}
+                            {!metaResult.heroProductImage && (
+                              <div style={{ fontSize: 9, color: '#4a5568', marginTop: 4, marginBottom: 2, lineHeight: 1.4 }}>
+                                💡 No product images found on this site — upload your own below for best results
+                              </div>
+                            )}
                             <button onClick={async () => {
                               if (!isSignedIn) { setUpgradeFeature('imagen'); setShowUpgradeModal(true); return; }
                               if (!isPro) {
