@@ -105,9 +105,15 @@ export default async function handler(req, res) {
   // Re-sort after potential Shopify additions
   scoredImages.sort((a, b) => scoreImage(b) - scoreImage(a));
 
-  // ── Secondary scraped images (2nd and 3rd best product images) ───────────────
-  const secondaryImage = scoredImages[1] || null;
-  const tertiaryImage  = scoredImages[2] || null;
+  // ── Secondary scraped images — deduplicated, exclude hero ──────────────────────
+  // Strip query params for dedup comparison, keep full URL for display
+  const heroBase = heroProductImage ? heroProductImage.split('?')[0] : null;
+  const uniqueScored = scoredImages.filter(img => {
+    const base = img.split('?')[0];
+    return base !== heroBase && img !== heroProductImage;
+  });
+  const secondaryImage = uniqueScored[0] || null;
+  const tertiaryImage  = uniqueScored[1] || null;
 
   // ── Homepage editorial image ──────────────────────────────────────────────────
   let homepageImage = null;
@@ -325,7 +331,7 @@ Rules:
 
       // Return all 6 prompts for Pro, just s1+v1 for free
       const imagePromptsToReturn = isPro
-        ? { s1: scenePrompt1, s2: scenePrompt2, s3: scenePrompt3, v1: directPrompt4, v2: directPrompt5, v3: directPrompt6 }
+        ? { s1: scenePrompt1, v1: directPrompt4, v2: directPrompt5 }
         : { s1: scenePrompt1, v1: directPrompt4 };
 
       return res.json({

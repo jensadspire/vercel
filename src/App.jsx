@@ -1472,7 +1472,7 @@ STRICT rules:
             // ── Async image generation if prompts returned ──────────────────
             if (metaData.imagePrompts) {
               setMetaImagesLoading(true);
-              const { s1, s2, s3, v1, v2, v3 } = metaData.imagePrompts;
+              const { s1, v1, v2 } = metaData.imagePrompts;
               const genImg = async (prompt) => {
                 if (!prompt) return null;
                 for (let attempt = 0; attempt < 2; attempt++) {
@@ -1492,15 +1492,12 @@ STRICT rules:
               const thisGenId = metaGenId.current;
               Promise.all([
                 genImg(s1),
-                genImg(s2 || null),
-                genImg(s3 || null),
                 genImg(v1),
                 genImg(v2 || null),
-                genImg(v3 || null),
-              ]).then(([is1, is2, is3, iv1, iv2, iv3]) => {
+              ]).then(([is1, iv1, iv2]) => {
                 if (metaGenId.current !== thisGenId) return; // stale — newer generation started
                 setMetaImagesLoading(false);
-                const aiVariations = [is1, is2, is3, iv1, iv2, iv3].filter(Boolean);
+                const aiVariations = [is1, iv1, iv2].filter(Boolean);
                 if (aiVariations.length > 0) {
                   setMetaResult(prev => {
                     if (!prev) return prev;
@@ -4518,7 +4515,7 @@ STRICT rules:
                                   border: activeImageVariant === vi ? "2px solid #6366f1" : "2px solid transparent",
                                   transition: "border 0.15s",
                                 }}>
-                                  <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block", pointerEvents: "none" }} onError={e => { e.currentTarget.parentElement.style.display = 'none'; }} />
+                                  <img src={imgUrl} alt={"Variation " + (vi+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block", pointerEvents: "none" }} onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.parentElement.style.border = '1px dashed rgba(255,255,255,0.08)'; }} />
                                   <div style={{ position: "absolute", top: 3, left: 3, background: activeImageVariant === vi ? "#6366f1" : vi === 0 && metaResult?.heroProductImage ? "rgba(251,191,36,0.8)" : vi === 1 && metaResult?.secondaryImage ? "rgba(251,146,60,0.8)" : vi < (metaResult?.heroProductImage ? (metaResult?.secondaryImage ? 5 : 4) : 3) ? "rgba(52,211,153,0.8)" : "rgba(0,0,0,0.5)", borderRadius: 4, padding: "1px 5px", fontSize: 9, color: "white", fontWeight: 700 }}>{vi === 0 && metaResult?.heroProductImage ? '📷' : vi === 1 && metaResult?.secondaryImage ? '🏠' : `${vi+1}`}</div>
                                   <button onClick={e => { e.stopPropagation(); setRemixSourceUrl(imgUrl); setRemixProduct(null); setRemixError(''); setRemixOpen(true);
                                     if (imagenParsedImages.length === 0 && url) {
