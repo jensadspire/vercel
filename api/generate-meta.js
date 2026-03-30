@@ -54,6 +54,8 @@ export default async function handler(req, res) {
     if (/logo|icon|banner|background|hero|bg|sprite|membership|plus|exclusive|mobil|vektor/i.test(img)) score -= 5;
     if (/cart\/|widget|badge|shipping|delivery|frifreight|pricerunner|trustpilot|review|rating|payment|klarna|mobilepay|paypal|visa|mastercard/i.test(img)) score -= 10;
     if (img.length < 40) score -= 3;
+    if (/%7B|\{width\}|\{height\}/i.test(img)) score -= 20; // Shopify responsive template — not a real URL
+    if (/\{width\}|\{height\}|\{size\}/i.test(img)) score -= 20; // Shopify responsive template — not a real URL
     return score;
   };
 
@@ -108,9 +110,13 @@ export default async function handler(req, res) {
   scoredImages.sort((a, b) => scoreImage(b) - scoreImage(a));
 
   // ── Secondary scraped images — deduplicated by filename, prefer full-size ──────
+  // Hard blocklist — never show these regardless of score
+  const BLOCKED = /cart\/|frifreight|widget|badge|trustpilot|pricerunner|klarna|mobilepay|paypal|visa|mastercard|shipping|delivery|free.*ship|payment|%7B|\{width\}|\{height\}|_logo\.|logo_|logo-|\/logo/i;
+  const cleanScored = scoredImages.filter(img => !BLOCKED.test(img));
+
   const heroFilename = heroProductImage ? heroProductImage.split('/').pop().split('?')[0] : null;
   const seenFilenames = new Set(heroFilename ? [heroFilename] : []);
-  const uniqueScored = scoredImages.filter(img => {
+  const uniqueScored = cleanScored.filter(img => {
     const filename = img.split('/').pop().split('?')[0];
     if (seenFilenames.has(filename)) return false;
     seenFilenames.add(filename);
