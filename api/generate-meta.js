@@ -46,6 +46,7 @@ export default async function handler(req, res) {
     if (/cdn|media|product|static|assets|img|image/i.test(img)) score += 2;
     if (/\/products?\/|\/items?\/|\/catalog/i.test(img)) score += 3;
     if (/\/uploads\//i.test(img)) score += 2; // WooCommerce/WordPress uploads
+    if (/\/thumbnails?\//i.test(img)) score += 4; // Shopify product thumbnails
     if (/[0-9]{4,}/.test(img)) score += 1; // has numeric ID
     if (/\d+x\d+/i.test(img)) score += 3; // has dimensions like 1200x1200 = product image
     if (/\.jpg|\.jpeg|\.webp|\.png/i.test(img)) score += 1;
@@ -54,8 +55,23 @@ export default async function handler(req, res) {
     return score;
   };
 
+  // ── Shopify: derive additional product images from hero URL ──────────────────
+  // Shopify stores multiple product shots at the same CDN path with different timestamps
+  // Pattern: /products/{id}/thumbnails/{name}-{timestamp}.{ext}
+  const shopifyExtraImages = [];
+  if (scrapeImages.length > 0) {
+    const heroUrl = scrapeImages[0];
+    const shopifyMatch = heroUrl.match(/^(https?:\/\/[^\/]+\/products?\/[0-9]+\/(?:thumbnails?\/)?)(.*?)(-[0-9]{10,})(\.[a-z]+)$/i);
+    if (shopifyMatch) {
+      // Look for other images from same product folder in scraped images
+      const productBase = shopifyMatch[1];
+      const productImages = scrapeImages.filter(img => img.includes(productBase) && img !== heroUrl);
+      shopifyExtraImages.push(...productImages.slice(0, 3));
+    }
+  }
+
   // Sort scraped images by product likelihood score
-  const scoredImages = [...scrapeImages]
+  const scoredImages = [...new Set([...scrapeImages, ...shopifyExtraImages])]
     .map(img => ({ img, score: scoreImage(img) }))
     .sort((a, b) => b.score - a.score)
     .filter(x => x.score > 0)
@@ -63,6 +79,26 @@ export default async function handler(req, res) {
 
   const heroProductImage = scoredImages[0] || scrapeImages[0] || null;
   const isSingleProduct = isProductUrl || scrapeImages.length <= 6;
+
+  // ── Shopify JSON API: fetch product images directly ────────────────────────────
+  // Shopify exposes product data at {productUrl}.json — works even when HTML scraping misses images
+  if (scoredImages.length < 3) {
+    try {
+      const shopifyJsonUrl = url.split('?')[0].replace(/\/$/, '') + '.json';
+      const sjRes = await fetch(shopifyJsonUrl, { 
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
+      });
+      if (sjRes.ok) {
+        const sjData = await sjRes.json();
+        const productImages = (sjData.product?.images || [])
+          .map(img => img.src)
+          .filter(src => src && src.startsWith('http'));
+        for (const img of productImages) {
+          if (!scoredImages.includes(img)) scoredImages.push(img);
+        }
+      }
+    } catch(_) {}
+  }
 
   // ── Secondary scraped images (2nd and 3rd best product images) ───────────────
   const secondaryImage = scoredImages[1] || null;
