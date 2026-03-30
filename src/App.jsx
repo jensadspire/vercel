@@ -2214,6 +2214,7 @@ STRICT rules:
                     borderRadius: 8, cursor: 'pointer', flexShrink: 0,
                     transition: 'all 0.2s', whiteSpace: 'nowrap',
                   }}>⚡ Batch</button>
+                )}
                 {/* Generate button — signed in */}
                 <button onClick={generate} disabled={loading || batchRunning} style={{
                   padding: '9px 14px', fontSize: 12, fontWeight: 700,
