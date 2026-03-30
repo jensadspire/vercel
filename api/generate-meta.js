@@ -105,12 +105,21 @@ export default async function handler(req, res) {
   // Re-sort after potential Shopify additions
   scoredImages.sort((a, b) => scoreImage(b) - scoreImage(a));
 
-  // ── Secondary scraped images — deduplicated, exclude hero ──────────────────────
-  // Strip query params for dedup comparison, keep full URL for display
-  const heroBase = heroProductImage ? heroProductImage.split('?')[0] : null;
+  // ── Secondary scraped images — deduplicated by filename, prefer full-size ──────
+  const heroFilename = heroProductImage ? heroProductImage.split('/').pop().split('?')[0] : null;
+  const seenFilenames = new Set(heroFilename ? [heroFilename] : []);
   const uniqueScored = scoredImages.filter(img => {
-    const base = img.split('?')[0];
-    return base !== heroBase && img !== heroProductImage;
+    const filename = img.split('/').pop().split('?')[0];
+    if (seenFilenames.has(filename)) return false;
+    seenFilenames.add(filename);
+    // Prefer full-size over thumbnail variants
+    const isThumb = /\/thumbnails?\//i.test(img);
+    const fullSizeExists = scoredImages.some(other =>
+      other !== img &&
+      other.split('/').pop().split('?')[0] === filename &&
+      !/\/thumbnails?\//i.test(other)
+    );
+    return !(isThumb && fullSizeExists);
   });
   const secondaryImage = uniqueScored[0] || null;
   const tertiaryImage  = uniqueScored[1] || null;
