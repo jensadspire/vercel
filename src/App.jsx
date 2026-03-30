@@ -2216,29 +2216,29 @@ STRICT rules:
                   }}>⚡ Batch</button>
                 )}
 
-                {/* Generate button */}
-                <button onClick={generate} disabled={loading || batchRunning} style={{
-                  padding: '9px 14px', fontSize: 12, fontWeight: 700,
-                  background: loading || batchRunning
-                    ? 'linear-gradient(135deg,#d97706,#f59e0b)'
-                    : 'linear-gradient(135deg,#3b82f6,#6366f1)',
-                  color: 'white', border: 'none',
-                  borderRadius: 8, cursor: loading || batchRunning ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
-                  transition: 'background 0.3s ease, opacity 0.3s ease',
-                  willChange: 'opacity',
-                  animation: loading || batchRunning ? 'pulse 1.5s ease-in-out infinite' : 'none',
-                }}>
-                  {loading
-                    ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating…</>
-                    : batchRunning
-                    ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Running batch…</>
-                    : '✦ Generate'}
-                </button>
               </div>
             </div>
           )}
-        </div>
+          <div style={{ maxWidth: 900, margin: '4px auto 0', display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={generate} disabled={loading || batchRunning} style={{
+              padding: '9px 20px', fontSize: 12, fontWeight: 700,
+              background: loading || batchRunning
+                ? 'linear-gradient(135deg,#d97706,#f59e0b)'
+                : 'linear-gradient(135deg,#3b82f6,#6366f1)',
+              color: 'white', border: 'none',
+              borderRadius: 8, cursor: loading || batchRunning ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 7,
+              transition: 'background 0.3s ease, opacity 0.3s ease',
+              willChange: 'opacity',
+              animation: loading || batchRunning ? 'pulse 1.5s ease-in-out infinite' : 'none',
+            }}>
+              {loading
+                ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating…</>
+                : batchRunning
+                ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Running batch…</>
+                : '✦ Generate'}
+            </button>
+          </div>
         {error && (
           <div style={{ maxWidth: 900, margin: "8px auto 0", fontSize: 12, color: "#f87171", display: "flex", alignItems: "center", gap: 6 }}>
             <span>⚠</span> {error}
