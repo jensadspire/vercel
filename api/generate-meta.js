@@ -35,14 +35,40 @@ export default async function handler(req, res) {
     pageContent = url; // fallback to URL only
   }
 
-  // ── Detect if this is a single product URL or a collection ─────────────────
-  const isSingleProduct = scrapeImages.length <= 4 ||
-    /\/p-|\/product\/|\/produkt\/|\/products\/|\/item\/|[a-f0-9]{8}-[a-f0-9]{4}/.test(url);
-  const heroProductImage = isSingleProduct && scrapeImages[0] ? scrapeImages[0] : null;
+  // ── Smart image selection — works for both product and category URLs ──────────
+  // Expanded URL patterns for product pages across many platforms/languages
+  const isProductUrl = /\/p-|\/product|\/produkt|\/pd\/|\/item\/|\/p\/|[a-f0-9]{8}-[a-f0-9]{4}|\.html|\.htm|\?.*color=|\?.*variant|itemid=|productid=/i.test(url);
 
-  // ── Secondary image: scrape homepage for editorial/lifestyle shot of product ─
-  let secondaryImage = null;
-  if (isSingleProduct && heroProductImage) {
+  // Score images by how likely they are to be product photos
+  // Product images: usually from CDN, contain product IDs, are square/portrait
+  const scoreImage = (img) => {
+    let score = 0;
+    if (/cdn|media|product|static|assets|img|image/i.test(img)) score += 2;
+    if (/\/products?\/|\/items?\/|\/catalog/i.test(img)) score += 3;
+    if (/[0-9]{4,}/.test(img)) score += 1; // has numeric ID
+    if (/\.jpg|\.jpeg|\.webp|\.png/i.test(img)) score += 1;
+    if (/logo|icon|banner|background|hero|bg|sprite/i.test(img)) score -= 5;
+    if (img.length < 40) score -= 3; // too short = likely icon
+    return score;
+  };
+
+  // Sort scraped images by product likelihood score
+  const scoredImages = [...scrapeImages]
+    .map(img => ({ img, score: scoreImage(img) }))
+    .sort((a, b) => b.score - a.score)
+    .filter(x => x.score > 0)
+    .map(x => x.img);
+
+  const heroProductImage = scoredImages[0] || scrapeImages[0] || null;
+  const isSingleProduct = isProductUrl || scrapeImages.length <= 6;
+
+  // ── Secondary scraped images (2nd and 3rd best product images) ───────────────
+  const secondaryImage = scoredImages[1] || null;
+  const tertiaryImage  = scoredImages[2] || null;
+
+  // ── Homepage editorial image ──────────────────────────────────────────────────
+  let homepageImage = null;
+  if (heroProductImage) {
     try {
       const domain = new URL(url).origin;
       const homeRes = await fetch(`${req.headers.origin || 'https://' + req.headers.host}/api/scrape`, {
@@ -61,7 +87,7 @@ export default async function handler(req, res) {
         !img.includes('banner') &&
         img.length > 30
       );
-      secondaryImage = candidates[0] || null;
+      homepageImage = candidates[0] || null;
     } catch(_) {}
   }
 
@@ -269,6 +295,8 @@ Rules:
         imagePrompts: imagePromptsToReturn,
         heroProductImage,
         secondaryImage,
+        tertiaryImage,
+        homepageImage,
         isPro,
       });
     }
@@ -281,7 +309,9 @@ Rules:
     imageUrl,
     imageVariations,
     imagePrompt: parsed.imagePrompt,
-    heroProductImage, // scraped product image for FB preview
-    secondaryImage,   // editorial/lifestyle image from homepage
+    heroProductImage,
+    secondaryImage,
+    tertiaryImage,
+    homepageImage,
   });
 }

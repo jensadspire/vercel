@@ -1456,6 +1456,8 @@ STRICT rules:
             const initialVariations = [
               metaData.heroProductImage,
               metaData.secondaryImage,
+              metaData.tertiaryImage,
+              metaData.homepageImage,
             ].filter(Boolean);
             setMetaResult({
               ...metaData,
@@ -1505,9 +1507,13 @@ STRICT rules:
                     // Keep hero product image as first if present, then AI variations
                     const hero = metaData.heroProductImage;
                     const secondary = metaData.secondaryImage;
+                    const tertiary = metaData.tertiaryImage;
+                    const homepage = metaData.homepageImage;
                     const variations = [
                       hero,
                       secondary,
+                      tertiary,
+                      homepage,
                       ...aiVariations,
                     ].filter(Boolean);
                     return {
