@@ -3668,8 +3668,8 @@ STRICT rules:
                 <div style={{ background: '#fff', borderRadius: 10, overflow: 'hidden', maxWidth: 380, margin: '0 auto', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
                   {/* Page header */}
                   <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: 'white' }}>
-                      {(rows[activeRow]?.campaign || url || 'B').charAt(0).toUpperCase()}
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#3b82f6,#6366f1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {pmaxLogo ? <img src={pmaxLogo} alt='' style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={e => e.currentTarget.style.display='none'} /> : <span style={{ color: 'white', fontSize: 16, fontWeight: 800 }}>{(rows[activeRow]?.campaign || url || 'B').charAt(0).toUpperCase()}</span>}
                     </div>
                     <div>
                       <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{(() => { try { const h = new URL(url).hostname.replace('www.','').split('.')[0]; return h.charAt(0).toUpperCase() + h.slice(1); } catch(_) { return rows[activeRow]?.campaign || 'Brand'; } })()}</div>
