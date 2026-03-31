@@ -3805,9 +3805,31 @@ STRICT rules:
                             setActiveRow(0);
                             setUrl(h.url);
                             setGenerated(true);
-                            if (h.metaResult) { setMetaResult(h.metaResult); setMetaError(""); }
-                          }} style={{
-                            width: 18, height: 18, borderRadius: 4, border: "none", flexShrink: 0,
+                            if (h.metaResult) { 
+                              setMetaResult(h.metaResult); 
+                              setMetaError('');
+                              // If no images stored, refetch them
+                              if (!h.metaResult.imageUrl && !h.metaResult.imageVariations?.length && h.metaResult.imagePrompts) {
+                                setMetaImagesLoading(true);
+                                metaGenId.current += 1;
+                                const thisGenId = metaGenId.current;
+                                const genImg = async (prompt) => {
+                                  if (!prompt) return null;
+                                  try {
+                                    const r = await fetch('/api/imagen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
+                                    const d = await r.json();
+                                    return d.imageUrl || null;
+                                  } catch(_) { return null; }
+                                };
+                                const { s1, v1, v2 } = h.metaResult.imagePrompts;
+                                Promise.all([genImg(s1), genImg(v1), genImg(v2 || null)]).then(([is1, iv1, iv2]) => {
+                                  if (metaGenId.current !== thisGenId) return;
+                                  setMetaImagesLoading(false);
+                                  const variations = [h.metaResult.heroProductImage, h.metaResult.secondaryImage, is1, iv1, iv2].filter(Boolean);
+                                  if (variations.length > 0) setMetaResult(prev => prev ? ({ ...prev, imageUrl: variations[0], imageVariations: variations }) : prev);
+                                });
+                              }
+                            }
                             cursor: adFormat === "meta" ? "pointer" : "default",
                             background: isSelected && adFormat === "meta"
                               ? "linear-gradient(135deg,#0ea5e9,#6366f1)"
