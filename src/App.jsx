@@ -1669,7 +1669,7 @@ STRICT rules:
               {localOptIn && <span style={{ color: "white", fontSize: 10, fontWeight: 900, lineHeight: 1 }}>✓</span>}
             </button>
             <span style={{ fontSize: 10, color: "#8fa3b8", lineHeight: 1.5 }}>
-              I'd like to receive news, updates and tips about RSA Studio. You can unsubscribe at any time.
+              I'd like to receive news, updates and tips about AI Ad Studio. You can unsubscribe at any time.
             </span>
           </div>
         )}
@@ -1748,7 +1748,7 @@ STRICT rules:
             {marketingOptIn && <span style={{ color: "white", fontSize: 10, fontWeight: 900, lineHeight: 1 }}>✓</span>}
           </button>
           <span style={{ fontSize: 10, color: "#8fa3b8", lineHeight: 1.5 }}>
-            I'd like to receive news, updates and tips about RSA Studio. You can unsubscribe at any time.
+            I'd like to receive news, updates and tips about AI Ad Studio. You can unsubscribe at any time.
           </span>
         </div>
 
@@ -1948,10 +1948,10 @@ STRICT rules:
             background: "linear-gradient(135deg, #3b82f6, #06b6d4)",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 16, fontWeight: 900, color: "white",
-          }}>G</div>
+          }}>✦</div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: "white", letterSpacing: "-0.01em" }}>RSA Studio</div>
-            <div style={{ fontSize: 10, color: "#7e92a8", letterSpacing: "0.06em" }}>GOOGLE ADS EDITOR READY</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "white", letterSpacing: "-0.01em" }}>AI Ad Studio</div>
+            <div style={{ fontSize: 10, color: "#7e92a8", letterSpacing: "0.06em" }}>GOOGLE ADS AND META ADS READY</div>
           </div>
         </div>
 
@@ -4732,7 +4732,7 @@ STRICT rules:
 
       {/* ── Footer ───────────────────────────────────────────────────────── */}
       <div style={{ textAlign: 'center', padding: '12px 24px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10, color: '#2d3748' }}>Created by AI Ad Studio</span>
+        <span style={{ fontSize: 10, color: '#2d3748' }}>AI Ad Studio</span>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
         <a href="https://app.termly.io/dashboard/website/3a01a18a-2820-4b2c-ab90-d722bbcd93d8/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
           onMouseOver={e => e.target.style.color='#4a5568'}
