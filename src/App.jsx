@@ -2143,16 +2143,28 @@ STRICT rules:
                   if (!url) return;
                   setAudienceLoading(true);
                   try {
-                    const pageContent = pageMeta?.content || pageMeta?.description || '';
+                    // Use already-scraped pageMeta if available, else do a quick scrape
+                    let pageContent = pageMeta?.content || pageMeta?.description || '';
+                    if (!pageContent && url) {
+                      try {
+                        const scrapeRes = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+                        const scrapeData = await scrapeRes.json();
+                        pageContent = scrapeData.content || scrapeData.text || '';
+                      } catch(_) {}
+                    }
                     const r = await fetch('/api/audience', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ url, pageContent, audienceDescription: audienceDesc }),
                     });
                     const brief = await r.json();
-                    setAudienceBrief(brief);
-                    setAudienceBriefEdits({});
-                    setShowAudienceBrief(true);
+                    if (brief.error) {
+                      console.error('Audience brief error:', brief.error);
+                    } else {
+                      setAudienceBrief(brief);
+                      setAudienceBriefEdits({});
+                      setShowAudienceBrief(true);
+                    }
                   } catch(e) { console.error(e); }
                   setAudienceLoading(false);
                 }} disabled={!url || audienceLoading} style={{
