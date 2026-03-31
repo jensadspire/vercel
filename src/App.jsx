@@ -3830,6 +3830,7 @@ STRICT rules:
                                 });
                               }
                             }
+                          }} style={{
                             cursor: adFormat === "meta" ? "pointer" : "default",
                             background: isSelected && adFormat === "meta"
                               ? "linear-gradient(135deg,#0ea5e9,#6366f1)"
