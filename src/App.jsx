@@ -1443,7 +1443,7 @@ STRICT rules:
           const metaRes = await fetch("/api/generate-meta", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta.language, imageModel, isPro, audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
+            body: JSON.stringify({ url, language: pageMeta?.language || 'English', imageModel, isPro, audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
           });
           const metaRaw = await metaRes.text();
           let metaData;
