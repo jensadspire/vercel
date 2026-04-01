@@ -15,7 +15,9 @@ const NUM_HL = 15, NUM_DESC = 4;
 const TSV_HEADERS = [
   "Campaign", "Ad Group / Asset Group",
   ...Array.from({ length: NUM_HL }, (_, i) => `Headline ${i + 1}`),
+  ...Array.from({ length: NUM_HL }, (_, i) => `Headline ${i + 1} Position`),
   ...Array.from({ length: NUM_DESC }, (_, i) => `Description ${i + 1}`),
+  ...Array.from({ length: NUM_DESC }, (_, i) => `Description ${i + 1} Position`),
   "Path 1", "Path 2", "Final URL",
 ];
 
@@ -89,7 +91,9 @@ function buildTSV(rows, omitGroup = false, format = "rsa") {
       return [
         ...cells,
         ...r.headlines.map(h => h.text),
+        ...r.headlines.map(h => h.pin || ''),
         ...r.descriptions.map(d => d.text),
+        ...r.descriptions.map(d => d.pin || ''),
         r.path1, r.path2, r.finalUrl,
       ].join("\t");
     }),
