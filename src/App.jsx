@@ -13,7 +13,7 @@ const HL_LIMIT = 30, DESC_LIMIT = 90, PATH_LIMIT = 15;
 const NUM_HL = 15, NUM_DESC = 4;
 
 const TSV_HEADERS = [
-  "Campaign", "Ad Group / Asset Group",
+  "Campaign", "Ad Group",
   ...Array.from({ length: NUM_HL }, (_, i) => [`Headline ${i + 1}`, `Headline ${i + 1} Position`]).flat(),
   ...Array.from({ length: NUM_DESC }, (_, i) => [`Description ${i + 1}`, `Description ${i + 1} Position`]).flat(),
   "Path 1", "Path 2", "Final URL",
@@ -80,7 +80,7 @@ function buildTSV(rows, omitGroup = false, format = "rsa") {
     ].join("\n");
   }
   const headers = omitGroup
-    ? TSV_HEADERS.filter(h => h !== "Campaign" && h !== "Ad Group / Asset Group")
+    ? TSV_HEADERS.filter(h => h !== "Campaign" && h !== "Ad Group")
     : TSV_HEADERS;
   return [
     headers.join("\t"),
@@ -2692,7 +2692,7 @@ STRICT rules:
                 <input value={row.campaign} onChange={e => setField("campaign", e.target.value)} placeholder="My Campaign" style={{ ...S.inputBase, fontSize: 12 }} />
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Ad Group / Asset Group</div>
+                <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Ad Group</div>
                 <input value={row.adGroup} onChange={e => setField("adGroup", e.target.value)} placeholder="My Ad Group" style={{ ...S.inputBase, fontSize: 12 }} />
               </div>
             </div>
