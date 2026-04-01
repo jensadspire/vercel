@@ -14,10 +14,8 @@ const NUM_HL = 15, NUM_DESC = 4;
 
 const TSV_HEADERS = [
   "Campaign", "Ad Group / Asset Group",
-  ...Array.from({ length: NUM_HL }, (_, i) => `Headline ${i + 1}`),
-  ...Array.from({ length: NUM_HL }, (_, i) => `Headline ${i + 1} Position`),
-  ...Array.from({ length: NUM_DESC }, (_, i) => `Description ${i + 1}`),
-  ...Array.from({ length: NUM_DESC }, (_, i) => `Description ${i + 1} Position`),
+  ...Array.from({ length: NUM_HL }, (_, i) => [`Headline ${i + 1}`, `Headline ${i + 1} Position`]).flat(),
+  ...Array.from({ length: NUM_DESC }, (_, i) => [`Description ${i + 1}`, `Description ${i + 1} Position`]).flat(),
   "Path 1", "Path 2", "Final URL",
 ];
 
@@ -90,10 +88,8 @@ function buildTSV(rows, omitGroup = false, format = "rsa") {
       const cells = omitGroup ? [] : [r.campaign, r.adGroup];
       return [
         ...cells,
-        ...r.headlines.map(h => h.text),
-        ...r.headlines.map(h => h.pin || ''),
-        ...r.descriptions.map(d => d.text),
-        ...r.descriptions.map(d => d.pin || ''),
+        ...r.headlines.flatMap(h => [h.text, h.pin || '']),
+        ...r.descriptions.flatMap(d => [d.text, d.pin || '']),
         r.path1, r.path2, r.finalUrl,
       ].join("\t");
     }),
