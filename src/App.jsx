@@ -2111,63 +2111,64 @@ STRICT rules:
           {(() => {
             const metaDisabled = batchRunning || !generated;
             const metaTooltip = batchRunning
-              ? "Meta generation is disabled during batch mode — load a single ad from the history tray to generate Meta"
+              ? "Meta generation is disabled during batch mode — load a single ad from the history panel"
               : !generated
               ? "Generate a Google ad first, then enable Meta generation"
               : "";
             return (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", opacity: metaDisabled ? 0.4 : 1, transition: "opacity 0.2s" }}
-                title={metaTooltip}>
-                <button onClick={() => !metaDisabled && setGenerateMeta(v => !v)} style={{
-                  width: 16, height: 16, borderRadius: 3, border: "none",
-                  cursor: metaDisabled ? "not-allowed" : "pointer", flexShrink: 0,
-                  cursor: metaDisabled ? "not-allowed" : "pointer", flexShrink: 0,
-                  background: generateMeta && !metaDisabled ? "linear-gradient(135deg,#0ea5e9,#6366f1)" : "rgba(255,255,255,0.08)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "background 0.15s",
-                  animation: generated && !generateMeta && !metaDisabled ? "metaPulse 2s ease-in-out infinite" : "none",
-                  willChange: "box-shadow",
-                }}>
-                  {generateMeta && !metaDisabled && <span style={{ color: "white", fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>}
-                </button>
-                <span style={{ fontSize: 11, color: generateMeta && !metaDisabled ? "#93c5fd" : "#4a5568",
-                  cursor: metaDisabled ? "not-allowed" : "pointer", userSelect: "none" }}
-                  onClick={() => !metaDisabled && setGenerateMeta(v => !v)}>
-                  Also generate Meta ads <span style={{ fontSize: 10, color: "#4a5568" }}>(FB / IG)</span>
-                  {batchRunning && <span style={{ fontSize: 9, color: "#4a5568", marginLeft: 6 }}>· unavailable in batch mode</span>}
-                </span>
-                {generateMeta && !metaDisabled && (
-                  <div style={{ display: "flex", background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: 2, marginLeft: 4 }}>
-                    {["dalle","imagen"].map(m => (
-                      <button key={m} onClick={e => { e.stopPropagation(); setImageModel(m); }} style={{
-                        padding: "2px 8px", fontSize: 9, fontWeight: 700, borderRadius: 4,
-                        border: "none", cursor: "pointer", transition: "all 0.15s",
-                        background: imageModel === m ? "linear-gradient(135deg,#6366f1,#0ea5e9)" : "transparent",
-                        color: imageModel === m ? "white" : "#4a5568",
-                      }}>{m === "dalle" ? "DALL-E" : "✦ Imagen"}</button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {/* TikTok checkbox */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", marginTop: 4 }}>
-                <button onClick={() => isSignedIn && setGenerateTiktok(v => !v)} style={{
-                  width: 16, height: 16, borderRadius: 3, border: "none",
-                  cursor: isSignedIn ? "pointer" : "not-allowed", flexShrink: 0,
-                  background: generateTiktok && isSignedIn ? "linear-gradient(135deg,#ff0050,#ff4d4d)" : "rgba(255,255,255,0.08)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  {generateTiktok && isSignedIn && <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
-                </button>
-                <span style={{ fontSize: 11, color: generateTiktok && isSignedIn ? "#fca5a5" : "#4a5568",
-                  cursor: isSignedIn ? "pointer" : "not-allowed", userSelect: "none" }}
-                  onClick={() => isSignedIn && setGenerateTiktok(v => !v)}>
-                  Also generate TikTok ads <span style={{ fontSize: 10, color: "#4a5568" }}>(In-Feed + Video)</span>
-                </span>
-              </div>
+              <>
+                {/* Meta checkbox */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", opacity: metaDisabled ? 0.4 : 1 }}
+                  title={metaTooltip}>
+                  <button onClick={() => !metaDisabled && setGenerateMeta(v => !v)} style={{
+                    width: 16, height: 16, borderRadius: 3, border: "none",
+                    cursor: metaDisabled ? "not-allowed" : "pointer", flexShrink: 0,
+                    background: generateMeta && !metaDisabled ? "linear-gradient(135deg,#0ea5e9,#6366f1)" : "rgba(255,255,255,0.08)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "background 0.15s",
+                    animation: generated && !generateMeta && !metaDisabled ? "metaPulse 2s ease-in-out infinite" : "none",
+                    willChange: "box-shadow",
+                  }}>
+                    {generateMeta && !metaDisabled && <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
+                  </button>
+                  <span style={{ fontSize: 11, color: generateMeta && !metaDisabled ? "#93c5fd" : "#4a5568",
+                    cursor: metaDisabled ? "not-allowed" : "pointer", userSelect: "none" }}
+                    onClick={() => !metaDisabled && setGenerateMeta(v => !v)}>
+                    Also generate Meta ads <span style={{ fontSize: 10, color: "#4a5568" }}>(FB / IG)</span>
+                    {batchRunning && <span style={{ fontSize: 9, color: "#4a5568", marginLeft: 6 }}>· Disabled in batch mode</span>}
+                  </span>
+                  {generateMeta && !metaDisabled && (
+                    <div style={{ display: "flex", background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "2px 3px", gap: 2 }}>
+                      {["dalle","imagen"].map(m => (
+                        <button key={m} onClick={e => { e.stopPropagation(); setImageModel(m); }} style={{
+                          padding: "2px 8px", fontSize: 9, fontWeight: 700, borderRadius: 4,
+                          border: "none", cursor: "pointer", transition: "all 0.15s",
+                          background: imageModel === m ? "linear-gradient(135deg,#6366f1,#0ea5e9)" : "transparent",
+                          color: imageModel === m ? "white" : "#4a5568",
+                        }}>{m === "dalle" ? "DALL-E" : "✦ Imagen"}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* TikTok checkbox */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", marginTop: 2 }}>
+                  <button onClick={() => isSignedIn && setGenerateTiktok(v => !v)} style={{
+                    width: 16, height: 16, borderRadius: 3, border: "none",
+                    cursor: isSignedIn ? "pointer" : "not-allowed", flexShrink: 0,
+                    background: generateTiktok && isSignedIn ? "linear-gradient(135deg,#ff0050,#ff4d4d)" : "rgba(255,255,255,0.08)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {generateTiktok && isSignedIn && <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
+                  </button>
+                  <span style={{ fontSize: 11, color: generateTiktok && isSignedIn ? "#fca5a5" : "#4a5568",
+                    cursor: isSignedIn ? "pointer" : "not-allowed", userSelect: "none" }}
+                    onClick={() => isSignedIn && setGenerateTiktok(v => !v)}>
+                    Also generate TikTok ads <span style={{ fontSize: 10, color: "#4a5568" }}>(In-Feed + Video)</span>
+                  </span>
+                </div>
+              </>
             );
           })()}
-
           </div>
           {/* ── Audience Brief Input ─────────────────────────────────────── */}
           {isSignedIn && (
