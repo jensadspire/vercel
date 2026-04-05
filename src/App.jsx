@@ -5705,22 +5705,26 @@ STRICT rules:
                       if (!tiktokResult.videoPrompt) return;
                       setTiktokVideoLoading(true);
                       try {
+                        const imageUrl = metaResult?.imageUrl || metaResult?.heroProductImage || null;
+                        if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
                         const r = await fetch('/api/runway', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ prompt: tiktokResult.videoPrompt, ratio: '720:1280' }),
+                          body: JSON.stringify({ imageUrl, prompt: tiktokResult.videoPrompt, duration: 5 }),
                         });
                         const d = await r.json();
-                        if (d.videoUrl) setTiktokVideoUrl(d.videoUrl);
+                        if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }
                         else if (d.taskId) {
-                          // Poll for completion
+                          // Poll for completion with timeout
+                          let attempts = 0;
                           const poll = setInterval(async () => {
-                            const pr = await fetch('/api/runway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: d.taskId }) });
+                            if (attempts++ > 24) { setTiktokVideoLoading(false); clearInterval(poll); return; } // 2 min timeout
+                            const pr = await fetch('/api/runway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', taskId: d.taskId }) });
                             const pd = await pr.json();
                             if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(poll); }
                             else if (pd.status === 'FAILED') { setTiktokVideoLoading(false); clearInterval(poll); }
                           }, 5000);
-                        }
+                        } else { setTiktokVideoLoading(false); }
                       } catch(e) { setTiktokVideoLoading(false); }
                     }} disabled={tiktokVideoLoading} style={{
                       padding: '8px 16px', fontSize: 11, fontWeight: 700,
