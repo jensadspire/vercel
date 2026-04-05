@@ -5710,7 +5710,7 @@ STRICT rules:
                         const r = await fetch('/api/runway', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ imageUrl, prompt: tiktokResult.videoPrompt, duration: 5 }),
+                          body: JSON.stringify({ imageUrl, prompt: tiktokResult.videoPrompt, duration: 10 }),
                         });
                         const d = await r.json();
                         if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }
