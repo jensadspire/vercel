@@ -2255,6 +2255,7 @@ STRICT rules:
                     setDiscountOn(false); setDiscountType('% Off'); setDiscountValue(''); setDiscountPlacement('Both');
                     setBrandOn(false); setBrandRequired(''); setBrandBanned(''); setBrandTone('Professional');
                     setClearKey(k => k + 1);
+                    setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null);
                   }} style={{
                     padding: '9px 14px', fontSize: 11, fontWeight: 700,
                     background: 'rgba(255,255,255,0.05)',
@@ -2308,6 +2309,7 @@ STRICT rules:
                   setKwInDescs(false); setKwDescs(1); setRows([makeRow(1)]);
                   setActiveRow(0); setGenerated(false); setError('');
                   setActiveTab('headlines'); setClearKey(k => k + 1);
+                  setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null);
                 }} style={{
                   padding: '9px 14px', fontSize: 11, fontWeight: 700,
                   background: 'rgba(255,255,255,0.05)',
@@ -5705,7 +5707,9 @@ STRICT rules:
                       if (!tiktokResult.videoPrompt) return;
                       setTiktokVideoLoading(true);
                       try {
-                        const imageUrl = metaResult?.imageUrl || metaResult?.heroProductImage || null;
+                        // Use currently selected thumbnail as video source
+                        const selectedImg = metaResult?.imageVariations?.[activeImageVariant] || metaResult?.imageUrl || metaResult?.heroProductImage || null;
+                        const imageUrl = selectedImg;
                         if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
                         const r = await fetch('/api/runway', {
                           method: 'POST',
