@@ -82,7 +82,7 @@ Return ONLY valid JSON:
     { "scene": 3, "timing": "8-18s", "title": "Product Reveal", "description": "Product in use, benefit shown" },
     { "scene": 4, "timing": "18-25s", "title": "CTA Close", "description": "Strong ending with action" }
   ],
-  "videoPrompt": "Single detailed prompt for Runway video generation — 9:16 vertical format, describe the full scene, lighting, mood, movement. Product must be clearly visible."
+  "videoPrompt": "Runway video prompt, max 900 chars — 9:16 vertical TikTok format. Describe opening scene, camera movement, lighting, mood. Product clearly visible. Concise and visual."
 }`;
 
   // ── Call Claude ───────────────────────────────────────────────────────────────

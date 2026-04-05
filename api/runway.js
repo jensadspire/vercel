@@ -42,7 +42,21 @@ export default async function handler(req, res) {
     // ── Create new video task ─────────────────────────────────────────────────
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
 
-    const motionPrompt = prompt || 'Smooth cinematic camera movement, professional product advertisement, subtle motion';
+    const motionPrompt = (prompt || 'Smooth cinematic camera movement, professional product advertisement style').slice(0, 1000);
+
+    // ── Fetch image and convert to base64 — Runway needs accessible image ──
+    let promptImage = imageUrl;
+    try {
+      const imgRes = await fetch(imageUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' }
+      });
+      if (imgRes.ok) {
+        const imgBuffer = await imgRes.arrayBuffer();
+        const imgBase64 = Buffer.from(imgBuffer).toString('base64');
+        const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+        promptImage = `data:${contentType};base64,${imgBase64}`;
+      }
+    } catch (_) {}
 
     const r = await fetch(`${RUNWAY_API}/image_to_video`, {
       method: 'POST',
@@ -53,7 +67,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'gen3a_turbo',
-        promptImage: imageUrl,
+        promptImage: promptImage,
         promptText: motionPrompt,
         duration,
         ratio: '768:1280',
@@ -65,7 +79,7 @@ export default async function handler(req, res) {
 
     if (!r.ok) {
       console.error('Runway error:', JSON.stringify(data));
-      return res.status(500).json({ error: data.message || 'Runway generation failed' });
+      return res.status(500).json({ error: data.message || 'Runway generation failed', detail: JSON.stringify(data) });
     }
 
     return res.status(200).json({
