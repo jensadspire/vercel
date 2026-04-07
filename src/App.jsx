@@ -1552,7 +1552,16 @@ STRICT rules:
         setTiktokError("");
         setTiktokResult(null);
         setTiktokVideoUrl(null);
-        setAdFormat("tiktok");
+        // Only auto-switch to TikTok tab if Meta is not generating simultaneously
+        if (!generateMeta) {
+          setAdFormat("tiktok");
+          // Scroll right panel to TikTok section after tab switch
+          setTimeout(() => {
+            const panel = document.getElementById('right-panel');
+            const section = document.getElementById('tiktok-section');
+            if (panel && section) panel.scrollTo({ top: section.offsetTop, behavior: 'smooth' });
+          }, 300);
+        }
         try {
           const tiktokRes = await fetch("/api/generate-tiktok", {
             method: "POST",
@@ -2709,6 +2718,7 @@ STRICT rules:
         ].map(fmt => (
           <button key={fmt.id} onClick={() => {
             setAdFormat(fmt.id);
+            if (fmt.id === 'tiktok') setTimeout(() => { const p = document.getElementById('right-panel'); const s = document.getElementById('tiktok-section'); if (p && s) p.scrollTo({ top: s.offsetTop, behavior: 'smooth' }); }, 150);
           }} style={{
             display: "flex", alignItems: "center", gap: 7,
             padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
@@ -3202,7 +3212,7 @@ STRICT rules:
         </div>
 
         {/* RIGHT: Preview Panel */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
+        <div id="right-panel" style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
 
         {adFormat === "pmax" ? (
           /* ── PMax Output Panel ── */
@@ -3577,7 +3587,7 @@ STRICT rules:
             </div>
           </div>
 
-          {/* SERP Preview — hidden when Meta tab active */}
+          {/* SERP Preview — hidden when Meta or TikTok tab active */}
           {adFormat !== "meta" && (<><div style={S.card}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...S.sectionLabel, margin: 0 }}>Google SERP Preview</span>
@@ -3740,6 +3750,35 @@ STRICT rules:
                   )}
                   {metaResult.imageUrl && (
                     <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
+                  )}
+                  {/* TikTok ready hint */}
+                  {generateTiktok && tiktokResult && !tiktokLoading && (
+                    <div onClick={() => setAdFormat('tiktok')} style={{ padding: '6px 12px', background: 'linear-gradient(135deg,rgba(255,0,80,0.15),rgba(255,77,77,0.1))', borderTop: '1px solid rgba(255,77,77,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 14 }}>♪</span>
+                      <span style={{ fontSize: 10, color: '#fca5a5', fontWeight: 700 }}>TikTok ad ready — tap to view</span>
+                      <span style={{ fontSize: 9, color: 'rgba(255,165,165,0.6)', marginLeft: 'auto' }}>→</span>
+                    </div>
+                  )}
+                  {generateTiktok && tiktokLoading && (
+                    <div style={{ padding: '6px 12px', background: 'rgba(255,0,80,0.08)', borderTop: '1px solid rgba(255,77,77,0.15)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 11, animation: 'spin 1.5s linear infinite', display: 'inline-block' }}>♪</span>
+                      <span style={{ fontSize: 10, color: '#4a5568' }}>Generating TikTok ad…</span>
+                    </div>
+                  )}
+                  {/* TikTok hint */}
+                  {generateTiktok && tiktokResult && !tiktokLoading && (
+                    <div onClick={() => { setAdFormat('tiktok'); setTimeout(() => { const p = document.getElementById('right-panel'); const s = document.getElementById('tiktok-section'); if (p && s) p.scrollTo({ top: s.offsetTop, behavior: 'smooth' }); }, 300); }}
+                      style={{ padding: '7px 12px', background: 'linear-gradient(135deg,rgba(255,0,80,0.12),rgba(255,77,77,0.08))', borderTop: '1px solid rgba(255,77,77,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13 }}>♪</span>
+                      <span style={{ fontSize: 10, color: '#fca5a5', fontWeight: 700 }}>TikTok ad ready — tap to view</span>
+                      <span style={{ fontSize: 10, color: 'rgba(255,165,165,0.5)', marginLeft: 'auto' }}>→</span>
+                    </div>
+                  )}
+                  {generateTiktok && tiktokLoading && (
+                    <div style={{ padding: '7px 12px', background: 'rgba(255,0,80,0.06)', borderTop: '1px solid rgba(255,77,77,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 11, animation: 'spin 1.5s linear infinite', display: 'inline-block' }}>♪</span>
+                      <span style={{ fontSize: 10, color: '#4a5568' }}>Generating TikTok ad…</span>
+                    </div>
                   )}
                   {/* Headline + CTA bar */}
                   <div style={{ padding: '10px 12px', background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -4813,8 +4852,140 @@ STRICT rules:
             </div>
           )}
 
+          {/* ── TikTok Tab ── */}
+          {adFormat === 'tiktok' && generated && (
+            <div id="tiktok-section" style={{ maxWidth: 900, margin: '0 auto', padding: '16px 24px' }}>
+              {tiktokLoading && (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <div style={{ fontSize: 32, animation: 'spin 1.5s linear infinite', display: 'inline-block', marginBottom: 12 }}>♪</div>
+                  <div style={{ fontSize: 12, color: '#4a5568' }}>Generating TikTok ads…</div>
+                </div>
+              )}
+              {tiktokError && (
+                <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '12px 16px', color: '#fca5a5', fontSize: 12, marginBottom: 12 }}>
+                  {tiktokError}
+                </div>
+              )}
+              {!tiktokLoading && !tiktokResult && !tiktokError && (
+                <div style={{ textAlign: 'center', padding: '48px 0', color: '#4a5568' }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>♪</div>
+                  <div style={{ fontSize: 13, marginBottom: 8 }}>TikTok ads not generated yet</div>
+                  <div style={{ fontSize: 11 }}>Check "Also generate TikTok ads" and click Generate</div>
+                </div>
+              )}
+              {tiktokResult && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* Hook + Copy */}
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: '#ff4d4d', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+                      ♪ TikTok In-Feed Ad Copy
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 10, color: '#4a5568', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hook Line (first 3 seconds)</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#fca5a5', lineHeight: 1.3 }}>{tiktokResult.hookLine}</div>
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 10, color: '#4a5568', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Primary Text</div>
+                      <div style={{ fontSize: 14, color: '#e2e8f0', lineHeight: 1.5 }}>{tiktokResult.primaryText}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontSize: 10, color: '#4a5568', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>CTA</div>
+                        <div style={{ fontSize: 13, color: '#34d399', fontWeight: 700 }}>{tiktokResult.cta}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: '#4a5568', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hashtags</div>
+                        <div style={{ fontSize: 12, color: '#818cf8' }}>{(tiktokResult.hashtags || []).join(' ')}</div>
+                      </div>
+                    </div>
+                    <button onClick={() => {
+                      const text = `${tiktokResult.hookLine}\n\n${tiktokResult.primaryText}\n\n${tiktokResult.cta}\n\n${(tiktokResult.hashtags || []).join(' ')}`;
+                      navigator.clipboard.writeText(text);
+                    }} style={{ marginTop: 12, padding: '6px 14px', fontSize: 10, fontWeight: 700, background: 'rgba(255,77,77,0.15)', color: '#fca5a5', border: '1px solid rgba(255,77,77,0.3)', borderRadius: 6, cursor: 'pointer' }}>
+                      Copy Ad Copy
+                    </button>
+                  </div>
+
+                  {/* Video Storyboard */}
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+                      🎬 Video Storyboard (9:16)
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {(tiktokResult.storyboard || []).map((scene, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 8, background: 'linear-gradient(135deg,#ff0050,#ff4d4d)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                            <div style={{ fontSize: 14, fontWeight: 900, color: 'white' }}>{scene.scene}</div>
+                            <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.7)' }}>{scene.timing}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#a5b4fc', marginBottom: 3 }}>{scene.title}</div>
+                            <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>{scene.description}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Video Generation */}
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+                      🎥 Generate Video (Runway)
+                    </div>
+                    {tiktokVideoUrl ? (
+                      <video src={tiktokVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
+                    ) : (
+                      <div>
+                        <div style={{ fontSize: 11, color: '#4a5568', marginBottom: 10, lineHeight: 1.5 }}>
+                          {tiktokResult.videoPrompt}
+                        </div>
+                        <button onClick={async () => {
+                          if (!tiktokResult.videoPrompt) return;
+                          setTiktokVideoLoading(true);
+                          try {
+                            // Use currently selected thumbnail as video source
+                            const selectedImg = metaResult?.imageVariations?.[activeImageVariant] || metaResult?.imageUrl || metaResult?.heroProductImage || null;
+                            const imageUrl = selectedImg;
+                            if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
+                            const r = await fetch('/api/runway', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ imageUrl, prompt: tiktokResult.videoPrompt, duration: 10 }),
+                            });
+                            const d = await r.json();
+                            if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }
+                            else if (d.taskId) {
+                              // Poll for completion with timeout
+                              let attempts = 0;
+                              const poll = setInterval(async () => {
+                                if (attempts++ > 24) { setTiktokVideoLoading(false); clearInterval(poll); return; } // 2 min timeout
+                                const pr = await fetch('/api/runway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', taskId: d.taskId }) });
+                                const pd = await pr.json();
+                                if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(poll); }
+                                else if (pd.status === 'FAILED') { setTiktokVideoLoading(false); clearInterval(poll); }
+                              }, 5000);
+                            } else { setTiktokVideoLoading(false); }
+                          } catch(e) { setTiktokVideoLoading(false); }
+                        }} disabled={tiktokVideoLoading} style={{
+                          padding: '8px 16px', fontSize: 11, fontWeight: 700,
+                          background: tiktokVideoLoading ? 'rgba(52,211,153,0.1)' : 'linear-gradient(135deg,#34d399,#059669)',
+                          color: tiktokVideoLoading ? '#34d399' : 'white', border: 'none', borderRadius: 8, cursor: tiktokVideoLoading ? 'not-allowed' : 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          animation: tiktokVideoLoading ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                        }}>
+                          {tiktokVideoLoading ? <span><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating video…</span> : '🎥 Generate TikTok Video'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      </div>
+      );
+        </div>
+
 
       {/* ── Footer ───────────────────────────────────────────────────────── */}
       <div style={{ textAlign: 'center', padding: '12px 24px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
@@ -5612,140 +5783,7 @@ STRICT rules:
               )}
 
             </div>
-          </div>
+
         </div>
-      )}
-
-      {/* ── TikTok Tab ── */}
-      {adFormat === 'tiktok' && generated && (
-        <div style={{ maxWidth: 900, margin: '0 auto', padding: '16px 24px' }}>
-          {tiktokLoading && (
-            <div style={{ textAlign: 'center', padding: '48px 0' }}>
-              <div style={{ fontSize: 32, animation: 'spin 1.5s linear infinite', display: 'inline-block', marginBottom: 12 }}>♪</div>
-              <div style={{ fontSize: 12, color: '#4a5568' }}>Generating TikTok ads…</div>
-            </div>
-          )}
-          {tiktokError && (
-            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '12px 16px', color: '#fca5a5', fontSize: 12, marginBottom: 12 }}>
-              {tiktokError}
-            </div>
-          )}
-          {!tiktokLoading && !tiktokResult && !tiktokError && (
-            <div style={{ textAlign: 'center', padding: '48px 0', color: '#4a5568' }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>♪</div>
-              <div style={{ fontSize: 13, marginBottom: 8 }}>TikTok ads not generated yet</div>
-              <div style={{ fontSize: 11 }}>Check "Also generate TikTok ads" and click Generate</div>
-            </div>
-          )}
-          {tiktokResult && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Hook + Copy */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#ff4d4d', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                  ♪ TikTok In-Feed Ad Copy
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, color: '#4a5568', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hook Line (first 3 seconds)</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#fca5a5', lineHeight: 1.3 }}>{tiktokResult.hookLine}</div>
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, color: '#4a5568', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Primary Text</div>
-                  <div style={{ fontSize: 14, color: '#e2e8f0', lineHeight: 1.5 }}>{tiktokResult.primaryText}</div>
-                </div>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: 10, color: '#4a5568', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>CTA</div>
-                    <div style={{ fontSize: 13, color: '#34d399', fontWeight: 700 }}>{tiktokResult.cta}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, color: '#4a5568', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hashtags</div>
-                    <div style={{ fontSize: 12, color: '#818cf8' }}>{(tiktokResult.hashtags || []).join(' ')}</div>
-                  </div>
-                </div>
-                <button onClick={() => {
-                  const text = `${tiktokResult.hookLine}\n\n${tiktokResult.primaryText}\n\n${tiktokResult.cta}\n\n${(tiktokResult.hashtags || []).join(' ')}`;
-                  navigator.clipboard.writeText(text);
-                }} style={{ marginTop: 12, padding: '6px 14px', fontSize: 10, fontWeight: 700, background: 'rgba(255,77,77,0.15)', color: '#fca5a5', border: '1px solid rgba(255,77,77,0.3)', borderRadius: 6, cursor: 'pointer' }}>
-                  Copy Ad Copy
-                </button>
-              </div>
-
-              {/* Video Storyboard */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                  🎬 Video Storyboard (9:16)
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {(tiktokResult.storyboard || []).map((scene, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 8, background: 'linear-gradient(135deg,#ff0050,#ff4d4d)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: 'white' }}>{scene.scene}</div>
-                        <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.7)' }}>{scene.timing}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#a5b4fc', marginBottom: 3 }}>{scene.title}</div>
-                        <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>{scene.description}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Video Generation */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                  🎥 Generate Video (Runway)
-                </div>
-                {tiktokVideoUrl ? (
-                  <video src={tiktokVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
-                ) : (
-                  <>
-                    <div style={{ fontSize: 11, color: '#4a5568', marginBottom: 10, lineHeight: 1.5 }}>
-                      {tiktokResult.videoPrompt}
-                    </div>
-                    <button onClick={async () => {
-                      if (!tiktokResult.videoPrompt) return;
-                      setTiktokVideoLoading(true);
-                      try {
-                        // Use currently selected thumbnail as video source
-                        const selectedImg = metaResult?.imageVariations?.[activeImageVariant] || metaResult?.imageUrl || metaResult?.heroProductImage || null;
-                        const imageUrl = selectedImg;
-                        if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
-                        const r = await fetch('/api/runway', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ imageUrl, prompt: tiktokResult.videoPrompt, duration: 10 }),
-                        });
-                        const d = await r.json();
-                        if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }
-                        else if (d.taskId) {
-                          // Poll for completion with timeout
-                          let attempts = 0;
-                          const poll = setInterval(async () => {
-                            if (attempts++ > 24) { setTiktokVideoLoading(false); clearInterval(poll); return; } // 2 min timeout
-                            const pr = await fetch('/api/runway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', taskId: d.taskId }) });
-                            const pd = await pr.json();
-                            if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(poll); }
-                            else if (pd.status === 'FAILED') { setTiktokVideoLoading(false); clearInterval(poll); }
-                          }, 5000);
-                        } else { setTiktokVideoLoading(false); }
-                      } catch(e) { setTiktokVideoLoading(false); }
-                    }} disabled={tiktokVideoLoading} style={{
-                      padding: '8px 16px', fontSize: 11, fontWeight: 700,
-                      background: tiktokVideoLoading ? 'rgba(52,211,153,0.1)' : 'linear-gradient(135deg,#34d399,#059669)',
-                      color: tiktokVideoLoading ? '#34d399' : 'white', border: 'none', borderRadius: 8, cursor: tiktokVideoLoading ? 'not-allowed' : 'pointer',
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      animation: tiktokVideoLoading ? 'pulse 1.5s ease-in-out infinite' : 'none',
-                    }}>
-                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating video…</> : '🎥 Generate TikTok Video'}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+      </div>
 }
