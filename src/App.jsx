@@ -1555,7 +1555,7 @@ STRICT rules:
         // Only auto-switch to TikTok tab if Meta is not running simultaneously
         if (!generateMeta) {
           setAdFormat("tiktok");
-          setTimeout(() => { const rp = document.getElementById("right-panel"); const ts = document.getElementById("tiktok-section"); if (rp && ts) rp.scrollTo({ top: ts.offsetTop - 20, behavior: "smooth" }); }, 300);
+          setTimeout(() => { const rp = document.getElementById("right-panel"); const ts = document.getElementById("tiktok-section"); if (rp && ts) rp.scrollTo({ top: rp.scrollHeight, behavior: "smooth" }); }, 300);
         }
         try {
           const tiktokRes = await fetch("/api/generate-tiktok", {
@@ -2711,7 +2711,7 @@ STRICT rules:
           { id: "meta", label: "Meta", sublabel: "Social Ads", icon: "◉" },
           { id: "tiktok", label: "TikTok", sublabel: "Video Ads", icon: "♪" },
         ].map(fmt => (
-          <button key={fmt.id} onClick={() => { setAdFormat(fmt.id); if (fmt.id === "tiktok") setTimeout(() => { const rp = document.getElementById("right-panel"); const ts = document.getElementById("tiktok-section"); if (rp && ts) rp.scrollTo({ top: ts.offsetTop - 20, behavior: "smooth" }); }, 150); }} style={{
+          <button key={fmt.id} onClick={() => { setAdFormat(fmt.id); if (fmt.id === "tiktok") setTimeout(() => { const rp = document.getElementById("right-panel"); const ts = document.getElementById("tiktok-section"); if (rp && ts) rp.scrollTo({ top: rp.scrollHeight, behavior: "smooth" }); }, 150); }} style={{
             display: "flex", alignItems: "center", gap: 7,
             padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
             background: adFormat === fmt.id ? "rgba(99,102,241,0.2)" : "transparent",
@@ -3745,7 +3745,7 @@ STRICT rules:
                   )}
                   {/* TikTok hint */}
                   {generateTiktok && tiktokResult && !tiktokLoading && (
-                    <div onClick={() => { setAdFormat("tiktok"); setTimeout(() => { const rp = document.getElementById("right-panel"); const ts = document.getElementById("tiktok-section"); if (rp && ts) rp.scrollTo({ top: ts.offsetTop - 20, behavior: "smooth" }); }, 300); }}
+                    <div onClick={() => { setAdFormat("tiktok"); setTimeout(() => { const rp = document.getElementById("right-panel"); const ts = document.getElementById("tiktok-section"); if (rp && ts) rp.scrollTo({ top: rp.scrollHeight, behavior: "smooth" }); }, 300); }}
                       style={{ padding: '7px 12px', background: 'linear-gradient(135deg,rgba(255,0,80,0.12),rgba(255,77,77,0.08))', borderTop: '1px solid rgba(255,77,77,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 13 }}>♪</span>
                       <span style={{ fontSize: 10, color: '#fca5a5', fontWeight: 700 }}>TikTok ad ready — tap to view</span>
