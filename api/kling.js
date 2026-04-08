@@ -1,8 +1,11 @@
 /**
  * /api/kling — Kling AI video generation via fal.ai REST API
+ * Key insight from fal.ai docs: subpath used for submit only,
+ * status/result use base model ID without subpath
  */
 
-const KLING_MODEL = 'fal-ai/kling-video/v2.1/pro/image-to-video';
+const KLING_SUBMIT = 'fal-ai/kling-video/v2.1/pro/image-to-video';
+const KLING_BASE   = 'fal-ai/kling-video';  // used for status + result polling
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,7 +18,6 @@ export default async function handler(req, res) {
   if (!falKey) return res.status(500).json({ error: 'FAL_API_KEY not configured' });
 
   const { imageUrl, storyboard, prompt, action = 'create', requestId } = req.body || {};
-
   const authHeaders = { 'Authorization': `Key ${falKey}` };
   const jsonHeaders = { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' };
 
@@ -30,24 +32,17 @@ export default async function handler(req, res) {
   try {
     // ── Poll existing task ──────────────────────────────────────────────────────
     if (action === 'poll' && requestId) {
-
-      // Check status first (GET)
-      const statusRes = await fetch(
-        `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}/status`,
-        { method: 'GET', headers: authHeaders }
-      );
+      const statusUrl = `https://queue.fal.run/${KLING_BASE}/requests/${requestId}/status`;
+      const statusRes = await fetch(statusUrl, { method: 'GET', headers: authHeaders });
       const statusData = await safeJson(statusRes);
-      console.log('Poll status:', statusData.status, 'HTTP:', statusRes.status);
+      console.log('Status HTTP:', statusRes.status, 'status:', statusData.status);
 
       if (statusData.status === 'COMPLETED') {
-        // Fetch result with GET
-        const resultRes = await fetch(
-          `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}`,
-          { method: 'GET', headers: authHeaders }
-        );
+        const resultUrl = `https://queue.fal.run/${KLING_BASE}/requests/${requestId}`;
+        const resultRes = await fetch(resultUrl, { method: 'GET', headers: authHeaders });
         const result = await safeJson(resultRes);
+        console.log('Result:', JSON.stringify(result).slice(0, 200));
         const videoUrl = result.video?.url || result.video_url || null;
-        console.log('COMPLETED - videoUrl:', videoUrl);
         return res.status(200).json({ status: 'COMPLETED', videoUrl });
       }
 
@@ -55,10 +50,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: 'FAILED', videoUrl: null });
       }
 
-      return res.status(200).json({
-        status: statusData.status || 'IN_QUEUE',
-        videoUrl: null,
-      });
+      return res.status(200).json({ status: statusData.status || 'IN_QUEUE', videoUrl: null });
     }
 
     // ── Create new video task ───────────────────────────────────────────────────
@@ -74,12 +66,9 @@ export default async function handler(req, res) {
       videoPrompt = (prompt || 'Cinematic 9:16 vertical product advertisement, smooth camera movement.').slice(0, 2500);
     }
 
-    // Fetch image and convert to base64
     let imageData = imageUrl;
     try {
-      const imgRes = await fetch(imageUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' }
-      });
+      const imgRes = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' } });
       if (imgRes.ok) {
         const buf = await imgRes.arrayBuffer();
         const b64 = Buffer.from(buf).toString('base64');
@@ -88,8 +77,7 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-    // Submit with POST
-    const submitRes = await fetch(`https://queue.fal.run/${KLING_MODEL}`, {
+    const submitRes = await fetch(`https://queue.fal.run/${KLING_SUBMIT}`, {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify({
