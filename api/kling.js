@@ -1,17 +1,9 @@
 /**
- * /api/kling — Kling AI video generation via fal.ai
- * Input:  { imageUrl, storyboard, prompt, action?, taskId? }
- * Output: { videoUrl, taskId } or { status, videoUrl } for polling
- *
- * Flow:
- *   1. POST to fal.ai with image + multi-scene storyboard prompt → returns requestId
- *   2. Poll GET until status = COMPLETED → returns videoUrl
- *
- * Storyboard scenes are mapped to a structured temporal prompt:
- *   (0s-3s) Scene 1... (3s-8s) Scene 2... etc.
+ * /api/kling — Kling AI video generation via fal.ai REST API
+ * Input:  { imageUrl, storyboard, prompt, action?, requestId? }
+ * Output: { requestId, status } or { status, videoUrl } for polling
  */
 
-const FAL_API = 'https://queue.fal.run';
 const KLING_MODEL = 'fal-ai/kling-video/v2.1/pro/image-to-video';
 
 export default async function handler(req, res) {
@@ -26,72 +18,85 @@ export default async function handler(req, res) {
 
   const { imageUrl, storyboard, prompt, action = 'create', requestId } = req.body || {};
 
+  const headers = {
+    'Authorization': `Key ${falKey}`,
+    'Content-Type': 'application/json',
+  };
+
   try {
     // ── Poll existing task ──────────────────────────────────────────────────────
     if (action === 'poll' && requestId) {
-      const r = await fetch(`${FAL_API}/${KLING_MODEL}/requests/${requestId}/status`, {
-        headers: { 'Authorization': `Key ${falKey}` },
-      });
-      const data = await r.json();
+      const statusRes = await fetch(
+        `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}/status`,
+        { headers }
+      );
 
-      if (data.status === 'COMPLETED') {
-        // Fetch the actual result
-        const resultRes = await fetch(`${FAL_API}/${KLING_MODEL}/requests/${requestId}`, {
-          headers: { 'Authorization': `Key ${falKey}` },
-        });
-        const result = await resultRes.json();
-        return res.status(200).json({
-          status: 'COMPLETED',
-          videoUrl: result.video?.url || result.video_url || null,
-        });
+      if (!statusRes.ok) {
+        const err = await statusRes.text();
+        console.error('Poll status error:', err);
+        return res.status(200).json({ status: 'IN_QUEUE', videoUrl: null });
       }
 
+      const statusData = await statusRes.json();
+      console.log('Poll status:', statusData.status, 'requestId:', requestId);
+
+      if (statusData.status === 'COMPLETED') {
+        const resultRes = await fetch(
+          `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}`,
+          { headers }
+        );
+        const result = await resultRes.json();
+        console.log('Result keys:', Object.keys(result));
+        const videoUrl = result.video?.url || result.video_url || null;
+        console.log('Video URL:', videoUrl);
+        return res.status(200).json({ status: 'COMPLETED', videoUrl });
+      }
+
+      if (statusData.status === 'FAILED') {
+        console.error('Generation failed:', JSON.stringify(statusData));
+        return res.status(200).json({ status: 'FAILED', videoUrl: null });
+      }
+
+      // Still in progress
       return res.status(200).json({
-        status: data.status || 'IN_PROGRESS',
+        status: statusData.status || 'IN_QUEUE',
         videoUrl: null,
+        queuePosition: statusData.queue_position,
       });
     }
 
     // ── Create new video task ───────────────────────────────────────────────────
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
 
-    // ── Build multi-scene prompt from storyboard ────────────────────────────────
+    // Build multi-scene prompt from storyboard
     let videoPrompt = '';
     if (storyboard && storyboard.length > 0) {
-      // Map each scene to temporal format: (0s-3s) description...
-      const sceneParts = storyboard.map(scene => {
-        return `(${scene.timing}) ${scene.title}: ${scene.description}`;
-      });
-      videoPrompt = sceneParts.join(' ');
-      // Cap at 2500 chars (Kling limit)
-      videoPrompt = videoPrompt.slice(0, 2500);
-    } else if (prompt) {
-      videoPrompt = prompt.slice(0, 2500);
+      videoPrompt = storyboard
+        .map(s => `(${s.timing}) ${s.title}: ${s.description}`)
+        .join(' ')
+        .slice(0, 2500);
     } else {
-      videoPrompt = 'Cinematic 9:16 vertical product advertisement. Smooth camera movement, professional lighting, engaging motion.';
+      videoPrompt = (prompt || 'Cinematic 9:16 vertical product advertisement, smooth camera movement.').slice(0, 2500);
     }
 
-    // ── Fetch image and convert to base64 ──────────────────────────────────────
+    // Fetch image and convert to base64
     let imageData = imageUrl;
     try {
       const imgRes = await fetch(imageUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' }
       });
       if (imgRes.ok) {
-        const imgBuffer = await imgRes.arrayBuffer();
-        const imgBase64 = Buffer.from(imgBuffer).toString('base64');
-        const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-        imageData = `data:${contentType};base64,${imgBase64}`;
+        const buf = await imgRes.arrayBuffer();
+        const b64 = Buffer.from(buf).toString('base64');
+        const ct = imgRes.headers.get('content-type') || 'image/jpeg';
+        imageData = `data:${ct};base64,${b64}`;
       }
     } catch (_) {}
 
-    // ── Submit to fal.ai queue ──────────────────────────────────────────────────
-    const r = await fetch(`${FAL_API}/${KLING_MODEL}`, {
+    // Submit to fal.ai
+    const submitRes = await fetch(`https://queue.fal.run/${KLING_MODEL}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Key ${falKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         image_url: imageData,
         prompt: videoPrompt,
@@ -101,16 +106,19 @@ export default async function handler(req, res) {
       }),
     });
 
-    const data = await r.json();
+    const submitData = await submitRes.json();
+    console.log('Submit response:', JSON.stringify(submitData));
 
-    if (!r.ok) {
-      console.error('Kling/fal error:', JSON.stringify(data));
-      return res.status(500).json({ error: data.message || data.detail || 'Kling generation failed', detail: JSON.stringify(data) });
+    if (!submitRes.ok) {
+      return res.status(500).json({
+        error: submitData.detail || submitData.message || 'Kling generation failed',
+        detail: JSON.stringify(submitData),
+      });
     }
 
     return res.status(200).json({
-      requestId: data.request_id,
-      status: data.status || 'IN_QUEUE',
+      requestId: submitData.request_id,
+      status: submitData.status || 'IN_QUEUE',
     });
 
   } catch (err) {

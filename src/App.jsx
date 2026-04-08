@@ -5742,7 +5742,7 @@ STRICT rules:
                           // Poll fal.ai for completion with timeout (3 min max)
                           let attempts = 0;
                           const poll = setInterval(async () => {
-                            if (attempts++ > 36) { setTiktokVideoLoading(false); clearInterval(poll); return; }
+                            if (attempts++ > 60) { setTiktokVideoLoading(false); clearInterval(poll); return; } // 5 min timeout
                             const pr = await fetch('/api/kling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', requestId: d.requestId }) });
                             const pd = await pr.json();
                             if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(poll); }
