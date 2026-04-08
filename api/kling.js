@@ -24,39 +24,40 @@ export default async function handler(req, res) {
   const safeJson = async (r) => {
     try {
       const text = await r.text();
+      console.log('Raw response (HTTP', r.status, '):', text.slice(0, 300));
       if (!text || !text.trim()) return {};
       return JSON.parse(text);
-    } catch (_) { return {}; }
+    } catch (e) {
+      console.log('JSON parse error:', e.message);
+      return {};
+    }
   };
 
   try {
     // ── Poll existing task ──────────────────────────────────────────────────────
     if (action === 'poll' && requestId) {
 
-      // Always try fetching the result directly first
-      // fal.ai returns 200 with result if done, 202 if still processing
+      // Try result endpoint first — returns 200 when done, 202 when still processing
       const resultRes = await fetch(
         `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}`,
         { headers }
       );
 
+      console.log('Result endpoint HTTP status:', resultRes.status);
+
       if (resultRes.status === 200) {
-        // Completed — result is ready
         const result = await safeJson(resultRes);
         const videoUrl = result.video?.url || result.video_url || null;
-        console.log('Result ready, videoUrl:', videoUrl, 'keys:', Object.keys(result));
-        if (videoUrl) {
-          return res.status(200).json({ status: 'COMPLETED', videoUrl });
-        }
+        console.log('COMPLETED - videoUrl:', videoUrl, 'full result:', JSON.stringify(result).slice(0, 200));
+        return res.status(200).json({ status: 'COMPLETED', videoUrl });
       }
 
-      // Still processing — check status for queue position
+      // Still processing — check status
       const statusRes = await fetch(
         `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}/status`,
         { headers }
       );
       const statusData = await safeJson(statusRes);
-      console.log('Poll status:', statusData.status || 'unknown');
 
       if (statusData.status === 'FAILED') {
         return res.status(200).json({ status: 'FAILED', videoUrl: null });
@@ -108,7 +109,6 @@ export default async function handler(req, res) {
     });
 
     const submitData = await safeJson(submitRes);
-    console.log('Submit response:', JSON.stringify(submitData));
 
     if (!submitRes.ok) {
       return res.status(500).json({
