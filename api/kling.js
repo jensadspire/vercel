@@ -1,7 +1,5 @@
 /**
  * /api/kling — Kling AI video generation via fal.ai REST API
- * Input:  { imageUrl, storyboard, prompt, action?, requestId? }
- * Output: { requestId, status } or { status, videoUrl } for polling
  */
 
 const KLING_MODEL = 'fal-ai/kling-video/v2.1/pro/image-to-video';
@@ -23,6 +21,17 @@ export default async function handler(req, res) {
     'Content-Type': 'application/json',
   };
 
+  // Safe JSON parse helper
+  const safeJson = async (r) => {
+    try {
+      const text = await r.text();
+      if (!text || !text.trim()) return {};
+      return JSON.parse(text);
+    } catch (_) {
+      return {};
+    }
+  };
+
   try {
     // ── Poll existing task ──────────────────────────────────────────────────────
     if (action === 'poll' && requestId) {
@@ -30,38 +39,28 @@ export default async function handler(req, res) {
         `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}/status`,
         { headers }
       );
-
-      if (!statusRes.ok) {
-        const err = await statusRes.text();
-        console.error('Poll status error:', err);
-        return res.status(200).json({ status: 'IN_QUEUE', videoUrl: null });
-      }
-
-      const statusData = await statusRes.json();
-      console.log('Poll status:', statusData.status, 'requestId:', requestId);
+      const statusData = await safeJson(statusRes);
+      console.log('Poll status:', statusData.status || 'unknown', 'requestId:', requestId);
 
       if (statusData.status === 'COMPLETED') {
         const resultRes = await fetch(
           `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}`,
           { headers }
         );
-        const result = await resultRes.json();
-        console.log('Result keys:', Object.keys(result));
+        const result = await safeJson(resultRes);
         const videoUrl = result.video?.url || result.video_url || null;
         console.log('Video URL:', videoUrl);
         return res.status(200).json({ status: 'COMPLETED', videoUrl });
       }
 
       if (statusData.status === 'FAILED') {
-        console.error('Generation failed:', JSON.stringify(statusData));
         return res.status(200).json({ status: 'FAILED', videoUrl: null });
       }
 
-      // Still in progress
+      // IN_QUEUE or IN_PROGRESS — keep polling
       return res.status(200).json({
         status: statusData.status || 'IN_QUEUE',
         videoUrl: null,
-        queuePosition: statusData.queue_position,
       });
     }
 
@@ -106,7 +105,7 @@ export default async function handler(req, res) {
       }),
     });
 
-    const submitData = await submitRes.json();
+    const submitData = await safeJson(submitRes);
     console.log('Submit response:', JSON.stringify(submitData));
 
     if (!submitRes.ok) {
