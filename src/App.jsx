@@ -5713,7 +5713,7 @@ STRICT rules:
               {/* Video Generation */}
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                  🎥 Generate Video (Runway)
+                  🎬 Generate Video (Kling AI)
                 </div>
                 {tiktokVideoUrl ? (
                   <video src={tiktokVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
@@ -5757,7 +5757,7 @@ STRICT rules:
                       display: 'flex', alignItems: 'center', gap: 6,
                       animation: tiktokVideoLoading ? 'pulse 1.5s ease-in-out infinite' : 'none',
                     }}>
-                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating video…</> : '🎥 Generate TikTok Video'}
+                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating with Kling…</> : '🎬 Generate TikTok Video'}
                     </button>
                   </>
                 )}
