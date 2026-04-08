@@ -16,48 +16,40 @@ export default async function handler(req, res) {
 
   const { imageUrl, storyboard, prompt, action = 'create', requestId } = req.body || {};
 
-  const headers = {
-    'Authorization': `Key ${falKey}`,
-    'Content-Type': 'application/json',
-  };
+  const authHeaders = { 'Authorization': `Key ${falKey}` };
+  const jsonHeaders = { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' };
 
   const safeJson = async (r) => {
     try {
       const text = await r.text();
-      console.log('Raw response (HTTP', r.status, '):', text.slice(0, 300));
       if (!text || !text.trim()) return {};
       return JSON.parse(text);
-    } catch (e) {
-      console.log('JSON parse error:', e.message);
-      return {};
-    }
+    } catch (_) { return {}; }
   };
 
   try {
     // ── Poll existing task ──────────────────────────────────────────────────────
     if (action === 'poll' && requestId) {
 
-      // Try result endpoint first — returns 200 when done, 202 when still processing
-      const resultRes = await fetch(
-        `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}`,
-        { headers }
-      );
-
-      console.log('Result endpoint HTTP status:', resultRes.status);
-
-      if (resultRes.status === 200) {
-        const result = await safeJson(resultRes);
-        const videoUrl = result.video?.url || result.video_url || null;
-        console.log('COMPLETED - videoUrl:', videoUrl, 'full result:', JSON.stringify(result).slice(0, 200));
-        return res.status(200).json({ status: 'COMPLETED', videoUrl });
-      }
-
-      // Still processing — check status
+      // Check status first (GET)
       const statusRes = await fetch(
         `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}/status`,
-        { headers }
+        { method: 'GET', headers: authHeaders }
       );
       const statusData = await safeJson(statusRes);
+      console.log('Poll status:', statusData.status, 'HTTP:', statusRes.status);
+
+      if (statusData.status === 'COMPLETED') {
+        // Fetch result with GET
+        const resultRes = await fetch(
+          `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}`,
+          { method: 'GET', headers: authHeaders }
+        );
+        const result = await safeJson(resultRes);
+        const videoUrl = result.video?.url || result.video_url || null;
+        console.log('COMPLETED - videoUrl:', videoUrl);
+        return res.status(200).json({ status: 'COMPLETED', videoUrl });
+      }
 
       if (statusData.status === 'FAILED') {
         return res.status(200).json({ status: 'FAILED', videoUrl: null });
@@ -96,9 +88,10 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
+    // Submit with POST
     const submitRes = await fetch(`https://queue.fal.run/${KLING_MODEL}`, {
       method: 'POST',
-      headers,
+      headers: jsonHeaders,
       body: JSON.stringify({
         image_url: imageData,
         prompt: videoPrompt,
@@ -109,6 +102,7 @@ export default async function handler(req, res) {
     });
 
     const submitData = await safeJson(submitRes);
+    console.log('Submit HTTP:', submitRes.status, 'requestId:', submitData.request_id);
 
     if (!submitRes.ok) {
       return res.status(500).json({
