@@ -21,43 +21,47 @@ export default async function handler(req, res) {
     'Content-Type': 'application/json',
   };
 
-  // Safe JSON parse helper
   const safeJson = async (r) => {
     try {
       const text = await r.text();
       if (!text || !text.trim()) return {};
       return JSON.parse(text);
-    } catch (_) {
-      return {};
-    }
+    } catch (_) { return {}; }
   };
 
   try {
     // ── Poll existing task ──────────────────────────────────────────────────────
     if (action === 'poll' && requestId) {
+
+      // Always try fetching the result directly first
+      // fal.ai returns 200 with result if done, 202 if still processing
+      const resultRes = await fetch(
+        `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}`,
+        { headers }
+      );
+
+      if (resultRes.status === 200) {
+        // Completed — result is ready
+        const result = await safeJson(resultRes);
+        const videoUrl = result.video?.url || result.video_url || null;
+        console.log('Result ready, videoUrl:', videoUrl, 'keys:', Object.keys(result));
+        if (videoUrl) {
+          return res.status(200).json({ status: 'COMPLETED', videoUrl });
+        }
+      }
+
+      // Still processing — check status for queue position
       const statusRes = await fetch(
         `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}/status`,
         { headers }
       );
       const statusData = await safeJson(statusRes);
-      console.log('Poll status:', statusData.status || 'unknown', 'requestId:', requestId);
-
-      if (statusData.status === 'COMPLETED') {
-        const resultRes = await fetch(
-          `https://queue.fal.run/${KLING_MODEL}/requests/${requestId}`,
-          { headers }
-        );
-        const result = await safeJson(resultRes);
-        const videoUrl = result.video?.url || result.video_url || null;
-        console.log('Video URL:', videoUrl);
-        return res.status(200).json({ status: 'COMPLETED', videoUrl });
-      }
+      console.log('Poll status:', statusData.status || 'unknown');
 
       if (statusData.status === 'FAILED') {
         return res.status(200).json({ status: 'FAILED', videoUrl: null });
       }
 
-      // IN_QUEUE or IN_PROGRESS — keep polling
       return res.status(200).json({
         status: statusData.status || 'IN_QUEUE',
         videoUrl: null,
@@ -67,7 +71,6 @@ export default async function handler(req, res) {
     // ── Create new video task ───────────────────────────────────────────────────
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
 
-    // Build multi-scene prompt from storyboard
     let videoPrompt = '';
     if (storyboard && storyboard.length > 0) {
       videoPrompt = storyboard
@@ -92,7 +95,6 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-    // Submit to fal.ai
     const submitRes = await fetch(`https://queue.fal.run/${KLING_MODEL}`, {
       method: 'POST',
       headers,
