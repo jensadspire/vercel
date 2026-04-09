@@ -1567,6 +1567,11 @@ STRICT rules:
             setTiktokError("TikTok generation error: " + tiktokData.error);
           } else {
             setTiktokResult(tiktokData);
+            // Switch to TikTok tab if Meta was already completed before TikTok started
+            if (generateMeta && metaResult && !metaLoading) {
+              setAdFormat("tiktok");
+              setTimeout(() => { const rp = document.getElementById("right-panel"); const ts = document.getElementById("tiktok-section"); if (rp && ts) rp.scrollTo({ top: rp.scrollHeight, behavior: "smooth" }); }, 300);
+            }
           }
         } catch (e) {
           setTiktokError("TikTok generation failed — " + e.message);
@@ -2259,6 +2264,8 @@ STRICT rules:
                     setBrandOn(false); setBrandRequired(''); setBrandBanned(''); setBrandTone('Professional');
                     setClearKey(k => k + 1);
                     setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null);
+                    setAudienceDesc(''); setAudienceBrief(null);
+                    setAdFormat('rsa');
                   }} style={{
                     padding: '9px 14px', fontSize: 11, fontWeight: 700,
                     background: 'rgba(255,255,255,0.05)',
@@ -4843,13 +4850,9 @@ STRICT rules:
           onMouseOver={e => e.target.style.color='#4a5568'}
           onMouseOut={e => e.target.style.color='#2d3748'}>Privacy Policy</a>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <a href="/user-terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
+        <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
           onMouseOver={e => e.target.style.color='#4a5568'}
           onMouseOut={e => e.target.style.color='#2d3748'}>Terms of Use</a>
-        <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <a href="/moderation-policy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
-          onMouseOver={e => e.target.style.color='#4a5568'}
-          onMouseOut={e => e.target.style.color='#2d3748'}>Moderation Policy</a>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
         <span style={{ fontSize: 10, color: '#2d3748' }}>© 2026 theaiad.studio</span>
       </div>
