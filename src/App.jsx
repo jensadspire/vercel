@@ -4843,9 +4843,13 @@ STRICT rules:
           onMouseOver={e => e.target.style.color='#4a5568'}
           onMouseOut={e => e.target.style.color='#2d3748'}>Privacy Policy</a>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
+        <a href="/user-terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
           onMouseOver={e => e.target.style.color='#4a5568'}
           onMouseOut={e => e.target.style.color='#2d3748'}>Terms of Use</a>
+        <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
+        <a href="/moderation-policy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
+          onMouseOver={e => e.target.style.color='#4a5568'}
+          onMouseOut={e => e.target.style.color='#2d3748'}>Moderation Policy</a>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
         <span style={{ fontSize: 10, color: '#2d3748' }}>© 2026 theaiad.studio</span>
       </div>
@@ -5713,15 +5717,10 @@ STRICT rules:
               {/* Video Generation */}
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                  🎬 Generate Video (Kling AI)
+                  🎥 Generate Video (Runway)
                 </div>
                 {tiktokVideoUrl ? (
                   <video src={tiktokVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
-                ) : tiktokVideoLoading ? (
-                  <div style={{ width: '100%', maxWidth: 280, aspectRatio: '9/16', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 32, animation: 'spin 2s linear infinite', display: 'inline-block' }}>🎬</span>
-                    <div style={{ fontSize: 11, color: '#4a5568', textAlign: 'center', padding: '0 16px' }}>Generating your TikTok video…<br/>Check back in 3–4 minutes</div>
-                  </div>
                 ) : (
                   <>
                     <div style={{ fontSize: 11, color: '#4a5568', marginBottom: 10, lineHeight: 1.5 }}>
@@ -5747,7 +5746,7 @@ STRICT rules:
                           // Poll fal.ai for completion with timeout (3 min max)
                           let attempts = 0;
                           const poll = setInterval(async () => {
-                            if (attempts++ > 60) { setTiktokVideoLoading(false); clearInterval(poll); return; }
+                            if (attempts++ > 36) { setTiktokVideoLoading(false); clearInterval(poll); return; }
                             const pr = await fetch('/api/kling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', requestId: d.requestId }) });
                             const pd = await pr.json();
                             if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(poll); }
@@ -5762,14 +5761,8 @@ STRICT rules:
                       display: 'flex', alignItems: 'center', gap: 6,
                       animation: tiktokVideoLoading ? 'pulse 1.5s ease-in-out infinite' : 'none',
                     }}>
-                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating with Kling…</> : '🎬 Generate TikTok Video'}
+                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating video…</> : '🎥 Generate TikTok Video'}
                     </button>
-                    {tiktokVideoLoading && (
-                      <div style={{ marginTop: 10, fontSize: 10, color: '#4a5568', lineHeight: 1.6 }}>
-                        ⏱ Video generation typically takes <span style={{ color: '#e2e8f0', fontWeight: 700 }}>3–4 minutes</span>.<br/>
-                        Keep this tab open — your video will appear here automatically.
-                      </div>
-                    )}
                   </>
                 )}
               </div>
