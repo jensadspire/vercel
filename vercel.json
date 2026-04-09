@@ -3,8 +3,19 @@
     "api/generate-meta.js": { "maxDuration": 60 },
     "api/imagen.js": { "maxDuration": 60 },
     "api/runway.js": { "maxDuration": 60 },
+    "api/kling.js": { "maxDuration": 300 },
     "api/scrape.js": { "maxDuration": 30 },
     "api/audience.js": { "maxDuration": 30 },
     "api/generate.js": { "maxDuration": 30 }
-  }
+  },
+  "headers": [
+    {
+      "source": "/user-terms",
+      "headers": [{ "key": "Content-Type", "value": "text/html; charset=utf-8" }]
+    },
+    {
+      "source": "/moderation-policy",
+      "headers": [{ "key": "Content-Type", "value": "text/html; charset=utf-8" }]
+    }
+  ]
 }
