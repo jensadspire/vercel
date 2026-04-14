@@ -5731,8 +5731,9 @@ STRICT rules:
                       if (!tiktokResult.videoPrompt) return;
                       setTiktokVideoLoading(true);
                       try {
-                        // Use currently selected thumbnail as video source
-                        const selectedImg = metaResult?.imageVariations?.[activeImageVariant] || metaResult?.imageUrl || metaResult?.heroProductImage || null;
+                        // Capture selected image NOW before Meta regeneration resets activeImageVariant to 0
+                        const capturedImageVariant = activeImageVariant;
+                        const selectedImg = metaResult?.imageVariations?.[capturedImageVariant] || metaResult?.imageUrl || metaResult?.heroProductImage || null;
                         const imageUrl = selectedImg;
                         if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
                         // Submit to Kling via fal.ai — pass full storyboard for multi-scene video
