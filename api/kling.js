@@ -73,12 +73,13 @@ export default async function handler(req, res) {
     // Prepend visual anchoring instruction — keeps product consistent throughout
     const langInstruction = language !== 'English' ? `All text overlays and on-screen text must be in ${language} only. ` : '';
     const brandInstruction = brand ? `Brand: ${brand}. ` : '';
-    const anchorInstruction = `Maintain visual consistency with the opening product image throughout the entire video. Keep the same product, colors, and environment visible in all scenes. ${langInstruction}${brandInstruction}`;
+    // Strong visual anchor: reference image is the product — stay visually true to it
+    const anchorInstruction = `This is a product advertisement video. The opening image shows the exact product being advertised — maintain 100% visual consistency with that product throughout every scene. Same product appearance, same colors, same brand. Do not introduce different products or unrelated visuals. ${langInstruction}${brandInstruction}`;
 
     const videoPrompt = `${anchorInstruction}${scenePrompt}`.slice(0, 2500);
 
     // Negative prompt — suppress scene drift, wrong languages, low quality
-    const negativePrompt = `different product, unrelated objects, scene change, Chinese text, Korean text, Japanese text, Arabic text, foreign language overlays, blur, distort, low quality, watermark`;
+    const negativePrompt = `different product, substitute product, unrelated objects, scene replacement, Chinese text, Korean text, Japanese text, Arabic text, foreign language overlays, blur, distort, low quality, watermark, stock footage look`;
 
     // Fetch image and convert to base64
     let imageData = imageUrl;
