@@ -1,10 +1,12 @@
 /**
  * /api/kling — Kling AI video generation via fal.ai REST API
- * Key insight from fal.ai docs: subpath used for submit only,
- * status/result use base model ID without subpath
+ * Model: Kling 2.6 Pro — better visual quality, fluid motion
+ * Note: v2.6 uses start_image_url (not image_url) and generate_audio param
+ * Duration: 5s or 10s only (same as v2.1)
+ * Polling: base model ID without subpath for status/result
  */
 
-const KLING_SUBMIT = 'fal-ai/kling-video/v2.1/pro/image-to-video';
+const KLING_SUBMIT = 'fal-ai/kling-video/v2.6/pro/image-to-video';
 const KLING_BASE   = 'fal-ai/kling-video';
 
 export default async function handler(req, res) {
@@ -60,7 +62,7 @@ export default async function handler(req, res) {
     // ── Create new video task ───────────────────────────────────────────────────
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
 
-    // ── Build prompt with visual anchoring + language consistency ───────────────
+    // Build prompt with strong visual anchoring
     let scenePrompt = '';
     if (storyboard && storyboard.length > 0) {
       scenePrompt = storyboard
@@ -70,16 +72,12 @@ export default async function handler(req, res) {
       scenePrompt = prompt || 'Cinematic product advertisement, smooth camera movement.';
     }
 
-    // Prepend visual anchoring instruction — keeps product consistent throughout
-    const langInstruction = language !== 'English' ? `All text overlays and on-screen text must be in ${language} only. ` : '';
+    const langInstruction = language !== 'English' ? `All text overlays must be in ${language} only. ` : '';
     const brandInstruction = brand ? `Brand: ${brand}. ` : '';
-    // Strong visual anchor: reference image is the product — stay visually true to it
-    const anchorInstruction = `This is a product advertisement video. The opening image shows the exact product being advertised — maintain 100% visual consistency with that product throughout every scene. Same product appearance, same colors, same brand. Do not introduce different products or unrelated visuals. ${langInstruction}${brandInstruction}`;
+    const anchorInstruction = `This is a product advertisement video. The opening image shows the exact product — maintain 100% visual consistency with that product throughout every scene. Same product, same colors, same brand. Do not introduce different products or unrelated visuals. ${langInstruction}${brandInstruction}`;
 
     const videoPrompt = `${anchorInstruction}${scenePrompt}`.slice(0, 2500);
-
-    // Negative prompt — suppress scene drift, wrong languages, low quality
-    const negativePrompt = `different product, substitute product, unrelated objects, scene replacement, Chinese text, Korean text, Japanese text, Arabic text, foreign language overlays, blur, distort, low quality, watermark, stock footage look`;
+    const negativePrompt = `different product, substitute product, unrelated objects, scene replacement, Chinese text, Korean text, Japanese text, Arabic text, foreign language overlays, blur, distort, low quality, watermark`;
 
     // Fetch image and convert to base64
     let imageData = imageUrl;
@@ -93,16 +91,18 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
+    // v2.6 Pro uses start_image_url + generate_audio: false suppresses overlays
     const submitRes = await fetch(`https://queue.fal.run/${KLING_SUBMIT}`, {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify({
-        image_url: imageData,
+        start_image_url: imageData,   // v2.6 uses start_image_url
         prompt: videoPrompt,
         negative_prompt: negativePrompt,
         duration: '10',
         aspect_ratio: '9:16',
-        cfg_scale: 0.7,  // slightly higher = more prompt adherence
+        cfg_scale: 0.7,
+        generate_audio: false,        // disables native audio + text overlays
       }),
     });
 
