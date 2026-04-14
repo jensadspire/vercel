@@ -649,6 +649,7 @@ function RSAStudio() {
   const [remixOpen, setRemixOpen] = useState(false);
   const [metaImagesLoading, setMetaImagesLoading] = useState(false);
   const metaGenId = useRef(0); // increments each generation to cancel stale callbacks
+  const tiktokSourceImageRef = useRef(null); // persists user-selected image through Meta regen
   const [remixSourceUrl, setRemixSourceUrl] = useState(null); // the lifestyle image to remix into
   const [remixProduct, setRemixProduct] = useState(null);     // selected product image
   const [remixGenerating, setRemixGenerating] = useState(false);
@@ -1472,6 +1473,7 @@ STRICT rules:
               imageVariations: initialVariations.length > 0 ? initialVariations : [],
             });
             setActiveImageVariant(0);
+            tiktokSourceImageRef.current = null; // reset so video button uses activeImageVariant
             setVideoTask(null);
             setMetaEdits({});
             setMetaEditingField(null);
@@ -4651,7 +4653,7 @@ STRICT rules:
                             <>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, width: 372 }}>
                               {metaResult.imageVariations.map((imgUrl, vi) => (
-                                <div key={vi} onClick={(e) => { setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
+                                <div key={vi} onClick={(e) => { setActiveImageVariant(vi); tiktokSourceImageRef.current = metaResult?.imageVariations?.[vi] || null; setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
                                   position: "relative", cursor: "pointer", borderRadius: 6, overflow: "hidden",
                                   border: activeImageVariant === vi ? "2px solid #6366f1" : "2px solid transparent",
                                   transition: "border 0.15s",
@@ -5731,9 +5733,8 @@ STRICT rules:
                       if (!tiktokResult.videoPrompt) return;
                       setTiktokVideoLoading(true);
                       try {
-                        // Capture selected image NOW before Meta regeneration resets activeImageVariant to 0
-                        const capturedImageVariant = activeImageVariant;
-                        const selectedImg = metaResult?.imageVariations?.[capturedImageVariant] || metaResult?.imageUrl || metaResult?.heroProductImage || null;
+                        // Use explicitly selected thumbnail (persisted through Meta regen) or fall back to active variant
+                        const selectedImg = tiktokSourceImageRef.current || metaResult?.imageVariations?.[activeImageVariant] || metaResult?.imageUrl || metaResult?.heroProductImage || null;
                         const imageUrl = selectedImg;
                         if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
                         // Submit to Kling via fal.ai — pass full storyboard for multi-scene video
