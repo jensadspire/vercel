@@ -1416,8 +1416,6 @@ STRICT rules:
           id: Date.now(),
           url,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          tiktokResult: tiktokResult || null,
-          tiktokVideoUrl: tiktokVideoUrl || null,
           rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? {
             ...r,
             campaign: p.campaign || "",
@@ -3745,7 +3743,7 @@ STRICT rules:
                     </div>
                   )}
                   {metaResult.imageUrl && (
-                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'contain', background: '#f0f2f5', display: 'block' }} />
+                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
                   )}
                   {/* TikTok hint */}
                   {generateTiktok && tiktokResult && !tiktokLoading && (
@@ -3877,8 +3875,6 @@ STRICT rules:
                             setActiveRow(0);
                             setUrl(h.url);
                             setGenerated(true);
-                            if (h.tiktokResult) { setTiktokResult(h.tiktokResult); }
-                            if (h.tiktokVideoUrl) { setTiktokVideoUrl(h.tiktokVideoUrl); }
                             if (h.metaResult) { 
                               setMetaResult(h.metaResult); 
                               setMetaError('');
@@ -3952,14 +3948,6 @@ STRICT rules:
                                 border: "1px solid rgba(14,165,233,0.2)",
                                 borderRadius: 3, padding: "1px 4px", flexShrink: 0,
                               }}>◉ META</span>
-                            )}
-                            {h.tiktokResult && (
-                              <span style={{
-                                marginLeft: 5, fontSize: 8, fontWeight: 700,
-                                color: "#ff4d4d", background: "rgba(255,77,77,0.1)",
-                                border: "1px solid rgba(255,77,77,0.2)",
-                                borderRadius: 3, padding: "1px 4px", flexShrink: 0,
-                              }}>♪ TIKTOK</span>
                             )}
                           </div>
                           <div style={{ fontSize: 10, color: "#8fa3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -4663,7 +4651,7 @@ STRICT rules:
                             <>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, width: 372 }}>
                               {metaResult.imageVariations.map((imgUrl, vi) => (
-                                <div key={vi} onClick={(e) => { setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
+                                <div key={vi} onClick={(e) => { e.preventDefault(); setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
                                   position: "relative", cursor: "pointer", borderRadius: 6, overflow: "hidden",
                                   border: activeImageVariant === vi ? "2px solid #6366f1" : "2px solid transparent",
                                   transition: "border 0.15s",
@@ -5746,7 +5734,7 @@ STRICT rules:
                         const r = await fetch('/api/kling', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt }),
+                          body: JSON.stringify({ imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: tiktokResult.brand || '' }),
                         });
                         const d = await r.json();
                         if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }

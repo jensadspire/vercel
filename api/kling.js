@@ -5,7 +5,7 @@
  */
 
 const KLING_SUBMIT = 'fal-ai/kling-video/v2.1/pro/image-to-video';
-const KLING_BASE   = 'fal-ai/kling-video';  // used for status + result polling
+const KLING_BASE   = 'fal-ai/kling-video';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   const falKey = process.env.FAL_API_KEY;
   if (!falKey) return res.status(500).json({ error: 'FAL_API_KEY not configured' });
 
-  const { imageUrl, storyboard, prompt, action = 'create', requestId } = req.body || {};
+  const { imageUrl, storyboard, prompt, language = 'English', brand = '', action = 'create', requestId } = req.body || {};
   const authHeaders = { 'Authorization': `Key ${falKey}` };
   const jsonHeaders = { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' };
 
@@ -32,17 +32,21 @@ export default async function handler(req, res) {
   try {
     // ── Poll existing task ──────────────────────────────────────────────────────
     if (action === 'poll' && requestId) {
-      const statusUrl = `https://queue.fal.run/${KLING_BASE}/requests/${requestId}/status`;
-      const statusRes = await fetch(statusUrl, { method: 'GET', headers: authHeaders });
+      const statusRes = await fetch(
+        `https://queue.fal.run/${KLING_BASE}/requests/${requestId}/status`,
+        { method: 'GET', headers: authHeaders }
+      );
       const statusData = await safeJson(statusRes);
       console.log('Status HTTP:', statusRes.status, 'status:', statusData.status);
 
       if (statusData.status === 'COMPLETED') {
-        const resultUrl = `https://queue.fal.run/${KLING_BASE}/requests/${requestId}`;
-        const resultRes = await fetch(resultUrl, { method: 'GET', headers: authHeaders });
+        const resultRes = await fetch(
+          `https://queue.fal.run/${KLING_BASE}/requests/${requestId}`,
+          { method: 'GET', headers: authHeaders }
+        );
         const result = await safeJson(resultRes);
-        console.log('Result:', JSON.stringify(result).slice(0, 200));
         const videoUrl = result.video?.url || result.video_url || null;
+        console.log('COMPLETED - videoUrl:', videoUrl);
         return res.status(200).json({ status: 'COMPLETED', videoUrl });
       }
 
@@ -56,16 +60,27 @@ export default async function handler(req, res) {
     // ── Create new video task ───────────────────────────────────────────────────
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
 
-    let videoPrompt = '';
+    // ── Build prompt with visual anchoring + language consistency ───────────────
+    let scenePrompt = '';
     if (storyboard && storyboard.length > 0) {
-      videoPrompt = storyboard
+      scenePrompt = storyboard
         .map(s => `(${s.timing}) ${s.title}: ${s.description}`)
-        .join(' ')
-        .slice(0, 2500);
+        .join(' ');
     } else {
-      videoPrompt = (prompt || 'Cinematic 9:16 vertical product advertisement, smooth camera movement.').slice(0, 2500);
+      scenePrompt = prompt || 'Cinematic product advertisement, smooth camera movement.';
     }
 
+    // Prepend visual anchoring instruction — keeps product consistent throughout
+    const langInstruction = language !== 'English' ? `All text overlays and on-screen text must be in ${language} only. ` : '';
+    const brandInstruction = brand ? `Brand: ${brand}. ` : '';
+    const anchorInstruction = `Maintain visual consistency with the opening product image throughout the entire video. Keep the same product, colors, and environment visible in all scenes. ${langInstruction}${brandInstruction}`;
+
+    const videoPrompt = `${anchorInstruction}${scenePrompt}`.slice(0, 2500);
+
+    // Negative prompt — suppress scene drift, wrong languages, low quality
+    const negativePrompt = `different product, unrelated objects, scene change, Chinese text, Korean text, Japanese text, Arabic text, foreign language overlays, blur, distort, low quality, watermark`;
+
+    // Fetch image and convert to base64
     let imageData = imageUrl;
     try {
       const imgRes = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' } });
@@ -83,9 +98,10 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         image_url: imageData,
         prompt: videoPrompt,
+        negative_prompt: negativePrompt,
         duration: '10',
         aspect_ratio: '9:16',
-        cfg_scale: 0.5,
+        cfg_scale: 0.7,  // slightly higher = more prompt adherence
       }),
     });
 
