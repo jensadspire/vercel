@@ -49,12 +49,16 @@ export default async function handler(req, res) {
     if (/\/thumbnails?\//i.test(img)) score += 5; // Shopify product thumbnails — high priority
     if (/[0-9]{4,}/.test(img)) score += 1; // has numeric ID
     if (/\d+x\d+/i.test(img)) score += 3; // has dimensions like 1200x1200
+    if (/(1200x1200|800x800|600x600|1000x1000)/i.test(img)) score += 3; // square product shots
+    if (/(_main|_hero|_primary|_front|_pdp|_full)/i.test(img)) score += 5; // PDP hero patterns
     if (/\.jpg|\.jpeg|\.webp|\.png/i.test(img)) score += 1;
     // Boost large editorial/collage images for category/general pages
     if (/collage|editorial|campaign|hero|cover|feature|banner-img|header-img|splash/i.test(img)) score += 4;
     if (/1920|1600|1440|1280|1200x[4-9]/i.test(img)) score += 3; // wide landscape dimensions = hero image
     // Penalise small icons and UI elements
     if (/logo|icon|sprite|membership|plus|exclusive|mobil|vektor/i.test(img)) score -= 5;
+    if (/news|article|blog|post|author|avatar|profile|press/i.test(img)) score -= 8; // editorial content
+    if (/splash|popup|modal|promo-|announcement/i.test(img)) score -= 6; // marketing overlays
     if (/\/flags?\/|\/flag-|\/emoji|\/social|\/share|\/arrow|\/star|\/check/i.test(img)) score -= 8; // flag icons, social icons
     if (/[_-](16|24|32|48|64|96|128|180)x\1|_(sm|xs|tiny|mini|thumb16|thumb32)/i.test(img)) score -= 6; // small fixed sizes
     if (/cart\/|widget|badge|shipping|delivery|frifreight|pricerunner|trustpilot|review|rating|payment|klarna|mobilepay|paypal|visa|mastercard/i.test(img)) score -= 10;
@@ -238,6 +242,10 @@ Rules:
 
     const claudeData = await claudeRes.json();
     const raw = claudeData.content?.[0]?.text || "";
+    if (!raw) {
+      const errMsg = claudeData.error?.message || JSON.stringify(claudeData);
+      return res.status(500).json({ error: "Copy generation failed", detail: errMsg });
+    }
     const clean = raw.replace(/```json|```/g, "").trim();
     parsed = JSON.parse(clean);
   } catch (e) {

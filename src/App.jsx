@@ -638,7 +638,6 @@ function RSAStudio() {
   const [tiktokVideoLoading, setTiktokVideoLoading] = useState(false);
   const [tiktokVideoUrl, setTiktokVideoUrl] = useState(null);
   const [generateTiktok, setGenerateTiktok] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [metaActiveVariants, setMetaActiveVariants] = useState({ pt: 0, hl: 0, d: 0 }); // active variant indices
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
   // Imagen modal state
@@ -1417,6 +1416,8 @@ STRICT rules:
           id: Date.now(),
           url,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          tiktokResult: tiktokResult || null,
+          tiktokVideoUrl: tiktokVideoUrl || null,
           rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? {
             ...r,
             campaign: p.campaign || "",
@@ -3118,8 +3119,6 @@ STRICT rules:
             </div>
           )}
 
-          {/* ── Edit Accordion ── */}
-          {editOpen && (<>
           {/* Tab nav */}
           <div style={{ display: "flex", marginBottom: 14, background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 3 }}>
             {[
@@ -3206,7 +3205,6 @@ STRICT rules:
               <EditableField label="Path 2" value={row.path2} limit={PATH_LIMIT} onChange={v => setField("path2", v)} mono />
             </>
           )}
-          </>)}  {/* end edit accordion */}
         </div>
 
         {/* RIGHT: Preview Panel */}
@@ -3589,9 +3587,6 @@ STRICT rules:
           {adFormat !== "meta" && (<><div style={S.card}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...S.sectionLabel, margin: 0 }}>Google SERP Preview</span>
-              <button onClick={() => setEditOpen(v => !v)} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.3)', background: editOpen ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: editOpen ? '#a5b4fc' : '#7e92a8', cursor: 'pointer', transition: 'all 0.15s' }}>
-                {editOpen ? '✕ Close editor' : '✎ Edit this ad'}
-              </button>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 10, color: "#8fa3b8", fontStyle: "italic" }}>Shows first 3 headlines · first 2 descriptions</span>
                 {rows.filter(r => r.headlines.some(h => h.text)).length > 1 && (
@@ -3750,7 +3745,7 @@ STRICT rules:
                     </div>
                   )}
                   {metaResult.imageUrl && (
-                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
+                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'contain', background: '#f0f2f5', display: 'block' }} />
                   )}
                   {/* TikTok hint */}
                   {generateTiktok && tiktokResult && !tiktokLoading && (
@@ -3882,6 +3877,8 @@ STRICT rules:
                             setActiveRow(0);
                             setUrl(h.url);
                             setGenerated(true);
+                            if (h.tiktokResult) { setTiktokResult(h.tiktokResult); }
+                            if (h.tiktokVideoUrl) { setTiktokVideoUrl(h.tiktokVideoUrl); }
                             if (h.metaResult) { 
                               setMetaResult(h.metaResult); 
                               setMetaError('');
@@ -3955,6 +3952,14 @@ STRICT rules:
                                 border: "1px solid rgba(14,165,233,0.2)",
                                 borderRadius: 3, padding: "1px 4px", flexShrink: 0,
                               }}>◉ META</span>
+                            )}
+                            {h.tiktokResult && (
+                              <span style={{
+                                marginLeft: 5, fontSize: 8, fontWeight: 700,
+                                color: "#ff4d4d", background: "rgba(255,77,77,0.1)",
+                                border: "1px solid rgba(255,77,77,0.2)",
+                                borderRadius: 3, padding: "1px 4px", flexShrink: 0,
+                              }}>♪ TIKTOK</span>
                             )}
                           </div>
                           <div style={{ fontSize: 10, color: "#8fa3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -4658,7 +4663,7 @@ STRICT rules:
                             <>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, width: 372 }}>
                               {metaResult.imageVariations.map((imgUrl, vi) => (
-                                <div key={vi} onClick={(e) => { e.preventDefault(); setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
+                                <div key={vi} onClick={(e) => { setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
                                   position: "relative", cursor: "pointer", borderRadius: 6, overflow: "hidden",
                                   border: activeImageVariant === vi ? "2px solid #6366f1" : "2px solid transparent",
                                   transition: "border 0.15s",
