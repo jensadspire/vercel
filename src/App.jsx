@@ -1467,13 +1467,21 @@ STRICT rules:
               metaData.tertiaryImage,
               metaData.homepageImage,
             ].filter(Boolean);
+            // If user had explicitly selected an image before this regen, preserve it
+            const preservedImg = tiktokSourceImageRef.current;
+            const finalImageUrl = preservedImg || initialImageUrl;
+            // If preserved image isn't in variations, add it at front
+            const finalVariations = initialVariations.length > 0 ? initialVariations : [];
+            if (preservedImg && !finalVariations.includes(preservedImg)) {
+              finalVariations.unshift(preservedImg);
+            }
+            const preservedVariantIdx = preservedImg ? Math.max(0, finalVariations.indexOf(preservedImg)) : 0;
             setMetaResult({
               ...metaData,
-              imageUrl: initialImageUrl,
-              imageVariations: initialVariations.length > 0 ? initialVariations : [],
+              imageUrl: finalImageUrl,
+              imageVariations: finalVariations,
             });
-            setActiveImageVariant(0);
-            tiktokSourceImageRef.current = null; // reset so video button uses activeImageVariant
+            setActiveImageVariant(preservedVariantIdx);
             setVideoTask(null);
             setMetaEdits({});
             setMetaEditingField(null);
