@@ -3743,7 +3743,7 @@ STRICT rules:
                     </div>
                   )}
                   {metaResult.imageUrl && (
-                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
+                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'contain', background: '#f0f2f5', display: 'block' }} />
                   )}
                   {/* TikTok hint */}
                   {generateTiktok && tiktokResult && !tiktokLoading && (
@@ -4651,7 +4651,7 @@ STRICT rules:
                             <>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, width: 372 }}>
                               {metaResult.imageVariations.map((imgUrl, vi) => (
-                                <div key={vi} onClick={(e) => { e.preventDefault(); setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
+                                <div key={vi} onClick={(e) => { setActiveImageVariant(vi); setMetaResult(r => ({ ...r, imageUrl: imgUrl })); }} style={{
                                   position: "relative", cursor: "pointer", borderRadius: 6, overflow: "hidden",
                                   border: activeImageVariant === vi ? "2px solid #6366f1" : "2px solid transparent",
                                   transition: "border 0.15s",
