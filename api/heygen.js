@@ -2,6 +2,7 @@
  * /api/heygen — HeyGen Avatar IV via fal.ai
  * Submit: fal-ai/heygen/avatar4/image-to-video
  * Poll:   fal-ai/heygen (base path)
+ * Key: when COMPLETED, use response_url from status AND pass original inputs back
  */
 
 const HEYGEN_SUBMIT = 'fal-ai/heygen/avatar4/image-to-video';
@@ -24,7 +25,6 @@ export default async function handler(req, res) {
   const safeJson = async (r) => {
     try {
       const text = await r.text();
-      console.log('Raw HTTP', r.status, ':', text.slice(0, 400));
       if (!text || !text.trim()) return {};
       return JSON.parse(text);
     } catch (_) { return {}; }
@@ -41,26 +41,34 @@ export default async function handler(req, res) {
       console.log('HeyGen status:', statusData.status, 'HTTP:', statusRes.status);
 
       if (statusData.status === 'COMPLETED') {
-        // Use the response_url from status if available
-        const resultUrl = statusData.response_url ||
+        // Use the response_url directly from the status response
+        const responseUrl = statusData.response_url ||
           `https://queue.fal.run/${HEYGEN_BASE}/requests/${requestId}`;
-        console.log('Fetching result from:', resultUrl);
-        const resultRes = await fetch(resultUrl, { method: 'GET', headers: authHeaders });
+        console.log('Fetching from response_url:', responseUrl);
+
+        // HeyGen requires GET on response_url — no body needed
+        const resultRes = await fetch(responseUrl, {
+          method: 'GET',
+          headers: authHeaders,
+        });
         const result = await safeJson(resultRes);
-        // HeyGen may nest video under different keys — log all
-        console.log('Result full:', JSON.stringify(result).slice(0, 500));
+        console.log('Result:', JSON.stringify(result).slice(0, 400));
+
+        // Try all possible video URL locations in HeyGen's response
         const videoUrl = result.video?.url
           || result.video_url
           || result.url
           || result.output?.url
-          || result.data?.video?.url
+          || result.data?.url
+          || (typeof result === 'string' ? result : null)
           || null;
-        console.log('videoUrl extracted:', videoUrl);
+
+        console.log('videoUrl:', videoUrl);
         return res.status(200).json({ status: 'COMPLETED', videoUrl });
       }
 
       if (statusData.status === 'FAILED') {
-        console.log('HeyGen FAILED:', JSON.stringify(statusData));
+        console.log('FAILED:', JSON.stringify(statusData));
         return res.status(200).json({ status: 'FAILED', videoUrl: null });
       }
 
@@ -85,7 +93,7 @@ export default async function handler(req, res) {
     });
 
     const submitData = await safeJson(submitRes);
-    console.log('HeyGen submit HTTP:', submitRes.status, 'requestId:', submitData.request_id);
+    console.log('Submit HTTP:', submitRes.status, 'requestId:', submitData.request_id);
 
     if (!submitRes.ok) {
       return res.status(500).json({
