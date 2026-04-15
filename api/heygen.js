@@ -57,7 +57,7 @@ export default async function handler(req, res) {
           }),
         });
         const result = await safeJson(resultRes);
-        console.log('Result HTTP:', resultRes.status, JSON.stringify(result).slice(0, 400));
+        console.log('Result HTTP:', resultRes.status, 'FULL:', JSON.stringify(result).slice(0, 800));
 
         const videoUrl = result.video?.url
           || result.video_url
