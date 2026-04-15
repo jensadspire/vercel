@@ -1,12 +1,11 @@
 /**
  * /api/kling — Kling AI video generation via fal.ai REST API
- * Model: Kling 2.6 Pro — better visual quality, fluid motion
- * Note: v2.6 uses start_image_url (not image_url) and generate_audio param
- * Duration: 5s or 10s only (same as v2.1)
- * Polling: base model ID without subpath for status/result
+ * Model: Kling V3 Pro — multi-shot, cinematic, best quality
+ * Uses start_image_url, generate_audio: false to suppress overlays
+ * Polling: base model ID without subpath
  */
 
-const KLING_SUBMIT = 'fal-ai/kling-video/v2.6/pro/image-to-video';
+const KLING_SUBMIT = 'fal-ai/kling-video/v3/pro/image-to-video';
 const KLING_BASE   = 'fal-ai/kling-video';
 
 export default async function handler(req, res) {
@@ -62,7 +61,7 @@ export default async function handler(req, res) {
     // ── Create new video task ───────────────────────────────────────────────────
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
 
-    // Build prompt with strong visual anchoring
+    // Build multi-shot prompt from storyboard
     let scenePrompt = '';
     if (storyboard && storyboard.length > 0) {
       scenePrompt = storyboard
@@ -75,7 +74,6 @@ export default async function handler(req, res) {
     const langInstruction = language !== 'English' ? `All text overlays must be in ${language} only. ` : '';
     const brandInstruction = brand ? `Brand: ${brand}. ` : '';
     const anchorInstruction = `This is a product advertisement video. The opening image shows the exact product — maintain 100% visual consistency with that product throughout every scene. Same product, same colors, same brand. Do not introduce different products or unrelated visuals. ${langInstruction}${brandInstruction}`;
-
     const videoPrompt = `${anchorInstruction}${scenePrompt}`.slice(0, 2500);
     const negativePrompt = `different product, substitute product, unrelated objects, scene replacement, Chinese text, Korean text, Japanese text, Arabic text, foreign language overlays, blur, distort, low quality, watermark`;
 
@@ -91,23 +89,22 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-    // v2.6 Pro uses start_image_url + generate_audio: false suppresses overlays
     const submitRes = await fetch(`https://queue.fal.run/${KLING_SUBMIT}`, {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify({
-        start_image_url: imageData,   // v2.6 uses start_image_url
+        start_image_url: imageData,
         prompt: videoPrompt,
         negative_prompt: negativePrompt,
         duration: '10',
         aspect_ratio: '9:16',
         cfg_scale: 0.7,
-        generate_audio: false,        // disables native audio + text overlays
+        generate_audio: false,
       }),
     });
 
     const submitData = await safeJson(submitRes);
-    console.log('Submit HTTP:', submitRes.status, 'requestId:', submitData.request_id);
+    console.log('Kling V3 Submit HTTP:', submitRes.status, 'requestId:', submitData.request_id);
 
     if (!submitRes.ok) {
       return res.status(500).json({

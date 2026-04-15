@@ -4,6 +4,7 @@
     "api/imagen.js": { "maxDuration": 60 },
     "api/runway.js": { "maxDuration": 60 },
     "api/kling.js": { "maxDuration": 300 },
+    "api/heygen.js": { "maxDuration": 180 },
     "api/scrape.js": { "maxDuration": 30 },
     "api/audience.js": { "maxDuration": 30 },
     "api/generate.js": { "maxDuration": 30 }

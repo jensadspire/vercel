@@ -637,6 +637,9 @@ function RSAStudio() {
   const [tiktokError, setTiktokError] = useState('');
   const [tiktokVideoLoading, setTiktokVideoLoading] = useState(false);
   const [tiktokVideoUrl, setTiktokVideoUrl] = useState(null);
+  const [ugcVideoUrl, setUgcVideoUrl] = useState(null);
+  const [ugcLoading, setUgcLoading] = useState(false);
+  const [ugcAvatar, setUgcAvatar] = useState('Ivy'); // selected HeyGen voice/avatar
   const [generateTiktok, setGenerateTiktok] = useState(false);
   const [metaActiveVariants, setMetaActiveVariants] = useState({ pt: 0, hl: 0, d: 0 }); // active variant indices
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
@@ -1467,21 +1470,13 @@ STRICT rules:
               metaData.tertiaryImage,
               metaData.homepageImage,
             ].filter(Boolean);
-            // If user had explicitly selected an image before this regen, preserve it
-            const preservedImg = tiktokSourceImageRef.current;
-            const finalImageUrl = preservedImg || initialImageUrl;
-            // If preserved image isn't in variations, add it at front
-            const finalVariations = initialVariations.length > 0 ? initialVariations : [];
-            if (preservedImg && !finalVariations.includes(preservedImg)) {
-              finalVariations.unshift(preservedImg);
-            }
-            const preservedVariantIdx = preservedImg ? Math.max(0, finalVariations.indexOf(preservedImg)) : 0;
             setMetaResult({
               ...metaData,
-              imageUrl: finalImageUrl,
-              imageVariations: finalVariations,
+              imageUrl: initialImageUrl,
+              imageVariations: initialVariations.length > 0 ? initialVariations : [],
             });
-            setActiveImageVariant(preservedVariantIdx);
+            setActiveImageVariant(0);
+            tiktokSourceImageRef.current = null; // reset so video button uses activeImageVariant
             setVideoTask(null);
             setMetaEdits({});
             setMetaEditingField(null);
@@ -2268,7 +2263,7 @@ STRICT rules:
                     setDiscountOn(false); setDiscountType('% Off'); setDiscountValue(''); setDiscountPlacement('Both');
                     setBrandOn(false); setBrandRequired(''); setBrandBanned(''); setBrandTone('Professional');
                     setClearKey(k => k + 1);
-                    setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null);
+                    setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null); setUgcVideoUrl(null);
                   }} style={{
                     padding: '9px 14px', fontSize: 11, fontWeight: 700,
                     background: 'rgba(255,255,255,0.05)',
@@ -2322,7 +2317,7 @@ STRICT rules:
                   setKwInDescs(false); setKwDescs(1); setRows([makeRow(1)]);
                   setActiveRow(0); setGenerated(false); setError('');
                   setActiveTab('headlines'); setClearKey(k => k + 1);
-                  setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null);
+                  setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null); setUgcVideoUrl(null);
                 }} style={{
                   padding: '9px 14px', fontSize: 11, fontWeight: 700,
                   background: 'rgba(255,255,255,0.05)',
@@ -5775,6 +5770,63 @@ STRICT rules:
                       {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating with Kling…</> : '🎬 Generate TikTok Video'}
                     </button>
                   </>
+                )}
+
+                {/* ── UGC Avatar Video (HeyGen) ── */}
+                {tiktokResult && (
+                  <div style={{ marginTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#7e92a8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>🎭 UGC Creator</div>
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 6 }}>Avatar voice:</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {[
+                          { id: 'Ivy', label: '👩 Ivy' },
+                          { id: 'Brenda - UGC - 1.mp4', label: '🎬 Brenda' },
+                          { id: 'George UGC 1', label: '🧔 George' },
+                          { id: 'Rose - UGC - 1.mp4', label: '🌹 Rose' },
+                        ].map(av => (
+                          <button key={av.id} onClick={() => setUgcAvatar(av.id)} style={{
+                            padding: '5px 10px', fontSize: 10, fontWeight: 700, borderRadius: 6,
+                            background: ugcAvatar === av.id ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.04)',
+                            color: ugcAvatar === av.id ? '#a5b4fc' : '#7e92a8',
+                            border: ugcAvatar === av.id ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                            cursor: 'pointer', transition: 'all 0.15s',
+                          }}>{av.label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <button onClick={async () => {
+                      if (!tiktokResult?.hookLine) return;
+                      setUgcLoading(true); setUgcVideoUrl(null);
+                      try {
+                        const script = `${tiktokResult.hookLine} ${tiktokResult.primaryText || ''} ${tiktokResult.cta || ''}`.trim().slice(0, 400);
+                        const avatarImg = 'https://v3b.fal.media/files/b/0a90062c/A7EIviZqNxZ2HAs0yHeZ6_77a05b99-8588-4ffc-90aa-be7f9d34e9d3.png';
+                        const r = await fetch('/api/heygen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: avatarImg, script, voiceId: ugcAvatar }) });
+                        const d = await r.json();
+                        if (d.videoUrl) { setUgcVideoUrl(d.videoUrl); setUgcLoading(false); }
+                        else if (d.requestId) {
+                          let attempts = 0;
+                          const poll = setInterval(async () => {
+                            if (attempts++ > 60) { setUgcLoading(false); clearInterval(poll); return; }
+                            const pr = await fetch('/api/heygen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', requestId: d.requestId }) });
+                            const pd = await pr.json();
+                            if (pd.videoUrl) { setUgcVideoUrl(pd.videoUrl); setUgcLoading(false); clearInterval(poll); }
+                            else if (pd.status === 'FAILED') { setUgcLoading(false); clearInterval(poll); }
+                          }, 5000);
+                        } else { setUgcLoading(false); }
+                      } catch(e) { setUgcLoading(false); }
+                    }} disabled={ugcLoading} style={{
+                      width: '100%', padding: '8px 16px', fontSize: 11, fontWeight: 700,
+                      background: ugcLoading ? 'rgba(168,85,247,0.1)' : 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                      color: ugcLoading ? '#a855f7' : 'white', border: 'none', borderRadius: 8,
+                      cursor: ugcLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      animation: ugcLoading ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                    }}>
+                      {ugcLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating UGC…</> : '🎭 Generate UGC Creator Video'}
+                    </button>
+                    {ugcLoading && <div style={{ marginTop: 8, fontSize: 10, color: '#4a5568' }}>⏱ Avatar video takes <span style={{ color: '#e2e8f0', fontWeight: 700 }}>1–2 minutes</span>.</div>}
+                    {ugcVideoUrl && <video src={ugcVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16', marginTop: 12 }} />}
+                  </div>
                 )}
               </div>
             </div>
