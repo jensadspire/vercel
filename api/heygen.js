@@ -1,10 +1,5 @@
 /**
  * /api/heygen — HeyGen Avatar IV via fal.ai
- * Input:  { imageUrl, script, voiceId, action?, requestId? }
- * Output: { requestId, status } or { status, videoUrl }
- *
- * Generates a UGC-style talking avatar video from a face photo + script text.
- * Billed at $0.10/second of output video via fal.ai.
  */
 
 const HEYGEN_MODEL = 'fal-ai/heygen/avatar4/image-to-video';
@@ -26,20 +21,20 @@ export default async function handler(req, res) {
   const safeJson = async (r) => {
     try {
       const text = await r.text();
+      console.log('Raw response HTTP', r.status, ':', text.slice(0, 300));
       if (!text || !text.trim()) return {};
       return JSON.parse(text);
     } catch (_) { return {}; }
   };
 
   try {
-    // ── Poll existing task ──────────────────────────────────────────────────────
     if (action === 'poll' && requestId) {
-      const statusRes = await fetch(
-        `https://queue.fal.run/${HEYGEN_MODEL}/requests/${requestId}/status`,
-        { method: 'GET', headers: authHeaders }
-      );
+      // Try full model path first, then base path
+      const statusUrl = `https://queue.fal.run/${HEYGEN_MODEL}/requests/${requestId}/status`;
+      console.log('Polling:', statusUrl);
+      const statusRes = await fetch(statusUrl, { method: 'GET', headers: authHeaders });
       const statusData = await safeJson(statusRes);
-      console.log('HeyGen status:', statusData.status);
+      console.log('HeyGen status:', statusData.status, 'HTTP:', statusRes.status);
 
       if (statusData.status === 'COMPLETED') {
         const resultRes = await fetch(
@@ -47,8 +42,8 @@ export default async function handler(req, res) {
           { method: 'GET', headers: authHeaders }
         );
         const result = await safeJson(resultRes);
-        const videoUrl = result.video?.url || result.video_url || null;
-        console.log('HeyGen COMPLETED - videoUrl:', videoUrl);
+        console.log('Result keys:', Object.keys(result));
+        const videoUrl = result.video?.url || result.video_url || result.url || null;
         return res.status(200).json({ status: 'COMPLETED', videoUrl });
       }
 
@@ -59,29 +54,32 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: statusData.status || 'IN_QUEUE', videoUrl: null });
     }
 
-    // ── Create new avatar video ─────────────────────────────────────────────────
-    if (!imageUrl) return res.status(400).json({ error: 'imageUrl (face photo) required' });
-    if (!script) return res.status(400).json({ error: 'script text required' });
+    // Create
+    if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
+    if (!script) return res.status(400).json({ error: 'script required' });
+
+    const body = {
+      image_url: imageUrl,
+      text: script.slice(0, 500),
+      voice_id: voiceId,
+      resolution: '720p',
+      aspect_ratio: '9:16',
+      talking_style: 'expressive',
+    };
+    console.log('HeyGen request body:', JSON.stringify(body));
 
     const submitRes = await fetch(`https://queue.fal.run/${HEYGEN_MODEL}`, {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify({
-        image_url: imageUrl,
-        text: script.slice(0, 500), // HeyGen script limit
-        voice_id: voiceId,
-        resolution: '1080p',
-        aspect_ratio: '9:16',
-        talking_style: 'expressive',
-      }),
+      body: JSON.stringify(body),
     });
 
     const submitData = await safeJson(submitRes);
-    console.log('HeyGen submit HTTP:', submitRes.status, 'requestId:', submitData.request_id);
+    console.log('HeyGen submit HTTP:', submitRes.status, 'data:', JSON.stringify(submitData).slice(0, 200));
 
     if (!submitRes.ok) {
       return res.status(500).json({
-        error: submitData.detail || submitData.message || 'HeyGen generation failed',
+        error: submitData.detail || submitData.message || 'HeyGen failed',
         detail: JSON.stringify(submitData),
       });
     }
@@ -92,7 +90,7 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error('HeyGen handler error:', err.message);
+    console.error('HeyGen error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
