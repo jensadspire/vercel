@@ -1,8 +1,11 @@
 /**
  * /api/heygen — HeyGen Avatar IV via fal.ai
+ * Submit: fal-ai/heygen/avatar4/image-to-video (full path)
+ * Poll:   fal-ai/heygen (base path — confirmed from status_url in submit response)
  */
 
-const HEYGEN_MODEL = 'fal-ai/heygen/avatar4/image-to-video';
+const HEYGEN_SUBMIT = 'fal-ai/heygen/avatar4/image-to-video';
+const HEYGEN_BASE   = 'fal-ai/heygen';  // base path for status + result
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -21,28 +24,28 @@ export default async function handler(req, res) {
   const safeJson = async (r) => {
     try {
       const text = await r.text();
-      console.log('Raw response HTTP', r.status, ':', text.slice(0, 300));
       if (!text || !text.trim()) return {};
       return JSON.parse(text);
     } catch (_) { return {}; }
   };
 
   try {
+    // ── Poll ───────────────────────────────────────────────────────────────────
     if (action === 'poll' && requestId) {
-      // Try full model path first, then base path
-      const statusUrl = `https://queue.fal.run/${HEYGEN_MODEL}/requests/${requestId}/status`;
-      console.log('Polling:', statusUrl);
-      const statusRes = await fetch(statusUrl, { method: 'GET', headers: authHeaders });
+      const statusRes = await fetch(
+        `https://queue.fal.run/${HEYGEN_BASE}/requests/${requestId}/status`,
+        { method: 'GET', headers: authHeaders }
+      );
       const statusData = await safeJson(statusRes);
       console.log('HeyGen status:', statusData.status, 'HTTP:', statusRes.status);
 
       if (statusData.status === 'COMPLETED') {
         const resultRes = await fetch(
-          `https://queue.fal.run/${HEYGEN_MODEL}/requests/${requestId}`,
+          `https://queue.fal.run/${HEYGEN_BASE}/requests/${requestId}`,
           { method: 'GET', headers: authHeaders }
         );
         const result = await safeJson(resultRes);
-        console.log('Result keys:', Object.keys(result));
+        console.log('HeyGen result:', JSON.stringify(result).slice(0, 200));
         const videoUrl = result.video?.url || result.video_url || result.url || null;
         return res.status(200).json({ status: 'COMPLETED', videoUrl });
       }
@@ -54,28 +57,25 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: statusData.status || 'IN_QUEUE', videoUrl: null });
     }
 
-    // Create
+    // ── Create ─────────────────────────────────────────────────────────────────
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
     if (!script) return res.status(400).json({ error: 'script required' });
 
-    const body = {
-      image_url: imageUrl,
-      text: script.slice(0, 500),
-      voice_id: voiceId,
-      resolution: '720p',
-      aspect_ratio: '9:16',
-      talking_style: 'expressive',
-    };
-    console.log('HeyGen request body:', JSON.stringify(body));
-
-    const submitRes = await fetch(`https://queue.fal.run/${HEYGEN_MODEL}`, {
+    const submitRes = await fetch(`https://queue.fal.run/${HEYGEN_SUBMIT}`, {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        image_url: imageUrl,
+        text: script.slice(0, 500),
+        voice_id: voiceId,
+        resolution: '720p',
+        aspect_ratio: '9:16',
+        talking_style: 'expressive',
+      }),
     });
 
     const submitData = await safeJson(submitRes);
-    console.log('HeyGen submit HTTP:', submitRes.status, 'data:', JSON.stringify(submitData).slice(0, 200));
+    console.log('HeyGen submit HTTP:', submitRes.status, 'requestId:', submitData.request_id);
 
     if (!submitRes.ok) {
       return res.status(500).json({
