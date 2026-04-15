@@ -1,7 +1,8 @@
 /**
  * /api/heygen — HeyGen Avatar IV via fal.ai
- * Key finding: result endpoint needs POST with original inputs (unlike Kling)
- * We store the original inputs in the requestId response so we can replay them
+ * Submit: fal-ai/heygen/avatar4/image-to-video  (POST)
+ * Status: fal-ai/heygen/requests/{id}/status    (GET)
+ * Result: response_url from status              (GET) → { video: { url: ... } }
  */
 
 const HEYGEN_SUBMIT = 'fal-ai/heygen/avatar4/image-to-video';
@@ -40,31 +41,19 @@ export default async function handler(req, res) {
       console.log('HeyGen status:', statusData.status, 'HTTP:', statusRes.status);
 
       if (statusData.status === 'COMPLETED') {
-        // HeyGen requires POST with original inputs to get result
+        // GET the response_url — returns { video: { url: ... } } directly
         const responseUrl = statusData.response_url ||
           `https://queue.fal.run/${HEYGEN_BASE}/requests/${requestId}`;
+        console.log('Fetching result GET:', responseUrl);
 
         const resultRes = await fetch(responseUrl, {
-          method: 'POST',
-          headers: jsonHeaders,
-          body: JSON.stringify({
-            image_url: imageUrl,
-            prompt: (script || '').slice(0, 500),
-            voice: voiceId || 'Ivy',
-            resolution: '720p',
-            aspect_ratio: '9:16',
-            talking_style: 'expressive',
-          }),
+          method: 'GET',
+          headers: authHeaders,
         });
         const result = await safeJson(resultRes);
-        console.log('Result HTTP:', resultRes.status, 'FULL:', JSON.stringify(result).slice(0, 800));
+        console.log('Result HTTP:', resultRes.status, 'data:', JSON.stringify(result).slice(0, 400));
 
-        const videoUrl = result.video?.url
-          || result.video_url
-          || result.url
-          || result.output?.url
-          || null;
-
+        const videoUrl = result.video?.url || result.video_url || result.url || null;
         console.log('videoUrl:', videoUrl);
         return res.status(200).json({ status: 'COMPLETED', videoUrl });
       }
@@ -80,19 +69,17 @@ export default async function handler(req, res) {
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
     if (!script) return res.status(400).json({ error: 'script required' });
 
-    const body = {
-      image_url: imageUrl,
-      prompt: script.slice(0, 500),
-      voice: voiceId,
-      resolution: '720p',
-      aspect_ratio: '9:16',
-      talking_style: 'expressive',
-    };
-
     const submitRes = await fetch(`https://queue.fal.run/${HEYGEN_SUBMIT}`, {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        image_url: imageUrl,
+        prompt: script.slice(0, 500),
+        voice: voiceId,
+        resolution: '720p',
+        aspect_ratio: '9:16',
+        talking_style: 'expressive',
+      }),
     });
 
     const submitData = await safeJson(submitRes);
@@ -105,13 +92,9 @@ export default async function handler(req, res) {
       });
     }
 
-    // Return requestId AND original inputs so poll can replay them
     return res.status(200).json({
       requestId: submitData.request_id,
       status: submitData.status || 'IN_QUEUE',
-      imageUrl,
-      script: script.slice(0, 500),
-      voiceId,
     });
 
   } catch (err) {
