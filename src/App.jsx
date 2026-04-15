@@ -5808,7 +5808,7 @@ STRICT rules:
                           let attempts = 0;
                           const poll = setInterval(async () => {
                             if (attempts++ > 60) { setUgcLoading(false); clearInterval(poll); return; }
-                            const pr = await fetch('/api/heygen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', requestId: d.requestId }) });
+                            const pr = await fetch('/api/heygen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', requestId: d.requestId, imageUrl: avatarImg, script: d.script || script, voiceId: d.voiceId || ugcAvatar }) });
                             const pd = await pr.json();
                             if (pd.videoUrl) { setUgcVideoUrl(pd.videoUrl); setUgcLoading(false); clearInterval(poll); }
                             else if (pd.status === 'FAILED') { setUgcLoading(false); clearInterval(poll); }
