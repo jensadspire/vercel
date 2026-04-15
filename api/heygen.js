@@ -49,8 +49,8 @@ export default async function handler(req, res) {
           headers: jsonHeaders,
           body: JSON.stringify({
             image_url: imageUrl,
-            text: (script || '').slice(0, 500),
-            voice_id: voiceId || 'Ivy',
+            prompt: (script || '').slice(0, 500),
+            voice: voiceId || 'Ivy',
             resolution: '720p',
             aspect_ratio: '9:16',
             talking_style: 'expressive',
@@ -82,8 +82,8 @@ export default async function handler(req, res) {
 
     const body = {
       image_url: imageUrl,
-      text: script.slice(0, 500),
-      voice_id: voiceId,
+      prompt: script.slice(0, 500),
+      voice: voiceId,
       resolution: '720p',
       aspect_ratio: '9:16',
       talking_style: 'expressive',
