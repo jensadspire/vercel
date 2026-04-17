@@ -1,8 +1,6 @@
 /**
  * /api/heygen — HeyGen Avatar IV via fal.ai
- * Submit: fal-ai/heygen/avatar4/image-to-video  (POST)
- * Status: fal-ai/heygen/requests/{id}/status    (GET)
- * Result: response_url from status              (GET) → { video: { url: ... } }
+ * Supports scene variants via custom_motion_prompt
  */
 
 const HEYGEN_SUBMIT = 'fal-ai/heygen/avatar4/image-to-video';
@@ -18,7 +16,7 @@ export default async function handler(req, res) {
   const falKey = process.env.FAL_API_KEY;
   if (!falKey) return res.status(500).json({ error: 'FAL_API_KEY not configured' });
 
-  const { imageUrl, script, voiceId = 'Ivy', action = 'create', requestId } = req.body || {};
+  const { imageUrl, script, voiceId = 'Ivy', motionPrompt, action = 'create', requestId } = req.body || {};
   const authHeaders = { 'Authorization': `Key ${falKey}` };
   const jsonHeaders = { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' };
 
@@ -41,20 +39,12 @@ export default async function handler(req, res) {
       console.log('HeyGen status:', statusData.status, 'HTTP:', statusRes.status);
 
       if (statusData.status === 'COMPLETED') {
-        // GET the response_url — returns { video: { url: ... } } directly
         const responseUrl = statusData.response_url ||
           `https://queue.fal.run/${HEYGEN_BASE}/requests/${requestId}`;
-        console.log('Fetching result GET:', responseUrl);
-
-        const resultRes = await fetch(responseUrl, {
-          method: 'GET',
-          headers: authHeaders,
-        });
+        const resultRes = await fetch(responseUrl, { method: 'GET', headers: authHeaders });
         const result = await safeJson(resultRes);
-        console.log('Result HTTP:', resultRes.status, 'data:', JSON.stringify(result).slice(0, 400));
-
         const videoUrl = result.video?.url || result.video_url || result.url || null;
-        console.log('videoUrl:', videoUrl);
+        console.log('HeyGen videoUrl:', videoUrl);
         return res.status(200).json({ status: 'COMPLETED', videoUrl });
       }
 
@@ -69,21 +59,28 @@ export default async function handler(req, res) {
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
     if (!script) return res.status(400).json({ error: 'script required' });
 
+    const body = {
+      image_url: imageUrl,
+      prompt: script.slice(0, 500),
+      voice: voiceId,
+      resolution: '720p',
+      aspect_ratio: '9:16',
+      talking_style: 'expressive',
+    };
+
+    // Add motion prompt for scene variants
+    if (motionPrompt) {
+      body.custom_motion_prompt = motionPrompt;
+    }
+
     const submitRes = await fetch(`https://queue.fal.run/${HEYGEN_SUBMIT}`, {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify({
-        image_url: imageUrl,
-        prompt: script.slice(0, 500),
-        voice: voiceId,
-        resolution: '720p',
-        aspect_ratio: '9:16',
-        talking_style: 'expressive',
-      }),
+      body: JSON.stringify(body),
     });
 
     const submitData = await safeJson(submitRes);
-    console.log('Submit HTTP:', submitRes.status, 'requestId:', submitData.request_id);
+    console.log('HeyGen submit HTTP:', submitRes.status, 'requestId:', submitData.request_id);
 
     if (!submitRes.ok) {
       return res.status(500).json({

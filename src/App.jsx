@@ -640,6 +640,10 @@ function RSAStudio() {
   const [ugcVideoUrl, setUgcVideoUrl] = useState(null);
   const [ugcLoading, setUgcLoading] = useState(false);
   const [ugcAvatar, setUgcAvatar] = useState('Ivy'); // selected HeyGen voice/avatar
+  const [ugcScene, setUgcScene] = useState('talking'); // talking | product | friends
+  const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
+  const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
+  const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
   const [generateTiktok, setGenerateTiktok] = useState(false);
   const [metaActiveVariants, setMetaActiveVariants] = useState({ pt: 0, hl: 0, d: 0 }); // active variant indices
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
@@ -5692,7 +5696,61 @@ STRICT rules:
                 }} style={{ marginTop: 12, padding: '6px 14px', fontSize: 10, fontWeight: 700, background: 'rgba(255,77,77,0.15)', color: '#fca5a5', border: '1px solid rgba(255,77,77,0.3)', borderRadius: 6, cursor: 'pointer' }}>
                   Copy Ad Copy
                 </button>
+                {/* TikTok full export button */}
+                <button onClick={() => {
+                  const storyboardText = (tiktokResult.storyboard || []).map((s, i) =>
+                    `Scene ${i+1} (${s.timing}) — ${s.title}\n${s.description}`
+                  ).join('\n\n');
+                  const exportText = [
+                    '=== TIKTOK AD COPY ===',
+                    '',
+                    `HOOK: ${tiktokResult.hookLine || ''}`,
+                    '',
+                    `PRIMARY TEXT: ${tiktokResult.primaryText || ''}`,
+                    '',
+                    `CTA: ${tiktokResult.cta || ''}`,
+                    '',
+                    `HASHTAGS: ${(tiktokResult.hashtags || []).join(' ')}`,
+                    '',
+                    '=== VIDEO STORYBOARD ===',
+                    '',
+                    storyboardText,
+                    '',
+                    '=== VIDEO PROMPT ===',
+                    '',
+                    tiktokResult.videoPrompt || '',
+                  ].join('\n');
+                  navigator.clipboard.writeText(exportText);
+                }} style={{ marginTop: 8, padding: '6px 14px', fontSize: 10, fontWeight: 700, background: 'rgba(129,140,248,0.1)', border: '1px solid rgba(129,140,248,0.25)', borderRadius: 6, color: '#818cf8', cursor: 'pointer', width: '100%' }}>
+                  📋 Copy Full TikTok Export
+                </button>
               </div>
+
+              {/* ── Branding & Overlay Panel ── */}
+              {tiktokResult && (
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#7e92a8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>🎨 Branding & Overlays</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {/* Logo toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <button onClick={() => setOverlayLogo(v => !v)} style={{ width: 32, height: 18, borderRadius: 9, background: overlayLogo ? '#6366f1' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                        <span style={{ position: 'absolute', top: 2, left: overlayLogo ? 16 : 2, width: 14, height: 14, borderRadius: '50%', background: 'white', transition: 'left 0.2s' }} />
+                      </button>
+                      <span style={{ fontSize: 11, color: '#94a3b8' }}>Include brand name in video</span>
+                    </div>
+                    {/* Intro headline */}
+                    <div>
+                      <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 4 }}>Intro headline (optional)</div>
+                      <input value={overlayIntro} onChange={e => setOverlayIntro(e.target.value)} placeholder="e.g. New arrival 🔥" style={{ width: '100%', padding: '6px 10px', fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 6, color: '#e2e8f0', outline: 'none' }} maxLength={60} />
+                    </div>
+                    {/* Outro / exit message */}
+                    <div>
+                      <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 4 }}>Exit message / CTA (optional)</div>
+                      <input value={overlayOutro} onChange={e => setOverlayOutro(e.target.value)} placeholder="e.g. Shop now at sunset-boulevard.dk" style={{ width: '100%', padding: '6px 10px', fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 6, color: '#e2e8f0', outline: 'none' }} maxLength={80} />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Video Storyboard */}
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
@@ -5744,7 +5802,15 @@ STRICT rules:
                         const r = await fetch('/api/kling', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: tiktokResult.brand || '' }),
+                          body: JSON.stringify({
+                          imageUrl,
+                          storyboard: tiktokResult.storyboard,
+                          prompt: tiktokResult.videoPrompt,
+                          language: pageMeta?.language || 'English',
+                          brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '',
+                          overlayIntro: overlayIntro || '',
+                          overlayOutro: overlayOutro || tiktokResult.cta || '',
+                        }),
                         });
                         const d = await r.json();
                         if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }
@@ -5776,6 +5842,25 @@ STRICT rules:
                 {tiktokResult && (
                   <div style={{ marginTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#7e92a8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>🎭 UGC Creator</div>
+                    {/* Scene variant selector */}
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 6 }}>Scene style:</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {[
+                          { id: 'talking', label: '🎤 Talking Head' },
+                          { id: 'product', label: '📦 Product Demo' },
+                          { id: 'friends', label: '👥 Social Setting' },
+                        ].map(s => (
+                          <button key={s.id} onClick={() => setUgcScene(s.id)} style={{
+                            padding: '5px 10px', fontSize: 10, fontWeight: 700, borderRadius: 6,
+                            background: ugcScene === s.id ? 'rgba(168,85,247,0.25)' : 'rgba(255,255,255,0.04)',
+                            color: ugcScene === s.id ? '#d8b4fe' : '#7e92a8',
+                            border: ugcScene === s.id ? '1px solid rgba(168,85,247,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                            cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
+                          }}>{s.label}</button>
+                        ))}
+                      </div>
+                    </div>
                     <div style={{ marginBottom: 10 }}>
                       <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 6 }}>Avatar voice:</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -5799,9 +5884,19 @@ STRICT rules:
                       if (!tiktokResult?.hookLine) return;
                       setUgcLoading(true); setUgcVideoUrl(null);
                       try {
-                        const script = `${tiktokResult.hookLine} ${tiktokResult.primaryText || ''} ${tiktokResult.cta || ''}`.trim().slice(0, 400);
+                        // Build script with optional intro/outro overlays
+                        const introText = overlayIntro ? `${overlayIntro}. ` : '';
+                        const outroText = overlayOutro || tiktokResult.cta || '';
+                        const brandText = overlayLogo && (tiktokResult.brand || pageMeta?.brand) ? ` — ${tiktokResult.brand || pageMeta?.brand}` : '';
+                        const script = `${introText}${tiktokResult.hookLine} ${tiktokResult.primaryText || ''} ${outroText}${brandText}`.trim().slice(0, 400);
+                        // Scene motion prompts
+                        const sceneMotion = ugcScene === 'product'
+                          ? 'holding up and showcasing a product with both hands, gesturing towards it enthusiastically, demonstrating it to the camera'
+                          : ugcScene === 'friends'
+                          ? 'casual relaxed setting, natural gestures, talking to friends off-camera, occasional laughter, authentic social media vibe'
+                          : 'direct to camera talking head, natural expressions, occasional nods and hand gestures';
                         const avatarImg = 'https://v3b.fal.media/files/b/0a90062c/A7EIviZqNxZ2HAs0yHeZ6_77a05b99-8588-4ffc-90aa-be7f9d34e9d3.png';
-                        const r = await fetch('/api/heygen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: avatarImg, script, voiceId: ugcAvatar }) });
+                        const r = await fetch('/api/heygen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: avatarImg, script, voiceId: ugcAvatar, motionPrompt: sceneMotion }) });
                         const d = await r.json();
                         if (d.videoUrl) { setUgcVideoUrl(d.videoUrl); setUgcLoading(false); }
                         else if (d.requestId) {
