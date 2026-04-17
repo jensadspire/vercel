@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   const falKey = process.env.FAL_API_KEY;
   if (!falKey) return res.status(500).json({ error: 'FAL_API_KEY not configured' });
 
-  const { imageUrl, storyboard, prompt, language = 'English', brand = '', overlayIntro = '', overlayOutro = '', action = 'create', requestId } = req.body || {};
+  const { imageUrl, storyboard, prompt, language = 'English', brand = '', logoUrl = null, overlayIntro = '', overlayOutro = '', action = 'create', requestId } = req.body || {};
   const authHeaders = { 'Authorization': `Key ${falKey}` };
   const jsonHeaders = { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' };
 
@@ -73,9 +73,10 @@ export default async function handler(req, res) {
 
     const langInstruction = language !== 'English' ? `All text overlays must be in ${language} only. ` : '';
     const brandInstruction = brand ? `Brand: ${brand}. ` : '';
+    const logoInstruction = logoUrl ? `Show the brand logo (${brand}) subtly in the final scene. ` : '';
     const introInstruction = overlayIntro ? `Opening text overlay: "${overlayIntro}". ` : '';
     const outroInstruction = overlayOutro ? `Closing text overlay and CTA: "${overlayOutro}". ` : '';
-    const anchorInstruction = `This is a product advertisement video. The opening image shows the exact product — maintain 100% visual consistency with that product throughout every scene. Same product, same colors, same brand. Do not introduce different products or unrelated visuals. ${langInstruction}${brandInstruction}${introInstruction}${outroInstruction}`;
+    const anchorInstruction = `This is a product advertisement video. The opening image shows the exact product — maintain 100% visual consistency with that product throughout every scene. Same product, same colors, same brand. Do not introduce different products or unrelated visuals. ${langInstruction}${brandInstruction}${logoInstruction}${introInstruction}${outroInstruction}`;
     const videoPrompt = `${anchorInstruction}${scenePrompt}`.slice(0, 2500);
     const negativePrompt = `different product, substitute product, unrelated objects, scene replacement, Chinese text, Korean text, Japanese text, Arabic text, foreign language overlays, blur, distort, low quality, watermark, end card, outro card`;
 
