@@ -48,7 +48,8 @@ export default async function handler(req, res) {
   const storyboardInstructions = isRunway ? `
 - Video storyboard: 2 scenes ONLY — designed for a 10-second lifestyle/fashion video:
   Scene 1 (0-4s): PRODUCT SHOWCASE — Product presented beautifully in its original setting. Clean, aspirational shot. The product is the hero — clearly visible, well-lit, no distractions. Camera slowly moves in or orbits the product.
-  Scene 2 (4-10s): LIFESTYLE MOMENT — Elegant transition to a real-life scene where the product is worn or used naturally. Person looks confident, the setting is aspirational. The product is prominently featured. Ends on a strong visual moment.
+  Scene 2 (4-10s): HUMAN LIFESTYLE MOMENT — A real person is WEARING or USING the product in an aspirational real-life setting (e.g. walking outside, at a café, heading to an event). The person must be clearly visible — this scene MUST show a human being, not just the product alone. Confident, natural, aspirational. The product is prominently featured on the person. Ends on a strong human moment.
+- CRITICAL: Scene 2 MUST feature a person — not a product close-up.
 - This 2-scene format maximises impact in 10 seconds: product first, life second.
 - Both scenes must flow seamlessly — same colour palette, same mood, same lighting style.` : `
 - Video storyboard: 4 scenes describing what happens in the video (each scene 1-2 sentences). 
@@ -100,7 +101,7 @@ Return ONLY valid JSON:
   "cta": "Call to action (max 4 words)",
   "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"],
   ${storyboardJson},
-  "videoPrompt": "${isRunway ? "Runway" : "Kling"} video prompt, max 900 chars — 9:16 vertical TikTok format. ${isRunway ? "Scene 1: beautiful product showcase shot. Cut to Scene 2: aspirational lifestyle moment with product prominently featured. Same colour palette throughout. Elegant, cinematic." : "Describe opening scene, camera movement, lighting, mood. Product clearly visible."} Concise and visual."
+  "videoPrompt": "${isRunway ? "Runway" : "Kling"} video prompt, max 900 chars — 9:16 vertical TikTok format. ${isRunway ? "Scene 1 (0-4s): beautiful clean product showcase — product is the hero, slow orbiting camera, aspirational lighting. Hard cut at 4s. Scene 2 (4-10s): a person WEARING or USING the product in a real lifestyle setting — walking, at a café, heading out. Person clearly visible, product prominently featured. Same warm colour palette. Cinematic, elegant, authentic." : "Describe opening scene, camera movement, lighting, mood. Product clearly visible."} Concise and visual."
 }`;
 
   // ── Call Claude ───────────────────────────────────────────────────────────────
