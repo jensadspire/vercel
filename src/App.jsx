@@ -646,6 +646,7 @@ function RSAStudio() {
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
   const [generateTiktok, setGenerateTiktok] = useState(false);
   const [editOpen, setEditOpen] = useState(false); // RSA edit accordion
+  const [tiktokExportCopied, setTiktokExportCopied] = useState(false);
   const [metaActiveVariants, setMetaActiveVariants] = useState({ pt: 0, hl: 0, d: 0 }); // active variant indices
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
   // Imagen modal state
@@ -5729,8 +5730,10 @@ STRICT rules:
                     tiktokResult.videoPrompt || '',
                   ].join('\n');
                   navigator.clipboard.writeText(exportText);
-                }} style={{ marginTop: 8, padding: '6px 14px', fontSize: 10, fontWeight: 700, background: 'rgba(129,140,248,0.1)', border: '1px solid rgba(129,140,248,0.25)', borderRadius: 6, color: '#818cf8', cursor: 'pointer', width: '100%' }}>
-                  📋 Copy Full TikTok Export
+                  setTiktokExportCopied(true);
+                  setTimeout(() => setTiktokExportCopied(false), 3000);
+                }} style={{ marginTop: 8, padding: '6px 14px', fontSize: 10, fontWeight: 700, background: tiktokExportCopied ? 'rgba(52,211,153,0.15)' : 'rgba(129,140,248,0.1)', border: tiktokExportCopied ? '1px solid rgba(52,211,153,0.4)' : '1px solid rgba(129,140,248,0.25)', borderRadius: 6, color: tiktokExportCopied ? '#34d399' : '#818cf8', cursor: 'pointer', width: '100%', transition: 'all 0.3s' }}>
+                  {tiktokExportCopied ? '✓ Copied — ready for TikTok Ads Manager' : '📋 Copy Full TikTok Export'}
                 </button>
               </div>
 
