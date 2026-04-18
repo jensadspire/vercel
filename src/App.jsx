@@ -645,6 +645,7 @@ function RSAStudio() {
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
   const [generateTiktok, setGenerateTiktok] = useState(false);
+  const [editOpen, setEditOpen] = useState(false); // RSA edit accordion
   const [metaActiveVariants, setMetaActiveVariants] = useState({ pt: 0, hl: 0, d: 0 }); // active variant indices
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
   // Imagen modal state
@@ -2267,6 +2268,7 @@ STRICT rules:
                     setDiscountOn(false); setDiscountType('% Off'); setDiscountValue(''); setDiscountPlacement('Both');
                     setBrandOn(false); setBrandRequired(''); setBrandBanned(''); setBrandTone('Professional');
                     setClearKey(k => k + 1);
+                    setAudienceDesc(''); setAdFormat('rsa');
                     setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null); setUgcVideoUrl(null);
                   }} style={{
                     padding: '9px 14px', fontSize: 11, fontWeight: 700,
@@ -3126,6 +3128,8 @@ STRICT rules:
             </div>
           )}
 
+          {/* ── Edit Accordion ── */}
+          {editOpen && (<>
           {/* Tab nav */}
           <div style={{ display: "flex", marginBottom: 14, background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 3 }}>
             {[
@@ -3212,6 +3216,7 @@ STRICT rules:
               <EditableField label="Path 2" value={row.path2} limit={PATH_LIMIT} onChange={v => setField("path2", v)} mono />
             </>
           )}
+          </>)}{/* end edit accordion */}
         </div>
 
         {/* RIGHT: Preview Panel */}
@@ -3594,6 +3599,9 @@ STRICT rules:
           {adFormat !== "meta" && (<><div style={S.card}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...S.sectionLabel, margin: 0 }}>Google SERP Preview</span>
+              <button onClick={() => setEditOpen(v => !v)} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: editOpen ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.09)', background: editOpen ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: editOpen ? '#a5b4fc' : '#7e92a8', cursor: 'pointer', transition: 'all 0.15s' }}>
+                {editOpen ? '✕ Close editor' : '✎ Edit this ad'}
+              </button>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 10, color: "#8fa3b8", fontStyle: "italic" }}>Shows first 3 headlines · first 2 descriptions</span>
                 {rows.filter(r => r.headlines.some(h => h.text)).length > 1 && (
