@@ -641,7 +641,6 @@ function RSAStudio() {
   const [ugcLoading, setUgcLoading] = useState(false);
   const [ugcAvatar, setUgcAvatar] = useState('Ivy'); // selected HeyGen voice/avatar
   const [ugcScene, setUgcScene] = useState('talking'); // talking | product | friends
-  const [videoEngine, setVideoEngine] = useState('kling'); // 'kling' | 'runway'
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
@@ -658,21 +657,6 @@ function RSAStudio() {
   const [metaImagesLoading, setMetaImagesLoading] = useState(false);
   const metaGenId = useRef(0); // increments each generation to cancel stale callbacks
   const tiktokSourceImageRef = useRef(null); // persists user-selected image through Meta regen
-
-  // Auto-detect recommended video engine from image URL
-  const detectVideoEngine = (imgUrl) => {
-    if (!imgUrl) return 'kling';
-    const url = imgUrl.toLowerCase();
-    const modelSignals = /model|lifestyle|worn|lookbook|campaign|editorial|fashion|outfit|wear|style|portrait|cashmere|silk|linen|kleid|kjole|blazer|jacket|jakke/i;
-    const fashionDomains = /nordicweaving|boozt|stylepit|ellos|miinto|kaufmann|magasin|illum|zalando|asos|hm\.|zara/i;
-    const dimMatch = url.match(/(\d+)x(\d+)/);
-    if (dimMatch) {
-      const w = parseInt(dimMatch[1]), h = parseInt(dimMatch[2]);
-      if (h > w * 1.3) return 'runway';
-    }
-    if (modelSignals.test(url) || fashionDomains.test(url)) return 'runway';
-    return 'kling';
-  };
   const [remixSourceUrl, setRemixSourceUrl] = useState(null); // the lifestyle image to remix into
   const [remixProduct, setRemixProduct] = useState(null);     // selected product image
   const [remixGenerating, setRemixGenerating] = useState(false);
@@ -1470,7 +1454,7 @@ STRICT rules:
           const metaRes = await fetch("/api/generate-meta", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta?.language || 'English', imageModel, isPro, audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
+            body: JSON.stringify({ url, language: pageMeta?.language || 'English', imageModel, isPro, videoEngine, audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
           });
           const metaRaw = await metaRes.text();
           let metaData;
@@ -1497,7 +1481,6 @@ STRICT rules:
             });
             setActiveImageVariant(0);
             tiktokSourceImageRef.current = null; // reset so video button uses activeImageVariant
-            setVideoEngine(detectVideoEngine(initialImageUrl));
             setVideoTask(null);
             setMetaEdits({});
             setMetaEditingField(null);
@@ -5825,7 +5808,6 @@ STRICT rules:
                           prompt: tiktokResult.videoPrompt,
                           language: pageMeta?.language || 'English',
                           brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '',
-                          logoUrl: overlayLogo ? pmaxLogo : null,
                           overlayIntro: overlayIntro || '',
                           overlayOutro: overlayOutro || tiktokResult.cta || '',
                         }),
@@ -5857,34 +5839,6 @@ STRICT rules:
                 )}
 
                 {/* ── UGC Avatar Video (HeyGen) ── */}
-                {/* ── Video Engine Selector ── */}
-                {tiktokResult && (
-                  <div style={{ marginBottom: 12, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8 }}>
-                    <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      🎬 Video engine
-                      {videoEngine === 'runway' && <span style={{ color: '#fbbf24', fontWeight: 700 }}>★ Runway recommended</span>}
-                      {videoEngine === 'kling' && <span style={{ color: '#34d399', fontWeight: 700 }}>★ Kling AI recommended</span>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {[
-                        { id: 'kling', label: '⚡ Kling V3', desc: 'Products & food', color: '#34d399' },
-                        { id: 'runway', label: '🎞 Runway', desc: 'Fashion & models', color: '#fbbf24' },
-                      ].map(e => (
-                        <button key={e.id} onClick={() => setVideoEngine(e.id)} style={{
-                          flex: 1, padding: '7px 10px', fontSize: 10, fontWeight: 700, borderRadius: 7,
-                          background: videoEngine === e.id ? (e.id === 'kling' ? 'rgba(52,211,153,0.12)' : 'rgba(251,191,36,0.12)') : 'rgba(255,255,255,0.04)',
-                          color: videoEngine === e.id ? e.color : '#7e92a8',
-                          border: videoEngine === e.id ? `1px solid ${e.color}40` : '1px solid rgba(255,255,255,0.08)',
-                          cursor: 'pointer', transition: 'all 0.15s',
-                        }}>
-                          <div>{e.label}</div>
-                          <div style={{ fontSize: 9, opacity: 0.7, fontWeight: 400, marginTop: 2 }}>{e.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {tiktokResult && (
                   <div style={{ marginTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#7e92a8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>🎭 UGC Creator</div>
