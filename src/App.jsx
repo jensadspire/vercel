@@ -5815,7 +5815,9 @@ STRICT rules:
                 {tiktokVideoUrl ? (
                   <div>
                     <video src={tiktokVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
-                    {/* ── Enhance with branding ── */}
+{/* ENHANCE PANEL — hidden, restore by removing {false &&} wrapper */}
+                    {false && (
+                    <>                    {/* ── Enhance with branding ── */}
                     <div style={{ marginTop: 12, padding: '12px 14px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: enhanceOpen ? 12 : 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: '#a5b4fc' }}>🎨 Enhance with branding</div>
@@ -5913,7 +5915,8 @@ STRICT rules:
                         </div>
                       )}
                     </div>
-                  </div>
+</>
+                    )}                  </div>
                 ) : tiktokVideoLoading ? (
                   <div style={{ width: '100%', maxWidth: 280, aspectRatio: '9/16', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                     <span style={{ fontSize: 32, animation: 'spin 2s linear infinite', display: 'inline-block' }}>🎬</span>
