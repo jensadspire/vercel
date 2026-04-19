@@ -5826,18 +5826,15 @@ STRICT rules:
                         const imageUrl = selectedImg;
                         if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
                         // Submit to Kling via fal.ai — pass full storyboard for multi-scene video
-                        const r = await fetch('/api/kling', {
+                        // Route to Runway or Kling based on selected engine
+                        const videoApi = videoEngine === 'runway' ? '/api/runway' : '/api/kling';
+                        const videoPayload = videoEngine === 'runway'
+                          ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
+                          : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
+                        const r = await fetch(videoApi, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                          imageUrl,
-                          storyboard: tiktokResult.storyboard,
-                          prompt: tiktokResult.videoPrompt,
-                          language: pageMeta?.language || 'English',
-                          brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '',
-                          overlayIntro: overlayIntro || '',
-                          overlayOutro: overlayOutro || tiktokResult.cta || '',
-                        }),
+                          body: JSON.stringify(videoPayload),
                         });
                         const d = await r.json();
                         if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }
@@ -5846,7 +5843,7 @@ STRICT rules:
                           let attempts = 0;
                           const poll = setInterval(async () => {
                             if (attempts++ > 60) { setTiktokVideoLoading(false); clearInterval(poll); return; }
-                            const pr = await fetch('/api/kling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', requestId: d.requestId }) });
+                            const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', requestId: d.requestId }) });
                             const pd = await pr.json();
                             if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(poll); }
                             else if (pd.status === 'FAILED') { setTiktokVideoLoading(false); clearInterval(poll); }
