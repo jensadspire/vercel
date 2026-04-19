@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   const runwayKey = process.env.RUNWAY_API_KEY;
   if (!runwayKey) return res.status(500).json({ error: 'Runway API key not configured' });
 
-  const { imageUrl, prompt, duration = 5, action = 'create', taskId } = req.body || {};
+  const { imageUrl, prompt, duration = 10, action = 'create', taskId } = req.body || {};
 
   try {
     // ── Poll existing task ────────────────────────────────────────────────────
