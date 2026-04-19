@@ -642,6 +642,8 @@ function RSAStudio() {
   const [ugcAvatar, setUgcAvatar] = useState('Ivy'); // selected HeyGen voice/avatar
   const [ugcScene, setUgcScene] = useState('talking'); // talking | product | friends
   const [videoEngine, setVideoEngine] = useState('kling'); // 'kling' | 'runway'
+  // Keep ref in sync so async handlers always get current value
+  useEffect(() => { videoEngineRef.current = videoEngine; }, [videoEngine]);
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
@@ -660,6 +662,7 @@ function RSAStudio() {
   const [metaImagesLoading, setMetaImagesLoading] = useState(false);
   const metaGenId = useRef(0); // increments each generation to cancel stale callbacks
   const tiktokSourceImageRef = useRef(null); // persists user-selected image through Meta regen
+  const videoEngineRef = useRef('kling'); // always reflects current videoEngine (avoids stale closure)
 
   const detectVideoEngine = (imgUrl) => {
     if (!imgUrl) return 'kling';
@@ -5826,9 +5829,10 @@ STRICT rules:
                         const imageUrl = selectedImg;
                         if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
                         // Submit to Kling via fal.ai — pass full storyboard for multi-scene video
-                        // Route to Runway or Kling based on selected engine
-                        const videoApi = videoEngine === 'runway' ? '/api/runway' : '/api/kling';
-                        const videoPayload = videoEngine === 'runway'
+                        // Route to Runway or Kling — use ref to avoid stale closure
+                        const currentEngine = videoEngineRef.current;
+                        const videoApi = currentEngine === 'runway' ? '/api/runway' : '/api/kling';
+                        const videoPayload = currentEngine === 'runway'
                           ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
                           : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
                         const r = await fetch(videoApi, {
