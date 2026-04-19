@@ -5838,12 +5838,14 @@ STRICT rules:
                         });
                         const d = await r.json();
                         if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }
-                        else if (d.requestId) {
-                          // Poll fal.ai for completion with timeout (3 min max)
+                        else if (d.requestId || d.taskId) {
+                          // Poll for completion — handle both Kling (requestId) and Runway (taskId)
+                          const pollId = d.requestId || d.taskId;
+                          const pollKey = d.taskId ? 'taskId' : 'requestId';
                           let attempts = 0;
                           const poll = setInterval(async () => {
                             if (attempts++ > 60) { setTiktokVideoLoading(false); clearInterval(poll); return; }
-                            const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', requestId: d.requestId }) });
+                            const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
                             const pd = await pr.json();
                             if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(poll); }
                             else if (pd.status === 'FAILED') { setTiktokVideoLoading(false); clearInterval(poll); }
