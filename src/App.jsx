@@ -5852,52 +5852,63 @@ STRICT rules:
                             </button>
                             <span style={{ fontSize: 10, color: '#94a3b8' }}>Show brand name: {tiktokResult?.brand || ''}</span>
                           </div>
-                          <button onClick={async () => {
-                            // Create canvas overlay and download
-                            const video = document.querySelector('video[src="' + tiktokVideoUrl + '"]');
-                            if (!video) return;
-                            const canvas = document.createElement('canvas');
-                            canvas.width = video.videoWidth || 720;
-                            canvas.height = video.videoHeight || 1280;
-                            const ctx = canvas.getContext('2d');
-                            // Draw current video frame
-                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            // Draw overlays
-                            const w = canvas.width, h = canvas.height;
-                            ctx.font = `bold ${Math.round(w * 0.055)}px Arial, sans-serif`;
-                            ctx.textAlign = 'center';
-                            // Intro text (top)
-                            if (enhanceIntro) {
-                              ctx.fillStyle = 'rgba(0,0,0,0.5)';
-                              ctx.fillRect(0, h * 0.05, w, h * 0.1);
-                              ctx.fillStyle = 'white';
-                              ctx.fillText(enhanceIntro, w/2, h * 0.115);
-                            }
-                            // Outro text (bottom)
-                            if (enhanceOutro) {
-                              ctx.fillStyle = 'rgba(0,0,0,0.6)';
-                              ctx.fillRect(0, h * 0.84, w, h * 0.1);
-                              ctx.fillStyle = 'white';
-                              ctx.font = `bold ${Math.round(w * 0.048)}px Arial, sans-serif`;
-                              ctx.fillText(enhanceOutro, w/2, h * 0.9);
-                            }
-                            // Brand name (bottom corner)
-                            if (enhanceBrand && tiktokResult?.brand) {
-                              ctx.font = `bold ${Math.round(w * 0.038)}px Arial, sans-serif`;
-                              ctx.textAlign = 'right';
-                              ctx.fillStyle = 'rgba(255,255,255,0.85)';
-                              ctx.fillText(tiktokResult.brand, w - w*0.04, h - h*0.03);
-                            }
-                            // Download the frame as image (video frame capture)
+                          {/* Live canvas preview */}
+                          <div style={{ marginTop: 4 }}>
+                            <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 4 }}>Preview overlay card:</div>
+                            <canvas ref={el => {
+                              if (!el) return;
+                              const w = el.width, h = el.height;
+                              const ctx = el.getContext('2d');
+                              // Dark gradient background
+                              const grad = ctx.createLinearGradient(0, 0, 0, h);
+                              grad.addColorStop(0, '#0f172a');
+                              grad.addColorStop(1, '#1e293b');
+                              ctx.fillStyle = grad;
+                              ctx.fillRect(0, 0, w, h);
+                              // Center label
+                              ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                              ctx.font = `${Math.round(w*0.06)}px Arial`;
+                              ctx.textAlign = 'center';
+                              ctx.fillText('▶ video', w/2, h/2);
+                              // Intro text
+                              if (enhanceIntro) {
+                                ctx.fillStyle = 'rgba(0,0,0,0.65)';
+                                ctx.fillRect(0, h*0.04, w, h*0.13);
+                                ctx.fillStyle = 'white';
+                                ctx.font = `bold ${Math.round(w*0.07)}px Arial`;
+                                ctx.textAlign = 'center';
+                                ctx.fillText(enhanceIntro.slice(0,30), w/2, h*0.125);
+                              }
+                              // Outro text
+                              if (enhanceOutro) {
+                                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                                ctx.fillRect(0, h*0.82, w, h*0.13);
+                                ctx.fillStyle = 'white';
+                                ctx.font = `bold ${Math.round(w*0.062)}px Arial`;
+                                ctx.textAlign = 'center';
+                                ctx.fillText(enhanceOutro.slice(0,35), w/2, h*0.9);
+                              }
+                              // Brand name
+                              if (enhanceBrand && tiktokResult?.brand) {
+                                ctx.font = `bold ${Math.round(w*0.05)}px Arial`;
+                                ctx.textAlign = 'right';
+                                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                                ctx.fillText(tiktokResult.brand, w-w*0.04, h-h*0.025);
+                              }
+                            }} width={160} height={285} style={{ width: '100%', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)' }} />
+                          </div>
+                          <button onClick={() => {
+                            const canvas = document.querySelector('canvas[width="160"]');
+                            if (!canvas) return;
                             const link = document.createElement('a');
-                            link.download = 'tiktok-ad-branded.png';
+                            link.download = `${tiktokResult?.brand || 'tiktok'}-overlay-card.png`;
                             link.href = canvas.toDataURL('image/png');
                             link.click();
-                          }} style={{ width: '100%', padding: '7px', fontSize: 10, fontWeight: 700, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-                            📸 Download Current Frame with Branding
+                          }} style={{ width: '100%', padding: '7px', fontSize: 10, fontWeight: 700, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', marginTop: 4 }}>
+                            📸 Download Overlay Card
                           </button>
                           <div style={{ fontSize: 9, color: '#4a5568', textAlign: 'center' }}>
-                            Pause the video at your preferred frame, then click download
+                            Downloads a branded overlay card to use alongside your video
                           </div>
                         </div>
                       )}
