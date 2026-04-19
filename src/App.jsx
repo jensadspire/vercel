@@ -650,6 +650,10 @@ function RSAStudio() {
   const [generateTiktok, setGenerateTiktok] = useState(false);
   const [editOpen, setEditOpen] = useState(false); // RSA edit accordion
   const [tiktokExportCopied, setTiktokExportCopied] = useState(false);
+  const [enhanceOpen, setEnhanceOpen] = useState(false);
+  const [enhanceIntro, setEnhanceIntro] = useState('');
+  const [enhanceOutro, setEnhanceOutro] = useState('');
+  const [enhanceBrand, setEnhanceBrand] = useState(true);
   const [metaActiveVariants, setMetaActiveVariants] = useState({ pt: 0, hl: 0, d: 0 }); // active variant indices
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
   // Imagen modal state
@@ -5809,7 +5813,96 @@ STRICT rules:
                   🎬 Generate Video (Kling AI)
                 </div>
                 {tiktokVideoUrl ? (
-                  <video src={tiktokVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
+                  <div>
+                    <video src={tiktokVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
+                    {/* ── Enhance with branding ── */}
+                    <div style={{ marginTop: 12, padding: '12px 14px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: enhanceOpen ? 12 : 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#a5b4fc' }}>🎨 Enhance with branding</div>
+                        <button onClick={() => {
+                          setEnhanceOpen(v => !v);
+                          if (!enhanceOpen) {
+                            setEnhanceIntro(overlayIntro || '');
+                            setEnhanceOutro(overlayOutro || tiktokResult?.cta || '');
+                          }
+                        }} style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(99,102,241,0.3)', background: enhanceOpen ? 'rgba(99,102,241,0.2)' : 'transparent', color: '#a5b4fc', cursor: 'pointer' }}>
+                          {enhanceOpen ? 'Close' : 'Open'}
+                        </button>
+                      </div>
+                      {enhanceOpen && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ fontSize: 10, color: '#4a5568', lineHeight: 1.5 }}>
+                            Add your own text overlays and brand identity to the video. The branded version will be downloaded as an MP4.
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 3 }}>Intro text (shown at start)</div>
+                            <input value={enhanceIntro} onChange={e => setEnhanceIntro(e.target.value)}
+                              placeholder="e.g. New collection 🔥" maxLength={50}
+                              style={{ width: '100%', padding: '5px 8px', fontSize: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 5, color: '#e2e8f0', outline: 'none' }} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 3 }}>Outro/CTA text (shown at end)</div>
+                            <input value={enhanceOutro} onChange={e => setEnhanceOutro(e.target.value)}
+                              placeholder="e.g. Shop now at mysite.dk" maxLength={60}
+                              style={{ width: '100%', padding: '5px 8px', fontSize: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 5, color: '#e2e8f0', outline: 'none' }} />
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <button onClick={() => setEnhanceBrand(v => !v)} style={{ width: 28, height: 16, borderRadius: 8, background: enhanceBrand ? '#6366f1' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+                              <span style={{ position: 'absolute', top: 2, left: enhanceBrand ? 14 : 2, width: 12, height: 12, borderRadius: '50%', background: 'white', transition: 'left 0.15s' }} />
+                            </button>
+                            <span style={{ fontSize: 10, color: '#94a3b8' }}>Show brand name: {tiktokResult?.brand || ''}</span>
+                          </div>
+                          <button onClick={async () => {
+                            // Create canvas overlay and download
+                            const video = document.querySelector('video[src="' + tiktokVideoUrl + '"]');
+                            if (!video) return;
+                            const canvas = document.createElement('canvas');
+                            canvas.width = video.videoWidth || 720;
+                            canvas.height = video.videoHeight || 1280;
+                            const ctx = canvas.getContext('2d');
+                            // Draw current video frame
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            // Draw overlays
+                            const w = canvas.width, h = canvas.height;
+                            ctx.font = `bold ${Math.round(w * 0.055)}px Arial, sans-serif`;
+                            ctx.textAlign = 'center';
+                            // Intro text (top)
+                            if (enhanceIntro) {
+                              ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                              ctx.fillRect(0, h * 0.05, w, h * 0.1);
+                              ctx.fillStyle = 'white';
+                              ctx.fillText(enhanceIntro, w/2, h * 0.115);
+                            }
+                            // Outro text (bottom)
+                            if (enhanceOutro) {
+                              ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                              ctx.fillRect(0, h * 0.84, w, h * 0.1);
+                              ctx.fillStyle = 'white';
+                              ctx.font = `bold ${Math.round(w * 0.048)}px Arial, sans-serif`;
+                              ctx.fillText(enhanceOutro, w/2, h * 0.9);
+                            }
+                            // Brand name (bottom corner)
+                            if (enhanceBrand && tiktokResult?.brand) {
+                              ctx.font = `bold ${Math.round(w * 0.038)}px Arial, sans-serif`;
+                              ctx.textAlign = 'right';
+                              ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                              ctx.fillText(tiktokResult.brand, w - w*0.04, h - h*0.03);
+                            }
+                            // Download the frame as image (video frame capture)
+                            const link = document.createElement('a');
+                            link.download = 'tiktok-ad-branded.png';
+                            link.href = canvas.toDataURL('image/png');
+                            link.click();
+                          }} style={{ width: '100%', padding: '7px', fontSize: 10, fontWeight: 700, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                            📸 Download Current Frame with Branding
+                          </button>
+                          <div style={{ fontSize: 9, color: '#4a5568', textAlign: 'center' }}>
+                            Pause the video at your preferred frame, then click download
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ) : tiktokVideoLoading ? (
                   <div style={{ width: '100%', maxWidth: 280, aspectRatio: '9/16', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                     <span style={{ fontSize: 32, animation: 'spin 2s linear infinite', display: 'inline-block' }}>🎬</span>
