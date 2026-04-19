@@ -5860,7 +5860,7 @@ STRICT rules:
                       display: 'flex', alignItems: 'center', gap: 6,
                       animation: tiktokVideoLoading ? 'pulse 1.5s ease-in-out infinite' : 'none',
                     }}>
-                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating with Kling…</> : '🎬 Generate TikTok Video'}
+                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating with {videoEngine === 'runway' ? 'Runway' : 'Kling'}…</> : (videoEngine === 'runway' ? '🎞 Generate Video (Runway)' : '🎬 Generate Video (Kling V3)')}
                     </button>
                   </>
                 )}
