@@ -668,6 +668,7 @@ function RSAStudio() {
   const tiktokSourceImageRef = useRef(null); // persists user-selected image through Meta regen
   const lastGeneratedUrlRef = useRef(''); // tracks URL used for last generation to detect URL changes
   const videoEngineRef = useRef('kling'); // always reflects current videoEngine (avoids stale closure)
+  const videoPollRef = useRef(null); // keeps poll interval alive across re-renders
 
   const detectVideoEngine = (imgUrl) => {
     if (!imgUrl) return 'kling';
@@ -5956,12 +5957,16 @@ STRICT rules:
                           const pollId = d.requestId || d.taskId;
                           const pollKey = d.taskId ? 'taskId' : 'requestId';
                           let attempts = 0;
-                          const poll = setInterval(async () => {
-                            if (attempts++ > 60) { setTiktokVideoLoading(false); clearInterval(poll); return; }
-                            const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
-                            const pd = await pr.json();
-                            if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(poll); }
-                            else if (pd.status === 'FAILED') { setTiktokVideoLoading(false); clearInterval(poll); }
+                          if (videoPollRef.current) clearInterval(videoPollRef.current);
+                          videoPollRef.current = setInterval(async () => {
+                            if (attempts++ > 72) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); return; } // 6 min max
+                            try {
+                              const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
+                              const pd = await pr.json();
+                              console.log('Poll', attempts, 'status:', pd.status, 'videoUrl:', !!pd.videoUrl);
+                              if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
+                              else if (pd.status === 'FAILED') { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
+                            } catch(pollErr) { console.error('Poll error:', pollErr.message); }
                           }, 5000);
                         } else { setTiktokVideoLoading(false); }
                       } catch(e) { setTiktokVideoLoading(false); }
