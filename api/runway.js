@@ -38,15 +38,13 @@ export default async function handler(req, res) {
 
     const motionPrompt = (prompt || 'Smooth cinematic camera movement, professional product advertisement').slice(0, 1000);
 
-    // Determine if we need to upload the image
+    // Always upload to fal.ai storage — guarantees Runway can access the image
+    // (many CDNs block external requests from Runway's servers)
     const isBase64 = imageUrl.startsWith('data:');
-    const isLongUrl = imageUrl.startsWith('https://') && imageUrl.length > 2048;
-    const needsUpload = isBase64 || isLongUrl;
+    let promptImage = null; // will be set after upload
 
-    let promptImage = imageUrl;
-
-    if (needsUpload && falKey) {
-      console.log('Image needs upload — base64:', isBase64, 'longUrl:', isLongUrl);
+    if (falKey) {
+      console.log('Uploading image to fal.ai storage for Runway access...');
       try {
         let imgBuffer, contentType;
 
@@ -77,6 +75,7 @@ export default async function handler(req, res) {
           const blob = new Blob([imgBuffer], { type: contentType || 'image/jpeg' });
           formData.append('file', blob, filename);
 
+          // Try fal.ai storage upload
           const uploadRes = await fetch('https://storage.fal.ai/upload', {
             method: 'POST',
             headers: { 'Authorization': `Key ${falKey}` },
@@ -85,7 +84,7 @@ export default async function handler(req, res) {
 
           if (uploadRes.ok) {
             const uploadData = await uploadRes.json();
-            const uploadedUrl = uploadData.url || uploadData.access_url;
+            const uploadedUrl = uploadData.url || uploadData.access_url || uploadData.cdn_url;
             if (uploadedUrl && uploadedUrl.startsWith('https://') && uploadedUrl.length <= 2048) {
               promptImage = uploadedUrl;
               console.log('Uploaded to fal storage:', promptImage.slice(0, 80));
@@ -100,8 +99,14 @@ export default async function handler(req, res) {
       }
     }
 
+    // Fall back to original URL if upload failed and it looks usable
+    if (!promptImage && imageUrl.startsWith('https://') && imageUrl.length <= 2048) {
+      console.log('Upload failed, trying original URL directly');
+      promptImage = imageUrl;
+    }
+
     // Final validation
-    if (!promptImage.startsWith('https://') || promptImage.length > 2048) {
+    if (!promptImage || !promptImage.startsWith('https://') || promptImage.length > 2048) {
       return res.status(400).json({
         error: 'Could not prepare a valid https:// image URL for Runway. Try selecting a different image.',
       });
