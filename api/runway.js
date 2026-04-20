@@ -1,10 +1,13 @@
 /**
  * /api/runway — Runway Gen3 Turbo image-to-video
- * Runway requires https:// URLs (max 2048 chars) — no base64 accepted.
- * Strategy: if imageUrl is base64 or too long, upload to fal.ai storage first.
+ * Runway accepts:
+ *   - https:// URLs (max 2048 chars) — but many CDNs block Runway's servers
+ *   - data:image/...;base64,... URIs (max 5MB encoded = ~3.3MB raw)
+ * Strategy: always fetch + re-encode as data URI for guaranteed delivery
  */
 
 const RUNWAY_API = 'https://api.dev.runwayml.com/v1';
+const MAX_BASE64_BYTES = 4 * 1024 * 1024; // 4MB encoded limit (safe under 5MB)
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,7 +17,6 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const runwayKey = process.env.RUNWAY_API_KEY;
-  const falKey = process.env.FAL_API_KEY;
   if (!runwayKey) return res.status(500).json({ error: 'Runway API key not configured' });
 
   const { imageUrl, prompt, duration = 10, action = 'create', taskId } = req.body || {};
@@ -38,81 +40,61 @@ export default async function handler(req, res) {
 
     const motionPrompt = (prompt || 'Smooth cinematic camera movement, professional product advertisement').slice(0, 1000);
 
-    // Always upload to fal.ai storage — guarantees Runway can access the image
-    // (many CDNs block external requests from Runway's servers)
-    const isBase64 = imageUrl.startsWith('data:');
-    let promptImage = null; // will be set after upload
+    let promptImage;
 
-    if (falKey) {
-      console.log('Uploading image to fal.ai storage for Runway access...');
+    if (imageUrl.startsWith('data:')) {
+      // Already a data URI — check size
+      if (imageUrl.length > MAX_BASE64_BYTES) {
+        return res.status(400).json({ error: 'Image too large for Runway (max ~3MB). Please select a smaller image.' });
+      }
+      promptImage = imageUrl;
+      console.log('Using existing data URI, length:', imageUrl.length);
+    } else {
+      // Fetch from URL and convert to data URI
+      console.log('Fetching image from:', imageUrl.slice(0, 80));
       try {
-        let imgBuffer, contentType;
+        const imgRes = await fetch(imageUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; AdStudio/1.0)',
+            'Accept': 'image/jpeg,image/png,image/webp,image/*',
+          },
+          signal: AbortSignal.timeout(10000),
+        });
 
-        if (isBase64) {
-          // Parse base64 data URI
-          const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
-          if (match) {
-            contentType = match[1];
-            imgBuffer = Buffer.from(match[2], 'base64');
+        if (!imgRes.ok) {
+          throw new Error(`Image fetch failed: ${imgRes.status}`);
+        }
+
+        const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+        const contentType = imgRes.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+        const base64 = imgBuffer.toString('base64');
+        const dataUri = `data:${contentType};base64,${base64}`;
+
+        if (dataUri.length > MAX_BASE64_BYTES) {
+          // Too large — try passing original https:// URL as fallback
+          if (imageUrl.startsWith('https://') && imageUrl.length <= 2048) {
+            console.log('Image too large for data URI, trying direct URL');
+            promptImage = imageUrl;
+          } else {
+            return res.status(400).json({ error: 'Image too large for Runway (max ~3MB). Please select a smaller image.' });
           }
         } else {
-          // Fetch from URL
-          const imgRes = await fetch(imageUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' }
-          });
-          if (imgRes.ok) {
-            imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-            contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-          }
+          promptImage = dataUri;
+          console.log('Converted to data URI, length:', dataUri.length, 'type:', contentType);
         }
-
-        if (imgBuffer) {
-          const ext = (contentType || '').includes('png') ? 'png' : 'jpg';
-          const filename = `runway-${Date.now()}.${ext}`;
-
-          // Upload to fal.ai storage using multipart form
-          const formData = new FormData();
-          const blob = new Blob([imgBuffer], { type: contentType || 'image/jpeg' });
-          formData.append('file', blob, filename);
-
-          // Try fal.ai storage upload
-          const uploadRes = await fetch('https://storage.fal.ai/upload', {
-            method: 'POST',
-            headers: { 'Authorization': `Key ${falKey}` },
-            body: formData,
-          });
-
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json();
-            const uploadedUrl = uploadData.url || uploadData.access_url || uploadData.cdn_url;
-            if (uploadedUrl && uploadedUrl.startsWith('https://') && uploadedUrl.length <= 2048) {
-              promptImage = uploadedUrl;
-              console.log('Uploaded to fal storage:', promptImage.slice(0, 80));
-            }
-          } else {
-            const errText = await uploadRes.text();
-            console.error('fal upload failed:', uploadRes.status, errText.slice(0, 200));
-          }
+      } catch (fetchErr) {
+        // Fetch failed — try direct URL if it's a valid https URL
+        console.error('Image fetch error:', fetchErr.message);
+        if (imageUrl.startsWith('https://') && imageUrl.length <= 2048) {
+          console.log('Fetch failed, falling back to direct URL');
+          promptImage = imageUrl;
+        } else {
+          return res.status(400).json({ error: `Could not access image: ${fetchErr.message}` });
         }
-      } catch (uploadErr) {
-        console.error('Upload error:', uploadErr.message);
       }
     }
 
-    // Fall back to original URL if upload failed and it looks usable
-    if (!promptImage && imageUrl.startsWith('https://') && imageUrl.length <= 2048) {
-      console.log('Upload failed, trying original URL directly');
-      promptImage = imageUrl;
-    }
-
-    // Final validation
-    if (!promptImage || !promptImage.startsWith('https://') || promptImage.length > 2048) {
-      return res.status(400).json({
-        error: 'Could not prepare a valid https:// image URL for Runway. Try selecting a different image.',
-      });
-    }
-
-    console.log('Sending to Runway — URL length:', promptImage.length, 'starts:', promptImage.slice(0,40), 'isHttps:', promptImage.startsWith('https://'));
+    console.log('Sending to Runway — promptImage type:', promptImage.startsWith('data:') ? 'dataURI' : 'URL', 'length:', promptImage.length);
 
     const r = await fetch(`${RUNWAY_API}/image_to_video`, {
       method: 'POST',
@@ -133,8 +115,8 @@ export default async function handler(req, res) {
 
     const data = await r.json();
     if (!r.ok) {
-      console.error('Runway error:', JSON.stringify(data));
-      return res.status(500).json({ error: data.message || 'Runway failed', detail: JSON.stringify(data) });
+      console.error('Runway error:', JSON.stringify(data).slice(0, 500));
+      return res.status(500).json({ error: data.message || 'Runway failed', detail: JSON.stringify(data).slice(0, 300) });
     }
 
     return res.status(200).json({ taskId: data.id, status: data.status });
