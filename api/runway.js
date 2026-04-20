@@ -66,7 +66,12 @@ export default async function handler(req, res) {
         }
 
         const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-        const contentType = imgRes.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+        let contentType = imgRes.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+        // Runway gen3a_turbo doesn't support webp — treat as jpeg
+        if (contentType === 'image/webp') {
+          contentType = 'image/jpeg';
+          console.log('Remapped webp → jpeg content-type for Runway');
+        }
         const base64 = imgBuffer.toString('base64');
         const dataUri = `data:${contentType};base64,${base64}`;
 

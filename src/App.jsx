@@ -5965,7 +5965,7 @@ STRICT rules:
                               const pd = await pr.json();
                               console.log('Poll', attempts, 'status:', pd.status, 'videoUrl:', !!pd.videoUrl);
                               if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
-                              else if (pd.status === 'FAILED') { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
+                              else if (pd.status === 'FAILED') { console.error('Video FAILED:', JSON.stringify(pd)); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
                             } catch(pollErr) { console.error('Poll error:', pollErr.message); }
                           }, 5000);
                         } else { setTiktokVideoLoading(false); }
