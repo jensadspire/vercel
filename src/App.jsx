@@ -666,6 +666,7 @@ function RSAStudio() {
   const [metaImagesLoading, setMetaImagesLoading] = useState(false);
   const metaGenId = useRef(0); // increments each generation to cancel stale callbacks
   const tiktokSourceImageRef = useRef(null); // persists user-selected image through Meta regen
+  const lastGeneratedUrlRef = useRef(''); // tracks URL used for last generation to detect URL changes
   const videoEngineRef = useRef('kling'); // always reflects current videoEngine (avoids stale closure)
 
   const detectVideoEngine = (imgUrl) => {
@@ -1504,8 +1505,12 @@ STRICT rules:
               imageVariations: initialVariations.length > 0 ? initialVariations : [],
             });
             setActiveImageVariant(0);
-            tiktokSourceImageRef.current = null; // reset so video button uses activeImageVariant
-            setVideoEngine(detectVideoEngine(initialImageUrl));
+            // Only reset thumbnail selection when URL actually changed
+            if (lastGeneratedUrlRef.current !== url) {
+              tiktokSourceImageRef.current = null;
+              lastGeneratedUrlRef.current = url;
+            }
+            setVideoEngine(detectVideoEngine(tiktokSourceImageRef.current || initialImageUrl));
             setVideoTask(null);
             setMetaEdits({});
             setMetaEditingField(null);
@@ -5815,9 +5820,7 @@ STRICT rules:
                 {tiktokVideoUrl ? (
                   <div>
                     <video src={tiktokVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
-{/* ENHANCE PANEL — hidden, restore by removing {false &&} wrapper */}
-                    {false && (
-                    <>                    {/* ── Enhance with branding ── */}
+                    {/* ── Enhance with branding ── */}
                     <div style={{ marginTop: 12, padding: '12px 14px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: enhanceOpen ? 12 : 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: '#a5b4fc' }}>🎨 Enhance with branding</div>
@@ -5915,8 +5918,7 @@ STRICT rules:
                         </div>
                       )}
                     </div>
-</>
-                    )}                  </div>
+                  </div>
                 ) : tiktokVideoLoading ? (
                   <div style={{ width: '100%', maxWidth: 280, aspectRatio: '9/16', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                     <span style={{ fontSize: 32, animation: 'spin 2s linear infinite', display: 'inline-block' }}>🎬</span>
