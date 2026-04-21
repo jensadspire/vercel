@@ -674,7 +674,7 @@ function RSAStudio() {
     if (!imgUrl) return 'kling';
     const url = imgUrl.toLowerCase();
     const modelSignals = /model|lifestyle|worn|lookbook|campaign|editorial|fashion|outfit|wear|style|portrait|cashmere|silk|linen|kleid|kjole|blazer|jacket|jakke/i;
-    const fashionDomains = /nordicweaving|boozt|stylepit|ellos|miinto|kaufmann|magasin|illum|zalando|asos|hm\.|zara/i;
+    const fashionDomains = /nordicweaving|boozt|stylepit|ellos|miinto|kaufmann|magasin|illum|zalando|asos|hm[.]|zara/i;
     const dimMatch = url.match(/(\d+)x(\d+)/);
     if (dimMatch) {
       const w = parseInt(dimMatch[1]), h = parseInt(dimMatch[2]);
@@ -1502,7 +1502,7 @@ STRICT rules:
             ].filter(Boolean);
             setMetaResult({
               ...metaData,
-              imageUrl: initialImageUrl,
+              imageUrl: (initialImageUrl || '').replace(/^http:/, 'https:'),
               imageVariations: initialVariations.length > 0 ? initialVariations : [],
             });
             setActiveImageVariant(0);
@@ -3794,13 +3794,12 @@ STRICT rules:
                   )}
                   {/* TikTok hint */}
                   {generateTiktok && tiktokResult && !tiktokLoading && (
-                    <div onClick={() => { setAdFormat("tiktok"); setTimeout(() => { const rp = document.getElementById("right-panel"); if (rp) rp.scrollTo({ top: rp.scrollHeight, behavior: "smooth" }); }, 300); }}
-                      style={{ padding: '7px 12px', background: 'linear-gradient(135deg,rgba(255,0,80,0.12),rgba(255,77,77,0.08))', borderTop: '1px solid rgba(255,77,77,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13 }}>♪</span>
-                      <span style={{ fontSize: 10, color: '#fca5a5', fontWeight: 700 }}>TikTok ad ready — tap to view</span>
-                      <span style={{ fontSize: 10, color: 'rgba(255,165,165,0.5)', marginLeft: 'auto' }}>→</span>
+                    <div onClick={() => { setAdFormat("tiktok"); setTimeout(() => { const rp = document.getElementById("right-panel"); if(rp) rp.scrollTop = 0; }, 100); }}
+                      style={{ padding: '8px 12px', background: 'linear-gradient(135deg,rgba(255,0,80,0.15),rgba(255,77,100,0.15))', borderTop: '1px solid rgba(255,77,100,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, animation: 'tiktokPulse 2s ease-in-out infinite', borderLeft: '3px solid #ff4d64' }}>
+                      <span style={{ fontSize: 14 }}>♪</span>
+                      <span style={{ fontSize: 10, color: '#fca5a5', fontWeight: 800, letterSpacing: '0.03em' }}>TikTok ad ready — tap to view →</span>
                     </div>
-                  )}
+                                    )}
                   {generateTiktok && tiktokLoading && (
                     <div style={{ padding: '7px 12px', background: 'rgba(255,0,80,0.06)', borderTop: '1px solid rgba(255,77,77,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 11, animation: 'spin 1.5s linear infinite', display: 'inline-block' }}>♪</span>
@@ -4900,7 +4899,11 @@ STRICT rules:
       {showAuthModal && <AuthModal />}
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes tiktokPulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(255,77,100,0.4); background: linear-gradient(135deg,rgba(255,0,80,0.15),rgba(255,77,100,0.15)); }
+        50% { box-shadow: 0 0 0 6px rgba(255,77,100,0); background: linear-gradient(135deg,rgba(255,0,80,0.28),rgba(255,77,100,0.28)); }
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes metaPulse {
           0%, 100% { box-shadow: 0 0 0 0px rgba(14,165,233,0.0); }
           50% { box-shadow: 0 0 0 4px rgba(14,165,233,0.5), 0 0 10px rgba(14,165,233,0.3); }
@@ -5816,7 +5819,7 @@ STRICT rules:
               {/* Video Generation */}
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                  🎬 Generate Video (Kling AI)
+                  🎬 Generate Video
                 </div>
                 {tiktokVideoUrl ? (
                   <div>
@@ -5983,6 +5986,16 @@ STRICT rules:
                 )}
 
                 {/* ── UGC Avatar Video (HeyGen) ── */}
+                {/* ── Active image preview ── */}
+                {tiktokResult && (metaResult?.imageVariations?.[activeImageVariant] || tiktokSourceImageRef.current) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, marginBottom: 8 }}>
+                    <img src={tiktokSourceImageRef.current || metaResult?.imageVariations?.[activeImageVariant]} alt="Active" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 5, flexShrink: 0 }} />
+                    <div style={{ fontSize: 9, color: '#4a5568', lineHeight: 1.4 }}>
+                      <div style={{ color: '#7e92a8', fontWeight: 700, marginBottom: 1 }}>Video starting image</div>
+                      {tiktokSourceImageRef.current ? 'Using selected thumbnail' : 'Using main FB image'}
+                    </div>
+                  </div>
+                )}
                 {/* ── Video Engine Selector ── */}
                 {tiktokResult && (
                   <div style={{ marginBottom: 12, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8 }}>
