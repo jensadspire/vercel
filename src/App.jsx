@@ -3797,13 +3797,14 @@ STRICT rules:
                     <div onClick={() => { setAdFormat("tiktok"); setTimeout(() => { const rp = document.getElementById("right-panel"); if(rp) rp.scrollTop = 0; }, 100); }}
                       style={{ padding: '8px 12px', background: 'linear-gradient(135deg,rgba(255,0,80,0.15),rgba(255,77,100,0.15))', borderTop: '1px solid rgba(255,77,100,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, animation: 'tiktokPulse 2s ease-in-out infinite', borderLeft: '3px solid #ff4d64' }}>
                       <span style={{ fontSize: 14 }}>♪</span>
-                      <span style={{ fontSize: 10, color: '#fca5a5', fontWeight: 800, letterSpacing: '0.03em' }}>TikTok ad ready — tap to view →</span>
+                      <span style={{ fontSize: 10, color: 'white', fontWeight: 800, letterSpacing: '0.04em', textShadow: '0 0 8px rgba(255,77,100,0.8)' }}>✦ TikTok ad ready — tap to view →</span>
                     </div>
                                     )}
                   {generateTiktok && tiktokLoading && (
                     <div style={{ padding: '7px 12px', background: 'rgba(255,0,80,0.06)', borderTop: '1px solid rgba(255,77,77,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 11, animation: 'spin 1.5s linear infinite', display: 'inline-block' }}>♪</span>
-                      <span style={{ fontSize: 10, color: '#4a5568' }}>Generating TikTok ad…</span>
+                      <span style={{ fontSize: 11, animation: 'spin 1.5s linear infinite', display: 'inline-block' }}>✦</span>
+                      <span style={{ fontSize: 10, color: '#ff4d64', fontWeight: 700 }}>Generating TikTok ad…</span>
+                      <span style={{ fontSize: 11, animation: 'spin 1.5s linear infinite', display: 'inline-block', animationDirection: 'reverse' }}>✦</span>
                     </div>
                   )}
                   {/* Headline + CTA bar */}
@@ -5990,9 +5991,18 @@ STRICT rules:
                 {tiktokResult && (metaResult?.imageVariations?.[activeImageVariant] || tiktokSourceImageRef.current) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, marginBottom: 8 }}>
                     <img src={tiktokSourceImageRef.current || metaResult?.imageVariations?.[activeImageVariant]} alt="Active" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 5, flexShrink: 0 }} />
-                    <div style={{ fontSize: 9, color: '#4a5568', lineHeight: 1.4 }}>
-                      <div style={{ color: '#7e92a8', fontWeight: 700, marginBottom: 1 }}>Video starting image</div>
-                      {tiktokSourceImageRef.current ? 'Using selected thumbnail' : 'Using main FB image'}
+                    <div style={{ fontSize: 9, color: '#4a5568', lineHeight: 1.4, flex: 1 }}>
+                      <div style={{ color: '#7e92a8', fontWeight: 700, marginBottom: 2 }}>Video starting image</div>
+                      <div>{tiktokSourceImageRef.current ? 'Using selected thumbnail' : 'Using main FB image'}</div>
+                      <button onClick={() => {
+                        setAdFormat('meta');
+                        setTimeout(() => {
+                          const el = document.getElementById('meta-thumbnail-tray');
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 200);
+                      }} style={{ marginTop: 3, fontSize: 9, color: '#818cf8', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                        ✎ edit starting image
+                      </button>
                     </div>
                   </div>
                 )}
