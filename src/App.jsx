@@ -3795,15 +3795,15 @@ STRICT rules:
                   {/* TikTok hint */}
                   {generateTiktok && tiktokResult && !tiktokLoading && (
                     <div onClick={() => { setAdFormat("tiktok"); setTimeout(() => { const rp = document.getElementById("right-panel"); if(rp) rp.scrollTop = 0; }, 100); }}
-                      style={{ padding: '8px 12px', background: 'linear-gradient(135deg,rgba(37,99,235,0.25),rgba(59,130,246,0.2))', borderTop: '1px solid rgba(59,130,246,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, animation: 'tiktokPulse 2s ease-in-out infinite', borderLeft: '3px solid #3b82f6' }}>
+                      style={{ padding: '8px 12px', background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', borderTop: '1px solid #1e40af', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, animation: 'tiktokPulse 2s ease-in-out infinite', borderLeft: '3px solid #93c5fd' }}>
                       <span style={{ fontSize: 14, color: 'white' }}>♪</span>
-                      <span style={{ fontSize: 10, color: 'white', fontWeight: 800, letterSpacing: '0.04em', textShadow: '0 0 8px rgba(255,77,100,0.8)' }}>✦ TikTok ad ready — tap to view →</span>
+                      <span style={{ fontSize: 10, color: 'white', fontWeight: 800, letterSpacing: '0.04em', textShadow: '0 0 8px rgba(255,255,255,0.6), 0 1px 3px rgba(0,0,0,0.5)' }}>✦ TikTok ad ready — tap to view →</span>
                     </div>
                                     )}
                   {generateTiktok && tiktokLoading && (
-                    <div style={{ padding: '7px 12px', background: 'rgba(59,130,246,0.15)', borderTop: '1px solid rgba(59,130,246,0.3,77,77,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ padding: '7px 12px', background: '#1d4ed8', borderTop: '1px solid #1e40af,77,77,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 11, animation: 'spin 1.5s linear infinite', display: 'inline-block', color: 'white' }}>✦</span>
-                      <span style={{ fontSize: 10, color: 'white', fontWeight: 700 }}>Generating TikTok ad…</span>
+                      <span style={{ fontSize: 10, color: 'white', fontWeight: 800, textShadow: '0 0 6px rgba(255,255,255,0.5), 0 1px 3px rgba(0,0,0,0.4)' }}>Generating TikTok ad…</span>
                       <span style={{ fontSize: 11, animation: 'spin 1.5s linear infinite', display: 'inline-block', animationDirection: 'reverse', color: 'white' }}>✦</span>
                     </div>
                   )}
@@ -4901,8 +4901,8 @@ STRICT rules:
 
       <style>{`
         @keyframes tiktokPulse {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.5); background: linear-gradient(135deg,rgba(37,99,235,0.25),rgba(59,130,246,0.2)); }
-        50% { box-shadow: 0 0 0 6px rgba(59,130,246,0); background: linear-gradient(135deg,rgba(37,99,235,0.4),rgba(59,130,246,0.35)); }
+        0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,235,0.6); background: linear-gradient(135deg,#1d4ed8,#2563eb); }
+        50% { box-shadow: 0 0 0 8px rgba(37,99,235,0); background: linear-gradient(135deg,#1e40af,#1d4ed8); }
       }
       @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes metaPulse {
