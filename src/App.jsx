@@ -3792,7 +3792,7 @@ STRICT rules:
                     </div>
                   )}
                   {metaResult.imageUrl ? (
-                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'contain', background: '#f0f2f5', display: 'block' }} />
+                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: metaPreviewFormat === 'ig-feed' ? '4/5' : '1', objectFit: 'cover', objectPosition: 'center top', background: '#f0f2f5', display: 'block' }} />
                   ) : (
                     <div style={{ width: '100%', aspectRatio: '1/1', background: 'rgba(255,255,255,0.03)', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16 }}>
                       <span style={{ fontSize: 28 }}>🖼</span>
