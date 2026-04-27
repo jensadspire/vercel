@@ -171,18 +171,60 @@ export default async function handler(req, res) {
 
     // ── Image extraction ──────────────────────────────────────────────────────
     const baseUrl = new URL(url).origin;
-    const imgMatches = [...html.matchAll(/<img[^>]+(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*>/gi)];
+    const imgMatches = [...html.matchAll(/<img[^>]+>/gi)];
     const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
-    const rawImages = [
-      ogImage,
-      ...imgMatches.map(m => m[1]),
-    ].filter(Boolean).map(src => {
+
+    // Score each image — product gallery thumbnails get priority
+    const scoreImage = (tag, src) => {
+      let score = 0;
+      const t = tag.toLowerCase();
+      const s = (src || '').toLowerCase();
+      // Product gallery signals
+      if (t.includes('data-index') || t.includes('data-thumb') || t.includes('gallery')) score += 5;
+      if (t.includes('product') || s.includes('product')) score += 4;
+      if (t.includes('data-zoom') || t.includes('data-large') || t.includes('data-full')) score += 3;
+      if (t.includes('swiper') || t.includes('carousel') || t.includes('slider')) score += 3;
+      if (s.includes('/products/') || s.includes('/shop/files/') || s.includes('/shop/product')) score += 3;
+      // Size signals — larger images preferred
+      const widthMatch = t.match(/width=["'](\d+)["']/);
+      if (widthMatch && parseInt(widthMatch[1]) > 400) score += 2;
+      // Penalise non-product images
+      if (s.includes('icon') || s.includes('logo') || s.includes('banner') || s.includes('badge')) score -= 5;
+      if (s.includes('avatar') || s.includes('author') || s.includes('pixel')) score -= 5;
+      if (s.includes('1x1') || s.includes('placeholder') || s.includes('blank')) score -= 10;
+      return score;
+    };
+
+    const extractSrc = (tag) => {
+      const m = tag.match(/(?:src|data-src|data-lazy-src|data-zoom-src|data-large-src)=["']([^"']+)["']/i);
+      return m ? m[1] : null;
+    };
+
+    const scoredImages = imgMatches.map(m => {
+      const tag = m[0];
+      const src = extractSrc(tag);
+      return { src, score: scoreImage(tag, src) };
+    }).filter(({ src }) => src);
+
+    const normaliseUrl = (src) => {
+      if (!src) return null;
       if (src.startsWith('http')) return src;
       if (src.startsWith('//')) return 'https:' + src;
       if (src.startsWith('/')) return baseUrl + src;
       return null;
-    }).filter(src => src && !src.includes('data:') && !src.includes('svg') && !src.includes('icon') && !src.includes('logo') && !src.includes('placeholder'));
-    // Deduplicate
+    };
+
+    // Sort by score, put ogImage first, deduplicate
+    scoredImages.sort((a, b) => b.score - a.score);
+
+    const rawImages = [
+      ogImage,
+      ...scoredImages.map(({ src }) => src),
+    ].filter(Boolean)
+     .map(normaliseUrl)
+     .filter(src => src && !src.includes('data:') && !src.includes('.svg') && !src.includes('placeholder'));
+
+    // Deduplicate preserving order
     result.images = [...new Set(rawImages)].slice(0, 16);
 
     // ── Cache the result for 24 hours ─────────────────────────────────────────
