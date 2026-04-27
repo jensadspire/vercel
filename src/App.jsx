@@ -5596,12 +5596,15 @@ STRICT rules:
                       {[
                         { label: "🌿 Garden / Outdoor", text: "in a natural Scandinavian garden setting with a well-maintained lawn, wooden decking and soft daylight" },
                         { label: "🛋️ Living Room", text: "in a bright minimalist Scandinavian living room with oak floors, large windows and soft natural light" },
-                        { label: "🍳 Kitchen", text: "in a modern Scandinavian kitchen with marble countertops, clean white surfaces and warm ambient lighting" },
+                        { label: "🍳 Kitchen", text: "in a modern Scandinavian kitchen — wide-angle view showing the full kitchen scene with marble countertops, oak cabinets and warm ambient lighting. Product placed naturally on the counter, camera pulled back to show the full kitchen environment. Avoid extreme close-ups — show the entire room setting with the product as part of the scene" },
                         { label: "🏪 Retail / Store", text: "displayed in a clean modern retail environment with professional studio lighting and a neutral background" },
                         { label: "🌲 Nature / Forest", text: "in a natural forest or woodland setting with dappled sunlight filtering through the trees" },
                         { label: "🏙️ Urban / City", text: "in a modern urban setting on a clean city street with contemporary architecture in the background" },
                         { label: "⚡ In Action", text: "shown in action performing its primary task, dynamic angle, natural environment, motion implied" },
-                        { label: "📸 Studio", text: "on a clean white studio background with soft professional lighting and subtle shadow, product centred" },
+                        { label: "📸 Studio", text: "on a clean white studio background with soft professional lighting and subtle shadow, product centred" },,
+                        { label: "🏖️ Beach", text: "on a sun-drenched beach with soft white sand and turquoise water in the background, warm golden hour light. Smaller products shown in close-up with sand and ocean as natural backdrop. Larger items or models shown in wide shot with the full beach scene visible. Relaxed summer mood, natural lifestyle feel" },
+                        { label: "🖼️ Art Gallery", text: "displayed in a minimalist art gallery with white walls, polished concrete floors and focused spotlighting. The product treated as a premium exhibit — elevated on a plinth or displayed against a clean white wall. Wide enough angle to show the gallery environment clearly. Product as the centrepiece, perceived value elevated" },
+                        { label: "📦 Unboxing", text: "in an elegant unboxing scene — product emerging from premium branded packaging on a clean marble or oak surface. Tissue paper or luxury wrapping visible. Warm soft side lighting. The packaging matches the brand colour palette. Close-up on the unboxing moment with the product as hero" }
                       ].map(t => (
                         <button key={t.label} onClick={() => setImagenStylePrompt(t.text)} style={{
                           padding: "5px 10px", fontSize: 10, fontWeight: 600, borderRadius: 20,
