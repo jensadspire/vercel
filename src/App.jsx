@@ -2298,6 +2298,8 @@ STRICT rules:
                     setDiscountOn(false); setDiscountType('% Off'); setDiscountValue(''); setDiscountPlacement('Both');
                     setBrandOn(false); setBrandRequired(''); setBrandBanned(''); setBrandTone('Professional');
                     setClearKey(k => k + 1);
+                    setRows([{ headlines: Array(15).fill({ text: '', pinned: false }), descriptions: Array(4).fill({ text: '', pinned: false }), finalUrl: '', path1: '', path2: '' }]);
+                    setActiveRow(0);
                     setAudienceDesc(''); setAdFormat('rsa');
                     setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null); setUgcVideoUrl(null);
                   }} style={{
@@ -3789,8 +3791,13 @@ STRICT rules:
                       <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Generating image…</div>
                     </div>
                   )}
-                  {metaResult.imageUrl && (
+                  {metaResult.imageUrl ? (
                     <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'contain', background: '#f0f2f5', display: 'block' }} />
+                  ) : (
+                    <div style={{ width: '100%', aspectRatio: '1/1', background: 'rgba(255,255,255,0.03)', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16 }}>
+                      <span style={{ fontSize: 28 }}>🖼</span>
+                      <span style={{ fontSize: 10, color: '#4a5568', textAlign: 'center' }}>Click Generate to recapture image</span>
+                    </div>
                   )}
                   {/* TikTok hint */}
                   {generateTiktok && tiktokResult && !tiktokLoading && (
