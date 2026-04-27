@@ -192,6 +192,19 @@ export default async function handler(req, res) {
       if (s.includes('icon') || s.includes('logo') || s.includes('banner') || s.includes('badge')) score -= 5;
       if (s.includes('avatar') || s.includes('author') || s.includes('pixel')) score -= 5;
       if (s.includes('1x1') || s.includes('placeholder') || s.includes('blank')) score -= 10;
+      // Penalise promotional/discount graphics
+      if (s.includes('procent') || s.includes('percent') || s.includes('rabat') || s.includes('discount')) score -= 10;
+      if (s.includes('navigation') || s.includes('nav-') || s.includes('noimageindex')) score -= 8;
+      if (s.includes('rebate') || s.includes('offer') || s.includes('campaign') || s.includes('promo')) score -= 6;
+      // Penalise landscape banners (wide x height ratio in URL)
+      const dimsMatch = s.match(/(\d{3,4})x(\d{3,4})/);
+      if (dimsMatch) {
+        const w = parseInt(dimsMatch[1]), h = parseInt(dimsMatch[2]);
+        if (w > h * 1.5) score -= 4; // wide landscape = likely banner
+        if (w > 2000 && h < 800) score -= 6; // very wide banner
+      }
+      // Penalise hex colour codes in filename (promo graphics)
+      if (/[0-9a-f]{6}/i.test(s.split('/').pop())) score -= 3;
       return score;
     };
 
