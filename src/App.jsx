@@ -1507,8 +1507,8 @@ STRICT rules:
             const hlVariants = metaData.headlines || [];
             const dVariants = metaData.descriptions || [];
             const cardTexts = Array.from({ length: 5 }, (_, i) => ({
-              headline: hlVariants[i]?.text || hlVariants[0]?.text || '',
-              desc: dVariants[i % dVariants.length]?.text || dVariants[0]?.text || '',
+              headline: hlVariants[i] || hlVariants[i % Math.max(hlVariants.length, 1)] || '',
+              desc: dVariants[i % Math.max(dVariants.length, 1)] || '',
             }));
             setCarouselCardTexts(cardTexts);
             setCarouselImages([]); // reset so carousel auto-builds from imageVariations
@@ -4326,8 +4326,8 @@ STRICT rules:
                                   }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.5)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
                                 </div>
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
-                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || (metaResult?.headlines?.[ci]?.text) || hl || "Discover More").slice(0, 25)}</div>
-                                    <div style={{ fontSize: 9, color: "#65676b" }}>{(carouselCardTexts[ci]?.desc || (metaResult?.descriptions?.[ci % Math.max((metaResult?.descriptions?.length||1),1)]?.text) || d || "").slice(0, 30)}</div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl || "Discover More").slice(0, 22)}</div>
+                                    <div style={{ fontSize: 9, color: "#65676b" }}>{(carouselCardTexts[ci]?.desc || metaResult?.descriptions?.[ci % Math.max((metaResult?.descriptions?.length||1),1)] || d || "").slice(0, 30)}</div>
                                     <div style={{ fontSize: 9, color: "#1877f2", fontWeight: 700, marginTop: 3 }}>Shop Now →</div>
                                   </div>
                                 </div>
