@@ -3788,8 +3788,8 @@ STRICT rules:
                 </div>
               </div>
               <div style={{ padding: '16px' }}>
-                {/* FB/IG Feed Card */}
-                <div style={{ background: '#fff', borderRadius: 10, overflow: 'hidden', maxWidth: 380, margin: '0 auto', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
+                {/* FB/IG Feed Card — hidden when carousel is active */}
+                {metaPreviewFormat !== 'fb-carousel' && <div style={{ background: '#fff', borderRadius: 10, overflow: 'hidden', maxWidth: 380, margin: '0 auto', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
                   {/* Page header */}
                   <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#3b82f6,#6366f1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -3837,7 +3837,7 @@ STRICT rules:
                     </div>
                     <div style={{ background: '#0866ff', color: 'white', fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 6, whiteSpace: 'nowrap', flexShrink: 0 }}>Learn More</div>
                   </div>
-                </div>
+                </div>}
                 {/* Variant selectors */}
                 <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                   {(metaResult.primaryTexts || []).length > 1 && (metaResult.primaryTexts || []).map((_, i) => (
@@ -4326,8 +4326,8 @@ STRICT rules:
                                   }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.5)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
                                 </div>
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
-                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || hl || "Discover More").slice(0, 25)}</div>
-                                    <div style={{ fontSize: 9, color: "#65676b" }}>{(carouselCardTexts[ci]?.desc || d || "Shop now").slice(0, 30)}</div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || (metaResult?.headlines?.[ci]?.text) || hl || "Discover More").slice(0, 25)}</div>
+                                    <div style={{ fontSize: 9, color: "#65676b" }}>{(carouselCardTexts[ci]?.desc || (metaResult?.descriptions?.[ci % Math.max((metaResult?.descriptions?.length||1),1)]?.text) || d || "").slice(0, 30)}</div>
                                     <div style={{ fontSize: 9, color: "#1877f2", fontWeight: 700, marginTop: 3 }}>Shop Now →</div>
                                   </div>
                                 </div>
