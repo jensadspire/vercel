@@ -1480,7 +1480,7 @@ STRICT rules:
           const metaRes = await fetch("/api/generate-meta", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta?.language || 'English', imageModel, isPro, audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
+            body: JSON.stringify({ url, language: pageMeta?.language || 'English', imageModel, isPro, keywords: keywords.filter(k => k.trim()), audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
           });
           const metaRaw = await metaRes.text();
           let metaData;
@@ -2174,6 +2174,17 @@ STRICT rules:
                   }}>
                     {generateMeta && !metaDisabled && <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
                   </button>
+                  {/* F logo — pulses when unchecked to draw attention */}
+                  {!generateMeta && !metaDisabled && (
+                    <span onClick={() => setGenerateMeta(true)} style={{
+                      fontSize: 13, fontWeight: 900, color: 'white',
+                      background: 'linear-gradient(135deg,#1877f2,#0a5dc2)',
+                      borderRadius: 4, padding: '1px 5px', cursor: 'pointer',
+                      animation: generated ? 'metaPulse 1.5s ease-in-out infinite' : 'none',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      minWidth: 18, userSelect: 'none',
+                    }}>f</span>
+                  )}
                   <span style={{ fontSize: 11, color: generateMeta && !metaDisabled ? "#93c5fd" : "#4a5568",
                     cursor: metaDisabled ? "not-allowed" : "pointer", userSelect: "none" }}
                     onClick={() => !metaDisabled && setGenerateMeta(v => !v)}>
@@ -2298,8 +2309,6 @@ STRICT rules:
                     setDiscountOn(false); setDiscountType('% Off'); setDiscountValue(''); setDiscountPlacement('Both');
                     setBrandOn(false); setBrandRequired(''); setBrandBanned(''); setBrandTone('Professional');
                     setClearKey(k => k + 1);
-                    setRows([{ headlines: Array(15).fill({ text: '', pinned: false }), descriptions: Array(4).fill({ text: '', pinned: false }), finalUrl: '', path1: '', path2: '' }]);
-                    setActiveRow(0);
                     setAudienceDesc(''); setAdFormat('rsa');
                     setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null); setUgcVideoUrl(null);
                   }} style={{
@@ -3791,13 +3800,8 @@ STRICT rules:
                       <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Generating image…</div>
                     </div>
                   )}
-                  {metaResult.imageUrl ? (
-                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: metaPreviewFormat === 'ig-feed' ? '4/5' : '1', objectFit: 'cover', objectPosition: 'center top', background: '#f0f2f5', display: 'block' }} />
-                  ) : (
-                    <div style={{ width: '100%', aspectRatio: '1/1', background: 'rgba(255,255,255,0.03)', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16 }}>
-                      <span style={{ fontSize: 28 }}>🖼</span>
-                      <span style={{ fontSize: 10, color: '#4a5568', textAlign: 'center' }}>Click Generate to recapture image</span>
-                    </div>
+                  {metaResult.imageUrl && (
+                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'contain', background: '#f0f2f5', display: 'block' }} />
                   )}
                   {/* TikTok hint */}
                   {generateTiktok && tiktokResult && !tiktokLoading && (
@@ -5596,15 +5600,12 @@ STRICT rules:
                       {[
                         { label: "🌿 Garden / Outdoor", text: "in a natural Scandinavian garden setting with a well-maintained lawn, wooden decking and soft daylight" },
                         { label: "🛋️ Living Room", text: "in a bright minimalist Scandinavian living room with oak floors, large windows and soft natural light" },
-                        { label: "🍳 Kitchen", text: "in a modern Scandinavian kitchen — wide-angle view showing the full kitchen scene with marble countertops, oak cabinets and warm ambient lighting. Product placed naturally on the counter, camera pulled back to show the full kitchen environment. Avoid extreme close-ups — show the entire room setting with the product as part of the scene" },
+                        { label: "🍳 Kitchen", text: "in a modern Scandinavian kitchen with marble countertops, clean white surfaces and warm ambient lighting" },
                         { label: "🏪 Retail / Store", text: "displayed in a clean modern retail environment with professional studio lighting and a neutral background" },
                         { label: "🌲 Nature / Forest", text: "in a natural forest or woodland setting with dappled sunlight filtering through the trees" },
                         { label: "🏙️ Urban / City", text: "in a modern urban setting on a clean city street with contemporary architecture in the background" },
                         { label: "⚡ In Action", text: "shown in action performing its primary task, dynamic angle, natural environment, motion implied" },
-                        { label: "📸 Studio", text: "on a clean white studio background with soft professional lighting and subtle shadow, product centred" },,
-                        { label: "🏖️ Beach", text: "on a sun-drenched beach with soft white sand and turquoise water in the background, warm golden hour light. Smaller products shown in close-up with sand and ocean as natural backdrop. Larger items or models shown in wide shot with the full beach scene visible. Relaxed summer mood, natural lifestyle feel" },
-                        { label: "🖼️ Art Gallery", text: "displayed in a minimalist art gallery with white walls, polished concrete floors and focused spotlighting. The product treated as a premium exhibit — elevated on a plinth or displayed against a clean white wall. Wide enough angle to show the gallery environment clearly. Product as the centrepiece, perceived value elevated" },
-                        { label: "📦 Unboxing", text: "in an elegant unboxing scene — product emerging from premium branded packaging on a clean marble or oak surface. Tissue paper or luxury wrapping visible. Warm soft side lighting. The packaging matches the brand colour palette. Close-up on the unboxing moment with the product as hero" }
+                        { label: "📸 Studio", text: "on a clean white studio background with soft professional lighting and subtle shadow, product centred" },
                       ].map(t => (
                         <button key={t.label} onClick={() => setImagenStylePrompt(t.text)} style={{
                           padding: "5px 10px", fontSize: 10, fontWeight: 600, borderRadius: 20,
