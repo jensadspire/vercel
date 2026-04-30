@@ -631,6 +631,8 @@ function RSAStudio() {
   const [metaError, setMetaError] = useState("");
   const [metaCopied, setMetaCopied] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const [carouselCardTexts, setCarouselCardTexts] = useState([]); // unique headline per card
+  const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   // ── TikTok state ─────────────────────────────────────────────────────────────
   const [tiktokResult, setTiktokResult] = useState(null);
@@ -1481,7 +1483,7 @@ STRICT rules:
           const metaRes = await fetch("/api/generate-meta", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta?.language || 'English', imageModel, isPro, audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
+            body: JSON.stringify({ url, language: pageMeta?.language || 'English', imageModel, isPro, keywords: keywords.filter(k => k.trim()), audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
           });
           const metaRaw = await metaRes.text();
           let metaData;
@@ -1501,6 +1503,15 @@ STRICT rules:
               metaData.tertiaryImage,
               metaData.homepageImage,
             ].filter(Boolean);
+            // Generate unique per-card carousel texts from headline variants
+            const hlVariants = metaData.headlines || [];
+            const dVariants = metaData.descriptions || [];
+            const cardTexts = Array.from({ length: 5 }, (_, i) => ({
+              headline: hlVariants[i]?.text || hlVariants[0]?.text || '',
+              desc: dVariants[i % dVariants.length]?.text || dVariants[0]?.text || '',
+            }));
+            setCarouselCardTexts(cardTexts);
+            setCarouselImages([]); // reset so carousel auto-builds from imageVariations
             setMetaResult({
               ...metaData,
               imageUrl: (initialImageUrl || '').replace(/^http:/, 'https:'),
@@ -2175,6 +2186,16 @@ STRICT rules:
                   }}>
                     {generateMeta && !metaDisabled && <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
                   </button>
+                  {!generateMeta && !metaDisabled && (
+                    <span onClick={() => setGenerateMeta(true)} style={{
+                      fontSize: 13, fontWeight: 900, color: 'white',
+                      background: 'linear-gradient(135deg,#1877f2,#0a5dc2)',
+                      borderRadius: 4, padding: '1px 5px', cursor: 'pointer',
+                      animation: generated ? 'metaPulse 1.5s ease-in-out infinite' : 'none',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      minWidth: 18, userSelect: 'none',
+                    }}>f</span>
+                  )}
                   <span style={{ fontSize: 11, color: generateMeta && !metaDisabled ? "#93c5fd" : "#4a5568",
                     cursor: metaDisabled ? "not-allowed" : "pointer", userSelect: "none" }}
                     onClick={() => !metaDisabled && setGenerateMeta(v => !v)}>
@@ -3756,13 +3777,13 @@ STRICT rules:
               <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ ...S.sectionLabel, margin: 0 }}>Meta Ad Preview</span>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  {['fb-feed','ig-feed'].map(fmt => (
+                  {['fb-feed','ig-feed','fb-carousel'].map(fmt => (
                     <button key={fmt} onClick={() => setMetaPreviewFormat(fmt)} style={{
                       fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 5,
                       border: 'none', cursor: 'pointer',
                       background: metaPreviewFormat === fmt ? 'linear-gradient(135deg,#0ea5e9,#6366f1)' : 'rgba(255,255,255,0.06)',
                       color: metaPreviewFormat === fmt ? 'white' : '#4a5568',
-                    }}>{fmt === 'fb-feed' ? 'Facebook' : 'Instagram'}</button>
+                    }}>{fmt === 'fb-feed' ? 'Facebook' : fmt === 'ig-feed' ? 'Instagram' : '⊞ Carousel'}</button>
                   ))}
                 </div>
               </div>
@@ -4268,7 +4289,8 @@ STRICT rules:
                   const isStory    = metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story";
                   const isIG       = metaPreviewFormat === "ig-feed"  || metaPreviewFormat === "ig-story";
                   const isCarousel = metaPreviewFormat === "fb-carousel";
-                  const carouselImages = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).slice(0, 5);
+                  const baseCarouselImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).slice(0, 5);
+                  const activeCarouselImgs = carouselImages.length > 0 ? carouselImages : baseCarouselImgs;
                   return (
                     <div style={{ display: "flex", justifyContent: "center" }}>
                       {isCarousel ? (
@@ -4288,12 +4310,24 @@ STRICT rules:
                           {/* Carousel slides */}
                           <div style={{ position: "relative", overflow: "hidden" }}>
                             <div style={{ display: "flex", transition: "transform 0.3s ease", transform: `translateX(-${carouselIndex * 220}px)`, gap: 4, padding: "0 0 0 4px" }}>
-                              {carouselImages.map((imgUrl, ci) => (
+                              {activeCarouselImgs.map((imgUrl, ci) => (
                                 <div key={ci} style={{ flexShrink: 0, width: 210, background: "#f0f2f5" }}>
+                                  <div style={{ position: "relative" }}>
                                   <img src={imgUrl} alt={"Card " + (ci+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
+                                  <button onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Cycle through available thumbnail images
+                                    const allImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean);
+                                    const current = activeCarouselImgs[ci];
+                                    const nextImg = allImgs.find(img => img !== current && !activeCarouselImgs.includes(img)) || allImgs[0];
+                                    const newImgs = [...activeCarouselImgs];
+                                    newImgs[ci] = nextImg;
+                                    setCarouselImages(newImgs);
+                                  }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.5)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+                                </div>
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
-                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{hl?.slice(0, 25) || "Discover More"}</div>
-                                    <div style={{ fontSize: 9, color: "#65676b" }}>{d?.slice(0, 30) || "Shop now"}</div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || hl || "Discover More").slice(0, 25)}</div>
+                                    <div style={{ fontSize: 9, color: "#65676b" }}>{(carouselCardTexts[ci]?.desc || d || "Shop now").slice(0, 30)}</div>
                                     <div style={{ fontSize: 9, color: "#1877f2", fontWeight: 700, marginTop: 3 }}>Shop Now →</div>
                                   </div>
                                 </div>
@@ -4303,13 +4337,13 @@ STRICT rules:
                             {carouselIndex > 0 && (
                               <button onClick={() => setCarouselIndex(i => i - 1)} style={{ position: "absolute", left: 4, top: "35%", background: "white", border: "none", borderRadius: "50%", width: 24, height: 24, cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
                             )}
-                            {carouselIndex < carouselImages.length - 1 && (
+                            {carouselIndex < activeCarouselImgs.length - 1 && (
                               <button onClick={() => setCarouselIndex(i => i + 1)} style={{ position: "absolute", right: 4, top: "35%", background: "white", border: "none", borderRadius: "50%", width: 24, height: 24, cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
                             )}
                           </div>
                           {/* Dot indicators */}
                           <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "6px 0" }}>
-                            {carouselImages.map((_, ci) => (
+                            {activeCarouselImgs.map((_, ci) => (
                               <div key={ci} onClick={() => setCarouselIndex(ci)} style={{ width: 6, height: 6, borderRadius: "50%", background: ci === carouselIndex ? "#1877f2" : "#ccd0d5", cursor: "pointer", transition: "background 0.2s" }} />
                             ))}
                           </div>
