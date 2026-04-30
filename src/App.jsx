@@ -630,6 +630,7 @@ function RSAStudio() {
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaError, setMetaError] = useState("");
   const [metaCopied, setMetaCopied] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   // ── TikTok state ─────────────────────────────────────────────────────────────
   const [tiktokResult, setTiktokResult] = useState(null);
@@ -1480,7 +1481,7 @@ STRICT rules:
           const metaRes = await fetch("/api/generate-meta", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta?.language || 'English', imageModel, isPro, keywords: keywords.filter(k => k.trim()), audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
+            body: JSON.stringify({ url, language: pageMeta?.language || 'English', imageModel, isPro, audienceBrief: audienceBrief ? { copySignals: audienceBrief.copySignals, messagingTone: audienceBrief.messagingTone, painPoints: audienceBrief.painPoints, demographics: audienceBrief.demographics } : null }),
           });
           const metaRaw = await metaRes.text();
           let metaData;
@@ -2174,17 +2175,6 @@ STRICT rules:
                   }}>
                     {generateMeta && !metaDisabled && <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
                   </button>
-                  {/* F logo — pulses when unchecked to draw attention */}
-                  {!generateMeta && !metaDisabled && (
-                    <span onClick={() => setGenerateMeta(true)} style={{
-                      fontSize: 13, fontWeight: 900, color: 'white',
-                      background: 'linear-gradient(135deg,#1877f2,#0a5dc2)',
-                      borderRadius: 4, padding: '1px 5px', cursor: 'pointer',
-                      animation: generated ? 'metaPulse 1.5s ease-in-out infinite' : 'none',
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      minWidth: 18, userSelect: 'none',
-                    }}>f</span>
-                  )}
                   <span style={{ fontSize: 11, color: generateMeta && !metaDisabled ? "#93c5fd" : "#4a5568",
                     cursor: metaDisabled ? "not-allowed" : "pointer", userSelect: "none" }}
                     onClick={() => !metaDisabled && setGenerateMeta(v => !v)}>
@@ -4237,6 +4227,7 @@ STRICT rules:
                       { id: "ig-feed",  label: "IG Feed",  icon: "◎" },
                       { id: "ig-story", label: "IG Story", icon: "▯" },
                       { id: "fb-story", label: "FB Story", icon: "▮" },
+                      { id: "fb-carousel", label: "Carousel", icon: "⊞" },
                     ].map(f => (
                       <button key={f.id} onClick={() => setMetaPreviewFormat(f.id)} style={{
                         padding: "3px 7px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700,
@@ -4274,11 +4265,61 @@ STRICT rules:
                   const hl  = metaEdits[`hl-${metaActiveVariants.hl}`] !== undefined ? metaEdits[`hl-${metaActiveVariants.hl}`] : (metaResult.headlines?.[metaActiveVariants.hl] || "");
                   const d   = metaEdits[`desc-${metaActiveVariants.d}`] !== undefined ? metaEdits[`desc-${metaActiveVariants.d}`] : (metaResult.descriptions?.[metaActiveVariants.d] || "");
                   const img = metaResult.imageUrl;
-                  const isStory = metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story";
-                  const isIG    = metaPreviewFormat === "ig-feed"  || metaPreviewFormat === "ig-story";
+                  const isStory    = metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story";
+                  const isIG       = metaPreviewFormat === "ig-feed"  || metaPreviewFormat === "ig-story";
+                  const isCarousel = metaPreviewFormat === "fb-carousel";
+                  const carouselImages = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).slice(0, 5);
                   return (
                     <div style={{ display: "flex", justifyContent: "center" }}>
-                      {isStory ? (
+                      {isCarousel ? (
+                        <div style={{ width: 280, background: "white", borderRadius: 10, overflow: "hidden", fontFamily: "sans-serif", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
+                          {/* Carousel header */}
+                          <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1877f2", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                              {pmaxLogo ? <img src={pmaxLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <span style={{ color: "white", fontSize: 14, fontWeight: 900 }}>f</span>}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#1c1e21" }}>{metaResult?.brand || pageMeta?.brand || "Your Brand"}</div>
+                              <div style={{ fontSize: 9, color: "#65676b" }}>Sponsored · 👁</div>
+                            </div>
+                          </div>
+                          {/* Primary text */}
+                          <div style={{ padding: "0 12px 8px", fontSize: 11, color: "#1c1e21", lineHeight: 1.4 }}>{pt?.slice(0, 80)}{pt?.length > 80 ? '…' : ''}</div>
+                          {/* Carousel slides */}
+                          <div style={{ position: "relative", overflow: "hidden" }}>
+                            <div style={{ display: "flex", transition: "transform 0.3s ease", transform: `translateX(-${carouselIndex * 220}px)`, gap: 4, padding: "0 0 0 4px" }}>
+                              {carouselImages.map((imgUrl, ci) => (
+                                <div key={ci} style={{ flexShrink: 0, width: 210, background: "#f0f2f5" }}>
+                                  <img src={imgUrl} alt={"Card " + (ci+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
+                                  <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{hl?.slice(0, 25) || "Discover More"}</div>
+                                    <div style={{ fontSize: 9, color: "#65676b" }}>{d?.slice(0, 30) || "Shop now"}</div>
+                                    <div style={{ fontSize: 9, color: "#1877f2", fontWeight: 700, marginTop: 3 }}>Shop Now →</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {/* Nav arrows */}
+                            {carouselIndex > 0 && (
+                              <button onClick={() => setCarouselIndex(i => i - 1)} style={{ position: "absolute", left: 4, top: "35%", background: "white", border: "none", borderRadius: "50%", width: 24, height: 24, cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
+                            )}
+                            {carouselIndex < carouselImages.length - 1 && (
+                              <button onClick={() => setCarouselIndex(i => i + 1)} style={{ position: "absolute", right: 4, top: "35%", background: "white", border: "none", borderRadius: "50%", width: 24, height: 24, cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
+                            )}
+                          </div>
+                          {/* Dot indicators */}
+                          <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "6px 0" }}>
+                            {carouselImages.map((_, ci) => (
+                              <div key={ci} onClick={() => setCarouselIndex(ci)} style={{ width: 6, height: 6, borderRadius: "50%", background: ci === carouselIndex ? "#1877f2" : "#ccd0d5", cursor: "pointer", transition: "background 0.2s" }} />
+                            ))}
+                          </div>
+                          {/* CTA bar */}
+                          <div style={{ padding: "8px 12px", borderTop: "1px solid #e4e6eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: 10, color: "#65676b" }}>See all cards</span>
+                            <button style={{ padding: "5px 12px", background: "#e4e6eb", border: "none", borderRadius: 5, fontSize: 10, fontWeight: 700, color: "#1c1e21", cursor: "pointer" }}>Shop Now</button>
+                          </div>
+                        </div>
+                      ) : isStory ? (
                         <div style={{ width: 200, height: 356, borderRadius: 14, overflow: "hidden", position: "relative", background: img ? "transparent" : "linear-gradient(160deg,#1e293b,#0f172a)", boxShadow: "0 4px 24px rgba(0,0,0,0.5)", flexShrink: 0 }}>
                           {img && <img src={img} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
                           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 35%, transparent 55%, rgba(0,0,0,0.7) 100%)" }} />
