@@ -240,6 +240,24 @@ export default async function handler(req, res) {
     // Deduplicate preserving order
     result.images = [...new Set(rawImages)].slice(0, 16);
 
+    // Extract price from page
+    const pricePatterns = [
+      /<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+property=["']og:price:amount["'][^>]+content=["']([^"']+)["']/i,
+      /class=["'][^"']*price[^"']*["'][^>]*>[^<]*?([\d]+[.,]\d{2})/i,
+      /"price"\s*:\s*"?([\d]+[.,]\d{0,2})"?/i,
+      /"price"\s*:\s*([\d]+\.?\d*)/i,
+    ];
+    let price = null;
+    for (const pat of pricePatterns) {
+      const m = html.match(pat);
+      if (m && m[1] && parseFloat(m[1].replace(',', '.')) > 0) {
+        price = m[1].trim();
+        break;
+      }
+    }
+    if (price) result.price = price;
+
     // ── Cache the result for 24 hours ─────────────────────────────────────────
     try {
       await redis("SET", cacheKey, JSON.stringify(result), "EX", CACHE_TTL);

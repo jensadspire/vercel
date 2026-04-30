@@ -633,6 +633,7 @@ function RSAStudio() {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselCardTexts, setCarouselCardTexts] = useState([]); // unique headline per card
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
+  const [carouselPriceMode, setCarouselPriceMode] = useState(false); // toggle: show price vs USP in subline
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   // ── TikTok state ─────────────────────────────────────────────────────────────
   const [tiktokResult, setTiktokResult] = useState(null);
@@ -4305,8 +4306,16 @@ STRICT rules:
                               <div style={{ fontSize: 9, color: "#65676b" }}>Sponsored · 👁</div>
                             </div>
                           </div>
-                          {/* Primary text */}
-                          <div style={{ padding: "0 12px 8px", fontSize: 11, color: "#1c1e21", lineHeight: 1.4 }}>{pt?.slice(0, 80)}{pt?.length > 80 ? '…' : ''}</div>
+                          {/* Primary text + price toggle */}
+                          <div style={{ padding: "0 12px 6px", fontSize: 11, color: "#1c1e21", lineHeight: 1.4 }}>{pt?.slice(0, 80)}{pt?.length > 80 ? '…' : ''}</div>
+                          {pageMeta?.price && (
+                            <div style={{ padding: "0 12px 8px", display: "flex", alignItems: "center", gap: 6 }}>
+                              <button onClick={() => setCarouselPriceMode(v => !v)} style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer", background: carouselPriceMode ? "rgba(16,185,129,0.2)" : "rgba(255,255,255,0.1)", color: carouselPriceMode ? "#10b981" : "#65676b" }}>
+                                {carouselPriceMode ? "💰 Price mode" : "💡 USP mode"}
+                              </button>
+                              {carouselPriceMode && <span style={{ fontSize: 9, color: "#65676b" }}>Showing price: {pageMeta.price}</span>}
+                            </div>
+                          )}
                           {/* Carousel slides */}
                           <div style={{ position: "relative", overflow: "hidden" }}>
                             <div style={{ display: "flex", transition: "transform 0.3s ease", transform: `translateX(-${carouselIndex * 220}px)`, gap: 4, padding: "0 0 0 4px" }}>
@@ -4327,7 +4336,12 @@ STRICT rules:
                                 </div>
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl || "Discover More").slice(0, 22)}</div>
-                                    <div style={{ fontSize: 9, color: "#65676b" }}>{(carouselCardTexts[ci]?.desc || metaResult?.descriptions?.[ci % Math.max((metaResult?.descriptions?.length||1),1)] || d || "").slice(0, 30)}</div>
+                                    <div style={{ fontSize: 9, color: carouselPriceMode ? "#10b981" : "#65676b", fontWeight: carouselPriceMode ? 700 : 400 }}>
+                                      {carouselPriceMode && pageMeta?.price
+                                        ? `${pageMeta.price} kr.`
+                                        : (carouselCardTexts[ci]?.desc || metaResult?.descriptions?.[ci % Math.max((metaResult?.descriptions?.length||1),1)] || d || "").slice(0, 30)
+                                      }
+                                    </div>
                                     <div style={{ fontSize: 9, color: "#1877f2", fontWeight: 700, marginTop: 3 }}>Shop Now →</div>
                                   </div>
                                 </div>
