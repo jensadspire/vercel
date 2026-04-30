@@ -172,6 +172,17 @@ export default async function handler(req, res) {
     // ── Image extraction ──────────────────────────────────────────────────────
     const baseUrl = new URL(url).origin;
     const imgMatches = [...html.matchAll(/<img[^>]+>/gi)];
+    
+    // Also extract from data-src, data-lazy-src, srcset (lazy-loaded images)
+    const lazySrcMatches = [...html.matchAll(/data-(?:src|lazy-src|lazy|original|zoom-image)=["']([^"']+)["']/gi)];
+    const srcsetMatches = [...html.matchAll(/srcset=["']([^"']+)["']/gi)];
+    // Extract highest-res from srcset (last entry tends to be largest)
+    const srcsetUrls = srcsetMatches.flatMap(m => {
+      const parts = m[1].split(',').map(s => s.trim().split(/\s+/)[0]);
+      return parts.filter(u => u.startsWith('http') || u.startsWith('/'));
+    });
+    // Extract product image URLs from JSON/script tags (common in SPAs)
+    const jsonImgMatches = [...html.matchAll(/"(?:image|img|photo|thumbnail|src)":\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)];
     const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
 
     // Score each image — product gallery thumbnails get priority
@@ -185,6 +196,8 @@ export default async function handler(req, res) {
       if (t.includes('data-zoom') || t.includes('data-large') || t.includes('data-full')) score += 3;
       if (t.includes('swiper') || t.includes('carousel') || t.includes('slider')) score += 3;
       if (s.includes('/products/') || s.includes('/shop/files/') || s.includes('/shop/product')) score += 3;
+      if (s.includes('packshot') || s.includes('product-image') || s.includes('produktbild')) score += 4;
+      if (s.includes('media.plantorama') || s.includes('cdn.') && s.includes('packshot')) score += 4;
       // Size signals — larger images preferred
       const widthMatch = t.match(/width=["'](\d+)["']/);
       if (widthMatch && parseInt(widthMatch[1]) > 400) score += 2;
@@ -213,9 +226,13 @@ export default async function handler(req, res) {
       return m ? m[1] : null;
     };
 
-    const scoredImages = imgMatches.map(m => {
-      const tag = m[0];
-      const src = extractSrc(tag);
+    // Combine all image sources
+    const allImgTags = imgMatches.map(m => ({ tag: m[0], src: extractSrc(m[0]) }));
+    const lazyImgs = lazySrcMatches.map(m => ({ tag: '', src: m[1] }));
+    const jsonImgs = jsonImgMatches.map(m => ({ tag: '', src: m[1] }));
+    const srcsetImgsList = srcsetUrls.map(src => ({ tag: '', src }));
+    
+    const scoredImages = [...allImgTags, ...lazyImgs, ...jsonImgs, ...srcsetImgsList].map(({ tag, src }) => {
       return { src, score: scoreImage(tag, src) };
     }).filter(({ src }) => src);
 
