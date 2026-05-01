@@ -62,6 +62,10 @@ export default async function handler(req, res) {
     if (/\/flags?\/|\/flag-|\/emoji|\/social|\/share|\/arrow|\/star|\/check/i.test(img)) score -= 8; // flag icons, social icons
     if (/[_-](16|24|32|48|64|96|128|180)x\1|_(sm|xs|tiny|mini|thumb16|thumb32)/i.test(img)) score -= 6; // small fixed sizes
     if (/cart\/|widget|badge|shipping|delivery|frifreight|pricerunner|trustpilot|review|rating|payment|klarna|mobilepay|paypal|visa|mastercard/i.test(img)) score -= 10;
+    // Boost known property/gallery image domains
+    if (/images[.]sologstrand|dancenter|novasol|feriepartner/i.test(img)) score += 5;
+    // Boost known property/gallery image domains
+    if (/images\.sologstrand|dancenter|novasol|feriepartner|sommerhusudlejning/i.test(img)) score += 5;
     if (img.length < 40) score -= 3;
     if (/%7B|\{width\}|\{height\}/i.test(img)) score -= 20; // Shopify responsive template — not a real URL
     if (/\{width\}|\{height\}|\{size\}/i.test(img)) score -= 20; // Shopify responsive template — not a real URL
@@ -87,7 +91,7 @@ export default async function handler(req, res) {
   const scoredImages = [...new Set([...scrapeImages, ...shopifyExtraImages])]
     .map(img => ({ img, score: scoreImage(img) }))
     .sort((a, b) => b.score - a.score)
-    .filter(x => x.score > 0)
+    .filter(x => x.score >= 0)
     .map(x => x.img);
 
   const heroProductImage = scoredImages[0] || scrapeImages[0] || null;
@@ -372,6 +376,7 @@ Rules:
         ? { s1: scenePrompt1, v1: directPrompt4, v2: directPrompt5 }
         : { s1: scenePrompt1, v1: directPrompt4 };
 
+      const allScoredImagesPro = cleanScored.filter(img => img !== heroProductImage).slice(0, 16);
       return res.json({
         primaryTexts: parsed.primaryTexts || [],
         headlines: (parsed.headlines || []).map(h => h.slice(0, 40)),
@@ -384,6 +389,7 @@ Rules:
         secondaryImage,
         tertiaryImage,
         homepageImage,
+        allImages: allScoredImagesPro,
         isPro,
       });
     }
