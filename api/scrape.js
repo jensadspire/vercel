@@ -275,6 +275,39 @@ export default async function handler(req, res) {
     }
     if (price) result.price = price;
 
+    // ── Domain-specific gallery extraction ────────────────────────────────────
+    // For sites that load galleries via JS/API, construct image URLs from patterns
+    try {
+      const urlObj = new URL(url);
+      const hostname = urlObj.hostname;
+      const pathname = urlObj.pathname;
+
+      // Sol og Strand — property photos follow /001_{houseId}_000_{seq}.jpg
+      if (hostname.includes('sologstrand')) {
+        const houseMatch = pathname.match(/\/hus\/([^/]+)/);
+        if (houseMatch) {
+          const houseId = houseMatch[1];
+          const galleryImgs = Array.from({ length: 10 }, (_, i) =>
+            `https://images.sologstrand.dk/001_${houseId}_000_${String(i+1).padStart(3,'0')}.jpg`
+          );
+          result.images = [...galleryImgs, ...result.images].slice(0, 16);
+          console.log('Sol og Strand gallery:', galleryImgs[0]);
+        }
+      }
+
+      // DanCenter — similar pattern
+      if (hostname.includes('dancenter')) {
+        const houseMatch = pathname.match(/\/([A-Z0-9]+)\/?$/);
+        if (houseMatch) {
+          const houseId = houseMatch[1];
+          const galleryImgs = Array.from({ length: 8 }, (_, i) =>
+            `https://img.dancenter.com/${houseId}_${i+1}.jpg`
+          );
+          result.images = [...galleryImgs, ...result.images].slice(0, 16);
+        }
+      }
+    } catch (_) {}
+
     // ── Cache the result for 24 hours ─────────────────────────────────────────
     try {
       await redis("SET", cacheKey, JSON.stringify(result), "EX", CACHE_TTL);
