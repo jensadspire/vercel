@@ -4290,7 +4290,7 @@ STRICT rules:
                   const isStory    = metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story";
                   const isIG       = metaPreviewFormat === "ig-feed"  || metaPreviewFormat === "ig-story";
                   const isCarousel = metaPreviewFormat === "fb-carousel";
-                  const baseCarouselImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).slice(0, 5);
+                  const baseCarouselImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).slice(0, 8);
                   const activeCarouselImgs = carouselImages.length > 0 ? carouselImages : baseCarouselImgs;
                   return (
                     <div style={{ display: "flex", justifyContent: "center" }}>
