@@ -287,11 +287,24 @@ export default async function handler(req, res) {
         const houseMatch = pathname.match(/\/hus\/([^/]+)/);
         if (houseMatch) {
           const houseId = houseMatch[1];
-          const galleryImgs = Array.from({ length: 10 }, (_, i) =>
-            `https://images.sologstrand.dk/001_${houseId}_000_${String(i+1).padStart(3,'0')}.jpg`
-          );
-          result.images = [...galleryImgs, ...result.images].slice(0, 16);
-          console.log('Sol og Strand gallery:', galleryImgs[0]);
+          // Try both 3-digit and 2-digit padding formats
+          const galleryImgs = Array.from({ length: 15 }, (_, i) => [
+            `https://images.sologstrand.dk/001_${houseId}_000_${String(i+1).padStart(3,'0')}.jpg`,
+            `https://images.sologstrand.dk/001_${houseId}_000_${String(i+1).padStart(2,'0')}.jpg`,
+          ]).flat();
+          // Validate images exist with HEAD requests (max 8 to avoid timeout)
+          const validImgs = [];
+          for (const imgUrl of galleryImgs.slice(0, 20)) {
+            try {
+              const check = await fetch(imgUrl, { method: 'HEAD', signal: AbortSignal.timeout(2000) });
+              if (check.ok && !validImgs.includes(imgUrl)) validImgs.push(imgUrl);
+              if (validImgs.length >= 8) break;
+            } catch (_) {}
+          }
+          if (validImgs.length > 0) {
+            result.images = [...validImgs, ...result.images].slice(0, 16);
+            console.log('Sol og Strand gallery found:', validImgs.length, 'images');
+          }
         }
       }
 
