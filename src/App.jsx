@@ -1498,12 +1498,14 @@ STRICT rules:
             setMetaError("");
             // Use scraped product image as primary FB preview if available
             const initialImageUrl = metaData.heroProductImage || metaData.imageUrl || null;
+            // Use all scraped images for rich thumbnail tray
             const initialVariations = [
               metaData.heroProductImage,
+              ...(metaData.allImages || []),
               metaData.secondaryImage,
               metaData.tertiaryImage,
               metaData.homepageImage,
-            ].filter(Boolean);
+            ].filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx).slice(0, 16);
             // Generate unique per-card carousel texts from headline variants
             const hlVariants = metaData.headlines || [];
             const dVariants = metaData.descriptions || [];

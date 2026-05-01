@@ -383,6 +383,9 @@ Rules:
     }
   } // end if (parsed.imagePrompt)
 
+  // Return all scored images for rich thumbnail tray
+  const allScoredImages = cleanScored.slice(0, 16).filter(img => img !== heroProductImage);
+
   return res.json({
     primaryTexts: parsed.primaryTexts || [],
     headlines: (parsed.headlines || []).map(h => h.slice(0, 40)),
@@ -394,5 +397,6 @@ Rules:
     secondaryImage,
     tertiaryImage,
     homepageImage,
+    allImages: allScoredImages,
   });
 }
