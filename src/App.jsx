@@ -1517,6 +1517,7 @@ STRICT rules:
             setCarouselImages([]); // reset so carousel auto-builds from imageVariations
             setMetaResult({
               ...metaData,
+              allImages: metaData.allImages || [],
               imageUrl: (initialImageUrl || '').replace(/^http:/, 'https:'),
               imageVariations: initialVariations.length > 0 ? initialVariations : [],
             });
@@ -1568,13 +1569,13 @@ STRICT rules:
                     const secondary = metaData.secondaryImage;
                     const tertiary = metaData.tertiaryImage;
                     const homepage = metaData.homepageImage;
+                    // Preserve all scraped images + add AI variations
+                    const allScraped = prev.allImages || [secondary, tertiary, homepage].filter(Boolean);
                     const variations = [
                       hero,
-                      secondary,
-                      tertiary,
-                      homepage,
+                      ...allScraped,
                       ...aiVariations,
-                    ].filter(Boolean);
+                    ].filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx).slice(0, 16);
                     return {
                       ...prev,
                       imageUrl: prev.imageUrl || variations[0],
