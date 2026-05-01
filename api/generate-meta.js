@@ -206,7 +206,7 @@ Return ONLY valid JSON — no markdown, no preamble:
     "Link description 1 (max 30 chars)",
     "Link description 2 (max 30 chars)"
   ],
-  "imagePrompt": "Detailed prompt for a 1:1 Meta ad image — photorealistic, clean composition, no text overlays, no logos.${modelHint} Show the product in a lifestyle setting relevant to the brand." overlays, suitable for Facebook/Instagram feed"
+  "imagePrompt": "Detailed prompt for a 1:1 Meta ad image — photorealistic, clean composition, no text overlays, no logos.${modelHint} Show the product in a lifestyle setting relevant to the brand. Suitable for Facebook/Instagram feed."
 }
 
 ${keywords && keywords.length > 0 ? `
