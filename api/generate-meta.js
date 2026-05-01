@@ -249,8 +249,14 @@ Rules:
       return res.status(500).json({ error: "Copy generation failed", detail: errMsg });
     }
     const clean = raw.replace(/```json|```/g, "").trim();
-    parsed = JSON.parse(clean);
+    try {
+      parsed = JSON.parse(clean);
+    } catch (parseErr) {
+      console.error('JSON parse failed. Raw length:', raw.length, 'First 300 chars:', raw.slice(0, 300));
+      return res.status(500).json({ error: "Copy generation failed", detail: 'JSON parse: ' + parseErr.message, raw: raw.slice(0, 200) });
+    }
   } catch (e) {
+    console.error('Claude call failed:', e.message);
     return res.status(500).json({ error: "Copy generation failed", detail: e.message });
   }
 

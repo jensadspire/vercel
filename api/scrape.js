@@ -293,15 +293,18 @@ export default async function handler(req, res) {
           const galleryImgs = Array.from({ length: 15 }, (_, i) =>
             `https://images.sologstrand.dk/001_${houseId}_${String(i+1).padStart(3,'0')}_${SIZE}.jpg`
           );
-          // Validate with HEAD requests
-          const validImgs = [];
-          for (const imgUrl of galleryImgs) {
-            try {
-              const check = await fetch(imgUrl, { method: 'HEAD', signal: AbortSignal.timeout(2000) });
-              if (check.ok) validImgs.push(imgUrl);
-              if (validImgs.length >= 12) break;
-            } catch (_) {}
-          }
+          // Validate with parallel HEAD requests (much faster than sequential)
+          const headChecks = await Promise.allSettled(
+            galleryImgs.map(imgUrl =>
+              fetch(imgUrl, { method: 'HEAD', signal: AbortSignal.timeout(1500) })
+                .then(r => r.ok ? imgUrl : null)
+                .catch(() => null)
+            )
+          );
+          const validImgs = headChecks
+            .map(r => r.status === 'fulfilled' ? r.value : null)
+            .filter(Boolean)
+            .slice(0, 12);
           if (validImgs.length > 0) {
             result.images = [...validImgs, ...result.images].slice(0, 20);
             console.log('Sol og Strand gallery found:', validImgs.length, 'unique property photos');
