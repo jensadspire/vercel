@@ -4321,7 +4321,7 @@ STRICT rules:
                             </div>
                           )}
                           {/* Carousel slides */}
-                          <div style={{ position: "relative", overflow: "hidden" }}>
+                          <div id="carousel-outer" style={{ position: "relative", overflow: "hidden" }}>
                             <div id="carousel-scroll" style={{ display: "flex", transition: "transform 0.3s ease", transform: `translateX(-${carouselIndex * 220}px)`, gap: 4, padding: "0 0 0 4px" }}>
                               {activeCarouselImgs.map((imgUrl, ci) => (
                                 <div key={ci} style={{ flexShrink: 0, width: 210, background: "#f0f2f5" }}>
@@ -4379,17 +4379,20 @@ STRICT rules:
                           {/* CTA bar */}
                           <div style={{ padding: "8px 12px", borderTop: "1px solid #e4e6eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <span onClick={() => {
-                              // Scroll to show all cards by jumping to start
-                              setCarouselIndex(0);
-                              // Expand the card strip to show all
-                              const strip = document.getElementById('carousel-scroll');
-                              if (strip) {
-                                const isExpanded = strip.dataset.expanded === 'true';
-                                strip.style.transform = 'none';
-                                strip.style.flexWrap = isExpanded ? 'nowrap' : 'wrap';
-                                strip.style.maxHeight = isExpanded ? '' : '500px';
-                                strip.style.overflow = isExpanded ? '' : 'visible';
-                                strip.dataset.expanded = isExpanded ? 'false' : 'true';
+                              const outer = document.getElementById('carousel-outer');
+                              if (!outer) return;
+                              const isExp = outer.dataset.expanded === 'true';
+                              if (!isExp) {
+                                outer.style.overflow = 'visible';
+                                outer.style.maxWidth = 'none';
+                                const strip = document.getElementById('carousel-scroll');
+                                if (strip) { strip.style.transform = 'none'; strip.style.flexWrap = 'nowrap'; }
+                                outer.dataset.expanded = 'true';
+                              } else {
+                                outer.style.overflow = 'hidden';
+                                outer.style.maxWidth = '';
+                                outer.dataset.expanded = 'false';
+                                setCarouselIndex(0);
                               }
                             }} style={{ fontSize: 10, color: "#1877f2", cursor: "pointer", fontWeight: 600 }}>↔ View all cards</span>
                             <button style={{ padding: "5px 12px", background: "#e4e6eb", border: "none", borderRadius: 5, fontSize: 10, fontWeight: 700, color: "#1c1e21", cursor: "pointer" }}>Shop Now</button>
