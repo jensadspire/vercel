@@ -634,6 +634,8 @@ function RSAStudio() {
   const [carouselCardTexts, setCarouselCardTexts] = useState([]); // unique headline per card
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
   const [carouselPriceMode, setCarouselPriceMode] = useState(false); // toggle: show price vs USP in subline
+  const [bannedImages, setBannedImages] = useState([]); // permanently removed from carousel
+  const [pausedImages, setPausedImages] = useState([]); // temporarily deprioritised
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   // ── TikTok state ─────────────────────────────────────────────────────────────
   const [tiktokResult, setTiktokResult] = useState(null);
@@ -1517,7 +1519,6 @@ STRICT rules:
             setCarouselImages([]); // reset so carousel auto-builds from imageVariations
             setMetaResult({
               ...metaData,
-              allImages: metaData.allImages || [],
               imageUrl: (initialImageUrl || '').replace(/^http:/, 'https:'),
               imageVariations: initialVariations.length > 0 ? initialVariations : [],
             });
@@ -1569,13 +1570,13 @@ STRICT rules:
                     const secondary = metaData.secondaryImage;
                     const tertiary = metaData.tertiaryImage;
                     const homepage = metaData.homepageImage;
-                    // Preserve all scraped images + add AI variations
-                    const allScraped = prev.allImages || [secondary, tertiary, homepage].filter(Boolean);
                     const variations = [
                       hero,
-                      ...allScraped,
+                      secondary,
+                      tertiary,
+                      homepage,
                       ...aiVariations,
-                    ].filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx).slice(0, 16);
+                    ].filter(Boolean);
                     return {
                       ...prev,
                       imageUrl: prev.imageUrl || variations[0],
@@ -3655,9 +3656,9 @@ STRICT rules:
           {adFormat !== "meta" && (<><div style={S.card}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...S.sectionLabel, margin: 0 }}>Google SERP Preview</span>
-              <button onClick={() => setEditOpen(v => !v)} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: editOpen ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.09)', background: editOpen ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: editOpen ? '#a5b4fc' : '#7e92a8', cursor: 'pointer', transition: 'all 0.15s' }}>
+              {generated && <button onClick={() => setEditOpen(v => !v)} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: editOpen ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.09)', background: editOpen ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: editOpen ? '#a5b4fc' : '#7e92a8', cursor: 'pointer', transition: 'all 0.15s' }}>
                 {editOpen ? '✕ Close editor' : '✎ Edit this ad'}
-              </button>
+              </button>}
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 10, color: "#8fa3b8", fontStyle: "italic" }}>Shows first 3 headlines · first 2 descriptions</span>
                 {rows.filter(r => r.headlines.some(h => h.text)).length > 1 && (
@@ -4321,7 +4322,7 @@ STRICT rules:
                           )}
                           {/* Carousel slides */}
                           <div style={{ position: "relative", overflow: "hidden" }}>
-                            <div style={{ display: "flex", transition: "transform 0.3s ease", transform: `translateX(-${carouselIndex * 220}px)`, gap: 4, padding: "0 0 0 4px" }}>
+                            <div id="carousel-scroll" style={{ display: "flex", transition: "transform 0.3s ease", transform: `translateX(-${carouselIndex * 220}px)`, gap: 4, padding: "0 0 0 4px" }}>
                               {activeCarouselImgs.map((imgUrl, ci) => (
                                 <div key={ci} style={{ flexShrink: 0, width: 210, background: "#f0f2f5" }}>
                                   <div style={{ position: "relative" }}>
@@ -4335,7 +4336,18 @@ STRICT rules:
                                     const newImgs = [...activeCarouselImgs];
                                     newImgs[ci] = nextImg;
                                     setCarouselImages(newImgs);
-                                  }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.5)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+                                  }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(239,68,68,0.85)", border: "none", color: "white", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Ban image permanently">🚫</button>
+                                  <button onClick={(e) => {
+                                    e.stopPropagation();
+                                    const allImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(img => !bannedImages.includes(img));
+                                    const nextImg = allImgs.find(img => img !== imgUrl && !activeCarouselImgs.includes(img));
+                                    if (nextImg) {
+                                      const newImgs = [...activeCarouselImgs];
+                                      newImgs[ci] = nextImg;
+                                      setCarouselImages(newImgs);
+                                      setPausedImages(prev => [...prev.filter(i => i !== imgUrl), imgUrl]);
+                                    }
+                                  }} style={{ position: "absolute", top: 28, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(251,191,36,0.9)", border: "none", color: "white", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Pause — swap out, keep available">⏸</button>
                                 </div>
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl || "Discover More").slice(0, 22)}</div>
@@ -4366,7 +4378,14 @@ STRICT rules:
                           </div>
                           {/* CTA bar */}
                           <div style={{ padding: "8px 12px", borderTop: "1px solid #e4e6eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontSize: 10, color: "#65676b" }}>See all cards</span>
+                            <span onClick={() => {
+                              const container = document.getElementById('carousel-scroll');
+                              if (container) container.scrollLeft = 0;
+                              setCarouselIndex(0);
+                              // Expand to show all cards
+                              const el = document.getElementById('carousel-container');
+                              if (el) el.style.maxWidth = el.style.maxWidth === '100%' ? '210px' : '100%';
+                            }} style={{ fontSize: 10, color: "#1877f2", cursor: "pointer", fontWeight: 600 }}>↔ View all cards</span>
                             <button style={{ padding: "5px 12px", background: "#e4e6eb", border: "none", borderRadius: 5, fontSize: 10, fontWeight: 700, color: "#1c1e21", cursor: "pointer" }}>Shop Now</button>
                           </div>
                         </div>
