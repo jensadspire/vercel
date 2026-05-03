@@ -658,13 +658,21 @@ function RSAStudio() {
       const params = new URLSearchParams(window.location.search);
       const magicUrl = params.get('url');
       const autorun = params.get('autorun') === 'true';
+      const magicTab = params.get('tab'); // 'rsa' | 'meta' | 'tiktok'
       if (magicUrl) {
         setUrl(magicUrl);
+        // Switch to requested tab
+        if (magicTab === 'meta') {
+          setAdFormat('meta');
+          setGenerateMeta(true);
+        } else if (magicTab === 'tiktok') {
+          setAdFormat('tiktok');
+          setGenerateTiktok(true);
+        }
         // Clean URL params without reload
         const clean = window.location.pathname;
         window.history.replaceState({}, '', clean);
         if (autorun) {
-          // Small delay to let state settle before triggering generate
           setTimeout(() => {
             const btn = document.querySelector('[data-generate-btn]');
             if (btn) btn.click();
