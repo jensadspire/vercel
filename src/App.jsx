@@ -1570,13 +1570,16 @@ STRICT rules:
                     const secondary = metaData.secondaryImage;
                     const tertiary = metaData.tertiaryImage;
                     const homepage = metaData.homepageImage;
+                    // Preserve existing large tray — only rebuild if small
+                    const existingVars = prev.imageVariations || [];
+                    const allScraped = existingVars.length > 6
+                      ? existingVars.filter(img => !aiVariations.includes(img))
+                      : [hero, secondary, tertiary, homepage].filter(Boolean);
                     const variations = [
                       hero,
-                      secondary,
-                      tertiary,
-                      homepage,
+                      ...allScraped,
                       ...aiVariations,
-                    ].filter(Boolean);
+                    ].filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx).slice(0, 16);
                     return {
                       ...prev,
                       imageUrl: prev.imageUrl || variations[0],

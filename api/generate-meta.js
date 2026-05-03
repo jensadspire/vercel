@@ -69,6 +69,18 @@ export default async function handler(req, res) {
     if (img.length < 40) score -= 3;
     if (/%7B|\{width\}|\{height\}/i.test(img)) score -= 20; // Shopify responsive template — not a real URL
     if (/\{width\}|\{height\}|\{size\}/i.test(img)) score -= 20; // Shopify responsive template — not a real URL
+    // Boost higher resolution images (width parameter in URL)
+    const widthMatch = img.match(/[?&]width=(\d+)/);
+    if (widthMatch) {
+      const w = parseInt(widthMatch[1]);
+      if (w >= 1800) score += 5;
+      else if (w >= 900) score += 3;
+      else if (w <= 520) score -= 2;
+    }
+    // Boost 1800x1800 style dimensions in filename
+    if (/1800x1800|2048x2048|1600x1600|1200x1200/.test(img)) score += 4;
+    // Penalise small thumbnails
+    if (/width=520|width=300|width=200|_thumb|thumbnail|_sm_|_xs_/.test(img)) score -= 3;
     return score;
   };
 

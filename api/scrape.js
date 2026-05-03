@@ -196,6 +196,16 @@ export default async function handler(req, res) {
       if (t.includes('data-zoom') || t.includes('data-large') || t.includes('data-full')) score += 3;
       if (t.includes('swiper') || t.includes('carousel') || t.includes('slider')) score += 3;
       if (s.includes('/products/') || s.includes('/shop/files/') || s.includes('/shop/product')) score += 3;
+      // Boost high-resolution images, penalise small thumbnails
+      const wMatch = s.match(/[?&]width=(\d+)/);
+      if (wMatch) {
+        const w = parseInt(wMatch[1]);
+        if (w >= 1800) score += 5;
+        else if (w >= 900) score += 3;
+        else if (w <= 520) score -= 3;
+      }
+      if (/1800x1800|2048x2048|1600x1600/.test(s)) score += 4;
+      if (/cdn\/shop\/files\//.test(s) && !/width=520|width=300/.test(s)) score += 2;
       if (s.includes('packshot') || s.includes('product-image') || s.includes('produktbild')) score += 4;
       if (s.includes('media.plantorama') || s.includes('cdn.') && s.includes('packshot')) score += 4;
       // Size signals — larger images preferred
