@@ -4336,7 +4336,7 @@ STRICT rules:
                                     const newImgs = [...activeCarouselImgs];
                                     newImgs[ci] = nextImg;
                                     setCarouselImages(newImgs);
-                                  }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(239,68,68,0.85)", border: "none", color: "white", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Ban image permanently">🚫</button>
+                                  }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.55)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Ban this image from carousel">×</button>
                                   <button onClick={(e) => {
                                     e.stopPropagation();
                                     const allImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(img => !bannedImages.includes(img));
@@ -4347,7 +4347,7 @@ STRICT rules:
                                       setCarouselImages(newImgs);
                                       setPausedImages(prev => [...prev.filter(i => i !== imgUrl), imgUrl]);
                                     }
-                                  }} style={{ position: "absolute", top: 28, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(251,191,36,0.9)", border: "none", color: "white", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Pause — swap out, keep available">⏸</button>
+                                  }} style={{ position: "absolute", top: 4, right: 28, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.55)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Exchange this image and keep for later use">⇄</button>
                                 </div>
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl || "Discover More").slice(0, 22)}</div>
@@ -4379,12 +4379,18 @@ STRICT rules:
                           {/* CTA bar */}
                           <div style={{ padding: "8px 12px", borderTop: "1px solid #e4e6eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <span onClick={() => {
-                              const container = document.getElementById('carousel-scroll');
-                              if (container) container.scrollLeft = 0;
+                              // Scroll to show all cards by jumping to start
                               setCarouselIndex(0);
-                              // Expand to show all cards
-                              const el = document.getElementById('carousel-container');
-                              if (el) el.style.maxWidth = el.style.maxWidth === '100%' ? '210px' : '100%';
+                              // Expand the card strip to show all
+                              const strip = document.getElementById('carousel-scroll');
+                              if (strip) {
+                                const isExpanded = strip.dataset.expanded === 'true';
+                                strip.style.transform = 'none';
+                                strip.style.flexWrap = isExpanded ? 'nowrap' : 'wrap';
+                                strip.style.maxHeight = isExpanded ? '' : '500px';
+                                strip.style.overflow = isExpanded ? '' : 'visible';
+                                strip.dataset.expanded = isExpanded ? 'false' : 'true';
+                              }
                             }} style={{ fontSize: 10, color: "#1877f2", cursor: "pointer", fontWeight: 600 }}>↔ View all cards</span>
                             <button style={{ padding: "5px 12px", background: "#e4e6eb", border: "none", borderRadius: 5, fontSize: 10, fontWeight: 700, color: "#1c1e21", cursor: "pointer" }}>Shop Now</button>
                           </div>
