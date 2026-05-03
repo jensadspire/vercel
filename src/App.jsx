@@ -4381,7 +4381,7 @@ STRICT rules:
                           </div>
                           {/* CTA bar */}
                           <div style={{ padding: "8px 12px", borderTop: "1px solid #e4e6eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span onClick={() => {
+                            <button onClick={(e) => { e.stopPropagation();
                               // Find the Facebook card wrapper and expand it
                               const outer = document.getElementById('carousel-outer');
                               const strip = document.getElementById('carousel-scroll');
@@ -4402,9 +4402,9 @@ STRICT rules:
                                 outer.dataset.expanded = 'false';
                                 setCarouselIndex(0);
                               }
-                            }} style={{ fontSize: 10, color: "#1877f2", cursor: "pointer", fontWeight: 600 }}>
-                              {'↔'} View all cards
-                            </span>
+                            }} style={{ fontSize: 10, color: "#1877f2", cursor: "pointer", fontWeight: 600, background: "none", border: "none", padding: 0, textDecoration: "underline" }}>
+                              ↔ View all cards
+                            </button>
                             <button style={{ padding: "5px 12px", background: "#e4e6eb", border: "none", borderRadius: 5, fontSize: 10, fontWeight: 700, color: "#1c1e21", cursor: "pointer" }}>Shop Now</button>
                           </div>
                         </div>
