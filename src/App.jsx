@@ -630,6 +630,7 @@ function RSAStudio() {
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaError, setMetaError] = useState("");
   const [metaCopied, setMetaCopied] = useState(false);
+  const [metaExportCopied, setMetaExportCopied] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselCardTexts, setCarouselCardTexts] = useState([]); // unique headline per card
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
@@ -3851,7 +3852,25 @@ STRICT rules:
                     </div>
                   )}
                   {metaResult.imageUrl && (
-                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'contain', background: '#f0f2f5', display: 'block' }} />
+                    <div style={{ position: 'relative' }}>
+                      <img src={metaResult.imageVariations?.[activeImageVariant] || metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: metaPreviewFormat === 'ig-feed' ? '4/5' : '1', objectFit: 'cover', objectPosition: 'center top', background: '#f0f2f5', display: 'block' }} />
+                      {/* Prev/Next arrows */}
+                      {metaResult.imageVariations?.length > 1 && (
+                        <>
+                          {activeImageVariant > 0 && (
+                            <button onClick={() => setActiveImageVariant(i => i - 1)} style={{ position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+                          )}
+                          {activeImageVariant < metaResult.imageVariations.length - 1 && (
+                            <button onClick={() => setActiveImageVariant(i => i + 1)} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+                          )}
+                          {/* Image counter + view all link */}
+                          <div style={{ position: 'absolute', bottom: 6, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px' }}>
+                            <span style={{ fontSize: 9, color: 'white', background: 'rgba(0,0,0,0.45)', borderRadius: 4, padding: '2px 6px' }}>{activeImageVariant + 1} / {metaResult.imageVariations.length}</span>
+                            <button onClick={() => { const tray = document.getElementById('meta-thumbnail-tray'); if (tray) tray.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} style={{ fontSize: 9, color: 'white', background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: 4, padding: '2px 6px', cursor: 'pointer' }}>⊞ View all assets</button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   )}
                   {/* TikTok hint */}
                   {generateTiktok && tiktokResult && !tiktokLoading && (
@@ -4728,6 +4747,43 @@ STRICT rules:
                       </div>
                     </div>
                     <ScoreWidget outputId={"meta-copy-" + (metaResult.primaryTexts && metaResult.primaryTexts[0] ? metaResult.primaryTexts[0].slice(0,20) : "copy")} format="meta-copy" label="Rate this Meta copy" />
+
+                    {/* Meta Export Button */}
+                    {metaResult && (
+                      <button onClick={() => {
+                        const pt = metaResult.primaryTexts?.[metaActiveVariants?.pt || 0] || '';
+                        const hl = metaResult.headlines?.[metaActiveVariants?.hl || 0] || '';
+                        const desc = metaResult.descriptions?.[metaActiveVariants?.d || 0] || '';
+                        const imgUrl = metaResult.imageVariations?.[activeImageVariant] || metaResult.imageUrl || '';
+                        const exportText = [
+                          '=== META AD EXPORT ===',
+                          '',
+                          `PRIMARY TEXT: ${pt}`,
+                          '',
+                          `HEADLINE: ${hl}`,
+                          '',
+                          `DESCRIPTION: ${desc}`,
+                          '',
+                          `IMAGE URL: ${imgUrl}`,
+                          '',
+                          `DESTINATION URL: ${url}`,
+                          '',
+                          '--- All Headlines ---',
+                          ...(metaResult.headlines || []).map((h, i) => `${i+1}. ${h}`),
+                          '',
+                          '--- All Primary Texts ---',
+                          ...(metaResult.primaryTexts || []).map((p, i) => `${i+1}. ${p}`),
+                          '',
+                          '--- All Descriptions ---',
+                          ...(metaResult.descriptions || []).map((d, i) => `${i+1}. ${d}`),
+                        ].join('\n');
+                        navigator.clipboard.writeText(exportText);
+                        setMetaExportCopied(true);
+                        setTimeout(() => setMetaExportCopied(false), 3000);
+                      }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaExportCopied ? 'rgba(52,211,153,0.15)' : 'rgba(24,119,242,0.1)', border: metaExportCopied ? '1px solid rgba(52,211,153,0.4)' : '1px solid rgba(24,119,242,0.3)', borderRadius: 6, color: metaExportCopied ? '#34d399' : '#60a5fa', cursor: 'pointer', transition: 'all 0.3s', marginBottom: 8 }}>
+                        {metaExportCopied ? '✓ Copied — ready for Meta Ads Manager' : '📋 Copy Full Meta Ad Export'}
+                      </button>
+                    )}
 
                     {/* Headlines */}
                     <div style={S.card}>
