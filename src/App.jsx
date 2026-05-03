@@ -651,6 +651,28 @@ function RSAStudio() {
   const [videoEngine, setVideoEngine] = useState('kling'); // 'kling' | 'runway'
   // Keep ref in sync so async handlers always get current value
   useEffect(() => { videoEngineRef.current = videoEngine; }, [videoEngine]);
+
+  // ── Magic link: read ?url= and ?autorun=true from URL params ─────────────
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const magicUrl = params.get('url');
+      const autorun = params.get('autorun') === 'true';
+      if (magicUrl) {
+        setUrl(magicUrl);
+        // Clean URL params without reload
+        const clean = window.location.pathname;
+        window.history.replaceState({}, '', clean);
+        if (autorun) {
+          // Small delay to let state settle before triggering generate
+          setTimeout(() => {
+            const btn = document.querySelector('[data-generate-btn]');
+            if (btn) btn.click();
+          }, 800);
+        }
+      }
+    } catch (_) {}
+  }, []);
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
@@ -2352,7 +2374,7 @@ STRICT rules:
                   }}>⚡ Batch</button>
                 )}
                 {/* Generate button — signed in */}
-                <button onClick={generate} disabled={loading || batchRunning} style={{
+                <button data-generate-btn onClick={generate} disabled={loading || batchRunning} style={{
                   padding: '9px 14px', fontSize: 12, fontWeight: 700,
                   background: loading || batchRunning
                     ? 'linear-gradient(135deg,#d97706,#f59e0b)'
@@ -2392,7 +2414,7 @@ STRICT rules:
                   borderRadius: 8, cursor: 'pointer',
                 }}>↺ New URL</button>
               )}
-              <button onClick={generate} disabled={loading || batchRunning} style={{
+              <button data-generate-btn onClick={generate} disabled={loading || batchRunning} style={{
                 padding: '9px 20px', fontSize: 12, fontWeight: 700,
                 background: loading || batchRunning
                   ? 'linear-gradient(135deg,#d97706,#f59e0b)'
