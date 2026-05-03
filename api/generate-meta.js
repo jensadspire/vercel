@@ -88,11 +88,13 @@ export default async function handler(req, res) {
   }
 
   // Sort scraped images by product likelihood score
-  const scoredImages = [...new Set([...scrapeImages, ...shopifyExtraImages])]
+  const allScoredPairs = [...new Set([...scrapeImages, ...shopifyExtraImages])]
     .map(img => ({ img, score: scoreImage(img) }))
-    .sort((a, b) => b.score - a.score)
-    .filter(x => x.score >= 0)
-    .map(x => x.img);
+    .sort((a, b) => b.score - a.score);
+  // Hero needs a positive score — must be a real product image
+  const scoredImages = allScoredPairs.filter(x => x.score > 0).map(x => x.img);
+  // allImages pool includes neutral-scored images (galleries etc.)
+  const scoredImagesAll = allScoredPairs.filter(x => x.score >= 0).map(x => x.img);
 
   const heroProductImage = scoredImages[0] || scrapeImages[0] || null;
   const isSingleProduct = isProductUrl || scrapeImages.length <= 6;
@@ -376,7 +378,8 @@ Rules:
         ? { s1: scenePrompt1, v1: directPrompt4, v2: directPrompt5 }
         : { s1: scenePrompt1, v1: directPrompt4 };
 
-      const allScoredImagesPro = cleanScored.filter(img => img !== heroProductImage).slice(0, 16);
+      const allCleanPro = scoredImagesAll.filter(img => !BLOCKED.test(img));
+      const allScoredImagesPro = allCleanPro.filter(img => img !== heroProductImage).slice(0, 16);
       return res.json({
         primaryTexts: parsed.primaryTexts || [],
         headlines: (parsed.headlines || []).map(h => h.slice(0, 40)),
@@ -396,7 +399,8 @@ Rules:
   } // end if (parsed.imagePrompt)
 
   // Return all scored images for rich thumbnail tray
-  const allScoredImages = cleanScored.slice(0, 16).filter(img => img !== heroProductImage);
+  const allClean = scoredImagesAll.filter(img => !BLOCKED.test(img));
+  const allScoredImages = allClean.slice(0, 16).filter(img => img !== heroProductImage);
 
   return res.json({
     primaryTexts: parsed.primaryTexts || [],
