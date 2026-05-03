@@ -4382,22 +4382,29 @@ STRICT rules:
                           {/* CTA bar */}
                           <div style={{ padding: "8px 12px", borderTop: "1px solid #e4e6eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <span onClick={() => {
+                              // Find the Facebook card wrapper and expand it
                               const outer = document.getElementById('carousel-outer');
-                              if (!outer) return;
+                              const strip = document.getElementById('carousel-scroll');
+                              if (!outer || !strip) return;
                               const isExp = outer.dataset.expanded === 'true';
                               if (!isExp) {
+                                // Expand: show all cards horizontally
                                 outer.style.overflow = 'visible';
-                                outer.style.maxWidth = 'none';
-                                const strip = document.getElementById('carousel-scroll');
-                                if (strip) { strip.style.transform = 'none'; strip.style.flexWrap = 'nowrap'; }
+                                outer.style.width = (activeCarouselImgs.length * 214) + 'px';
+                                strip.style.transform = 'none';
+                                strip.style.transition = 'none';
                                 outer.dataset.expanded = 'true';
                               } else {
+                                // Collapse back
                                 outer.style.overflow = 'hidden';
-                                outer.style.maxWidth = '';
+                                outer.style.width = '';
+                                strip.style.transition = 'transform 0.3s ease';
                                 outer.dataset.expanded = 'false';
                                 setCarouselIndex(0);
                               }
-                            }} style={{ fontSize: 10, color: "#1877f2", cursor: "pointer", fontWeight: 600 }}>↔ View all cards</span>
+                            }} style={{ fontSize: 10, color: "#1877f2", cursor: "pointer", fontWeight: 600 }}>
+                              {'↔'} View all cards
+                            </span>
                             <button style={{ padding: "5px 12px", background: "#e4e6eb", border: "none", borderRadius: 5, fontSize: 10, fontWeight: 700, color: "#1c1e21", cursor: "pointer" }}>Shop Now</button>
                           </div>
                         </div>
