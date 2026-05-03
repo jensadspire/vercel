@@ -633,7 +633,8 @@ function RSAStudio() {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselCardTexts, setCarouselCardTexts] = useState([]); // unique headline per card
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
-  const [carouselPriceMode, setCarouselPriceMode] = useState(false); // toggle: show price vs USP in subline
+  const [carouselPriceMode, setCarouselPriceMode] = useState(false);
+  const [carouselExpanded, setCarouselExpanded] = useState(false); // toggle: show price vs USP in subline
   const [bannedImages, setBannedImages] = useState([]); // permanently removed from carousel
   const [pausedImages, setPausedImages] = useState([]); // temporarily deprioritised
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
@@ -3786,7 +3787,7 @@ STRICT rules:
                 <span style={{ ...S.sectionLabel, margin: 0 }}>Meta Ad Preview</span>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {['fb-feed','ig-feed','fb-carousel'].map(fmt => (
-                    <button key={fmt} onClick={() => setMetaPreviewFormat(fmt)} style={{
+                    <button key={fmt} onClick={() => { setMetaPreviewFormat(fmt); setCarouselExpanded(false); }} style={{
                       fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 5,
                       border: 'none', cursor: 'pointer',
                       background: metaPreviewFormat === fmt ? 'linear-gradient(135deg,#0ea5e9,#6366f1)' : 'rgba(255,255,255,0.06)',
@@ -4302,7 +4303,7 @@ STRICT rules:
                   return (
                     <div style={{ display: "flex", justifyContent: "center" }}>
                       {isCarousel ? (
-                        <div style={{ width: 280, background: "white", borderRadius: 10, overflow: "hidden", fontFamily: "sans-serif", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
+                        <div style={{ width: carouselExpanded ? (activeCarouselImgs.length * 214 + 20) : 280, background: "white", borderRadius: 10, overflow: carouselExpanded ? "visible" : "hidden", transition: "width 0.3s ease", fontFamily: "sans-serif", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
                           {/* Carousel header */}
                           <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}>
                             <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1877f2", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
@@ -4324,8 +4325,8 @@ STRICT rules:
                             </div>
                           )}
                           {/* Carousel slides */}
-                          <div id="carousel-outer" style={{ position: "relative", overflow: "hidden" }}>
-                            <div id="carousel-scroll" style={{ display: "flex", transition: "transform 0.3s ease", transform: `translateX(-${carouselIndex * 220}px)`, gap: 4, padding: "0 0 0 4px" }}>
+                          <div id="carousel-outer" style={{ position: "relative", overflow: carouselExpanded ? "visible" : "hidden" }}>
+                            <div id="carousel-scroll" style={{ display: "flex", transition: carouselExpanded ? "none" : "transform 0.3s ease", transform: carouselExpanded ? "none" : `translateX(-${carouselIndex * 220}px)`, gap: 4, padding: "0 0 0 4px" }}>
                               {activeCarouselImgs.map((imgUrl, ci) => (
                                 <div key={ci} style={{ flexShrink: 0, width: 210, background: "#f0f2f5" }}>
                                   <div style={{ position: "relative" }}>
@@ -4382,28 +4383,14 @@ STRICT rules:
                           {/* CTA bar */}
                           <div style={{ padding: "8px 12px", borderTop: "1px solid #e4e6eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <button onClick={(e) => { e.stopPropagation();
-                              // Find the Facebook card wrapper and expand it
-                              const outer = document.getElementById('carousel-outer');
-                              const strip = document.getElementById('carousel-scroll');
-                              if (!outer || !strip) return;
-                              const isExp = outer.dataset.expanded === 'true';
-                              if (!isExp) {
-                                // Expand: show all cards horizontally
-                                outer.style.overflow = 'visible';
-                                outer.style.width = (activeCarouselImgs.length * 214) + 'px';
-                                strip.style.transform = 'none';
-                                strip.style.transition = 'none';
-                                outer.dataset.expanded = 'true';
-                              } else {
-                                // Collapse back
-                                outer.style.overflow = 'hidden';
-                                outer.style.width = '';
-                                strip.style.transition = 'transform 0.3s ease';
-                                outer.dataset.expanded = 'false';
+                              if (carouselExpanded) {
+                                setCarouselExpanded(false);
                                 setCarouselIndex(0);
+                              } else {
+                                setCarouselExpanded(true);
                               }
                             }} style={{ fontSize: 10, color: "#1877f2", cursor: "pointer", fontWeight: 600, background: "none", border: "none", padding: 0, textDecoration: "underline" }}>
-                              ↔ View all cards
+                              {carouselExpanded ? '← Collapse' : '↔ View all cards'}
                             </button>
                             <button style={{ padding: "5px 12px", background: "#e4e6eb", border: "none", borderRadius: 5, fontSize: 10, fontWeight: 700, color: "#1c1e21", cursor: "pointer" }}>Shop Now</button>
                           </div>
