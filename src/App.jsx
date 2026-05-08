@@ -631,6 +631,8 @@ function RSAStudio() {
   const [metaError, setMetaError] = useState("");
   const [metaCopied, setMetaCopied] = useState(false);
   const [metaExportCopied, setMetaExportCopied] = useState(false);
+  const [metaPublishing, setMetaPublishing] = useState(false);
+  const [metaPublishResult, setMetaPublishResult] = useState(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselCardTexts, setCarouselCardTexts] = useState([]); // unique headline per card
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
@@ -4783,6 +4785,59 @@ STRICT rules:
                       }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaExportCopied ? 'rgba(52,211,153,0.15)' : 'rgba(24,119,242,0.1)', border: metaExportCopied ? '1px solid rgba(52,211,153,0.4)' : '1px solid rgba(24,119,242,0.3)', borderRadius: 6, color: metaExportCopied ? '#34d399' : '#60a5fa', cursor: 'pointer', transition: 'all 0.3s', marginBottom: 8 }}>
                         {metaExportCopied ? '✓ Copied — ready for Meta Ads Manager' : '📋 Copy Full Meta Ad Export'}
                       </button>
+                    )}
+
+                    {/* Publish to Meta button */}
+                    {metaResult && (
+                      <div style={{ marginBottom: 8 }}>
+                        <button onClick={async () => {
+                          if (metaPublishing) return;
+                          setMetaPublishing(true);
+                          setMetaPublishResult(null);
+                          try {
+                            const pt = metaResult.primaryTexts?.[metaActiveVariants?.pt || 0] || '';
+                            const hl = metaResult.headlines?.[metaActiveVariants?.hl || 0] || '';
+                            const desc = metaResult.descriptions?.[metaActiveVariants?.d || 0] || '';
+                            const imgUrl = metaResult.imageVariations?.[activeImageVariant] || metaResult.imageUrl || '';
+                            const r = await fetch('/api/meta-publish', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                headline: hl,
+                                primaryText: pt,
+                                description: desc,
+                                imageUrl: imgUrl,
+                                destinationUrl: url,
+                                adName: `AI Ad Studio — ${pageMeta?.brand || url}`,
+                                campaignName: `AI Ad Studio — ${new Date().toLocaleDateString()}`,
+                                format: 'single',
+                              }),
+                            });
+                            const data = await r.json();
+                            if (data.success) {
+                              setMetaPublishResult({ success: true, url: data.adsManagerUrl });
+                            } else {
+                              setMetaPublishResult({ success: false, error: data.error });
+                            }
+                          } catch (err) {
+                            setMetaPublishResult({ success: false, error: err.message });
+                          }
+                          setMetaPublishing(false);
+                        }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaPublishing ? 'rgba(24,119,242,0.05)' : 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 6, color: '#60a5fa', cursor: metaPublishing ? 'default' : 'pointer', transition: 'all 0.3s' }}>
+                          {metaPublishing ? '⟳ Publishing to Meta...' : '🚀 Publish to Meta Ads Manager'}
+                        </button>
+                        {metaPublishResult?.success && (
+                          <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6 }}>
+                            <div style={{ fontSize: 10, color: '#34d399', fontWeight: 700 }}>✅ Ad created as PAUSED in Meta Ads Manager</div>
+                            <a href={metaPublishResult.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#60a5fa' }}>→ Review and activate in Ads Manager</a>
+                          </div>
+                        )}
+                        {metaPublishResult?.error && (
+                          <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6 }}>
+                            <div style={{ fontSize: 10, color: '#f87171' }}>❌ {metaPublishResult.error}</div>
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {/* Headlines */}
