@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     if (body) opts.body = JSON.stringify(body);
     const r = await fetch(url, opts);
     const data = await r.json();
-    if (data.error) throw new Error(`Meta API: ${data.error.message} (code ${data.error.code})`);
+    if (data.error) throw new Error(`Meta API [${endpoint}]: ${data.error.message} (code ${data.error.code}) — ${JSON.stringify(data.error.error_data || '')}`);
     return data;
   };
 
@@ -71,15 +71,15 @@ export default async function handler(req, res) {
     const imgBase64 = Buffer.from(imgBuffer).toString('base64');
     const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
     
-    // Upload via AdImages endpoint
-    const uploadForm = new FormData();
-    const blob = new Blob([imgBuffer], { type: contentType });
-    uploadForm.append('bytes', imgBase64);
-    uploadForm.append('name', 'ai-ad-studio-image');
+    // Upload via AdImages endpoint using base64 bytes field
+    const uploadParams = new URLSearchParams();
+    uploadParams.append('bytes', imgBase64);
+    uploadParams.append('name', `ad_image_${Date.now()}`);
+    uploadParams.append('access_token', token);
     
     const uploadRes = await fetch(
-      `${FB_API}/${adAccountId}/adimages?access_token=${token}`,
-      { method: 'POST', body: uploadForm }
+      `${FB_API}/${adAccountId}/adimages`,
+      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: uploadParams }
     );
     const uploadData = await uploadRes.json();
     if (uploadData.error) throw new Error(`Image upload: ${uploadData.error.message}`);
@@ -91,6 +91,7 @@ export default async function handler(req, res) {
     console.log('Image hash:', imageHash);
 
     // ── Step 2: Create Campaign (PAUSED for safety) ───────────────────────────
+    console.log('Image hash obtained:', imageHash);
     console.log('Creating campaign...');
     const campaign = await fb(`/${adAccountId}/campaigns`, 'POST', {
       name: campaignName,
@@ -197,3 +198,6 @@ async function getPageId(token, adAccountId) {
   if (data.data?.[0]?.id) return data.data[0].id;
   throw new Error('No Facebook Page found. Please create a Page or connect one to your Business Manager.');
 }
+
+// Add GET handler for diagnostics
+export const config = { api: { bodyParser: true } };
