@@ -95,6 +95,8 @@ export default async function handler(req, res) {
 
     // ── Step 2: Create Campaign (PAUSED for safety) ───────────────────────────
     console.log('Image hash obtained:', imageHash);
+    const pageId = await getPageId(token);
+    console.log('Page ID:', pageId);
     console.log('Creating campaign...');
     const campaignBody = {
       name: campaignName,
@@ -117,6 +119,7 @@ export default async function handler(req, res) {
       optimization_goal: 'LINK_CLICKS',
       bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
       daily_budget: 1000, // 10.00 EUR
+      promoted_object: { page_id: pageId },
       targeting: {
         geo_locations: { countries: ['DK'] },
         age_min: 25,
