@@ -95,8 +95,9 @@ export default async function handler(req, res) {
 
     // ── Step 2: Create Campaign (PAUSED for safety) ───────────────────────────
     console.log('Image hash obtained:', imageHash);
-    const pageId = await getPageId(token, adAccountId);
-    console.log('Page ID:', pageId);
+    // Use known page ID directly — Adspire Deutschland GmbH
+    const pageId = process.env.META_PAGE_ID || '143857629020031';
+    console.log('Using page ID:', pageId);
     console.log('Creating campaign...');
     const campaignBody = {
       name: campaignName,
@@ -120,6 +121,8 @@ export default async function handler(req, res) {
       bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
       daily_budget: 1000, // 10.00 EUR
       promoted_object: { page_id: pageId },
+      dsa_beneficiary: 'Adspire Deutschland GmbH',
+      dsa_payor: 'Adspire Deutschland GmbH',
       targeting: {
         geo_locations: { countries: ['DK'] },
         age_min: 25,
