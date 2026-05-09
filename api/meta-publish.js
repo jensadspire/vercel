@@ -95,7 +95,7 @@ export default async function handler(req, res) {
 
     // ── Step 2: Create Campaign (PAUSED for safety) ───────────────────────────
     console.log('Image hash obtained:', imageHash);
-    const pageId = await getPageId(token);
+    const pageId = await getPageId(token, adAccountId);
     console.log('Page ID:', pageId);
     console.log('Creating campaign...');
     const campaignBody = {
@@ -138,7 +138,7 @@ export default async function handler(req, res) {
       creative = await fb(`/${adAccountId}/adcreatives`, 'POST', {
         name: `${adName} - Creative`,
         object_story_spec: {
-          page_id: await getPageId(token, adAccountId),
+          page_id: pageId,
           link_data: {
             message: primaryText,
             child_attachments: carouselCards.slice(0, 5).map(card => ({
@@ -156,7 +156,7 @@ export default async function handler(req, res) {
       creative = await fb(`/${adAccountId}/adcreatives`, 'POST', {
         name: `${adName} - Creative`,
         object_story_spec: {
-          page_id: await getPageId(token, adAccountId),
+          page_id: pageId,
           link_data: {
             message: primaryText,
             link: destinationUrl,
