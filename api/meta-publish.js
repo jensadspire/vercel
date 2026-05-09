@@ -102,6 +102,7 @@ export default async function handler(req, res) {
       status: 'PAUSED',
       special_ad_categories: [],
       buying_type: 'AUCTION',
+      is_adset_budget_sharing_enabled: false,
     };
     console.log('Campaign body:', JSON.stringify(campaignBody));
     const campaign = await fb(`/${adAccountId}/campaigns`, 'POST', campaignBody);
