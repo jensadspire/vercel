@@ -50,7 +50,10 @@ export default async function handler(req, res) {
     if (body) opts.body = JSON.stringify(body);
     const r = await fetch(url, opts);
     const data = await r.json();
-    if (data.error) throw new Error(`Meta API [${endpoint}]: ${data.error.message} (code ${data.error.code}) — ${JSON.stringify(data.error.error_data || '')}`);
+    if (data.error) {
+      console.error('Full error:', JSON.stringify(data.error));
+      throw new Error(`Meta API [${endpoint}]: ${data.error.message} (code ${data.error.code}) type:${data.error.type} — ${JSON.stringify(data.error.error_user_msg || data.error.error_data || '')}`);
+    }
     return data;
   };
 
@@ -93,13 +96,15 @@ export default async function handler(req, res) {
     // ── Step 2: Create Campaign (PAUSED for safety) ───────────────────────────
     console.log('Image hash obtained:', imageHash);
     console.log('Creating campaign...');
-    const campaign = await fb(`/${adAccountId}/campaigns`, 'POST', {
+    const campaignBody = {
       name: campaignName,
       objective: 'OUTCOME_TRAFFIC',
       status: 'PAUSED',
       special_ad_categories: [],
       buying_type: 'AUCTION',
-    });
+    };
+    console.log('Campaign body:', JSON.stringify(campaignBody));
+    const campaign = await fb(`/${adAccountId}/campaigns`, 'POST', campaignBody);
     console.log('Campaign ID:', campaign.id);
 
     // ── Step 3: Create Ad Set ─────────────────────────────────────────────────
