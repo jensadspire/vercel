@@ -98,6 +98,7 @@ export default async function handler(req, res) {
       objective: 'OUTCOME_TRAFFIC',
       status: 'PAUSED',
       special_ad_categories: [],
+      buying_type: 'AUCTION',
     });
     console.log('Campaign ID:', campaign.id);
 
@@ -108,8 +109,8 @@ export default async function handler(req, res) {
       campaign_id: campaign.id,
       billing_event: 'IMPRESSIONS',
       optimization_goal: 'LINK_CLICKS',
-      bid_amount: 200, // 2.00 in account currency
-      daily_budget: 1000, // 10.00 in account currency
+      bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+      daily_budget: 1000, // 10.00 EUR
       targeting: {
         geo_locations: { countries: ['DK'] },
         age_min: 25,
