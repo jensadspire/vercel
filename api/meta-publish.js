@@ -38,6 +38,8 @@ export default async function handler(req, res) {
     campaignName = 'AI Ad Studio Campaign',
     format = 'single',
     carouselCards = [],
+    existingCampaignId = null,
+    existingAdSetId = null,
   } = req.body || {};
 
   if (!imageUrl || !destinationUrl) {
@@ -111,26 +113,33 @@ export default async function handler(req, res) {
     const campaign = await fb(`/${adAccountId}/campaigns`, 'POST', campaignBody);
     console.log('Campaign ID:', campaign.id);
 
-    // ── Step 3: Create Ad Set ─────────────────────────────────────────────────
-    console.log('Creating ad set...');
-    const adSet = await fb(`/${adAccountId}/adsets`, 'POST', {
-      name: `${adName} - Ad Set`,
-      campaign_id: campaign.id,
-      billing_event: 'IMPRESSIONS',
-      optimization_goal: 'LINK_CLICKS',
-      bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-      daily_budget: 1000, // 10.00 EUR
-      promoted_object: { page_id: pageId },
-      dsa_beneficiary: 'Adspire Deutschland GmbH',
-      dsa_payor: 'Adspire Deutschland GmbH',
-      targeting: {
-        geo_locations: { countries: ['DK'] },
-        age_min: 25,
-        age_max: 65,
-      },
-      status: 'PAUSED',
-    });
-    console.log('Ad Set ID:', adSet.id);
+    // ── Step 3: Get or create Ad Set ─────────────────────────────────────────
+    let adSetId;
+    if (existingAdSetId) {
+      adSetId = existingAdSetId;
+      console.log('Using existing ad set:', adSetId);
+    } else {
+      console.log('Creating new ad set...');
+      const adSet = await fb(`/${adAccountId}/adsets`, 'POST', {
+        name: `${adName} - Ad Set`,
+        campaign_id: campaignId,
+        billing_event: 'IMPRESSIONS',
+        optimization_goal: 'LINK_CLICKS',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: 1000,
+        promoted_object: { page_id: pageId },
+        dsa_beneficiary: 'Adspire Deutschland GmbH',
+        dsa_payor: 'Adspire Deutschland GmbH',
+        targeting: {
+          geo_locations: { countries: ['DK'] },
+          age_min: 25,
+          age_max: 65,
+        },
+        status: 'PAUSED',
+      });
+      adSetId = adSet.id;
+      console.log('Ad Set ID:', adSetId);
+    }
 
     // ── Step 4: Create Ad Creative ────────────────────────────────────────────
     console.log('Creating ad creative...');
@@ -211,7 +220,7 @@ export default async function handler(req, res) {
     console.log('Creating ad...');
     const ad = await fb(`/${adAccountId}/ads`, 'POST', {
       name: adName,
-      adset_id: adSet.id,
+      adset_id: adSetId,
       creative: { creative_id: creative.id },
       status: 'PAUSED',
     });
@@ -219,8 +228,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      campaignId: campaign.id,
-      adSetId: adSet.id,
+      campaignId: campaignId,
+      adSetId: adSetId,
       creativeId: creative.id,
       adId: ad.id,
       adsManagerUrl: `https://www.facebook.com/adsmanager/manage/ads?act=${adAccountId.replace('act_', '')}&selected_ad_ids=${ad.id}`,

@@ -634,6 +634,13 @@ function RSAStudio() {
   const [metaPublishing, setMetaPublishing] = useState(false);
   const [metaPublishResult, setMetaPublishResult] = useState(null);
   const [metaConfirmOpen, setMetaConfirmOpen] = useState(false);
+  const [metaModalStep, setMetaModalStep] = useState(1); // 1=preview, 2=placement
+  const [metaPlacement, setMetaPlacement] = useState('new'); // 'new' | 'existing_campaign' | 'existing_adset'
+  const [metaCampaigns, setMetaCampaigns] = useState([]);
+  const [metaAdSets, setMetaAdSets] = useState([]);
+  const [selectedCampaignId, setSelectedCampaignId] = useState('');
+  const [selectedAdSetId, setSelectedAdSetId] = useState('');
+  const [metaLoadingCampaigns, setMetaLoadingCampaigns] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselCardTexts, setCarouselCardTexts] = useState([]); // unique headline per card
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
@@ -2056,6 +2063,8 @@ STRICT rules:
                 campaignName: 'AI Ad Studio — ' + new Date().toLocaleDateString(),
                 format: isCarouselPublish ? 'carousel' : 'single',
                 carouselCards: isCarouselPublish ? carouselCards : [],
+                existingCampaignId: metaPlacement !== 'new' ? selectedCampaignId : null,
+                existingAdSetId: metaPlacement === 'existing_adset' ? selectedAdSetId : null,
               }),
             });
             const data = await r.json();
@@ -2070,8 +2079,19 @@ STRICT rules:
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div style={{ background: '#1a1f2e', borderRadius: 14, padding: 24, maxWidth: 460, width: '100%', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 4 }}>🚀 Publish to Meta Ads Manager</div>
-              <div style={{ fontSize: 11, color: '#4a5568', marginBottom: 16 }}>Review your ad below. It will be created as <strong style={{ color: '#fbbf24' }}>PAUSED</strong> — no spend until you activate it in Meta.</div>
+              {/* Step indicator */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>🚀 Publish to Meta</div>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                  {[1,2].map(s => (
+                    <div key={s} style={{ width: 24, height: 4, borderRadius: 2, background: metaModalStep >= s ? '#1877f2' : 'rgba(255,255,255,0.1)' }} />
+                  ))}
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: '#4a5568', marginBottom: 16 }}>
+                {metaModalStep === 1 ? <>Review your ad. It will be created as <strong style={{ color: '#fbbf24' }}>PAUSED</strong> — no spend until activated.</> : 'Choose where to place this ad in your Meta account.'}
+              </div>
+              {metaModalStep === 1 && <>
               <div style={{ background: 'white', borderRadius: 10, overflow: 'hidden', marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
                 {metaPreviewFormat === 'fb-carousel' ? (
                   <div style={{ display: 'flex', overflowX: 'auto', gap: 2, background: '#f0f2f5' }}>
@@ -2097,13 +2117,73 @@ STRICT rules:
                 <div>💶 <strong style={{ color: '#94a3b8' }}>Budget:</strong> €10/day — no spend until activated</div>
                 <div>📄 <strong style={{ color: '#94a3b8' }}>Format:</strong> {metaPreviewFormat === 'fb-carousel' ? `Carousel ad (${activeCarouselImgsP?.length || 5} cards, PAUSED)` : 'Single image ad (PAUSED)'}</div>
               </div>
+              </>}
+              {/* Step 2 — Placement selector */}
+              {metaModalStep === 2 && (
+                <div style={{ marginBottom: 16 }}>
+                  {['new', 'existing_campaign', 'existing_adset'].map(opt => (
+                    <div key={opt} onClick={() => {
+                      setMetaPlacement(opt);
+                      if (opt !== 'new' && metaCampaigns.length === 0) {
+                        setMetaLoadingCampaigns(true);
+                        fetch('/api/meta-campaigns').then(r => r.json()).then(d => {
+                          setMetaCampaigns(d.campaigns || []);
+                          setMetaLoadingCampaigns(false);
+                        }).catch(() => setMetaLoadingCampaigns(false));
+                      }
+                    }} style={{ padding: '10px 12px', marginBottom: 6, borderRadius: 8, border: `1px solid ${metaPlacement === opt ? '#1877f2' : 'rgba(255,255,255,0.1)'}`, background: metaPlacement === opt ? 'rgba(24,119,242,0.15)' : 'rgba(255,255,255,0.03)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${metaPlacement === opt ? '#1877f2' : '#4a5568'}`, background: metaPlacement === opt ? '#1877f2' : 'transparent', flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'white' }}>
+                          {opt === 'new' ? 'New campaign + new ad set' : opt === 'existing_campaign' ? 'Existing campaign + new ad set' : 'Existing campaign + existing ad set'}
+                        </div>
+                        <div style={{ fontSize: 10, color: '#4a5568' }}>
+                          {opt === 'new' ? 'Creates a fresh campaign (default)' : opt === 'existing_campaign' ? 'Add to an existing campaign' : 'Add directly to an existing ad set'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Campaign dropdown */}
+                  {metaPlacement !== 'new' && (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 4 }}>Select campaign:</div>
+                      {metaLoadingCampaigns ? (
+                        <div style={{ fontSize: 10, color: '#4a5568' }}>Loading campaigns…</div>
+                      ) : (
+                        <select value={selectedCampaignId} onChange={e => { setSelectedCampaignId(e.target.value); setSelectedAdSetId(''); setMetaAdSets([]); if (metaPlacement === 'existing_adset' && e.target.value) { fetch('/api/meta-adsets?campaignId=' + e.target.value).then(r => r.json()).then(d => setMetaAdSets(d.adsets || [])); } }} style={{ width: '100%', padding: '7px 10px', fontSize: 11, background: '#0d1220', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'white', cursor: 'pointer' }}>
+                          <option value="">— Select a campaign —</option>
+                          {metaCampaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                  {/* Ad set dropdown */}
+                  {metaPlacement === 'existing_adset' && selectedCampaignId && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 4 }}>Select ad set:</div>
+                      <select value={selectedAdSetId} onChange={e => setSelectedAdSetId(e.target.value)} style={{ width: '100%', padding: '7px 10px', fontSize: 11, background: '#0d1220', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'white', cursor: 'pointer' }}>
+                        <option value="">— Select an ad set —</option>
+                        {metaAdSets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Action buttons */}
               <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setMetaConfirmOpen(false)} style={{ flex: 1, padding: '10px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#7e92a8', cursor: 'pointer' }}>
-                  Cancel
+                <button onClick={() => metaModalStep === 1 ? setMetaConfirmOpen(false) : setMetaModalStep(1)} style={{ flex: 1, padding: '10px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#7e92a8', cursor: 'pointer' }}>
+                  {metaModalStep === 1 ? 'Cancel' : '← Back'}
                 </button>
-                <button onClick={doPublish} style={{ flex: 2, padding: '10px', fontSize: 11, fontWeight: 800, background: 'linear-gradient(135deg,#1877f2,#0a5dc2)', border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer' }}>
-                  ✓ Confirm & Publish to Meta
-                </button>
+                {metaModalStep === 1 ? (
+                  <button onClick={() => setMetaModalStep(2)} style={{ flex: 2, padding: '10px', fontSize: 11, fontWeight: 800, background: 'linear-gradient(135deg,#1877f2,#0a5dc2)', border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer' }}>
+                    Next: Choose placement →
+                  </button>
+                ) : (
+                  <button onClick={doPublish} disabled={metaPlacement !== 'new' && !selectedCampaignId} style={{ flex: 2, padding: '10px', fontSize: 11, fontWeight: 800, background: metaPlacement !== 'new' && !selectedCampaignId ? 'rgba(24,119,242,0.3)' : 'linear-gradient(135deg,#1877f2,#0a5dc2)', border: 'none', borderRadius: 8, color: 'white', cursor: metaPlacement !== 'new' && !selectedCampaignId ? 'default' : 'pointer' }}>
+                    ✓ Confirm & Publish to Meta
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -4782,7 +4862,7 @@ STRICT rules:
                     {/* Publish to Meta button */}
                     {metaResult && (
                       <div style={{ marginBottom: 8 }}>
-                        <button onClick={() => { if (!metaPublishing) setMetaConfirmOpen(true); }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaPublishing ? 'rgba(24,119,242,0.05)' : 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 6, color: '#60a5fa', cursor: metaPublishing ? 'default' : 'pointer', transition: 'all 0.3s' }}>
+                        <button onClick={() => { if (!metaPublishing) { setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new'); setSelectedCampaignId(''); setSelectedAdSetId(''); } }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaPublishing ? 'rgba(24,119,242,0.05)' : 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 6, color: '#60a5fa', cursor: metaPublishing ? 'default' : 'pointer', transition: 'all 0.3s' }}>
                           {metaPublishing ? '⟳ Publishing to Meta...' : '🚀 Publish to Meta Ads Manager'}
                         </button>
                         {metaPublishResult?.success && (
