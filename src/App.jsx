@@ -645,7 +645,8 @@ function RSAStudio() {
   const [targetBudget, setTargetBudget] = useState(1000); // cents — €10
   const [targetAgeMin, setTargetAgeMin] = useState(25);
   const [targetAgeMax, setTargetAgeMax] = useState(65);
-  const [targetPlacements, setTargetPlacements] = useState('automatic'); // 'automatic' | 'manual'
+  const [targetPlacements, setTargetPlacements] = useState('automatic');
+  const [targetingExpanded, setTargetingExpanded] = useState(false); // 'automatic' | 'manual'
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselCardTexts, setCarouselCardTexts] = useState([]); // unique headline per card
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
@@ -2153,17 +2154,15 @@ STRICT rules:
                       </div>
                     </div>
                   ))}
-                  {/* Targeting mode toggle — shown when existing campaign/adset selected */}
-                  {metaPlacement !== 'new' && (
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6, marginBottom: 6 }}>
-                      <button onClick={() => setTargetPlacements('automatic')} style={{ flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: 'none', cursor: 'pointer', background: targetPlacements === 'automatic' ? 'rgba(24,119,242,0.2)' : 'rgba(255,255,255,0.05)', color: targetPlacements === 'automatic' ? '#60a5fa' : '#4a5568', textAlign: 'left' }}>
-                        📋 Apply existing targeting settings
-                      </button>
-                      <button onClick={() => setTargetPlacements('manual')} style={{ flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: 'none', cursor: 'pointer', background: targetPlacements === 'manual' ? 'rgba(24,119,242,0.2)' : 'rgba(255,255,255,0.05)', color: targetPlacements === 'manual' ? '#60a5fa' : '#4a5568', textAlign: 'left' }}>
-                        ✎ Customise targeting
-                      </button>
-                    </div>
-                  )}
+                  {/* Targeting mode toggle — always shown in step 2 */}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 10, marginBottom: 4 }}>
+                    <button onClick={() => setTargetingExpanded(false)} style={{ flex: 1, padding: '7px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: `1px solid ${!targetingExpanded ? 'rgba(24,119,242,0.5)' : 'rgba(255,255,255,0.08)'}`, cursor: 'pointer', background: !targetingExpanded ? 'rgba(24,119,242,0.15)' : 'rgba(255,255,255,0.03)', color: !targetingExpanded ? '#60a5fa' : '#4a5568', textAlign: 'left' }}>
+                      📋 {metaPlacement === 'existing_adset' ? 'Apply existing ad set targeting' : 'Use default targeting'}
+                    </button>
+                    <button onClick={() => setTargetingExpanded(true)} style={{ flex: 1, padding: '7px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: `1px solid ${targetingExpanded ? 'rgba(24,119,242,0.5)' : 'rgba(255,255,255,0.08)'}`, cursor: 'pointer', background: targetingExpanded ? 'rgba(24,119,242,0.15)' : 'rgba(255,255,255,0.03)', color: targetingExpanded ? '#60a5fa' : '#4a5568', textAlign: 'left' }}>
+                      ✎ Customise targeting
+                    </button>
+                  </div>
 
                   {/* Campaign dropdown */}
                   {metaPlacement !== 'new' && (
@@ -2193,8 +2192,8 @@ STRICT rules:
               )}
 
 
-              {/* Targeting controls — shown when creating new ad set */}
-              {metaModalStep === 2 && metaPlacement !== 'existing_adset' && (
+              {/* Targeting controls — accordion, shown when customise is active */}
+              {metaModalStep === 2 && targetingExpanded && (
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', marginBottom: 12 }}>🎯 Targeting</div>
 
