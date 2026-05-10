@@ -95,23 +95,25 @@ export default async function handler(req, res) {
     if (!imageHash) throw new Error('Could not get image hash from Meta');
     console.log('Image hash:', imageHash);
 
-    // ── Step 2: Create Campaign (PAUSED for safety) ───────────────────────────
-    console.log('Image hash obtained:', imageHash);
-    // Use known page ID directly — Adspire Deutschland GmbH
+    // ── Step 2: Get or create Campaign ──────────────────────────────────────
     const pageId = process.env.META_PAGE_ID || '143857629020031';
-    console.log('Using page ID:', pageId);
-    console.log('Creating campaign...');
-    const campaignBody = {
-      name: campaignName,
-      objective: 'OUTCOME_TRAFFIC',
-      status: 'PAUSED',
-      special_ad_categories: [],
-      buying_type: 'AUCTION',
-      is_adset_budget_sharing_enabled: false,
-    };
-    console.log('Campaign body:', JSON.stringify(campaignBody));
-    const campaign = await fb(`/${adAccountId}/campaigns`, 'POST', campaignBody);
-    console.log('Campaign ID:', campaignId);
+    let campaignId;
+    if (existingCampaignId) {
+      campaignId = existingCampaignId;
+      console.log('Using existing campaign:', campaignId);
+    } else {
+      console.log('Creating new campaign...');
+      const newCampaign = await fb(`/${adAccountId}/campaigns`, 'POST', {
+        name: campaignName,
+        objective: 'OUTCOME_TRAFFIC',
+        status: 'PAUSED',
+        special_ad_categories: [],
+        buying_type: 'AUCTION',
+        is_adset_budget_sharing_enabled: false,
+      });
+      campaignId = newCampaign.id;
+      console.log('New campaign ID:', campaignId);
+    }
 
     // ── Step 3: Get or create Ad Set ─────────────────────────────────────────
     let adSetId;
@@ -119,8 +121,8 @@ export default async function handler(req, res) {
       adSetId = existingAdSetId;
       console.log('Using existing ad set:', adSetId);
     } else {
-      console.log('Creating new ad set...');
-      const adSet = await fb(`/${adAccountId}/adsets`, 'POST', {
+      console.log('Creating new ad set in campaign:', campaignId);
+      const newAdSet = await fb(`/${adAccountId}/adsets`, 'POST', {
         name: `${adName} - Ad Set`,
         campaign_id: campaignId,
         billing_event: 'IMPRESSIONS',
@@ -137,8 +139,8 @@ export default async function handler(req, res) {
         },
         status: 'PAUSED',
       });
-      adSetId = adSet.id;
-      console.log('Ad Set ID:', adSetId);
+      adSetId = newAdSet.id;
+      console.log('New ad set ID:', adSetId);
     }
 
     // ── Step 4: Create Ad Creative ────────────────────────────────────────────
