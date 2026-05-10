@@ -111,7 +111,7 @@ export default async function handler(req, res) {
     };
     console.log('Campaign body:', JSON.stringify(campaignBody));
     const campaign = await fb(`/${adAccountId}/campaigns`, 'POST', campaignBody);
-    console.log('Campaign ID:', campaign.id);
+    console.log('Campaign ID:', campaignId);
 
     // ── Step 3: Get or create Ad Set ─────────────────────────────────────────
     let adSetId;
