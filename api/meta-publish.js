@@ -181,6 +181,7 @@ export default async function handler(req, res) {
               call_to_action: { type: 'SHOP_NOW', value: { link: card.url || destinationUrl } },
             })),
             multi_share_optimized: false,
+            link: destinationUrl,
           },
         },
       });
