@@ -40,6 +40,7 @@ export default async function handler(req, res) {
     carouselCards = [],
     existingCampaignId = null,
     existingAdSetId = null,
+    targeting = null,
   } = req.body || {};
 
   if (!imageUrl || !destinationUrl) {
@@ -122,21 +123,32 @@ export default async function handler(req, res) {
       console.log('Using existing ad set:', adSetId);
     } else {
       console.log('Creating new ad set in campaign:', campaignId);
+      const countries = targeting?.countries || ['DK'];
+      const ageMin = targeting?.ageMin || 25;
+      const ageMax = targeting?.ageMax || 65;
+      const dailyBudget = targeting?.dailyBudget || 1000;
+      const useAdvantage = targeting?.placements !== 'manual';
       const newAdSet = await fb(`/${adAccountId}/adsets`, 'POST', {
         name: `${adName} - Ad Set`,
         campaign_id: campaignId,
         billing_event: 'IMPRESSIONS',
         optimization_goal: 'LINK_CLICKS',
         bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-        daily_budget: 1000,
+        daily_budget: dailyBudget,
         promoted_object: { page_id: pageId },
         dsa_beneficiary: 'Adspire Deutschland GmbH',
         dsa_payor: 'Adspire Deutschland GmbH',
         targeting: {
-          geo_locations: { countries: ['DK'] },
-          age_min: 25,
-          age_max: 65,
+          geo_locations: { countries },
+          age_min: ageMin,
+          age_max: ageMax,
+          ...(useAdvantage ? {} : {
+            publisher_platforms: ['facebook', 'instagram'],
+            facebook_positions: ['feed', 'story', 'reels'],
+            instagram_positions: ['stream', 'story', 'reels'],
+          }),
         },
+        ...(useAdvantage ? { advantage_audience: 1 } : {}),
         status: 'PAUSED',
       });
       adSetId = newAdSet.id;

@@ -641,6 +641,11 @@ function RSAStudio() {
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
   const [selectedAdSetId, setSelectedAdSetId] = useState('');
   const [metaLoadingCampaigns, setMetaLoadingCampaigns] = useState(false);
+  const [targetCountries, setTargetCountries] = useState(['DK']);
+  const [targetBudget, setTargetBudget] = useState(1000); // cents — €10
+  const [targetAgeMin, setTargetAgeMin] = useState(25);
+  const [targetAgeMax, setTargetAgeMax] = useState(65);
+  const [targetPlacements, setTargetPlacements] = useState('automatic'); // 'automatic' | 'manual'
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselCardTexts, setCarouselCardTexts] = useState([]); // unique headline per card
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
@@ -2065,6 +2070,13 @@ STRICT rules:
                 carouselCards: isCarouselPublish ? carouselCards : [],
                 existingCampaignId: metaPlacement !== 'new' ? selectedCampaignId : null,
                 existingAdSetId: metaPlacement === 'existing_adset' ? selectedAdSetId : null,
+                targeting: metaPlacement !== 'existing_adset' ? {
+                  countries: targetCountries,
+                  ageMin: targetAgeMin,
+                  ageMax: targetAgeMax,
+                  placements: targetPlacements,
+                  dailyBudget: targetBudget,
+                } : null,
               }),
             });
             const data = await r.json();
@@ -2167,6 +2179,70 @@ STRICT rules:
                       </select>
                     </div>
                   )}
+                </div>
+              )}
+
+
+              {/* Targeting controls — shown when creating new ad set */}
+              {metaModalStep === 2 && metaPlacement !== 'existing_adset' && (
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', marginBottom: 12 }}>🎯 Targeting</div>
+
+                  {/* Country */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 6 }}>🌍 Countries <span style={{ color: '#4a5568' }}>— recommended based on URL</span></div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      <label key="DK" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, color: "white" }}><input type="checkbox" checked={targetCountries.includes("DK")} onChange={e => setTargetCountries(prev => e.target.checked ? [...prev, "DK"] : prev.filter(x => x !== "DK"))} style={{ accentColor: "#1877f2" }} />🇩🇰 Denmark</label>
+                    <label key="DE" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, color: "white" }}><input type="checkbox" checked={targetCountries.includes("DE")} onChange={e => setTargetCountries(prev => e.target.checked ? [...prev, "DE"] : prev.filter(x => x !== "DE"))} style={{ accentColor: "#1877f2" }} />🇩🇪 Germany</label>
+                    <label key="SE" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, color: "white" }}><input type="checkbox" checked={targetCountries.includes("SE")} onChange={e => setTargetCountries(prev => e.target.checked ? [...prev, "SE"] : prev.filter(x => x !== "SE"))} style={{ accentColor: "#1877f2" }} />🇸🇪 Sweden</label>
+                    <label key="NO" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, color: "white" }}><input type="checkbox" checked={targetCountries.includes("NO")} onChange={e => setTargetCountries(prev => e.target.checked ? [...prev, "NO"] : prev.filter(x => x !== "NO"))} style={{ accentColor: "#1877f2" }} />🇳🇴 Norway</label>
+                    <label key="FI" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, color: "white" }}><input type="checkbox" checked={targetCountries.includes("FI")} onChange={e => setTargetCountries(prev => e.target.checked ? [...prev, "FI"] : prev.filter(x => x !== "FI"))} style={{ accentColor: "#1877f2" }} />🇫🇮 Finland</label>
+                    <label key="NL" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, color: "white" }}><input type="checkbox" checked={targetCountries.includes("NL")} onChange={e => setTargetCountries(prev => e.target.checked ? [...prev, "NL"] : prev.filter(x => x !== "NL"))} style={{ accentColor: "#1877f2" }} />🇳🇱 Netherlands</label>
+                    <label key="GB" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, color: "white" }}><input type="checkbox" checked={targetCountries.includes("GB")} onChange={e => setTargetCountries(prev => e.target.checked ? [...prev, "GB"] : prev.filter(x => x !== "GB"))} style={{ accentColor: "#1877f2" }} />🇬🇧 UK</label>
+                    <label key="FR" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, color: "white" }}><input type="checkbox" checked={targetCountries.includes("FR")} onChange={e => setTargetCountries(prev => e.target.checked ? [...prev, "FR"] : prev.filter(x => x !== "FR"))} style={{ accentColor: "#1877f2" }} />🇫🇷 France</label>
+                    <label key="US" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, color: "white" }}><input type="checkbox" checked={targetCountries.includes("US")} onChange={e => setTargetCountries(prev => e.target.checked ? [...prev, "US"] : prev.filter(x => x !== "US"))} style={{ accentColor: "#1877f2" }} />🇺🇸 USA</label>
+                    </div>
+                  </div>
+
+                  {/* Budget */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 6 }}>💶 Daily budget</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {[1000, 2000, 5000, 10000, 100000].map(b => (
+                        <button key={b} onClick={() => setTargetBudget(b)} style={{ padding: '5px 10px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: 'none', cursor: 'pointer', background: targetBudget === b ? '#1877f2' : 'rgba(255,255,255,0.07)', color: targetBudget === b ? 'white' : '#7e92a8' }}>
+                          €{b/100}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Age range */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 6 }}>👥 Age range — <span style={{ color: '#4a5568' }}>Advantage+ Audience enabled</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <select value={targetAgeMin} onChange={e => setTargetAgeMin(+e.target.value)} style={{ padding: '5px 8px', fontSize: 11, background: '#0d1220', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'white' }}>
+                        {[18,21,25,30,35,40,45,50].map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                      <span style={{ color: '#4a5568', fontSize: 11 }}>to</span>
+                      <select value={targetAgeMax} onChange={e => setTargetAgeMax(+e.target.value)} style={{ padding: '5px 8px', fontSize: 11, background: '#0d1220', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'white' }}>
+                        {[35,45,55,65].map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                      <span style={{ fontSize: 10, color: '#4a5568' }}>Meta optimises within range</span>
+                    </div>
+                  </div>
+
+                  {/* Placements */}
+                  <div>
+                    <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 6 }}>📱 Placements</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {[['automatic','⚡ Advantage+ (recommended)'],['manual','✎ Manual (edit in Ads Manager)']].map(([val, label]) => (
+                        <button key={val} onClick={() => setTargetPlacements(val)} style={{ padding: '5px 10px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: 'none', cursor: 'pointer', background: targetPlacements === val ? '#1877f2' : 'rgba(255,255,255,0.07)', color: targetPlacements === val ? 'white' : '#7e92a8' }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 9, color: '#4a5568', marginTop: 4 }}>{targetPlacements === 'automatic' ? 'All eligible placements for this format — Meta optimises delivery' : 'All placements selected — customise in Ads Manager after publishing'}</div>
+                  </div>
                 </div>
               )}
 
@@ -4862,7 +4938,14 @@ STRICT rules:
                     {/* Publish to Meta button */}
                     {metaResult && (
                       <div style={{ marginBottom: 8 }}>
-                        <button onClick={() => { if (!metaPublishing) { setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new'); setSelectedCampaignId(''); setSelectedAdSetId(''); } }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaPublishing ? 'rgba(24,119,242,0.05)' : 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 6, color: '#60a5fa', cursor: metaPublishing ? 'default' : 'pointer', transition: 'all 0.3s' }}>
+                        <button onClick={() => { if (!metaPublishing) {
+  setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new');
+  setSelectedCampaignId(''); setSelectedAdSetId('');
+  // Auto-detect country from URL TLD
+  const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB', '.com': 'US' };
+  const tld = Object.keys(tldMap).find(t => (url||'').includes(t));
+  setTargetCountries(tld ? [tldMap[tld]] : ['DK']);
+} }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaPublishing ? 'rgba(24,119,242,0.05)' : 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 6, color: '#60a5fa', cursor: metaPublishing ? 'default' : 'pointer', transition: 'all 0.3s' }}>
                           {metaPublishing ? '⟳ Publishing to Meta...' : '🚀 Publish to Meta Ads Manager'}
                         </button>
                         {metaPublishResult?.success && (
