@@ -137,6 +137,35 @@ export default async function handler(req, res) {
     let creative;
 
     if (format === 'carousel' && carouselCards.length > 0) {
+      // Upload each carousel card image and get hash
+      console.log('Uploading carousel card images...');
+      const cardHashes = await Promise.all(
+        carouselCards.slice(0, 5).map(async (card) => {
+          try {
+            const cImgRes = await fetch(card.imageUrl, {
+              headers: { 'User-Agent': 'Mozilla/5.0' },
+              signal: AbortSignal.timeout(8000),
+            });
+            if (!cImgRes.ok) return imageHash; // fallback to hero
+            const cBuf = await cImgRes.arrayBuffer();
+            const cB64 = Buffer.from(cBuf).toString('base64');
+            const cParams = new URLSearchParams();
+            cParams.append('bytes', cB64);
+            cParams.append('name', 'carousel_' + Date.now() + '_' + Math.random());
+            cParams.append('access_token', token);
+            const cRes = await fetch(`${FB_API}/${adAccountId}/adimages`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: cParams,
+            });
+            const cData = await cRes.json();
+            const hash = cData.images?.[Object.keys(cData.images||{})[0]]?.hash;
+            return hash || imageHash;
+          } catch { return imageHash; }
+        })
+      );
+      console.log('Card hashes:', cardHashes.length);
+
       // Carousel creative
       creative = await fb(`/${adAccountId}/adcreatives`, 'POST', {
         name: `${adName} - Creative`,
@@ -144,13 +173,14 @@ export default async function handler(req, res) {
           page_id: pageId,
           link_data: {
             message: primaryText,
-            child_attachments: carouselCards.slice(0, 5).map(card => ({
+            child_attachments: carouselCards.slice(0, 5).map((card, ci) => ({
               link: card.url || destinationUrl,
-              name: card.headline || headline,
-              description: card.description || description,
-              image_hash: imageHash, // Will be per-card in full implementation
+              name: (card.headline || headline)?.slice(0, 40),
+              description: (card.description || description)?.slice(0, 30),
+              image_hash: cardHashes[ci] || imageHash,
+              call_to_action: { type: 'SHOP_NOW', value: { link: card.url || destinationUrl } },
             })),
-            multi_share_optimized: true,
+            multi_share_optimized: false,
           },
         },
       });

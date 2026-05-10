@@ -2028,6 +2028,15 @@ STRICT rules:
         const hl = metaResult.headlines?.[metaActiveVariants?.hl || 0] || '';
         const desc = metaResult.descriptions?.[metaActiveVariants?.d || 0] || '';
         const imgUrl = metaResult.imageVariations?.[activeImageVariant] || metaResult.imageUrl || '';
+        const isCarouselPublish = metaPreviewFormat === 'fb-carousel';
+        const baseCarouselImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(img => !bannedImages.includes(img)).slice(0, 5);
+        const activeCarouselImgsPublish = carouselImages.length > 0 ? carouselImages : baseCarouselImgs;
+        const carouselCards = activeCarouselImgsPublish.map((imgUrl, ci) => ({
+          imageUrl: imgUrl,
+          headline: carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl,
+          description: carouselCardTexts[ci]?.desc || metaResult?.descriptions?.[ci % Math.max((metaResult?.descriptions?.length||1),1)] || desc,
+          url: url,
+        }));
         const doPublish = async () => {
           setMetaConfirmOpen(false);
           setMetaPublishing(true);
@@ -2041,7 +2050,8 @@ STRICT rules:
                 imageUrl: imgUrl, destinationUrl: url,
                 adName: 'AI Ad Studio — ' + (pageMeta?.brand || url),
                 campaignName: 'AI Ad Studio — ' + new Date().toLocaleDateString(),
-                format: 'single',
+                format: isCarouselPublish ? 'carousel' : 'single',
+                carouselCards: isCarouselPublish ? carouselCards : [],
               }),
             });
             const data = await r.json();
@@ -2059,7 +2069,18 @@ STRICT rules:
               <div style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 4 }}>🚀 Publish to Meta Ads Manager</div>
               <div style={{ fontSize: 11, color: '#4a5568', marginBottom: 16 }}>Review your ad below. It will be created as <strong style={{ color: '#fbbf24' }}>PAUSED</strong> — no spend until you activate it in Meta.</div>
               <div style={{ background: 'white', borderRadius: 10, overflow: 'hidden', marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
-                {imgUrl && <img src={imgUrl} alt="Ad preview" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />}
+                {metaPreviewFormat === 'fb-carousel' ? (
+                  <div style={{ display: 'flex', overflowX: 'auto', gap: 2, background: '#f0f2f5' }}>
+                    {(carouselImages.length > 0 ? carouselImages : [metaResult.imageUrl, ...(metaResult.imageVariations||[])].filter(Boolean).slice(0,5)).map((src, ci) => (
+                      <div key={ci} style={{ flexShrink: 0, width: 100 }}>
+                        <img src={src} alt={'Card ' + (ci+1)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
+                        <div style={{ padding: '4px 5px', fontSize: 8, color: '#1c1e21', fontWeight: 700, background: 'white', borderTop: '1px solid #e4e6eb' }}>{(carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl)?.slice(0,18)}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  imgUrl && <img src={imgUrl} alt="Ad preview" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
+                )}
                 <div style={{ padding: '10px 12px' }}>
                   <div style={{ fontSize: 12, color: '#1c1e21', fontWeight: 700, marginBottom: 2 }}>{hl?.slice(0, 40)}</div>
                   <div style={{ fontSize: 11, color: '#65676b', marginBottom: 4 }}>{desc?.slice(0, 60)}</div>
@@ -2070,7 +2091,7 @@ STRICT rules:
                 <div>📍 <strong style={{ color: '#94a3b8' }}>Destination:</strong> {(url||'').slice(0,55)}{(url||'').length>55?'…':''}</div>
                 <div>🌍 <strong style={{ color: '#94a3b8' }}>Targeting:</strong> Denmark, Age 25–65</div>
                 <div>💶 <strong style={{ color: '#94a3b8' }}>Budget:</strong> €10/day — no spend until activated</div>
-                <div>📄 <strong style={{ color: '#94a3b8' }}>Format:</strong> Single image ad (PAUSED)</div>
+                <div>📄 <strong style={{ color: '#94a3b8' }}>Format:</strong> {metaPreviewFormat === 'fb-carousel' ? `Carousel ad (${activeCarouselImgsPublish?.length || 5} cards, PAUSED)` : 'Single image ad (PAUSED)'}</div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={() => setMetaConfirmOpen(false)} style={{ flex: 1, padding: '10px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#7e92a8', cursor: 'pointer' }}>
