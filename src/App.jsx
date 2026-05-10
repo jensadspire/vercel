@@ -637,7 +637,9 @@ function RSAStudio() {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselCardTexts, setCarouselCardTexts] = useState([]); // unique headline per card
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
-  const [carouselPriceMode, setCarouselPriceMode] = useState(false); // toggle: show price vs USP in subline
+  const [carouselPriceMode, setCarouselPriceMode] = useState(false);
+  const [bannedImages, setBannedImages] = useState([]);
+  const [pausedImages, setPausedImages] = useState([]); // toggle: show price vs USP in subline
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   // ── TikTok state ─────────────────────────────────────────────────────────────
   const [tiktokResult, setTiktokResult] = useState(null);
@@ -1572,13 +1574,15 @@ STRICT rules:
                     const secondary = metaData.secondaryImage;
                     const tertiary = metaData.tertiaryImage;
                     const homepage = metaData.homepageImage;
+                    const existingVars = prev.imageVariations || [];
+                    const allScraped = existingVars.length > 6
+                      ? existingVars.filter(img => !aiVariations.includes(img))
+                      : [hero, secondary, tertiary, homepage].filter(Boolean);
                     const variations = [
                       hero,
-                      secondary,
-                      tertiary,
-                      homepage,
+                      ...allScraped,
                       ...aiVariations,
-                    ].filter(Boolean);
+                    ].filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx).slice(0, 16);
                     return {
                       ...prev,
                       imageUrl: prev.imageUrl || variations[0],
@@ -2029,10 +2033,10 @@ STRICT rules:
         const desc = metaResult.descriptions?.[metaActiveVariants?.d || 0] || '';
         const imgUrl = metaResult.imageVariations?.[activeImageVariant] || metaResult.imageUrl || '';
         const isCarouselPublish = metaPreviewFormat === 'fb-carousel';
-        const baseCarouselImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(img => !bannedImages.includes(img)).slice(0, 5);
-        const activeCarouselImgsPublish = carouselImages.length > 0 ? carouselImages : baseCarouselImgs;
-        const carouselCards = activeCarouselImgsPublish.map((imgUrl, ci) => ({
-          imageUrl: imgUrl,
+        const baseCarouselImgsP = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(img => !(bannedImages||[]).includes(img)).slice(0, 5);
+        const activeCarouselImgsP = (carouselImages||[]).length > 0 ? carouselImages : baseCarouselImgsP;
+        const carouselCards = activeCarouselImgsP.map((cImg, ci) => ({
+          imageUrl: cImg,
           headline: carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl,
           description: carouselCardTexts[ci]?.desc || metaResult?.descriptions?.[ci % Math.max((metaResult?.descriptions?.length||1),1)] || desc,
           url: url,
@@ -2071,10 +2075,10 @@ STRICT rules:
               <div style={{ background: 'white', borderRadius: 10, overflow: 'hidden', marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
                 {metaPreviewFormat === 'fb-carousel' ? (
                   <div style={{ display: 'flex', overflowX: 'auto', gap: 2, background: '#f0f2f5' }}>
-                    {(carouselImages.length > 0 ? carouselImages : [metaResult.imageUrl, ...(metaResult.imageVariations||[])].filter(Boolean).slice(0,5)).map((src, ci) => (
+                    {activeCarouselImgsP.map((src, ci) => (
                       <div key={ci} style={{ flexShrink: 0, width: 100 }}>
-                        <img src={src} alt={'Card ' + (ci+1)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
-                        <div style={{ padding: '4px 5px', fontSize: 8, color: '#1c1e21', fontWeight: 700, background: 'white', borderTop: '1px solid #e4e6eb' }}>{(carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl)?.slice(0,18)}</div>
+                        <img src={src} alt={'Card '+(ci+1)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
+                        <div style={{ padding: '3px 5px', fontSize: 8, color: '#1c1e21', fontWeight: 700, background: 'white', borderTop: '1px solid #e4e6eb' }}>{(carouselCardTexts[ci]?.headline || hl)?.slice(0,18)}</div>
                       </div>
                     ))}
                   </div>
@@ -2091,7 +2095,7 @@ STRICT rules:
                 <div>📍 <strong style={{ color: '#94a3b8' }}>Destination:</strong> {(url||'').slice(0,55)}{(url||'').length>55?'…':''}</div>
                 <div>🌍 <strong style={{ color: '#94a3b8' }}>Targeting:</strong> Denmark, Age 25–65</div>
                 <div>💶 <strong style={{ color: '#94a3b8' }}>Budget:</strong> €10/day — no spend until activated</div>
-                <div>📄 <strong style={{ color: '#94a3b8' }}>Format:</strong> {metaPreviewFormat === 'fb-carousel' ? `Carousel ad (${activeCarouselImgsPublish?.length || 5} cards, PAUSED)` : 'Single image ad (PAUSED)'}</div>
+                <div>📄 <strong style={{ color: '#94a3b8' }}>Format:</strong> {metaPreviewFormat === 'fb-carousel' ? `Carousel ad (${activeCarouselImgsP?.length || 5} cards, PAUSED)` : 'Single image ad (PAUSED)'}</div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={() => setMetaConfirmOpen(false)} style={{ flex: 1, padding: '10px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#7e92a8', cursor: 'pointer' }}>
@@ -2433,7 +2437,7 @@ STRICT rules:
                   }}>⚡ Batch</button>
                 )}
                 {/* Generate button — signed in */}
-                <button onClick={generate} disabled={loading || batchRunning} style={{
+                <button data-generate-btn onClick={generate} disabled={loading || batchRunning} style={{
                   padding: '9px 14px', fontSize: 12, fontWeight: 700,
                   background: loading || batchRunning
                     ? 'linear-gradient(135deg,#d97706,#f59e0b)'
@@ -2473,7 +2477,7 @@ STRICT rules:
                   borderRadius: 8, cursor: 'pointer',
                 }}>↺ New URL</button>
               )}
-              <button onClick={generate} disabled={loading || batchRunning} style={{
+              <button data-generate-btn onClick={generate} disabled={loading || batchRunning} style={{
                 padding: '9px 20px', fontSize: 12, fontWeight: 700,
                 background: loading || batchRunning
                   ? 'linear-gradient(135deg,#d97706,#f59e0b)'
@@ -3741,9 +3745,9 @@ STRICT rules:
           {adFormat !== "meta" && (<><div style={S.card}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...S.sectionLabel, margin: 0 }}>Google SERP Preview</span>
-              <button onClick={() => setEditOpen(v => !v)} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: editOpen ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.09)', background: editOpen ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: editOpen ? '#a5b4fc' : '#7e92a8', cursor: 'pointer', transition: 'all 0.15s' }}>
+              {generated && <button onClick={() => setEditOpen(v => !v)} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: editOpen ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.09)', background: editOpen ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: editOpen ? '#a5b4fc' : '#7e92a8', cursor: 'pointer', transition: 'all 0.15s' }}>
                 {editOpen ? '✕ Close editor' : '✎ Edit this ad'}
-              </button>
+              </button>}
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 10, color: "#8fa3b8", fontStyle: "italic" }}>Shows first 3 headlines · first 2 descriptions</span>
                 {rows.filter(r => r.headlines.some(h => h.text)).length > 1 && (
