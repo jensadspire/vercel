@@ -2125,8 +2125,6 @@ STRICT rules:
               </div>
               <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <div>📍 <strong style={{ color: '#94a3b8' }}>Destination:</strong> {(url||'').slice(0,55)}{(url||'').length>55?'…':''}</div>
-                <div>🌍 <strong style={{ color: '#94a3b8' }}>Targeting:</strong> Denmark, Age 25–65</div>
-                <div>💶 <strong style={{ color: '#94a3b8' }}>Budget:</strong> €10/day — no spend until activated</div>
                 <div>📄 <strong style={{ color: '#94a3b8' }}>Format:</strong> {metaPreviewFormat === 'fb-carousel' ? `Carousel ad (${activeCarouselImgsP?.length || 5} cards, PAUSED)` : 'Single image ad (PAUSED)'}</div>
               </div>
               </>}
@@ -2155,6 +2153,18 @@ STRICT rules:
                       </div>
                     </div>
                   ))}
+                  {/* Targeting mode toggle — shown when existing campaign/adset selected */}
+                  {metaPlacement !== 'new' && (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6, marginBottom: 6 }}>
+                      <button onClick={() => setTargetPlacements('automatic')} style={{ flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: 'none', cursor: 'pointer', background: targetPlacements === 'automatic' ? 'rgba(24,119,242,0.2)' : 'rgba(255,255,255,0.05)', color: targetPlacements === 'automatic' ? '#60a5fa' : '#4a5568', textAlign: 'left' }}>
+                        📋 Apply existing targeting settings
+                      </button>
+                      <button onClick={() => setTargetPlacements('manual')} style={{ flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: 'none', cursor: 'pointer', background: targetPlacements === 'manual' ? 'rgba(24,119,242,0.2)' : 'rgba(255,255,255,0.05)', color: targetPlacements === 'manual' ? '#60a5fa' : '#4a5568', textAlign: 'left' }}>
+                        ✎ Customise targeting
+                      </button>
+                    </div>
+                  )}
+
                   {/* Campaign dropdown */}
                   {metaPlacement !== 'new' && (
                     <div style={{ marginTop: 10 }}>
@@ -2206,11 +2216,11 @@ STRICT rules:
 
                   {/* Budget */}
                   <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 6 }}>💶 Daily budget</div>
+                    <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 6 }}>💶 Daily budget <span style={{ color: '#4a5568' }}>— currency applied automatically from your account</span></div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       {[1000, 2000, 5000, 10000, 100000].map(b => (
                         <button key={b} onClick={() => setTargetBudget(b)} style={{ padding: '5px 10px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: 'none', cursor: 'pointer', background: targetBudget === b ? '#1877f2' : 'rgba(255,255,255,0.07)', color: targetBudget === b ? 'white' : '#7e92a8' }}>
-                          €{b/100}
+                          {b/100}
                         </button>
                       ))}
                     </div>
