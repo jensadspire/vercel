@@ -633,13 +633,11 @@ function RSAStudio() {
   const [metaExportCopied, setMetaExportCopied] = useState(false);
   const [metaPublishing, setMetaPublishing] = useState(false);
   const [metaPublishResult, setMetaPublishResult] = useState(null);
+  const [metaConfirmOpen, setMetaConfirmOpen] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselCardTexts, setCarouselCardTexts] = useState([]); // unique headline per card
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
-  const [carouselPriceMode, setCarouselPriceMode] = useState(false);
-  const [carouselExpanded, setCarouselExpanded] = useState(false); // toggle: show price vs USP in subline
-  const [bannedImages, setBannedImages] = useState([]); // permanently removed from carousel
-  const [pausedImages, setPausedImages] = useState([]); // temporarily deprioritised
+  const [carouselPriceMode, setCarouselPriceMode] = useState(false); // toggle: show price vs USP in subline
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   // ── TikTok state ─────────────────────────────────────────────────────────────
   const [tiktokResult, setTiktokResult] = useState(null);
@@ -654,36 +652,6 @@ function RSAStudio() {
   const [videoEngine, setVideoEngine] = useState('kling'); // 'kling' | 'runway'
   // Keep ref in sync so async handlers always get current value
   useEffect(() => { videoEngineRef.current = videoEngine; }, [videoEngine]);
-
-  // ── Magic link: read ?url= and ?autorun=true from URL params ─────────────
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const magicUrl = params.get('url');
-      const autorun = params.get('autorun') === 'true';
-      const magicTab = params.get('tab'); // 'rsa' | 'meta' | 'tiktok'
-      if (magicUrl) {
-        setUrl(magicUrl);
-        // Switch to requested tab
-        if (magicTab === 'meta') {
-          setAdFormat('meta');
-          setGenerateMeta(true);
-        } else if (magicTab === 'tiktok') {
-          setAdFormat('tiktok');
-          setGenerateTiktok(true);
-        }
-        // Clean URL params without reload
-        const clean = window.location.pathname;
-        window.history.replaceState({}, '', clean);
-        if (autorun) {
-          setTimeout(() => {
-            const btn = document.querySelector('[data-generate-btn]');
-            if (btn) btn.click();
-          }, 800);
-        }
-      }
-    } catch (_) {}
-  }, []);
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
@@ -1604,16 +1572,13 @@ STRICT rules:
                     const secondary = metaData.secondaryImage;
                     const tertiary = metaData.tertiaryImage;
                     const homepage = metaData.homepageImage;
-                    // Preserve existing large tray — only rebuild if small
-                    const existingVars = prev.imageVariations || [];
-                    const allScraped = existingVars.length > 6
-                      ? existingVars.filter(img => !aiVariations.includes(img))
-                      : [hero, secondary, tertiary, homepage].filter(Boolean);
                     const variations = [
                       hero,
-                      ...allScraped,
+                      secondary,
+                      tertiary,
+                      homepage,
                       ...aiVariations,
-                    ].filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx).slice(0, 16);
+                    ].filter(Boolean);
                     return {
                       ...prev,
                       imageUrl: prev.imageUrl || variations[0],
@@ -2057,6 +2022,68 @@ STRICT rules:
       flexDirection: "column",
       minHeight: "100vh",
     }}>
+      {/* ── Meta Publish Confirmation Modal ── */}
+      {metaConfirmOpen && metaResult && (() => {
+        const pt = metaResult.primaryTexts?.[metaActiveVariants?.pt || 0] || '';
+        const hl = metaResult.headlines?.[metaActiveVariants?.hl || 0] || '';
+        const desc = metaResult.descriptions?.[metaActiveVariants?.d || 0] || '';
+        const imgUrl = metaResult.imageVariations?.[activeImageVariant] || metaResult.imageUrl || '';
+        const doPublish = async () => {
+          setMetaConfirmOpen(false);
+          setMetaPublishing(true);
+          setMetaPublishResult(null);
+          try {
+            const r = await fetch('/api/meta-publish', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                headline: hl, primaryText: pt, description: desc,
+                imageUrl: imgUrl, destinationUrl: url,
+                adName: 'AI Ad Studio — ' + (pageMeta?.brand || url),
+                campaignName: 'AI Ad Studio — ' + new Date().toLocaleDateString(),
+                format: 'single',
+              }),
+            });
+            const data = await r.json();
+            setMetaPublishResult(data.success
+              ? { success: true, url: data.adsManagerUrl }
+              : { success: false, error: data.error });
+          } catch (err) {
+            setMetaPublishResult({ success: false, error: err.message });
+          }
+          setMetaPublishing(false);
+        };
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ background: '#1a1f2e', borderRadius: 14, padding: 24, maxWidth: 460, width: '100%', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 4 }}>🚀 Publish to Meta Ads Manager</div>
+              <div style={{ fontSize: 11, color: '#4a5568', marginBottom: 16 }}>Review your ad below. It will be created as <strong style={{ color: '#fbbf24' }}>PAUSED</strong> — no spend until you activate it in Meta.</div>
+              <div style={{ background: 'white', borderRadius: 10, overflow: 'hidden', marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
+                {imgUrl && <img src={imgUrl} alt="Ad preview" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />}
+                <div style={{ padding: '10px 12px' }}>
+                  <div style={{ fontSize: 12, color: '#1c1e21', fontWeight: 700, marginBottom: 2 }}>{hl?.slice(0, 40)}</div>
+                  <div style={{ fontSize: 11, color: '#65676b', marginBottom: 4 }}>{desc?.slice(0, 60)}</div>
+                  <div style={{ fontSize: 11, color: '#1c1e21', lineHeight: 1.4 }}>{pt?.slice(0, 120)}{pt?.length > 120 ? '…' : ''}</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <div>📍 <strong style={{ color: '#94a3b8' }}>Destination:</strong> {(url||'').slice(0,55)}{(url||'').length>55?'…':''}</div>
+                <div>🌍 <strong style={{ color: '#94a3b8' }}>Targeting:</strong> Denmark, Age 25–65</div>
+                <div>💶 <strong style={{ color: '#94a3b8' }}>Budget:</strong> €10/day — no spend until activated</div>
+                <div>📄 <strong style={{ color: '#94a3b8' }}>Format:</strong> Single image ad (PAUSED)</div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setMetaConfirmOpen(false)} style={{ flex: 1, padding: '10px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#7e92a8', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button onClick={doPublish} style={{ flex: 2, padding: '10px', fontSize: 11, fontWeight: 800, background: 'linear-gradient(135deg,#1877f2,#0a5dc2)', border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer' }}>
+                  ✓ Confirm & Publish to Meta
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
 
       {/* ── Top Bar ── */}
@@ -2385,7 +2412,7 @@ STRICT rules:
                   }}>⚡ Batch</button>
                 )}
                 {/* Generate button — signed in */}
-                <button data-generate-btn onClick={generate} disabled={loading || batchRunning} style={{
+                <button onClick={generate} disabled={loading || batchRunning} style={{
                   padding: '9px 14px', fontSize: 12, fontWeight: 700,
                   background: loading || batchRunning
                     ? 'linear-gradient(135deg,#d97706,#f59e0b)'
@@ -2425,7 +2452,7 @@ STRICT rules:
                   borderRadius: 8, cursor: 'pointer',
                 }}>↺ New URL</button>
               )}
-              <button data-generate-btn onClick={generate} disabled={loading || batchRunning} style={{
+              <button onClick={generate} disabled={loading || batchRunning} style={{
                 padding: '9px 20px', fontSize: 12, fontWeight: 700,
                 background: loading || batchRunning
                   ? 'linear-gradient(135deg,#d97706,#f59e0b)'
@@ -3693,9 +3720,9 @@ STRICT rules:
           {adFormat !== "meta" && (<><div style={S.card}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...S.sectionLabel, margin: 0 }}>Google SERP Preview</span>
-              {generated && <button onClick={() => setEditOpen(v => !v)} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: editOpen ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.09)', background: editOpen ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: editOpen ? '#a5b4fc' : '#7e92a8', cursor: 'pointer', transition: 'all 0.15s' }}>
+              <button onClick={() => setEditOpen(v => !v)} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: editOpen ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.09)', background: editOpen ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: editOpen ? '#a5b4fc' : '#7e92a8', cursor: 'pointer', transition: 'all 0.15s' }}>
                 {editOpen ? '✕ Close editor' : '✎ Edit this ad'}
-              </button>}
+              </button>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 10, color: "#8fa3b8", fontStyle: "italic" }}>Shows first 3 headlines · first 2 descriptions</span>
                 {rows.filter(r => r.headlines.some(h => h.text)).length > 1 && (
@@ -3820,7 +3847,7 @@ STRICT rules:
                 <span style={{ ...S.sectionLabel, margin: 0 }}>Meta Ad Preview</span>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {['fb-feed','ig-feed','fb-carousel'].map(fmt => (
-                    <button key={fmt} onClick={() => { setMetaPreviewFormat(fmt); setCarouselExpanded(false); }} style={{
+                    <button key={fmt} onClick={() => setMetaPreviewFormat(fmt)} style={{
                       fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 5,
                       border: 'none', cursor: 'pointer',
                       background: metaPreviewFormat === fmt ? 'linear-gradient(135deg,#0ea5e9,#6366f1)' : 'rgba(255,255,255,0.06)',
@@ -3854,25 +3881,7 @@ STRICT rules:
                     </div>
                   )}
                   {metaResult.imageUrl && (
-                    <div style={{ position: 'relative' }}>
-                      <img src={metaResult.imageVariations?.[activeImageVariant] || metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: metaPreviewFormat === 'ig-feed' ? '4/5' : '1', objectFit: 'cover', objectPosition: 'center top', background: '#f0f2f5', display: 'block' }} />
-                      {/* Prev/Next arrows */}
-                      {metaResult.imageVariations?.length > 1 && (
-                        <>
-                          {activeImageVariant > 0 && (
-                            <button onClick={() => setActiveImageVariant(i => i - 1)} style={{ position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
-                          )}
-                          {activeImageVariant < metaResult.imageVariations.length - 1 && (
-                            <button onClick={() => setActiveImageVariant(i => i + 1)} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
-                          )}
-                          {/* Image counter + view all link */}
-                          <div style={{ position: 'absolute', bottom: 6, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px' }}>
-                            <span style={{ fontSize: 9, color: 'white', background: 'rgba(0,0,0,0.45)', borderRadius: 4, padding: '2px 6px' }}>{activeImageVariant + 1} / {metaResult.imageVariations.length}</span>
-                            <button onClick={() => { const tray = document.getElementById('meta-thumbnail-tray'); if (tray) tray.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} style={{ fontSize: 9, color: 'white', background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: 4, padding: '2px 6px', cursor: 'pointer' }}>⊞ View all assets</button>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                    <img src={metaResult.imageUrl} alt='Meta ad' style={{ width: '100%', aspectRatio: '1', objectFit: 'contain', background: '#f0f2f5', display: 'block' }} />
                   )}
                   {/* TikTok hint */}
                   {generateTiktok && tiktokResult && !tiktokLoading && (
@@ -4354,7 +4363,7 @@ STRICT rules:
                   return (
                     <div style={{ display: "flex", justifyContent: "center" }}>
                       {isCarousel ? (
-                        <div style={{ width: carouselExpanded ? (activeCarouselImgs.length * 214 + 20) : 280, background: "white", borderRadius: 10, overflow: carouselExpanded ? "visible" : "hidden", transition: "width 0.3s ease", fontFamily: "sans-serif", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
+                        <div style={{ width: 280, background: "white", borderRadius: 10, overflow: "hidden", fontFamily: "sans-serif", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
                           {/* Carousel header */}
                           <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}>
                             <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1877f2", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
@@ -4376,8 +4385,8 @@ STRICT rules:
                             </div>
                           )}
                           {/* Carousel slides */}
-                          <div id="carousel-outer" style={{ position: "relative", overflow: carouselExpanded ? "visible" : "hidden" }}>
-                            <div id="carousel-scroll" style={{ display: "flex", transition: carouselExpanded ? "none" : "transform 0.3s ease", transform: carouselExpanded ? "none" : `translateX(-${carouselIndex * 220}px)`, gap: 4, padding: "0 0 0 4px" }}>
+                          <div style={{ position: "relative", overflow: "hidden" }}>
+                            <div style={{ display: "flex", transition: "transform 0.3s ease", transform: `translateX(-${carouselIndex * 220}px)`, gap: 4, padding: "0 0 0 4px" }}>
                               {activeCarouselImgs.map((imgUrl, ci) => (
                                 <div key={ci} style={{ flexShrink: 0, width: 210, background: "#f0f2f5" }}>
                                   <div style={{ position: "relative" }}>
@@ -4391,18 +4400,7 @@ STRICT rules:
                                     const newImgs = [...activeCarouselImgs];
                                     newImgs[ci] = nextImg;
                                     setCarouselImages(newImgs);
-                                  }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.55)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Ban this image from carousel">×</button>
-                                  <button onClick={(e) => {
-                                    e.stopPropagation();
-                                    const allImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(img => !bannedImages.includes(img));
-                                    const nextImg = allImgs.find(img => img !== imgUrl && !activeCarouselImgs.includes(img));
-                                    if (nextImg) {
-                                      const newImgs = [...activeCarouselImgs];
-                                      newImgs[ci] = nextImg;
-                                      setCarouselImages(newImgs);
-                                      setPausedImages(prev => [...prev.filter(i => i !== imgUrl), imgUrl]);
-                                    }
-                                  }} style={{ position: "absolute", top: 4, right: 28, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.55)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Exchange this image and keep for later use">⇄</button>
+                                  }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.5)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
                                 </div>
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl || "Discover More").slice(0, 22)}</div>
@@ -4433,16 +4431,7 @@ STRICT rules:
                           </div>
                           {/* CTA bar */}
                           <div style={{ padding: "8px 12px", borderTop: "1px solid #e4e6eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <button onClick={(e) => { e.stopPropagation();
-                              if (carouselExpanded) {
-                                setCarouselExpanded(false);
-                                setCarouselIndex(0);
-                              } else {
-                                setCarouselExpanded(true);
-                              }
-                            }} style={{ fontSize: 10, color: "#1877f2", cursor: "pointer", fontWeight: 600, background: "none", border: "none", padding: 0, textDecoration: "underline" }}>
-                              {carouselExpanded ? '← Collapse' : '↔ View all cards'}
-                            </button>
+                            <span style={{ fontSize: 10, color: "#65676b" }}>See all cards</span>
                             <button style={{ padding: "5px 12px", background: "#e4e6eb", border: "none", borderRadius: 5, fontSize: 10, fontWeight: 700, color: "#1c1e21", cursor: "pointer" }}>Shop Now</button>
                           </div>
                         </div>
@@ -4757,28 +4746,7 @@ STRICT rules:
                         const hl = metaResult.headlines?.[metaActiveVariants?.hl || 0] || '';
                         const desc = metaResult.descriptions?.[metaActiveVariants?.d || 0] || '';
                         const imgUrl = metaResult.imageVariations?.[activeImageVariant] || metaResult.imageUrl || '';
-                        const exportText = [
-                          '=== META AD EXPORT ===',
-                          '',
-                          `PRIMARY TEXT: ${pt}`,
-                          '',
-                          `HEADLINE: ${hl}`,
-                          '',
-                          `DESCRIPTION: ${desc}`,
-                          '',
-                          `IMAGE URL: ${imgUrl}`,
-                          '',
-                          `DESTINATION URL: ${url}`,
-                          '',
-                          '--- All Headlines ---',
-                          ...(metaResult.headlines || []).map((h, i) => `${i+1}. ${h}`),
-                          '',
-                          '--- All Primary Texts ---',
-                          ...(metaResult.primaryTexts || []).map((p, i) => `${i+1}. ${p}`),
-                          '',
-                          '--- All Descriptions ---',
-                          ...(metaResult.descriptions || []).map((d, i) => `${i+1}. ${d}`),
-                        ].join('\n');
+                        const exportText = ['=== META AD EXPORT ===','',`PRIMARY TEXT: ${pt}`,`HEADLINE: ${hl}`,`DESCRIPTION: ${desc}`,`IMAGE URL: ${imgUrl}`,`DESTINATION URL: ${url}`,'','--- All Headlines ---',...(metaResult.headlines||[]).map((h,i)=>`${i+1}. ${h}`),'','--- All Primary Texts ---',...(metaResult.primaryTexts||[]).map((p,i)=>`${i+1}. ${p}`),'','--- All Descriptions ---',...(metaResult.descriptions||[]).map((d,i)=>`${i+1}. ${d}`)].join('\n');
                         navigator.clipboard.writeText(exportText);
                         setMetaExportCopied(true);
                         setTimeout(() => setMetaExportCopied(false), 3000);
@@ -4786,44 +4754,10 @@ STRICT rules:
                         {metaExportCopied ? '✓ Copied — ready for Meta Ads Manager' : '📋 Copy Full Meta Ad Export'}
                       </button>
                     )}
-
                     {/* Publish to Meta button */}
                     {metaResult && (
                       <div style={{ marginBottom: 8 }}>
-                        <button onClick={async () => {
-                          if (metaPublishing) return;
-                          setMetaPublishing(true);
-                          setMetaPublishResult(null);
-                          try {
-                            const pt = metaResult.primaryTexts?.[metaActiveVariants?.pt || 0] || '';
-                            const hl = metaResult.headlines?.[metaActiveVariants?.hl || 0] || '';
-                            const desc = metaResult.descriptions?.[metaActiveVariants?.d || 0] || '';
-                            const imgUrl = metaResult.imageVariations?.[activeImageVariant] || metaResult.imageUrl || '';
-                            const r = await fetch('/api/meta-publish', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                headline: hl,
-                                primaryText: pt,
-                                description: desc,
-                                imageUrl: imgUrl,
-                                destinationUrl: url,
-                                adName: `AI Ad Studio — ${pageMeta?.brand || url}`,
-                                campaignName: `AI Ad Studio — ${new Date().toLocaleDateString()}`,
-                                format: 'single',
-                              }),
-                            });
-                            const data = await r.json();
-                            if (data.success) {
-                              setMetaPublishResult({ success: true, url: data.adsManagerUrl });
-                            } else {
-                              setMetaPublishResult({ success: false, error: data.error });
-                            }
-                          } catch (err) {
-                            setMetaPublishResult({ success: false, error: err.message });
-                          }
-                          setMetaPublishing(false);
-                        }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaPublishing ? 'rgba(24,119,242,0.05)' : 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 6, color: '#60a5fa', cursor: metaPublishing ? 'default' : 'pointer', transition: 'all 0.3s' }}>
+                        <button onClick={() => { if (!metaPublishing) setMetaConfirmOpen(true); }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaPublishing ? 'rgba(24,119,242,0.05)' : 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 6, color: '#60a5fa', cursor: metaPublishing ? 'default' : 'pointer', transition: 'all 0.3s' }}>
                           {metaPublishing ? '⟳ Publishing to Meta...' : '🚀 Publish to Meta Ads Manager'}
                         </button>
                         {metaPublishResult?.success && (
