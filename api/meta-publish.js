@@ -144,7 +144,7 @@ export default async function handler(req, res) {
           age_max: ageMax,
           ...(useAdvantage ? {} : {
             publisher_platforms: ['facebook', 'instagram'],
-            facebook_positions: ['feed', 'story', 'reels'],
+            facebook_positions: ['feed', 'story', 'facebook_reels'],
             instagram_positions: ['stream', 'story', 'reels'],
           }),
         },
