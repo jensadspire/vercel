@@ -635,6 +635,7 @@ function RSAStudio() {
   const [metaPublishResult, setMetaPublishResult] = useState(null);
   const [metaConfirmOpen, setMetaConfirmOpen] = useState(false);
   const [metaModalStep, setMetaModalStep] = useState(1); // 1=preview, 2=placement
+  const [metaPublishFormat, setMetaPublishFormat] = useState('image'); // 'image' | 'carousel' | 'video'
   const [metaPlacement, setMetaPlacement] = useState('new'); // 'new' | 'existing_campaign' | 'existing_adset'
   const [metaCampaigns, setMetaCampaigns] = useState([]);
   const [metaAdSets, setMetaAdSets] = useState([]);
@@ -2040,13 +2041,25 @@ STRICT rules:
       minHeight: "100vh",
     }}>
       {/* ── Meta Publish Confirmation Modal ── */}
-      {metaConfirmOpen && metaResult && (() => {
-        const pt = metaResult.primaryTexts?.[metaActiveVariants?.pt || 0] || '';
-        const hl = metaResult.headlines?.[metaActiveVariants?.hl || 0] || '';
-        const desc = metaResult.descriptions?.[metaActiveVariants?.d || 0] || '';
-        const imgUrl = metaResult.imageVariations?.[activeImageVariant] || metaResult.imageUrl || '';
-        const isCarouselPublish = metaPreviewFormat === 'fb-carousel';
-        const baseCarouselImgsP = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(img => !(bannedImages||[]).includes(img)).slice(0, 5);
+      {metaConfirmOpen && (metaResult || (metaPublishFormat === 'video' && tiktokVideoUrl)) && (() => {
+        const isVideoPublish = metaPublishFormat === 'video';
+        // For video: prefer Meta copy, fall back to TikTok copy
+        const pt = isVideoPublish
+          ? (metaResult?.primaryTexts?.[metaActiveVariants?.pt || 0] || tiktokResult?.primaryText || '')
+          : (metaResult?.primaryTexts?.[metaActiveVariants?.pt || 0] || '');
+        const hl = isVideoPublish
+          ? (metaResult?.headlines?.[metaActiveVariants?.hl || 0] || tiktokResult?.hookLine || '')
+          : (metaResult?.headlines?.[metaActiveVariants?.hl || 0] || '');
+        const desc = isVideoPublish
+          ? (metaResult?.descriptions?.[metaActiveVariants?.d || 0] || tiktokResult?.cta || '')
+          : (metaResult?.descriptions?.[metaActiveVariants?.d || 0] || '');
+        const imgUrl = metaResult?.imageVariations?.[activeImageVariant] || metaResult?.imageUrl || '';
+        // Video thumbnail: use the starting image (tiktokSourceImageRef) when available
+        const videoThumbUrl = isVideoPublish
+          ? (tiktokSourceImageRef.current || imgUrl || '')
+          : '';
+        const isCarouselPublish = metaPublishFormat === 'carousel' || (metaPreviewFormat === 'fb-carousel' && !isVideoPublish);
+        const baseCarouselImgsP = [metaResult?.imageUrl, ...(metaResult?.imageVariations || [])].filter(Boolean).filter(img => !(bannedImages||[]).includes(img)).slice(0, 5);
         const activeCarouselImgsP = (carouselImages||[]).length > 0 ? carouselImages : baseCarouselImgsP;
         const carouselCards = activeCarouselImgsP.map((cImg, ci) => ({
           imageUrl: cImg,
@@ -2064,10 +2077,12 @@ STRICT rules:
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 headline: hl, primaryText: pt, description: desc,
-                imageUrl: imgUrl, destinationUrl: url,
-                adName: 'AI Ad Studio — ' + (pageMeta?.brand || url),
+                imageUrl: isVideoPublish ? videoThumbUrl : imgUrl,
+                videoUrl: isVideoPublish ? tiktokVideoUrl : null,
+                destinationUrl: url,
+                adName: 'AI Ad Studio — ' + (pageMeta?.brand || url) + (isVideoPublish ? ' (Video)' : ''),
                 campaignName: 'AI Ad Studio — ' + new Date().toLocaleDateString(),
-                format: isCarouselPublish ? 'carousel' : 'single',
+                format: isVideoPublish ? 'video' : (isCarouselPublish ? 'carousel' : 'single'),
                 carouselCards: isCarouselPublish ? carouselCards : [],
                 existingCampaignId: metaPlacement !== 'new' ? selectedCampaignId : null,
                 existingAdSetId: metaPlacement === 'existing_adset' ? selectedAdSetId : null,
@@ -2094,7 +2109,7 @@ STRICT rules:
             <div style={{ background: '#1a1f2e', borderRadius: 14, padding: 24, maxWidth: 460, width: '100%', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
               {/* Step indicator */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>🚀 Publish to Meta</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>{isVideoPublish ? '🎬 Publish Video to Meta' : '🚀 Publish to Meta'}</div>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
                   {[1,2].map(s => (
                     <div key={s} style={{ width: 24, height: 4, borderRadius: 2, background: metaModalStep >= s ? '#1877f2' : 'rgba(255,255,255,0.1)' }} />
@@ -2106,7 +2121,11 @@ STRICT rules:
               </div>
               {metaModalStep === 1 && <>
               <div style={{ background: 'white', borderRadius: 10, overflow: 'hidden', marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
-                {metaPreviewFormat === 'fb-carousel' ? (
+                {isVideoPublish ? (
+                  <div style={{ background: '#000', display: 'flex', justifyContent: 'center' }}>
+                    <video src={tiktokVideoUrl} controls poster={videoThumbUrl || undefined} style={{ width: '100%', maxWidth: 240, aspectRatio: '9/16', objectFit: 'cover', display: 'block' }} />
+                  </div>
+                ) : metaPreviewFormat === 'fb-carousel' ? (
                   <div style={{ display: 'flex', overflowX: 'auto', gap: 2, background: '#f0f2f5' }}>
                     {activeCarouselImgsP.map((src, ci) => (
                       <div key={ci} style={{ flexShrink: 0, width: 100 }}>
@@ -2126,7 +2145,7 @@ STRICT rules:
               </div>
               <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <div>📍 <strong style={{ color: '#94a3b8' }}>Destination:</strong> {(url||'').slice(0,55)}{(url||'').length>55?'…':''}</div>
-                <div>📄 <strong style={{ color: '#94a3b8' }}>Format:</strong> {metaPreviewFormat === 'fb-carousel' ? `Carousel ad (${activeCarouselImgsP?.length || 5} cards, PAUSED)` : 'Single image ad (PAUSED)'}</div>
+                <div>📄 <strong style={{ color: '#94a3b8' }}>Format:</strong> {isVideoPublish ? 'Video ad (9:16, PAUSED)' : metaPreviewFormat === 'fb-carousel' ? `Carousel ad (${activeCarouselImgsP?.length || 5} cards, PAUSED)` : 'Single image ad (PAUSED)'}</div>
               </div>
               </>}
               {/* Step 2 — Placement selector */}
@@ -4948,6 +4967,7 @@ STRICT rules:
                     {metaResult && (
                       <div style={{ marginBottom: 8 }}>
                         <button onClick={() => { if (!metaPublishing) {
+  setMetaPublishFormat(metaPreviewFormat === 'fb-carousel' ? 'carousel' : 'image');
   setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new');
   setSelectedCampaignId(''); setSelectedAdSetId('');
   // Auto-detect country from URL TLD
@@ -4955,15 +4975,15 @@ STRICT rules:
   const tld = Object.keys(tldMap).find(t => (url||'').includes(t));
   setTargetCountries(tld ? [tldMap[tld]] : ['DK']);
 } }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaPublishing ? 'rgba(24,119,242,0.05)' : 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 6, color: '#60a5fa', cursor: metaPublishing ? 'default' : 'pointer', transition: 'all 0.3s' }}>
-                          {metaPublishing ? '⟳ Publishing to Meta...' : '🚀 Publish to Meta Ads Manager'}
+                          {metaPublishing && metaPublishFormat !== 'video' ? '⟳ Publishing to Meta...' : '🚀 Publish to Meta Ads Manager'}
                         </button>
-                        {metaPublishResult?.success && (
+                        {metaPublishResult?.success && metaPublishFormat !== 'video' && (
                           <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6 }}>
                             <div style={{ fontSize: 10, color: '#34d399', fontWeight: 700 }}>✅ Ad created as PAUSED in Meta Ads Manager</div>
                             <a href={metaPublishResult.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#60a5fa' }}>→ Review and activate in Ads Manager</a>
                           </div>
                         )}
-                        {metaPublishResult?.error && (
+                        {metaPublishResult?.error && metaPublishFormat !== 'video' && (
                           <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6 }}>
                             <div style={{ fontSize: 10, color: '#f87171' }}>❌ {metaPublishResult.error}</div>
                           </div>
@@ -6225,6 +6245,31 @@ STRICT rules:
                 {tiktokVideoUrl ? (
                   <div>
                     <video src={tiktokVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
+                    {/* ── Publish Video to Meta ── */}
+                    <div style={{ marginTop: 12 }}>
+                      <button onClick={() => { if (!metaPublishing) {
+                        setMetaPublishFormat('video');
+                        setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new');
+                        setSelectedCampaignId(''); setSelectedAdSetId('');
+                        // Auto-detect country from URL TLD
+                        const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB', '.com': 'US' };
+                        const tld = Object.keys(tldMap).find(t => (url||'').includes(t));
+                        setTargetCountries(tld ? [tldMap[tld]] : ['DK']);
+                      } }} style={{ width: '100%', maxWidth: 280, padding: '9px', fontSize: 11, fontWeight: 700, background: metaPublishing ? 'rgba(24,119,242,0.05)' : 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 8, color: '#60a5fa', cursor: metaPublishing ? 'default' : 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        {metaPublishing && metaPublishFormat === 'video' ? '⟳ Publishing video to Meta…' : '🎬 Publish Video to Meta Ads Manager'}
+                      </button>
+                      {metaPublishResult?.success && metaPublishFormat === 'video' && (
+                        <div style={{ marginTop: 6, maxWidth: 280, padding: '8px 10px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6 }}>
+                          <div style={{ fontSize: 10, color: '#34d399', fontWeight: 700 }}>✅ Video ad created as PAUSED</div>
+                          <a href={metaPublishResult.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#60a5fa' }}>→ Review and activate in Ads Manager</a>
+                        </div>
+                      )}
+                      {metaPublishResult?.error && metaPublishFormat === 'video' && (
+                        <div style={{ marginTop: 6, maxWidth: 280, padding: '8px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6 }}>
+                          <div style={{ fontSize: 10, color: '#f87171' }}>❌ {metaPublishResult.error}</div>
+                        </div>
+                      )}
+                    </div>
                     {/* ── Enhance with branding ── */}
                     <div style={{ marginTop: 12, padding: '12px 14px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: enhanceOpen ? 12 : 0 }}>

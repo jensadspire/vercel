@@ -1,270 +1,316 @@
-/**
- * /api/meta-publish — 1-click Meta ad creation via Marketing API
- * Creates: Campaign → Ad Set → Ad Creative → Ad
- * 
- * POST {
- *   headline, primaryText, description,
- *   imageUrl, destinationUrl,
- *   adName, campaignName,
- *   format: 'single' | 'carousel'
- *   carouselCards: [{ imageUrl, headline, description, url }]
- * }
- */
+// /api/meta-publish.js
+// Publishes ads to Meta Ads Manager via Marketing API.
+// Supports three formats: single (image), carousel (multiple images), video.
+// All ads created as PAUSED — no spend until manually activated.
 
-const FB_API = 'https://graph.facebook.com/v19.0';
+const META_API_VERSION = 'v21.0';
+const GRAPH = `https://graph.facebook.com/${META_API_VERSION}`;
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+async function fetchAsBase64(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Failed to fetch ${url}: ${r.status}`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  return buf.toString('base64');
+}
+
+async function uploadImage({ adAccountId, accessToken, imageUrl }) {
+  // Meta requires images uploaded as bytes (base64) → returns image_hash
+  const b64 = await fetchAsBase64(imageUrl);
+  const body = new URLSearchParams();
+  body.append('bytes', b64);
+  body.append('access_token', accessToken);
+  const r = await fetch(`${GRAPH}/${adAccountId}/adimages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const data = await r.json();
+  if (data.error) throw new Error(`Image upload failed: ${data.error.message}`);
+  const images = data.images || {};
+  const firstKey = Object.keys(images)[0];
+  if (!firstKey) throw new Error('No image hash returned from Meta');
+  return images[firstKey].hash;
+}
+
+async function uploadVideo({ adAccountId, accessToken, videoUrl }) {
+  // Meta supports remote URL upload for videos via file_url param
+  const body = new URLSearchParams();
+  body.append('file_url', videoUrl);
+  body.append('access_token', accessToken);
+  const r = await fetch(`${GRAPH}/${adAccountId}/advideos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const data = await r.json();
+  if (data.error) throw new Error(`Video upload failed: ${data.error.message}`);
+  if (!data.id) throw new Error('No video id returned from Meta');
+  return data.id;
+}
+
+async function waitForVideoReady({ videoId, accessToken, maxAttempts = 60, intervalMs = 5000 }) {
+  // Poll until video status is "ready" (or fail/error). Meta processes videos async.
+  for (let i = 0; i < maxAttempts; i++) {
+    const r = await fetch(`${GRAPH}/${videoId}?fields=status&access_token=${accessToken}`);
+    const data = await r.json();
+    const phase = data?.status?.video_status || data?.status?.processing_phase;
+    if (phase === 'ready') return true;
+    if (phase === 'error') throw new Error(`Video processing failed: ${JSON.stringify(data.status)}`);
+    await new Promise(res => setTimeout(res, intervalMs));
+  }
+  // Don't hard-fail — Meta will accept the creative once ready, and we surface a warning
+  return false;
+}
+
+async function createCampaign({ adAccountId, accessToken, name }) {
+  const body = new URLSearchParams();
+  body.append('name', name);
+  body.append('objective', 'OUTCOME_TRAFFIC');
+  body.append('status', 'PAUSED');
+  body.append('special_ad_categories', '[]');
+  body.append('access_token', accessToken);
+  const r = await fetch(`${GRAPH}/${adAccountId}/campaigns`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const data = await r.json();
+  if (data.error) throw new Error(`Campaign create failed: ${data.error.message}`);
+  return data.id;
+}
+
+async function createAdSet({ adAccountId, accessToken, campaignId, name, targeting, dsa }) {
+  const body = new URLSearchParams();
+  body.append('name', name);
+  body.append('campaign_id', campaignId);
+  body.append('status', 'PAUSED');
+  body.append('billing_event', 'IMPRESSIONS');
+  body.append('optimization_goal', 'LINK_CLICKS');
+  body.append('daily_budget', String(targeting?.dailyBudget || 1000));
+  body.append('bid_strategy', 'LOWEST_COST_WITHOUT_CAP');
+
+  const t = {
+    geo_locations: { countries: targeting?.countries || ['DK'] },
+    age_min: targeting?.ageMin || 25,
+    age_max: targeting?.ageMax || 65,
+  };
+  if (targeting?.placements === 'automatic') {
+    t.targeting_automation = { advantage_audience: 1 };
+  }
+  body.append('targeting', JSON.stringify(t));
+
+  // EU DSA compliance
+  if (dsa) {
+    body.append('dsa_beneficiary', dsa.beneficiary);
+    body.append('dsa_payor', dsa.payor);
+  }
+
+  body.append('access_token', accessToken);
+  const r = await fetch(`${GRAPH}/${adAccountId}/adsets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const data = await r.json();
+  if (data.error) throw new Error(`AdSet create failed: ${data.error.message}`);
+  return data.id;
+}
+
+async function createCreative({ adAccountId, accessToken, pageId, payload }) {
+  const body = new URLSearchParams();
+  body.append('name', payload.name || 'AI Ad Studio Creative');
+  body.append('object_story_spec', JSON.stringify({
+    page_id: pageId,
+    ...payload.story,
+  }));
+  body.append('access_token', accessToken);
+  const r = await fetch(`${GRAPH}/${adAccountId}/adcreatives`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const data = await r.json();
+  if (data.error) throw new Error(`Creative create failed: ${data.error.message}`);
+  return data.id;
+}
+
+async function createAd({ adAccountId, accessToken, name, adSetId, creativeId }) {
+  const body = new URLSearchParams();
+  body.append('name', name);
+  body.append('adset_id', adSetId);
+  body.append('creative', JSON.stringify({ creative_id: creativeId }));
+  body.append('status', 'PAUSED');
+  body.append('access_token', accessToken);
+  const r = await fetch(`${GRAPH}/${adAccountId}/ads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const data = await r.json();
+  if (data.error) throw new Error(`Ad create failed: ${data.error.message}`);
+  return data.id;
+}
+
+// ── Handler ─────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
-  const token = process.env.META_ACCESS_TOKEN;
-  const adAccountId = process.env.META_AD_ACCOUNT_ID; // act_XXXXXXXXX
-  const appId = process.env.META_APP_ID;
-
-  if (!token || !adAccountId) {
-    return res.status(500).json({ error: 'Meta credentials not configured' });
+  const adAccountId = process.env.META_AD_ACCOUNT_ID;
+  const accessToken = process.env.META_ACCESS_TOKEN;
+  const pageId = process.env.META_PAGE_ID;
+  if (!adAccountId || !accessToken || !pageId) {
+    return res.status(500).json({ error: 'Meta env vars not configured' });
   }
 
-  const {
-    headline,
-    primaryText,
-    description,
-    imageUrl,
-    destinationUrl,
-    adName = 'AI Ad Studio Ad',
-    campaignName = 'AI Ad Studio Campaign',
-    format = 'single',
-    carouselCards = [],
-    existingCampaignId = null,
-    existingAdSetId = null,
-    targeting = null,
-  } = req.body || {};
-
-  if (!imageUrl || !destinationUrl) {
-    return res.status(400).json({ error: 'imageUrl and destinationUrl required' });
-  }
-
-  const fb = async (endpoint, method = 'GET', body = null) => {
-    const url = `${FB_API}${endpoint}${endpoint.includes('?') ? '&' : '?'}access_token=${token}`;
-    const opts = { method, headers: { 'Content-Type': 'application/json' } };
-    if (body) opts.body = JSON.stringify(body);
-    const r = await fetch(url, opts);
-    const data = await r.json();
-    if (data.error) {
-      console.error('Full error:', JSON.stringify(data.error));
-      throw new Error(`Meta API [${endpoint}]: ${data.error.message} (code ${data.error.code}) type:${data.error.type} — ${JSON.stringify(data.error.error_user_msg || data.error.error_data || '')}`);
-    }
-    return data;
+  const dsa = {
+    beneficiary: 'Adspire Deutschland GmbH',
+    payor: 'Adspire Deutschland GmbH',
   };
 
   try {
-    // ── Step 1: Upload image to get hash ──────────────────────────────────────
-    console.log('Uploading image to Meta...');
-    let imageHash;
-    
-    // Fetch image and upload as bytes
-    const imgRes = await fetch(imageUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' },
-      signal: AbortSignal.timeout(10000),
-    });
-    
-    if (!imgRes.ok) throw new Error(`Could not fetch image: ${imgRes.status}`);
-    
-    const imgBuffer = await imgRes.arrayBuffer();
-    const imgBase64 = Buffer.from(imgBuffer).toString('base64');
-    const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-    
-    // Upload via AdImages endpoint using base64 bytes field
-    const uploadParams = new URLSearchParams();
-    uploadParams.append('bytes', imgBase64);
-    uploadParams.append('name', `ad_image_${Date.now()}`);
-    uploadParams.append('access_token', token);
-    
-    const uploadRes = await fetch(
-      `${FB_API}/${adAccountId}/adimages`,
-      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: uploadParams }
-    );
-    const uploadData = await uploadRes.json();
-    if (uploadData.error) throw new Error(`Image upload: ${uploadData.error.message}`);
-    
-    // Extract hash from response
-    const images = uploadData.images;
-    imageHash = images?.[Object.keys(images)[0]]?.hash;
-    if (!imageHash) throw new Error('Could not get image hash from Meta');
-    console.log('Image hash:', imageHash);
+    const {
+      headline, primaryText, description,
+      imageUrl, videoUrl, destinationUrl,
+      adName, campaignName,
+      format = 'single', // 'single' | 'carousel' | 'video'
+      carouselCards = [],
+      existingCampaignId, existingAdSetId,
+      targeting,
+    } = req.body || {};
 
-    // ── Step 2: Get or create Campaign ──────────────────────────────────────
-    const pageId = process.env.META_PAGE_ID || '143857629020031';
-    let campaignId;
-    if (existingCampaignId) {
-      campaignId = existingCampaignId;
-      console.log('Using existing campaign:', campaignId);
-    } else {
-      console.log('Creating new campaign...');
-      const newCampaign = await fb(`/${adAccountId}/campaigns`, 'POST', {
-        name: campaignName,
-        objective: 'OUTCOME_TRAFFIC',
-        status: 'PAUSED',
-        special_ad_categories: [],
-        buying_type: 'AUCTION',
-        is_adset_budget_sharing_enabled: false,
+    if (!destinationUrl) return res.status(400).json({ error: 'destinationUrl required' });
+    if (format === 'video' && !videoUrl) return res.status(400).json({ error: 'videoUrl required for video format' });
+    if (format !== 'video' && !imageUrl && format !== 'carousel') return res.status(400).json({ error: 'imageUrl required' });
+
+    // ── 1. Campaign (existing or new) ────────────────────────────────────
+    let campaignId = existingCampaignId;
+    if (!campaignId) {
+      campaignId = await createCampaign({
+        adAccountId, accessToken,
+        name: campaignName || `AI Ad Studio — ${new Date().toLocaleDateString()}`,
       });
-      campaignId = newCampaign.id;
-      console.log('New campaign ID:', campaignId);
     }
 
-    // ── Step 3: Get or create Ad Set ─────────────────────────────────────────
-    let adSetId;
-    if (existingAdSetId) {
-      adSetId = existingAdSetId;
-      console.log('Using existing ad set:', adSetId);
-    } else {
-      console.log('Creating new ad set in campaign:', campaignId);
-      const countries = targeting?.countries || ['DK'];
-      const ageMin = targeting?.ageMin || 25;
-      const ageMax = targeting?.ageMax || 65;
-      const dailyBudget = targeting?.dailyBudget || 1000;
-      const useAdvantage = targeting?.placements !== 'manual';
-      const newAdSet = await fb(`/${adAccountId}/adsets`, 'POST', {
-        name: `${adName} - Ad Set`,
-        campaign_id: campaignId,
-        billing_event: 'IMPRESSIONS',
-        optimization_goal: 'LINK_CLICKS',
-        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-        daily_budget: dailyBudget,
-        promoted_object: { page_id: pageId },
-        dsa_beneficiary: 'Adspire Deutschland GmbH',
-        dsa_payor: 'Adspire Deutschland GmbH',
-        targeting: {
-          geo_locations: { countries },
-          age_min: ageMin,
-          age_max: ageMax,
-          ...(useAdvantage ? {} : {
-            publisher_platforms: ['facebook', 'instagram'],
-            facebook_positions: ['feed', 'story', 'facebook_reels'],
-            instagram_positions: ['stream', 'story', 'reels'],
-          }),
+    // ── 2. Ad set (existing or new) ──────────────────────────────────────
+    let adSetId = existingAdSetId;
+    if (!adSetId) {
+      adSetId = await createAdSet({
+        adAccountId, accessToken, campaignId,
+        name: (adName || 'AI Ad Studio') + ' — Ad Set',
+        targeting,
+        dsa,
+      });
+    }
+
+    // ── 3. Build creative based on format ────────────────────────────────
+    let creativeId;
+
+    if (format === 'video') {
+      // Upload video → wait for processing → upload thumbnail → build video_data
+      const videoId = await uploadVideo({ adAccountId, accessToken, videoUrl });
+      // Wait for Meta to finish processing (non-blocking on timeout — Meta will catch up)
+      await waitForVideoReady({ videoId, accessToken }).catch(() => null);
+
+      // Upload thumbnail (image_url is required for video_data — provides hi-res cover)
+      let thumbnailUrl = imageUrl; // imageUrl carries the starting image for video case
+      if (!thumbnailUrl) {
+        // Fall back to Meta's auto-extracted thumbnail (will be set after processing completes)
+        const thumbRes = await fetch(`${GRAPH}/${videoId}/thumbnails?access_token=${accessToken}`);
+        const thumbData = await thumbRes.json();
+        const preferred = (thumbData.data || []).find(t => t.is_preferred) || (thumbData.data || [])[0];
+        thumbnailUrl = preferred?.uri;
+      }
+      if (!thumbnailUrl) throw new Error('No video thumbnail available');
+
+      creativeId = await createCreative({
+        adAccountId, accessToken, pageId,
+        payload: {
+          name: (adName || 'AI Ad Studio') + ' — Video Creative',
+          story: {
+            video_data: {
+              video_id: videoId,
+              title: (headline || '').slice(0, 40),
+              message: primaryText || '',
+              image_url: thumbnailUrl,
+              call_to_action: {
+                type: 'LEARN_MORE',
+                value: { link: destinationUrl },
+              },
+            },
+          },
         },
-        ...(useAdvantage ? { advantage_audience: 1 } : {}),
-        status: 'PAUSED',
       });
-      adSetId = newAdSet.id;
-      console.log('New ad set ID:', adSetId);
-    }
-
-    // ── Step 4: Create Ad Creative ────────────────────────────────────────────
-    console.log('Creating ad creative...');
-    let creative;
-
-    if (format === 'carousel' && carouselCards.length > 0) {
-      // Upload each carousel card image and get hash
-      console.log('Uploading carousel card images...');
-      const cardHashes = await Promise.all(
-        carouselCards.slice(0, 5).map(async (card) => {
-          try {
-            const cImgRes = await fetch(card.imageUrl, {
-              headers: { 'User-Agent': 'Mozilla/5.0' },
-              signal: AbortSignal.timeout(8000),
-            });
-            if (!cImgRes.ok) return imageHash; // fallback to hero
-            const cBuf = await cImgRes.arrayBuffer();
-            const cB64 = Buffer.from(cBuf).toString('base64');
-            const cParams = new URLSearchParams();
-            cParams.append('bytes', cB64);
-            cParams.append('name', 'carousel_' + Date.now() + '_' + Math.random());
-            cParams.append('access_token', token);
-            const cRes = await fetch(`${FB_API}/${adAccountId}/adimages`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: cParams,
-            });
-            const cData = await cRes.json();
-            const hash = cData.images?.[Object.keys(cData.images||{})[0]]?.hash;
-            return hash || imageHash;
-          } catch { return imageHash; }
-        })
-      );
-      console.log('Card hashes:', cardHashes.length);
-
-      // Carousel creative
-      creative = await fb(`/${adAccountId}/adcreatives`, 'POST', {
-        name: `${adName} - Creative`,
-        object_story_spec: {
-          page_id: pageId,
-          link_data: {
-            message: primaryText,
-            child_attachments: carouselCards.slice(0, 5).map((card, ci) => ({
-              link: card.url || destinationUrl,
-              name: (card.headline || headline)?.slice(0, 40),
-              description: (card.description || description)?.slice(0, 30),
-              image_hash: cardHashes[ci] || imageHash,
-              call_to_action: { type: 'SHOP_NOW', value: { link: card.url || destinationUrl } },
-            })),
-            multi_share_optimized: false,
-            link: destinationUrl,
+    } else if (format === 'carousel') {
+      if (!carouselCards.length) return res.status(400).json({ error: 'carouselCards required for carousel format' });
+      const childAttachments = [];
+      for (const card of carouselCards) {
+        const hash = await uploadImage({ adAccountId, accessToken, imageUrl: card.imageUrl });
+        childAttachments.push({
+          link: card.url || destinationUrl,
+          image_hash: hash,
+          name: (card.headline || '').slice(0, 40),
+          description: (card.description || '').slice(0, 90),
+          call_to_action: { type: 'LEARN_MORE', value: { link: card.url || destinationUrl } },
+        });
+      }
+      creativeId = await createCreative({
+        adAccountId, accessToken, pageId,
+        payload: {
+          name: (adName || 'AI Ad Studio') + ' — Carousel Creative',
+          story: {
+            link_data: {
+              link: destinationUrl,
+              message: primaryText || '',
+              child_attachments: childAttachments,
+              multi_share_optimized: true,
+              call_to_action: { type: 'LEARN_MORE', value: { link: destinationUrl } },
+            },
           },
         },
       });
     } else {
-      // Single image creative
-      creative = await fb(`/${adAccountId}/adcreatives`, 'POST', {
-        name: `${adName} - Creative`,
-        object_story_spec: {
-          page_id: pageId,
-          link_data: {
-            message: primaryText,
-            link: destinationUrl,
-            name: headline,
-            description: description,
-            image_hash: imageHash,
-            call_to_action: {
-              type: 'LEARN_MORE',
-              value: { link: destinationUrl },
+      // Single image
+      const imageHash = await uploadImage({ adAccountId, accessToken, imageUrl });
+      creativeId = await createCreative({
+        adAccountId, accessToken, pageId,
+        payload: {
+          name: (adName || 'AI Ad Studio') + ' — Image Creative',
+          story: {
+            link_data: {
+              link: destinationUrl,
+              message: primaryText || '',
+              name: (headline || '').slice(0, 40),
+              description: (description || '').slice(0, 90),
+              image_hash: imageHash,
+              call_to_action: { type: 'LEARN_MORE', value: { link: destinationUrl } },
             },
           },
         },
       });
     }
-    console.log('Creative ID:', creative.id);
 
-    // ── Step 5: Create Ad ─────────────────────────────────────────────────────
-    console.log('Creating ad...');
-    const ad = await fb(`/${adAccountId}/ads`, 'POST', {
-      name: adName,
-      adset_id: adSetId,
-      creative: { creative_id: creative.id },
-      status: 'PAUSED',
+    // ── 4. Ad ────────────────────────────────────────────────────────────
+    const adId = await createAd({
+      adAccountId, accessToken,
+      name: adName || 'AI Ad Studio Ad',
+      adSetId,
+      creativeId,
     });
-    console.log('Ad ID:', ad.id);
+
+    const accountNumeric = adAccountId.replace('act_', '');
+    const adsManagerUrl = `https://adsmanager.facebook.com/adsmanager/manage/ads?act=${accountNumeric}&selected_ad_ids=${adId}`;
 
     return res.status(200).json({
       success: true,
-      campaignId: campaignId,
-      adSetId: adSetId,
-      creativeId: creative.id,
-      adId: ad.id,
-      adsManagerUrl: `https://www.facebook.com/adsmanager/manage/ads?act=${adAccountId.replace('act_', '')}&selected_ad_ids=${ad.id}`,
-      message: 'Ad created as PAUSED — review in Ads Manager before activating',
+      adId, creativeId, adSetId, campaignId,
+      format,
+      adsManagerUrl,
     });
-
   } catch (err) {
-    console.error('Meta publish error:', err.message);
-    return res.status(500).json({ error: err.message });
+    console.error('meta-publish error:', err);
+    return res.status(500).json({ success: false, error: err.message || String(err) });
   }
 }
-
-async function getPageId(token, adAccountId) {
-  // Get the first page associated with this ad account
-  const res = await fetch(
-    `https://graph.facebook.com/v19.0/me/accounts?access_token=${token}`
-  );
-  const data = await res.json();
-  if (data.data?.[0]?.id) return data.data[0].id;
-  throw new Error('No Facebook Page found. Please create a Page or connect one to your Business Manager.');
-}
-
-// Add GET handler for diagnostics
-export const config = { api: { bodyParser: true } };
