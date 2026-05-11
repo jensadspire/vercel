@@ -27,7 +27,8 @@ async function uploadImage({ adAccountId, accessToken, imageUrl }) {
     body,
   });
   const data = await r.json();
-  if (data.error) throw new Error(`Image upload failed: ${data.error.message}`);
+  const errMsg = metaErrorMessage(data, 'Image upload');
+  if (errMsg) throw new Error(errMsg);
   const images = data.images || {};
   const firstKey = Object.keys(images)[0];
   if (!firstKey) throw new Error('No image hash returned from Meta');
@@ -45,7 +46,8 @@ async function uploadVideo({ adAccountId, accessToken, videoUrl }) {
     body,
   });
   const data = await r.json();
-  if (data.error) throw new Error(`Video upload failed: ${data.error.message}`);
+  const errMsg = metaErrorMessage(data, 'Video upload');
+  if (errMsg) throw new Error(errMsg);
   if (!data.id) throw new Error('No video id returned from Meta');
   return data.id;
 }
@@ -64,12 +66,28 @@ async function waitForVideoReady({ videoId, accessToken, maxAttempts = 60, inter
   return false;
 }
 
+// Surfaces Meta's most useful error field. Meta returns several nested fields:
+//   error.message              — generic, often unhelpful ("Invalid parameter")
+//   error.error_user_msg       — human-readable, specific
+//   error.error_user_title     — short heading
+//   error.error_subcode        — numeric subcode for narrow root-cause lookup
+// We log the full error server-side, return the best human-readable field to the client.
+function metaErrorMessage(data, context) {
+  if (!data?.error) return null;
+  const e = data.error;
+  console.error(`[meta-publish] ${context} failed — full error:`, JSON.stringify(e, null, 2));
+  const best = e.error_user_msg || e.message || 'Unknown Meta error';
+  const subcode = e.error_subcode ? ` (subcode ${e.error_subcode})` : '';
+  return `${context} failed: ${best}${subcode}`;
+}
+
 async function createCampaign({ adAccountId, accessToken, name }) {
   const body = new URLSearchParams();
   body.append('name', name);
   body.append('objective', 'OUTCOME_TRAFFIC');
   body.append('status', 'PAUSED');
   body.append('special_ad_categories', '[]');
+  body.append('buying_type', 'AUCTION'); // Required for OUTCOME_* objectives on v21.0
   body.append('access_token', accessToken);
   const r = await fetch(`${GRAPH}/${adAccountId}/campaigns`, {
     method: 'POST',
@@ -77,7 +95,8 @@ async function createCampaign({ adAccountId, accessToken, name }) {
     body,
   });
   const data = await r.json();
-  if (data.error) throw new Error(`Campaign create failed: ${data.error.message}`);
+  const errMsg = metaErrorMessage(data, 'Campaign create');
+  if (errMsg) throw new Error(errMsg);
   return data.id;
 }
 
@@ -114,7 +133,8 @@ async function createAdSet({ adAccountId, accessToken, campaignId, name, targeti
     body,
   });
   const data = await r.json();
-  if (data.error) throw new Error(`AdSet create failed: ${data.error.message}`);
+  const errMsg = metaErrorMessage(data, 'AdSet create');
+  if (errMsg) throw new Error(errMsg);
   return data.id;
 }
 
@@ -132,7 +152,8 @@ async function createCreative({ adAccountId, accessToken, pageId, payload }) {
     body,
   });
   const data = await r.json();
-  if (data.error) throw new Error(`Creative create failed: ${data.error.message}`);
+  const errMsg = metaErrorMessage(data, 'Creative create');
+  if (errMsg) throw new Error(errMsg);
   return data.id;
 }
 
@@ -149,7 +170,8 @@ async function createAd({ adAccountId, accessToken, name, adSetId, creativeId })
     body,
   });
   const data = await r.json();
-  if (data.error) throw new Error(`Ad create failed: ${data.error.message}`);
+  const errMsg = metaErrorMessage(data, 'Ad create');
+  if (errMsg) throw new Error(errMsg);
   return data.id;
 }
 
