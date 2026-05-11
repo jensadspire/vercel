@@ -4974,8 +4974,17 @@ STRICT rules:
   const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB', '.com': 'US' };
   const tld = Object.keys(tldMap).find(t => (url||'').includes(t));
   setTargetCountries(tld ? [tldMap[tld]] : ['DK']);
-} }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaPublishing ? 'rgba(24,119,242,0.05)' : 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 6, color: '#60a5fa', cursor: metaPublishing ? 'default' : 'pointer', transition: 'all 0.3s' }}>
-                          {metaPublishing && metaPublishFormat !== 'video' ? '⟳ Publishing to Meta...' : '🚀 Publish to Meta Ads Manager'}
+} }} style={{
+  width: '100%', padding: '8px', fontSize: 10, fontWeight: 700,
+  background: metaPublishing && metaPublishFormat !== 'video' ? 'rgba(251,191,36,0.15)' : 'rgba(24,119,242,0.15)',
+  border: metaPublishing && metaPublishFormat !== 'video' ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(24,119,242,0.4)',
+  borderRadius: 6,
+  color: metaPublishing && metaPublishFormat !== 'video' ? '#fbbf24' : '#60a5fa',
+  cursor: metaPublishing ? 'default' : 'pointer',
+  transition: 'all 0.3s',
+  animation: metaPublishing && metaPublishFormat !== 'video' ? 'pulse 1.6s ease-in-out infinite' : 'none',
+}}>
+                          {metaPublishing && metaPublishFormat !== 'video' ? '⟳ Publishing to Meta — please wait…' : '🚀 Publish to Meta Ads Manager'}
                         </button>
                         {metaPublishResult?.success && metaPublishFormat !== 'video' && (
                           <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6 }}>
@@ -6255,8 +6264,20 @@ STRICT rules:
                         const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB', '.com': 'US' };
                         const tld = Object.keys(tldMap).find(t => (url||'').includes(t));
                         setTargetCountries(tld ? [tldMap[tld]] : ['DK']);
-                      } }} style={{ width: '100%', maxWidth: 280, padding: '9px', fontSize: 11, fontWeight: 700, background: metaPublishing ? 'rgba(24,119,242,0.05)' : 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 8, color: '#60a5fa', cursor: metaPublishing ? 'default' : 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                        {metaPublishing && metaPublishFormat === 'video' ? '⟳ Publishing video to Meta…' : '🎬 Publish Video to Meta Ads Manager'}
+                      } }} style={{
+                        width: '100%', maxWidth: 280, padding: '9px', fontSize: 11, fontWeight: 700,
+                        background: metaPublishing && metaPublishFormat === 'video' ? 'rgba(251,191,36,0.18)' : 'rgba(24,119,242,0.15)',
+                        border: metaPublishing && metaPublishFormat === 'video' ? '1px solid rgba(251,191,36,0.55)' : '1px solid rgba(24,119,242,0.4)',
+                        borderRadius: 8,
+                        color: metaPublishing && metaPublishFormat === 'video' ? '#fbbf24' : '#60a5fa',
+                        cursor: metaPublishing ? 'default' : 'pointer',
+                        transition: 'all 0.3s',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        animation: metaPublishing && metaPublishFormat === 'video' ? 'pulse 1.6s ease-in-out infinite' : 'none',
+                      }}>
+                        {metaPublishing && metaPublishFormat === 'video' ? (
+                          <><span style={{ animation: 'spin 0.9s linear infinite', display: 'inline-block' }}>⟳</span> Uploading video to Meta — this can take 1–2 min…</>
+                        ) : '🎬 Publish Video to Meta Ads Manager'}
                       </button>
                       {metaPublishResult?.success && metaPublishFormat === 'video' && (
                         <div style={{ marginTop: 6, maxWidth: 280, padding: '8px 10px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6 }}>
