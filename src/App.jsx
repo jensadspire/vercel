@@ -1074,6 +1074,40 @@ function RSAStudio() {
     setScanError("");
   };
 
+  // ── Centralised "New URL" reset ──────────────────────────────────────────
+  // Clears state across ALL tabs (RSA, Meta, TikTok) so nothing leaks between
+  // sessions. Called from both signed-in and non-signed-in New URL buttons.
+  const resetForNewUrl = () => {
+    // Core inputs
+    setUrl(''); setKeywords(['', '', '']); setKwHeadlines(5);
+    setKwInDescs(false); setKwDescs(1);
+    // RSA results
+    setRows([makeRow(1)]); setActiveRow(0); setGenerated(false); setError('');
+    setActiveTab('headlines'); setClearKey(k => k + 1);
+    // Modifiers
+    setShowModifiers(false);
+    setSeasonOn(false); setSeasonPreset(''); setSeasonCustom(''); setSeasonIntensity('Moderate');
+    setDiscountOn(false); setDiscountType('% Off'); setDiscountValue(''); setDiscountPlacement('Both');
+    setBrandOn(false); setBrandRequired(''); setBrandBanned(''); setBrandTone('Professional');
+    setAudienceDesc(''); setAdFormat('rsa');
+    // Meta tab — clear ALL state including the lingering publish success message
+    setMetaResult(null); setMetaPublishResult(null); setMetaError(''); setMetaPublishing(false);
+    setActiveImageVariant(0); setMetaEdits({}); setMetaEditingField(null);
+    setMetaActiveVariants({ pt: 0, hl: 0, d: 0 }); setMetaPreviewFormat('fb-feed');
+    setMetaConfirmOpen(false); setMetaModalStep(1); setMetaPublishFormat('image');
+    setMetaPlacement('new');
+    // Carousel / image-pool state
+    setCarouselImages([]); setCarouselCardTexts([]); setCarouselIndex(0);
+    setCarouselPriceMode(false); setBannedImages([]); setPausedImages([]);
+    // Publish modal selectors and targeting
+    setSelectedCampaignId(''); setSelectedAdSetId('');
+    setTargetingExpanded(false); setTargetCountries(['DK']);
+    setTargetBudget(1000); setTargetAgeMin(25); setTargetAgeMax(65); setTargetPlacements('automatic');
+    // TikTok / video / UGC
+    setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null); setUgcVideoUrl(null);
+    setGenerateMeta(false);
+  };
+
   const generate = async () => {
     if (!url.trim()) { setError("Please enter a URL first"); return; }
 
@@ -2154,6 +2188,8 @@ STRICT rules:
                   {['new', 'existing_campaign', 'existing_adset'].map(opt => (
                     <div key={opt} onClick={() => {
                       setMetaPlacement(opt);
+                      // Force-collapse targeting when scenario is "existing_adset" — targeting is inherited
+                      if (opt === 'existing_adset') setTargetingExpanded(false);
                       if (opt !== 'new' && metaCampaigns.length === 0) {
                         setMetaLoadingCampaigns(true);
                         fetch('/api/meta-campaigns').then(r => r.json()).then(d => {
@@ -2178,10 +2214,25 @@ STRICT rules:
                     <button onClick={() => setTargetingExpanded(false)} style={{ flex: 1, padding: '7px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: `1px solid ${!targetingExpanded ? 'rgba(24,119,242,0.5)' : 'rgba(255,255,255,0.08)'}`, cursor: 'pointer', background: !targetingExpanded ? 'rgba(24,119,242,0.15)' : 'rgba(255,255,255,0.03)', color: !targetingExpanded ? '#60a5fa' : '#4a5568', textAlign: 'left' }}>
                       📋 {metaPlacement === 'existing_adset' ? 'Apply existing ad set targeting' : 'Use default targeting'}
                     </button>
-                    <button onClick={() => setTargetingExpanded(true)} style={{ flex: 1, padding: '7px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: `1px solid ${targetingExpanded ? 'rgba(24,119,242,0.5)' : 'rgba(255,255,255,0.08)'}`, cursor: 'pointer', background: targetingExpanded ? 'rgba(24,119,242,0.15)' : 'rgba(255,255,255,0.03)', color: targetingExpanded ? '#60a5fa' : '#4a5568', textAlign: 'left' }}>
+                    <button
+                      onClick={() => { if (metaPlacement !== 'existing_adset') setTargetingExpanded(true); }}
+                      disabled={metaPlacement === 'existing_adset'}
+                      title={metaPlacement === 'existing_adset' ? 'Targeting is inherited from the existing ad set and cannot be changed here' : ''}
+                      style={{ flex: 1, padding: '7px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6,
+                        border: `1px solid ${metaPlacement === 'existing_adset' ? 'rgba(255,255,255,0.05)' : (targetingExpanded ? 'rgba(24,119,242,0.5)' : 'rgba(255,255,255,0.08)')}`,
+                        cursor: metaPlacement === 'existing_adset' ? 'not-allowed' : 'pointer',
+                        background: metaPlacement === 'existing_adset' ? 'rgba(255,255,255,0.02)' : (targetingExpanded ? 'rgba(24,119,242,0.15)' : 'rgba(255,255,255,0.03)'),
+                        color: metaPlacement === 'existing_adset' ? '#3a4658' : (targetingExpanded ? '#60a5fa' : '#4a5568'),
+                        opacity: metaPlacement === 'existing_adset' ? 0.5 : 1,
+                        textAlign: 'left' }}>
                       ✎ Customise targeting
                     </button>
                   </div>
+                  {metaPlacement === 'existing_adset' && (
+                    <div style={{ fontSize: 9, color: '#4a5568', marginTop: 4, fontStyle: 'italic' }}>
+                      Targeting is inherited from the existing ad set.
+                    </div>
+                  )}
 
                   {/* Campaign dropdown */}
                   {metaPlacement !== 'new' && (
@@ -2219,6 +2270,11 @@ STRICT rules:
                   {/* Country */}
                   <div style={{ marginBottom: 14 }}>
                     <div style={{ fontSize: 10, color: '#7e92a8', marginBottom: 6 }}>🌍 Countries <span style={{ color: '#4a5568' }}>— recommended based on URL</span></div>
+                    {targetCountries.length === 0 && (
+                      <div style={{ fontSize: 10, color: '#fbbf24', marginBottom: 6, padding: '6px 8px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 4 }}>
+                        ⚠️ Generic .com domain detected — please select at least one target country to avoid global spend.
+                      </div>
+                    )}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                       <label key="DK" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, color: "white" }}><input type="checkbox" checked={targetCountries.includes("DK")} onChange={e => setTargetCountries(prev => e.target.checked ? [...prev, "DK"] : prev.filter(x => x !== "DK"))} style={{ accentColor: "#1877f2" }} />🇩🇰 Denmark</label>
                     <label key="DE" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, color: "white" }}><input type="checkbox" checked={targetCountries.includes("DE")} onChange={e => setTargetCountries(prev => e.target.checked ? [...prev, "DE"] : prev.filter(x => x !== "DE"))} style={{ accentColor: "#1877f2" }} />🇩🇪 Germany</label>
@@ -2283,11 +2339,19 @@ STRICT rules:
                   <button onClick={() => setMetaModalStep(2)} style={{ flex: 2, padding: '10px', fontSize: 11, fontWeight: 800, background: 'linear-gradient(135deg,#1877f2,#0a5dc2)', border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer' }}>
                     Next: Choose placement →
                   </button>
-                ) : (
-                  <button onClick={doPublish} disabled={metaPlacement !== 'new' && !selectedCampaignId} style={{ flex: 2, padding: '10px', fontSize: 11, fontWeight: 800, background: metaPlacement !== 'new' && !selectedCampaignId ? 'rgba(24,119,242,0.3)' : 'linear-gradient(135deg,#1877f2,#0a5dc2)', border: 'none', borderRadius: 8, color: 'white', cursor: metaPlacement !== 'new' && !selectedCampaignId ? 'default' : 'pointer' }}>
-                    ✓ Confirm & Publish to Meta
-                  </button>
-                )}
+                ) : (() => {
+                  const needsCountry = metaPlacement !== 'existing_adset' && targetCountries.length === 0;
+                  const needsCampaign = metaPlacement !== 'new' && !selectedCampaignId;
+                  const needsAdset = metaPlacement === 'existing_adset' && !selectedAdSetId;
+                  const disabled = needsCountry || needsCampaign || needsAdset;
+                  const blockingReason = needsCampaign ? 'Select a campaign first' : needsAdset ? 'Select an ad set first' : needsCountry ? 'Select at least one country' : '';
+                  return (
+                    <button onClick={doPublish} disabled={disabled} title={blockingReason}
+                      style={{ flex: 2, padding: '10px', fontSize: 11, fontWeight: 800, background: disabled ? 'rgba(24,119,242,0.3)' : 'linear-gradient(135deg,#1877f2,#0a5dc2)', border: 'none', borderRadius: 8, color: 'white', cursor: disabled ? 'not-allowed' : 'pointer' }}>
+                      ✓ Confirm & Publish to Meta
+                    </button>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -2582,25 +2646,7 @@ STRICT rules:
 
                 {/* New URL button — only after generation */}
                 {generated && !loading && (
-                  <button onClick={() => {
-                    setUrl('');
-                    setKeywords(['', '', '']);
-                    setKwHeadlines(5);
-                    setKwInDescs(false);
-                    setKwDescs(1);
-                    setRows([makeRow(1)]);
-                    setActiveRow(0);
-                    setGenerated(false);
-                    setError('');
-                    setActiveTab('headlines');
-                    setShowModifiers(false);
-                    setSeasonOn(false); setSeasonPreset(''); setSeasonCustom(''); setSeasonIntensity('Moderate');
-                    setDiscountOn(false); setDiscountType('% Off'); setDiscountValue(''); setDiscountPlacement('Both');
-                    setBrandOn(false); setBrandRequired(''); setBrandBanned(''); setBrandTone('Professional');
-                    setClearKey(k => k + 1);
-                    setAudienceDesc(''); setAdFormat('rsa');
-                    setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null); setUgcVideoUrl(null);
-                  }} style={{
+                  <button onClick={resetForNewUrl} style={{
                     padding: '9px 14px', fontSize: 11, fontWeight: 700,
                     background: 'rgba(255,255,255,0.05)',
                     color: '#8fa3b8', border: '1px solid rgba(255,255,255,0.09)',
@@ -2648,13 +2694,7 @@ STRICT rules:
           {!isSignedIn && (
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
               {generated && !loading && (
-                <button onClick={() => {
-                  setUrl(''); setKeywords(['', '', '']); setKwHeadlines(5);
-                  setKwInDescs(false); setKwDescs(1); setRows([makeRow(1)]);
-                  setActiveRow(0); setGenerated(false); setError('');
-                  setActiveTab('headlines'); setClearKey(k => k + 1);
-                  setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null); setUgcVideoUrl(null);
-                }} style={{
+                <button onClick={resetForNewUrl} style={{
                   padding: '9px 14px', fontSize: 11, fontWeight: 700,
                   background: 'rgba(255,255,255,0.05)',
                   color: '#8fa3b8', border: '1px solid rgba(255,255,255,0.09)',
@@ -4970,10 +5010,11 @@ STRICT rules:
   setMetaPublishFormat(metaPreviewFormat === 'fb-carousel' ? 'carousel' : 'image');
   setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new');
   setSelectedCampaignId(''); setSelectedAdSetId('');
-  // Auto-detect country from URL TLD
-  const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB', '.com': 'US' };
+  // Auto-detect country from URL TLD. Note: .com is intentionally excluded —
+  // it's too generic to safely default to US; user must consciously select.
+  const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB' };
   const tld = Object.keys(tldMap).find(t => (url||'').includes(t));
-  setTargetCountries(tld ? [tldMap[tld]] : ['DK']);
+  setTargetCountries(tld ? [tldMap[tld]] : []);
 } }} style={{
   width: '100%', padding: '8px', fontSize: 10, fontWeight: 700,
   background: metaPublishing && metaPublishFormat !== 'video' ? 'rgba(251,191,36,0.15)' : 'rgba(24,119,242,0.15)',
@@ -6261,9 +6302,11 @@ STRICT rules:
                         setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new');
                         setSelectedCampaignId(''); setSelectedAdSetId('');
                         // Auto-detect country from URL TLD
-                        const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB', '.com': 'US' };
+                        // Auto-detect country from URL TLD. Note: .com is intentionally excluded —
+                        // it's too generic to safely default to US; user must consciously select.
+                        const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB' };
                         const tld = Object.keys(tldMap).find(t => (url||'').includes(t));
-                        setTargetCountries(tld ? [tldMap[tld]] : ['DK']);
+                        setTargetCountries(tld ? [tldMap[tld]] : []);
                       } }} style={{
                         width: '100%', maxWidth: 280, padding: '9px', fontSize: 11, fontWeight: 700,
                         background: metaPublishing && metaPublishFormat === 'video' ? 'rgba(251,191,36,0.18)' : 'rgba(24,119,242,0.15)',
