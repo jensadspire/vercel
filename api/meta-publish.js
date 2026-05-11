@@ -88,6 +88,7 @@ async function createCampaign({ adAccountId, accessToken, name }) {
   body.append('status', 'PAUSED');
   body.append('special_ad_categories', '[]');
   body.append('buying_type', 'AUCTION'); // Required for OUTCOME_* objectives on v21.0
+  body.append('is_adset_budget_sharing_enabled', 'false'); // Required when using ad-set-level budgets (no CBO)
   body.append('access_token', accessToken);
   const r = await fetch(`${GRAPH}/${adAccountId}/campaigns`, {
     method: 'POST',
