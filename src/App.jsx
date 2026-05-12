@@ -775,6 +775,19 @@ function RSAStudio() {
   const [trendsLoading, setTrendsLoading] = useState(false);
   const [selectedTrends, setSelectedTrends] = useState([]);
   const [showTrendsPanel, setShowTrendsPanel] = useState(false);
+  // ── Meta OAuth connection state (Phase 1+2 of OAuth project) ─────────────
+  // Tracks whether the signed-in user has connected their own Meta account,
+  // and which ad account + page they've selected for publishing.
+  const [metaConn, setMetaConn] = useState({ connected: false, selectionComplete: false, fbUserId: null, adAccountId: null, pageId: null });
+  const [metaConnLoading, setMetaConnLoading] = useState(false);
+  const [metaConnError, setMetaConnError] = useState('');
+  const [metaPickerOpen, setMetaPickerOpen] = useState(false);
+  const [metaAvailableAccounts, setMetaAvailableAccounts] = useState([]);
+  const [metaAvailablePages, setMetaAvailablePages] = useState([]);
+  const [metaPickerLoading, setMetaPickerLoading] = useState(false);
+  const [metaPickerSaving, setMetaPickerSaving] = useState(false);
+  const [pickedAdAccountId, setPickedAdAccountId] = useState('');
+  const [pickedPageId, setPickedPageId] = useState('');
   // Load library on sign-in
   useEffect(() => {
     if (!isSignedIn || !user?.id || libraryLoaded) return;
@@ -813,6 +826,161 @@ function RSAStudio() {
       body: JSON.stringify({ action: "set", userId: user.id, audiences }),
     }).catch(() => {});
   }, [audiences, isSignedIn, user?.id, audiencesLoaded]);
+
+  // ── Meta OAuth: load connection status when user signs in ─────────────────
+  const loadMetaStatus = async () => {
+    if (!isSignedIn || !session) { setMetaConn({ connected: false, selectionComplete: false }); return; }
+    try {
+      const token = await session.getToken();
+      const r = await fetch('/api/meta-status', {
+        headers: { 'x-clerk-session': token },
+      });
+      const data = await r.json();
+      setMetaConn({
+        connected: !!data.connected,
+        selectionComplete: !!data.selectionComplete,
+        fbUserId: data.fbUserId || null,
+        adAccountId: data.adAccountId || null,
+        pageId: data.pageId || null,
+        needsRefresh: !!data.needsRefresh,
+      });
+    } catch (err) {
+      console.warn('[meta-status]', err);
+      setMetaConn({ connected: false, selectionComplete: false });
+    }
+  };
+
+  useEffect(() => { loadMetaStatus(); }, [isSignedIn, user?.id]);
+
+  // If user has just returned from Facebook OAuth, finalise the connection
+  // by reading the short-lived token from Clerk, exchanging it, storing it.
+  // This is idempotent — safe to call multiple times.
+  const finaliseMetaConnect = async () => {
+    if (!isSignedIn || !session) return;
+    setMetaConnLoading(true); setMetaConnError('');
+    try {
+      const token = await session.getToken();
+      const r = await fetch('/api/meta-connect', {
+        method: 'POST',
+        headers: { 'x-clerk-session': token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await r.json();
+      if (!data.success) {
+        setMetaConnError(data.error || 'Connection failed');
+        setMetaConnLoading(false);
+        return;
+      }
+      // Refresh status, then auto-open the picker so user can choose ad account + page
+      await loadMetaStatus();
+      await openMetaPicker();
+    } catch (err) {
+      setMetaConnError(err.message || String(err));
+    }
+    setMetaConnLoading(false);
+  };
+
+  // Trigger the Facebook OAuth flow (Clerk's "Account Linking" mode).
+  // After this, the user returns to the app and we call finaliseMetaConnect().
+  const triggerMetaConnect = async () => {
+    if (!isSignedIn || !user) { setShowAuthModal(true); return; }
+    setMetaConnError('');
+    // Check if the user already has a linked Facebook account in Clerk
+    const existingFb = (user.externalAccounts || []).find(a => a.provider === 'oauth_facebook' || a.provider === 'facebook');
+    if (existingFb && existingFb.verification?.status === 'verified') {
+      // Already linked at the Clerk level — just exchange the token + store it
+      await finaliseMetaConnect();
+      return;
+    }
+    // Not linked yet — kick off the OAuth dance via Clerk's createExternalAccount
+    try {
+      setMetaConnLoading(true);
+      const created = await user.createExternalAccount({
+        strategy: 'oauth_facebook',
+        redirectUrl: `${window.location.origin}?metaConnected=1`,
+      });
+      // verification.externalVerificationRedirectURL is the Facebook OAuth URL
+      const redirectUrl = created?.verification?.externalVerificationRedirectURL;
+      if (redirectUrl) {
+        window.location.href = String(redirectUrl);
+      } else {
+        setMetaConnError('Could not initiate Facebook connection. Please try again or contact support.');
+        setMetaConnLoading(false);
+      }
+    } catch (err) {
+      setMetaConnError(err?.errors?.[0]?.message || err.message || 'Failed to start Facebook OAuth');
+      setMetaConnLoading(false);
+    }
+  };
+
+  // On returning from Facebook OAuth (Clerk appends `?metaConnected=1`), finalise
+  useEffect(() => {
+    if (!isSignedIn) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('metaConnected') === '1') {
+      finaliseMetaConnect();
+      // Strip the param so refreshes don't re-trigger
+      params.delete('metaConnected');
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [isSignedIn]);
+
+  // Load available ad accounts + pages for the picker modal
+  const openMetaPicker = async () => {
+    if (!isSignedIn || !session) return;
+    setMetaPickerOpen(true);
+    setMetaPickerLoading(true);
+    setMetaConnError('');
+    try {
+      const token = await session.getToken();
+      const r = await fetch('/api/meta-accounts', {
+        headers: { 'x-clerk-session': token },
+      });
+      const data = await r.json();
+      if (data.error) {
+        setMetaConnError(data.error);
+        setMetaAvailableAccounts([]);
+        setMetaAvailablePages([]);
+      } else {
+        setMetaAvailableAccounts(data.adAccounts || []);
+        setMetaAvailablePages(data.pages || []);
+        setPickedAdAccountId(data.selected?.adAccountId || data.adAccounts?.[0]?.id || '');
+        setPickedPageId(data.selected?.pageId || data.pages?.[0]?.id || '');
+      }
+    } catch (err) {
+      setMetaConnError(err.message || String(err));
+    }
+    setMetaPickerLoading(false);
+  };
+
+  const saveMetaPickerSelection = async () => {
+    if (!pickedAdAccountId || !pickedPageId) {
+      setMetaConnError('Please select both an ad account and a page.');
+      return;
+    }
+    setMetaPickerSaving(true); setMetaConnError('');
+    try {
+      const token = await session.getToken();
+      const r = await fetch('/api/meta-save-selection', {
+        method: 'POST',
+        headers: { 'x-clerk-session': token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adAccountId: pickedAdAccountId, pageId: pickedPageId }),
+      });
+      const data = await r.json();
+      if (!data.success) {
+        setMetaConnError(data.error || 'Save failed');
+        setMetaPickerSaving(false);
+        return;
+      }
+      await loadMetaStatus();
+      setMetaPickerOpen(false);
+    } catch (err) {
+      setMetaConnError(err.message || String(err));
+    }
+    setMetaPickerSaving(false);
+  };
 
   useEffect(() => {
     const urlKey = new URLSearchParams(window.location.search).get("admin");
@@ -2074,6 +2242,73 @@ STRICT rules:
       flexDirection: "column",
       minHeight: "100vh",
     }}>
+      {/* ── Meta Account + Page Picker Modal (OAuth Phase 2) ── */}
+      {metaPickerOpen && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setMetaPickerOpen(false); }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'linear-gradient(135deg, #0a0e1a, #131825)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 24, maxWidth: 480, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 8 }}>🔗 Connect your Meta account</div>
+            <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 16, lineHeight: 1.5 }}>
+              Choose the Meta ad account and Facebook page that AI Ad Studio should use when publishing ads on your behalf. You can change this anytime from settings.
+            </div>
+
+            {metaConnError && (
+              <div style={{ padding: '8px 10px', marginBottom: 12, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, fontSize: 11, color: '#f87171' }}>
+                ❌ {metaConnError}
+              </div>
+            )}
+
+            {metaPickerLoading ? (
+              <div style={{ padding: 32, textAlign: 'center', color: '#7e92a8', fontSize: 12 }}>⟳ Loading your Meta accounts…</div>
+            ) : (
+              <>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 6, fontWeight: 700 }}>💼 Ad account</div>
+                  {metaAvailableAccounts.length === 0 ? (
+                    <div style={{ fontSize: 10, color: '#fbbf24', padding: '6px 8px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 4 }}>
+                      No ad accounts found. Please make sure you have at least one active Meta ad account.
+                    </div>
+                  ) : (
+                    <select value={pickedAdAccountId} onChange={(e) => setPickedAdAccountId(e.target.value)} style={{ width: '100%', padding: '8px 10px', fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#e2e8f0' }}>
+                      {metaAvailableAccounts.map(a => (
+                        <option key={a.id} value={a.id} style={{ background: '#0a0e1a' }}>
+                          {a.name} ({a.accountId}) — {a.currency}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 6, fontWeight: 700 }}>📄 Facebook page</div>
+                  {metaAvailablePages.length === 0 ? (
+                    <div style={{ fontSize: 10, color: '#fbbf24', padding: '6px 8px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 4 }}>
+                      No Facebook pages found where you have advertising permissions. Ads must be published from a page you manage.
+                    </div>
+                  ) : (
+                    <select value={pickedPageId} onChange={(e) => setPickedPageId(e.target.value)} style={{ width: '100%', padding: '8px 10px', fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#e2e8f0' }}>
+                      {metaAvailablePages.map(p => (
+                        <option key={p.id} value={p.id} style={{ background: '#0a0e1a' }}>
+                          {p.name}{p.category ? ` — ${p.category}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setMetaPickerOpen(false)} disabled={metaPickerSaving} style={{ flex: 1, padding: '9px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#7e92a8', cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                  <button onClick={saveMetaPickerSelection} disabled={metaPickerSaving || !pickedAdAccountId || !pickedPageId || metaAvailableAccounts.length === 0 || metaAvailablePages.length === 0} style={{ flex: 2, padding: '9px', fontSize: 11, fontWeight: 800, background: metaPickerSaving || !pickedAdAccountId || !pickedPageId ? 'rgba(24,119,242,0.3)' : 'linear-gradient(135deg,#1877f2,#0a5dc2)', border: 'none', borderRadius: 8, color: 'white', cursor: metaPickerSaving ? 'default' : 'pointer' }}>
+                    {metaPickerSaving ? '⟳ Saving…' : '✓ Save selection'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Meta Publish Confirmation Modal ── */}
       {metaConfirmOpen && (metaResult || (metaPublishFormat === 'video' && tiktokVideoUrl)) && (() => {
         const isVideoPublish = metaPublishFormat === 'video';
@@ -5002,6 +5237,34 @@ STRICT rules:
                       }} style={{ width: '100%', padding: '8px', fontSize: 10, fontWeight: 700, background: metaExportCopied ? 'rgba(52,211,153,0.15)' : 'rgba(24,119,242,0.1)', border: metaExportCopied ? '1px solid rgba(52,211,153,0.4)' : '1px solid rgba(24,119,242,0.3)', borderRadius: 6, color: metaExportCopied ? '#34d399' : '#60a5fa', cursor: 'pointer', transition: 'all 0.3s', marginBottom: 8 }}>
                         {metaExportCopied ? '✓ Copied — ready for Meta Ads Manager' : '📋 Copy Full Meta Ad Export'}
                       </button>
+                    )}
+                    {/* Meta connection status strip (OAuth Phase 1+2 — informational this deploy) */}
+                    {metaResult && isSignedIn && (
+                      <div style={{ marginBottom: 8, padding: '8px 10px', background: metaConn.connected ? (metaConn.selectionComplete ? 'rgba(52,211,153,0.08)' : 'rgba(251,191,36,0.08)') : 'rgba(255,255,255,0.03)', border: '1px solid ' + (metaConn.connected ? (metaConn.selectionComplete ? 'rgba(52,211,153,0.25)' : 'rgba(251,191,36,0.25)') : 'rgba(255,255,255,0.08)'), borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: 10, color: '#7e92a8', flex: 1, minWidth: 0 }}>
+                          {metaConnLoading ? (
+                            <>⟳ Checking Meta connection…</>
+                          ) : metaConn.connected ? (
+                            metaConn.selectionComplete ? (
+                              <span style={{ color: '#34d399' }}>✅ Meta connected — <strong>{metaConn.adAccountId}</strong> · page {metaConn.pageId}</span>
+                            ) : (
+                              <span style={{ color: '#fbbf24' }}>⚠️ Meta connected — select an ad account + page to enable publishing to your own account</span>
+                            )
+                          ) : (
+                            <>🔗 Connect your own Meta account to publish ads to your business (recommended)</>
+                          )}
+                        </div>
+                        {!metaConnLoading && (
+                          <button onClick={metaConn.connected ? openMetaPicker : triggerMetaConnect} style={{ padding: '5px 10px', fontSize: 10, fontWeight: 700, background: 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 5, color: '#60a5fa', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            {metaConn.connected ? (metaConn.selectionComplete ? 'Change account' : 'Pick account') : 'Connect Meta'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {metaConnError && metaResult && (
+                      <div style={{ marginBottom: 8, padding: '6px 10px', fontSize: 10, color: '#f87171', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6 }}>
+                        ❌ {metaConnError}
+                      </div>
                     )}
                     {/* Publish to Meta button */}
                     {metaResult && (
