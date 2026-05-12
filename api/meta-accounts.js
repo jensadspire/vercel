@@ -5,7 +5,10 @@
 import { createClerkClient } from '@clerk/backend';
 import { getMetaCredentials } from './lib/meta-token-store.js';
 
-const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+const clerkClient = createClerkClient({
+  secretKey: process.env.CLERK_SECRET_KEY,
+  publishableKey: process.env.VITE_CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || process.env.CLERK_PUBLISHABLE_KEY,
+});
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
 async function authenticateUser(req) {

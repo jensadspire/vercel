@@ -5,7 +5,10 @@
 import { createClerkClient } from '@clerk/backend';
 import { saveMetaSelection } from './lib/meta-token-store.js';
 
-const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+const clerkClient = createClerkClient({
+  secretKey: process.env.CLERK_SECRET_KEY,
+  publishableKey: process.env.VITE_CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || process.env.CLERK_PUBLISHABLE_KEY,
+});
 
 async function authenticateUser(req) {
   const sessionToken = req.headers.authorization?.replace(/^Bearer /, '')
