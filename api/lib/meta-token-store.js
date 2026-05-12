@@ -81,6 +81,9 @@ async function upstashSet(key, value) {
 // ── Public API ──────────────────────────────────────────────────────────────
 
 const KEY = (userId, suffix) => `meta:${userId}:${suffix}`;
+// Reverse index — lets webhooks (deauthorize, data deletion) find the Clerk
+// userId given only the Facebook user ID that Meta sends us.
+const FB_INDEX_KEY = (fbUserId) => `meta:fb_user:${fbUserId}`;
 
 export async function saveMetaCredentials({ userId, accessToken, expiresInSeconds, fbUserId }) {
   if (!userId) throw new Error('userId required');
@@ -88,7 +91,11 @@ export async function saveMetaCredentials({ userId, accessToken, expiresInSecond
   const expires = new Date(Date.now() + (expiresInSeconds || 60 * 24 * 3600) * 1000).toISOString();
   await upstashSet(KEY(userId, 'token'), encryptToken(accessToken));
   await upstashSet(KEY(userId, 'expires'), expires);
-  if (fbUserId) await upstashSet(KEY(userId, 'fb_user_id'), String(fbUserId));
+  if (fbUserId) {
+    await upstashSet(KEY(userId, 'fb_user_id'), String(fbUserId));
+    // Reverse index for Meta webhooks
+    await upstashSet(FB_INDEX_KEY(String(fbUserId)), String(userId));
+  }
 }
 
 export async function getMetaCredentials(userId) {
@@ -110,6 +117,14 @@ export async function getMetaCredentials(userId) {
   };
 }
 
+// Find the Clerk userId associated with a given Facebook user ID.
+// Used by Meta's deauthorize + data-deletion webhooks which only send fb_user_id.
+export async function getClerkUserIdByFbUserId(fbUserId) {
+  if (!fbUserId) return null;
+  const r = await upstash('get', FB_INDEX_KEY(String(fbUserId)));
+  return r.result || null;
+}
+
 export async function saveMetaSelection({ userId, adAccountId, pageId }) {
   if (!userId) throw new Error('userId required');
   if (adAccountId) await upstashSet(KEY(userId, 'ad_account_id'), adAccountId);
@@ -118,6 +133,12 @@ export async function saveMetaSelection({ userId, adAccountId, pageId }) {
 
 export async function clearMetaCredentials(userId) {
   if (!userId) throw new Error('userId required');
+  // Read fb_user_id BEFORE deletion so we can also remove the reverse index
+  let fbUserId = null;
+  try {
+    const r = await upstash('get', KEY(userId, 'fb_user_id'));
+    fbUserId = r.result || null;
+  } catch (_) { /* non-fatal */ }
   await Promise.all([
     upstash('del', KEY(userId, 'token')),
     upstash('del', KEY(userId, 'expires')),
@@ -125,6 +146,9 @@ export async function clearMetaCredentials(userId) {
     upstash('del', KEY(userId, 'page_id')),
     upstash('del', KEY(userId, 'fb_user_id')),
   ]);
+  if (fbUserId) {
+    try { await upstash('del', FB_INDEX_KEY(String(fbUserId))); } catch (_) {}
+  }
 }
 
 // ── Long-lived token exchange ───────────────────────────────────────────────
@@ -142,4 +166,43 @@ export async function exchangeForLongLivedToken(shortLivedToken) {
     accessToken: data.access_token,
     expiresInSeconds: data.expires_in || 60 * 24 * 3600,
   };
+}
+
+// ── Meta signed_request verification ────────────────────────────────────────
+// Meta's webhooks (deauthorize, data deletion, etc.) include a signed_request
+// parameter — a base64url-encoded JSON payload prefixed with an HMAC-SHA256
+// signature. This function verifies the signature against META_APP_SECRET and
+// returns the parsed payload, or throws if the signature is invalid.
+//
+// Reference: https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback
+//
+// Returns the payload object on success; throws on bad signature or malformed input.
+export function parseMetaSignedRequest(signedRequest) {
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appSecret) throw new Error('META_APP_SECRET env var not set');
+  if (!signedRequest || typeof signedRequest !== 'string') {
+    throw new Error('signed_request missing or malformed');
+  }
+  const [encodedSig, payload] = signedRequest.split('.');
+  if (!encodedSig || !payload) throw new Error('signed_request must have two parts');
+
+  // Base64url → base64 → bytes
+  const b64urlToBuffer = (s) => Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+  const sig = b64urlToBuffer(encodedSig);
+
+  // Compute expected HMAC-SHA256 over the raw payload string using app secret
+  const expected = crypto.createHmac('sha256', appSecret).update(payload).digest();
+
+  // Constant-time comparison to prevent timing attacks
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(sig, expected)) {
+    throw new Error('signed_request signature mismatch — possible forgery');
+  }
+
+  // Decode and parse the payload JSON
+  const payloadJson = b64urlToBuffer(payload).toString('utf8');
+  const data = JSON.parse(payloadJson);
+  if (data.algorithm !== 'HMAC-SHA256') {
+    throw new Error(`Unexpected algorithm: ${data.algorithm}`);
+  }
+  return data;
 }
