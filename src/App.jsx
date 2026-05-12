@@ -5,7 +5,6 @@ import {
   SignUp,
   useUser,
   useClerk,
-  useReverification,
   UserButton,
 } from "@clerk/clerk-react";
 
@@ -757,14 +756,6 @@ function RSAStudio() {
   // Admin mode — detected from ?admin=KEY URL param, persisted in sessionStorage
   const { isSignedIn, user } = useUser();
   const { signOut, session } = useClerk();
-  // Reverification-wrapped version of createExternalAccount. Clerk requires
-  // re-authentication (password or 2FA) before adding a new external OAuth
-  // account that has sensitive permissions (ads_management etc.). The hook
-  // pops a built-in modal, retries the call on success, throws on cancel.
-  const [createExternalAccountReverified] = useReverification(
-    (params) => user?.createExternalAccount(params),
-    { throwOnCancel: true }
-  );
   const plan = user?.publicMetadata?.plan || 'free';
   const isPro = plan === 'pro';
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -901,12 +892,10 @@ function RSAStudio() {
       await finaliseMetaConnect();
       return;
     }
-    // Not linked yet — kick off the OAuth dance via Clerk's createExternalAccount.
-    // Wrapped in useReverification so Clerk pops its built-in re-auth modal
-    // before exposing the sensitive ads_management OAuth flow.
+    // Not linked yet — kick off the OAuth dance via Clerk's createExternalAccount
     try {
       setMetaConnLoading(true);
-      const created = await createExternalAccountReverified({
+      const created = await user.createExternalAccount({
         strategy: 'oauth_facebook',
         redirectUrl: `${window.location.origin}?metaConnected=1`,
       });
@@ -919,11 +908,6 @@ function RSAStudio() {
         setMetaConnLoading(false);
       }
     } catch (err) {
-      // Reverification cancel: user closed the password/2FA modal — silent, not an error
-      if (err?.code === 'reverification_cancelled' || err?.message?.includes('cancel')) {
-        setMetaConnLoading(false);
-        return;
-      }
       setMetaConnError(err?.errors?.[0]?.message || err.message || 'Failed to start Facebook OAuth');
       setMetaConnLoading(false);
     }
