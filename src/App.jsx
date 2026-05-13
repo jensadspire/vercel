@@ -5641,7 +5641,7 @@ STRICT rules:
           onMouseOver={e => e.target.style.color='#4a5568'}
           onMouseOut={e => e.target.style.color='#2d3748'}>Privacy Policy</a>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <a href="/user-terms" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
+        <a href="/user-terms.html" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
           onMouseOver={e => e.target.style.color='#4a5568'}
           onMouseOut={e => e.target.style.color='#2d3748'}>Terms of Use</a>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>

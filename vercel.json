@@ -9,17 +9,9 @@
     "api/audience.js": { "maxDuration": 30 },
     "api/generate.js": { "maxDuration": 30 }
   },
-  "headers": [
-    {
-      "source": "/user-terms",
-      "headers": [{ "key": "Content-Type", "value": "text/html; charset=utf-8" }]
-    },
-    {
-      "source": "/moderation-policy",
-      "headers": [{ "key": "Content-Type", "value": "text/html; charset=utf-8" }]
-    }
-  ],
   "rewrites": [
-    { "source": "/privacy", "destination": "/privacy.html" }
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/user-terms", "destination": "/user-terms.html" },
+    { "source": "/moderation-policy", "destination": "/moderation-policy.html" }
   ]
 }
