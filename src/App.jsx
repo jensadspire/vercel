@@ -5637,11 +5637,11 @@ STRICT rules:
       <div style={{ textAlign: 'center', padding: '12px 24px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 10, color: '#2d3748' }}>AI Ad Studio</span>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <a href="https://app.termly.io/dashboard/website/3a01a18a-2820-4b2c-ab90-d722bbcd93d8/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
+        <a href="/privacy" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
           onMouseOver={e => e.target.style.color='#4a5568'}
           onMouseOut={e => e.target.style.color='#2d3748'}>Privacy Policy</a>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
+        <a href="/user-terms" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
           onMouseOver={e => e.target.style.color='#4a5568'}
           onMouseOut={e => e.target.style.color='#2d3748'}>Terms of Use</a>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
