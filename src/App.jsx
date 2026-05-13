@@ -945,6 +945,52 @@ function RSAStudio() {
     }
   }, [isSignedIn]);
 
+  // Magic-link auto-generation: when an outreach email link like
+  //   theaiad.studio/?url=<encoded>&autorun=true&tab=meta
+  // lands here, pre-fill the URL field, optionally toggle Meta/TikTok
+  // generation, strip the query params, and auto-trigger Generate.
+  // Runs ONCE on mount — useEffect with empty deps + a ref guard.
+  const magicLinkHandled = useRef(false);
+  useEffect(() => {
+    if (magicLinkHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const magicUrl = params.get('url');
+    if (!magicUrl) return;
+    magicLinkHandled.current = true;
+
+    const autorun = params.get('autorun') === 'true';
+    const magicTab = (params.get('tab') || '').toLowerCase(); // 'meta' | 'tiktok' | ''
+
+    // Pre-fill URL input
+    setUrl(magicUrl);
+
+    // Toggle additional generation targets based on tab
+    if (magicTab === 'meta') setGenerateMeta(true);
+    if (magicTab === 'tiktok') {
+      // TikTok generation requires sign-in; if not signed in this is a no-op
+      // and the prospect just sees the RSA result. They can sign up to unlock TikTok.
+      if (isSignedIn) setGenerateTiktok(true);
+    }
+
+    // Clean the magic-link params from the address bar so refreshes don't re-trigger,
+    // but preserve any unrelated params (rare, but defensive).
+    params.delete('url');
+    params.delete('autorun');
+    params.delete('tab');
+    const newSearch = params.toString();
+    const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+    window.history.replaceState({}, '', newUrl);
+
+    // Auto-trigger Generate after a short delay so React state can settle
+    if (autorun) {
+      setTimeout(() => {
+        const btn = document.querySelector('[data-generate-btn]:not([disabled])');
+        if (btn) btn.click();
+      }, 800);
+    }
+  }, [isSignedIn]);
+
+
   // Load available ad accounts + pages for the picker modal
   const openMetaPicker = async () => {
     if (!isSignedIn || !session) return;
@@ -5641,7 +5687,7 @@ STRICT rules:
           onMouseOver={e => e.target.style.color='#4a5568'}
           onMouseOut={e => e.target.style.color='#2d3748'}>Privacy Policy</a>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <a href="/user-terms.html" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
+        <a href="/user-terms" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
           onMouseOver={e => e.target.style.color='#4a5568'}
           onMouseOut={e => e.target.style.color='#2d3748'}>Terms of Use</a>
         <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
