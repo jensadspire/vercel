@@ -18,5 +18,8 @@
       "source": "/moderation-policy",
       "headers": [{ "key": "Content-Type", "value": "text/html; charset=utf-8" }]
     }
+  ],
+  "rewrites": [
+    { "source": "/privacy", "destination": "/privacy.html" }
   ]
 }
