@@ -69,10 +69,15 @@ async function upstash(command, ...args) {
 
 async function upstashSet(key, value) {
   if (!UPSTASH_URL || !UPSTASH_TOKEN) throw new Error('Upstash env vars not set');
+  // IMPORTANT: send the value as a raw text body, NOT JSON-stringified.
+  // Upstash's REST API stores the body verbatim. If we use JSON.stringify(value)
+  // here, the stored value gets wrapped in literal "..." quotes — which then
+  // corrupts our `iv:tag:ciphertext` token format on decrypt (the leading `"`
+  // makes ivHex invalid → "Invalid initialization vector" error).
   const r = await fetch(`${UPSTASH_URL}/set/${encodeURIComponent(key)}`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${UPSTASH_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(value),
+    headers: { Authorization: `Bearer ${UPSTASH_TOKEN}`, 'Content-Type': 'text/plain' },
+    body: String(value),
   });
   if (!r.ok) throw new Error(`Upstash SET failed: ${r.status}`);
   return r.json();
