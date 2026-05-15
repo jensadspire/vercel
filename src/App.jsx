@@ -2494,10 +2494,15 @@ STRICT rules:
                       if (opt === 'existing_adset') setTargetingExpanded(false);
                       if (opt !== 'new' && metaCampaigns.length === 0) {
                         setMetaLoadingCampaigns(true);
-                        fetch('/api/meta-campaigns').then(r => r.json()).then(d => {
-                          setMetaCampaigns(d.campaigns || []);
+                        (async () => {
+                          try {
+                            const headers = isSignedIn && session ? { 'x-clerk-session': await session.getToken() } : {};
+                            const r = await fetch('/api/meta-campaigns', { headers });
+                            const d = await r.json();
+                            setMetaCampaigns(d.campaigns || []);
+                          } catch (_) { /* swallow */ }
                           setMetaLoadingCampaigns(false);
-                        }).catch(() => setMetaLoadingCampaigns(false));
+                        })();
                       }
                     }} style={{ padding: '10px 12px', marginBottom: 6, borderRadius: 8, border: `1px solid ${metaPlacement === opt ? '#1877f2' : 'rgba(255,255,255,0.1)'}`, background: metaPlacement === opt ? 'rgba(24,119,242,0.15)' : 'rgba(255,255,255,0.03)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${metaPlacement === opt ? '#1877f2' : '#4a5568'}`, background: metaPlacement === opt ? '#1877f2' : 'transparent', flexShrink: 0 }} />
@@ -2543,7 +2548,7 @@ STRICT rules:
                       {metaLoadingCampaigns ? (
                         <div style={{ fontSize: 10, color: '#4a5568' }}>Loading campaigns…</div>
                       ) : (
-                        <select value={selectedCampaignId} onChange={e => { setSelectedCampaignId(e.target.value); setSelectedAdSetId(''); setMetaAdSets([]); if (metaPlacement === 'existing_adset' && e.target.value) { fetch('/api/meta-adsets?campaignId=' + e.target.value).then(r => r.json()).then(d => setMetaAdSets(d.adsets || [])); } }} style={{ width: '100%', padding: '7px 10px', fontSize: 11, background: '#0d1220', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'white', cursor: 'pointer' }}>
+                        <select value={selectedCampaignId} onChange={async e => { setSelectedCampaignId(e.target.value); setSelectedAdSetId(''); setMetaAdSets([]); if (metaPlacement === 'existing_adset' && e.target.value) { const headers = isSignedIn && session ? { 'x-clerk-session': await session.getToken() } : {}; fetch('/api/meta-adsets?campaignId=' + e.target.value, { headers }).then(r => r.json()).then(d => setMetaAdSets(d.adsets || [])); } }} style={{ width: '100%', padding: '7px 10px', fontSize: 11, background: '#0d1220', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'white', cursor: 'pointer' }}>
                           <option value="">— Select a campaign —</option>
                           {metaCampaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
