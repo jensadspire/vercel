@@ -41,7 +41,7 @@ async function uploadImage({ adAccountId, accessToken, imageUrl }) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
-  const data = await r.json();
+  const data = await safeJsonParseWithBigIds(r);
   const errMsg = metaErrorMessage(data, 'Image upload');
   if (errMsg) throw new Error(errMsg);
   const images = data.images || {};
@@ -60,7 +60,7 @@ async function uploadVideo({ adAccountId, accessToken, videoUrl }) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
-  const data = await r.json();
+  const data = await safeJsonParseWithBigIds(r);
   const errMsg = metaErrorMessage(data, 'Video upload');
   if (errMsg) throw new Error(errMsg);
   if (!data.id) throw new Error('No video id returned from Meta');
@@ -71,7 +71,7 @@ async function waitForVideoReady({ videoId, accessToken, maxAttempts = 60, inter
   // Poll until video status is "ready" (or fail/error). Meta processes videos async.
   for (let i = 0; i < maxAttempts; i++) {
     const r = await fetch(`${GRAPH}/${videoId}?fields=status&access_token=${accessToken}`);
-    const data = await r.json();
+    const data = await safeJsonParseWithBigIds(r);
     const phase = data?.status?.video_status || data?.status?.processing_phase;
     if (phase === 'ready') return true;
     if (phase === 'error') throw new Error(`Video processing failed: ${JSON.stringify(data.status)}`);
@@ -96,6 +96,25 @@ function metaErrorMessage(data, context) {
   return `${context} failed: ${best}${subcode}`;
 }
 
+// JavaScript's Number type can't safely represent integers above 2^53 (~16 digits).
+// Meta's IDs (campaigns, ad sets, ads, etc.) are now 18 digits, which overflows.
+// JSON.parse() silently rounds these — e.g. 120241413695910669 → 120241413695910670 —
+// so when we pass the rounded value back to Meta as a foreign key, Meta rejects it
+// as "not a valid campaign id".
+//
+// This helper reads the response body as text and rewrites numeric ID-like fields
+// as JSON strings before parsing, preserving the exact digits.
+async function safeJsonParseWithBigIds(response) {
+  const text = await response.text();
+  // Wrap quotes around numeric values for known ID-like keys.
+  // Keys handled: "id", "campaign_id", "adset_id", "ad_id", "creative_id", "image_id", "video_id"
+  const wrapped = text.replace(
+    /"(id|campaign_id|adset_id|ad_id|creative_id|image_id|video_id)"\s*:\s*(\d{16,})/g,
+    '"$1":"$2"'
+  );
+  return JSON.parse(wrapped);
+}
+
 async function createCampaign({ adAccountId, accessToken, name }) {
   const body = new URLSearchParams();
   body.append('name', name);
@@ -110,7 +129,7 @@ async function createCampaign({ adAccountId, accessToken, name }) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
-  const data = await r.json();
+  const data = await safeJsonParseWithBigIds(r);
   const errMsg = metaErrorMessage(data, 'Campaign create');
   if (errMsg) throw new Error(errMsg);
   return data.id;
@@ -148,7 +167,7 @@ async function createAdSet({ adAccountId, accessToken, campaignId, name, targeti
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
-  const data = await r.json();
+  const data = await safeJsonParseWithBigIds(r);
   const errMsg = metaErrorMessage(data, 'AdSet create');
   if (errMsg) throw new Error(errMsg);
   return data.id;
@@ -167,7 +186,7 @@ async function createCreative({ adAccountId, accessToken, pageId, payload }) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
-  const data = await r.json();
+  const data = await safeJsonParseWithBigIds(r);
   const errMsg = metaErrorMessage(data, 'Creative create');
   if (errMsg) throw new Error(errMsg);
   return data.id;
@@ -185,7 +204,7 @@ async function createAd({ adAccountId, accessToken, name, adSetId, creativeId })
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
-  const data = await r.json();
+  const data = await safeJsonParseWithBigIds(r);
   const errMsg = metaErrorMessage(data, 'Ad create');
   if (errMsg) throw new Error(errMsg);
   return data.id;
