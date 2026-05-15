@@ -2407,7 +2407,10 @@ STRICT rules:
           try {
             const r = await fetch('/api/meta-publish', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                ...(isSignedIn && session ? { 'x-clerk-session': await session.getToken() } : {}),
+              },
               body: JSON.stringify({
                 headline: hl, primaryText: pt, description: desc,
                 imageUrl: isVideoPublish ? videoThumbUrl : imgUrl,

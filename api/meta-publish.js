@@ -2,6 +2,21 @@
 // Publishes ads to Meta Ads Manager via Marketing API.
 // Supports three formats: single (image), carousel (multiple images), video.
 // All ads created as PAUSED — no spend until manually activated.
+//
+// Token resolution:
+//   1. If the request includes a valid Clerk session token AND the user has
+//      connected their own Meta account, use their per-user credentials
+//      (ad account, page, encrypted token stored in Upstash).
+//   2. Otherwise fall back to the env-var Adspire token (demo mode — publishes
+//      into our own ad account).
+
+import { createClerkClient } from '@clerk/backend';
+import { getMetaCredentials } from './lib/meta-token-store.js';
+
+const clerkClient = createClerkClient({
+  secretKey: process.env.CLERK_SECRET_KEY,
+  publishableKey: process.env.VITE_CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || process.env.CLERK_PUBLISHABLE_KEY,
+});
 
 const META_API_VERSION = 'v21.0';
 const GRAPH = `https://graph.facebook.com/${META_API_VERSION}`;
@@ -181,11 +196,48 @@ async function createAd({ adAccountId, accessToken, name, adSetId, creativeId })
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
-  const adAccountId = process.env.META_AD_ACCOUNT_ID;
-  const accessToken = process.env.META_ACCESS_TOKEN;
-  const pageId = process.env.META_PAGE_ID;
+  // ── Resolve credentials: per-user (Upstash) if signed in, else env-var fallback ──
+  let adAccountId, accessToken, pageId;
+  let credSource = 'env'; // for diagnostic logging only
+
+  const sessionToken = req.headers.authorization?.replace(/^Bearer /, '')
+    || req.headers['x-clerk-session'];
+
+  if (sessionToken) {
+    try {
+      const session = await clerkClient.authenticateRequest(
+        new Request(`https://${req.headers.host}${req.url}`, {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        })
+      );
+      const auth = session.toAuth();
+      const userId = auth?.userId;
+      if (userId) {
+        const creds = await getMetaCredentials(userId);
+        if (creds?.accessToken && creds?.adAccountId && creds?.pageId) {
+          accessToken = creds.accessToken;
+          adAccountId = creds.adAccountId;
+          pageId = creds.pageId;
+          credSource = 'user';
+          console.log(`[meta-publish] Using per-user credentials for ${userId} (ad_account=${adAccountId}, page=${pageId})`);
+        }
+      }
+    } catch (err) {
+      // Non-fatal — fall through to env-var fallback
+      console.warn('[meta-publish] Clerk auth failed, falling back to env credentials:', err.message);
+    }
+  }
+
+  // Fall back to env vars (demo mode / unauthenticated)
+  if (!accessToken) {
+    adAccountId = process.env.META_AD_ACCOUNT_ID;
+    accessToken = process.env.META_ACCESS_TOKEN;
+    pageId = process.env.META_PAGE_ID;
+    console.log(`[meta-publish] Using env-var credentials (demo mode, ad_account=${adAccountId})`);
+  }
+
   if (!adAccountId || !accessToken || !pageId) {
-    return res.status(500).json({ error: 'Meta env vars not configured' });
+    return res.status(500).json({ error: 'Meta credentials not configured. Connect Meta or set env vars.' });
   }
 
   const dsa = {
