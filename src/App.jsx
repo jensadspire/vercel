@@ -5365,7 +5365,7 @@ STRICT rules:
                         {metaPublishResult?.success && metaPublishFormat !== 'video' && (
                           <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6 }}>
                             <div style={{ fontSize: 10, color: '#34d399', fontWeight: 700 }}>✅ Ad created as PAUSED in Meta Ads Manager</div>
-                            <a href={metaPublishResult.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#60a5fa' }}>→ Review and activate in Ads Manager</a>
+                            <a href={metaPublishResult.url} style={{ fontSize: 10, color: '#60a5fa' }}>→ Review and activate in Ads Manager</a>
                           </div>
                         )}
                         {metaPublishResult?.error && metaPublishFormat !== 'video' && (
