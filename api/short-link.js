@@ -23,8 +23,8 @@
 // from send-outreach.js as `x-internal-token`. Prevents random POSTs to this
 // endpoint from creating short links.
 
-const { Redis } = require('@upstash/redis');
-const { buildToken } = require('./lib/slugify.js');
+import { Redis } from '@upstash/redis';
+import { buildToken } from './lib/slugify.js';
 
 const TTL_SECONDS = 60 * 60 * 24 * 90;       // 90 days
 const KEY_PREFIX  = 'shortlink:';
@@ -32,7 +32,7 @@ const MAX_COLLISION_RETRIES = 20;
 
 const redis = Redis.fromEnv();               // reads UPSTASH_REDIS_REST_URL + _TOKEN
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // --- Method + auth checks ----------------------------------------------------
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -108,13 +108,9 @@ module.exports = async function handler(req, res) {
     token = `${baseToken}-${attempt + 2}`; // first retry is -2, then -3, ...
   }
 
-  if (reused === false && token !== baseToken && token === `${baseToken}-${MAX_COLLISION_RETRIES + 1}`) {
-    return res.status(409).json({ error: 'Could not allocate unique token after retries' });
-  }
-
   // --- Build response ---------------------------------------------------------
   const baseUrl = process.env.PUBLIC_BASE_URL || 'https://www.theaiad.studio';
   const short_url = `${baseUrl}/r/${token}`;
 
   return res.status(200).json({ token, reused, short_url });
-};
+}

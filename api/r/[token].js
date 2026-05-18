@@ -7,13 +7,13 @@
 //
 // If the token doesn't exist or has expired, falls through to PUBLIC_BASE_URL.
 
-const { Redis } = require('@upstash/redis');
-const { appendUtm } = require('../lib/slugify.js');
+import { Redis } from '@upstash/redis';
+import { appendUtm } from '../lib/slugify.js';
 
 const KEY_PREFIX = 'shortlink:';
 const redis = Redis.fromEnv();
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   const baseUrl = process.env.PUBLIC_BASE_URL || 'https://www.theaiad.studio';
 
   // --- Extract + validate token -----------------------------------------------
@@ -37,7 +37,6 @@ module.exports = async function handler(req, res) {
   }
 
   // --- Fire-and-forget click logging ------------------------------------------
-  // Do NOT await — we don't want the redirect to wait on Upstash write.
   const updatedRecord = {
     ...record,
     clicks: (record.clicks || 0) + 1,
@@ -65,4 +64,4 @@ module.exports = async function handler(req, res) {
   // --- Build final URL + redirect ---------------------------------------------
   const finalUrl = appendUtm(record.destination, record.utm || {});
   return res.redirect(302, finalUrl);
-};
+}

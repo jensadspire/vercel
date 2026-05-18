@@ -1,4 +1,4 @@
-// lib/slugify.js
+// api/lib/slugify.js
 //
 // Utility for converting product names + campaign codes into short, URL-safe
 // tokens used by the redirect endpoint at /r/{token}.
@@ -14,7 +14,7 @@
 // Max total length: 60 chars.
 // Example: "small-love-selection-box-2026-05-da"
 
-const MAX_TOKEN_LENGTH = 60;
+export const MAX_TOKEN_LENGTH = 60;
 
 /**
  * Convert a free-form string (typically a product name) into a URL-safe slug.
@@ -24,7 +24,7 @@ const MAX_TOKEN_LENGTH = 60;
  * @param {number} maxLen Max length of the returned slug (default: 50)
  * @returns {string}      e.g. "small-love-selection-box"
  */
-function slugify(text, maxLen = 50) {
+export function slugify(text, maxLen = 50) {
   if (!text || typeof text !== 'string') return '';
 
   let slug = text
@@ -58,7 +58,7 @@ function slugify(text, maxLen = 50) {
  * @param {string} campaignCode e.g. "2026-05-da"
  * @returns {string}            e.g. "small-love-selection-box-2026-05-da"
  */
-function buildToken(productName, campaignCode) {
+export function buildToken(productName, campaignCode) {
   const cleanCampaign = String(campaignCode || '')
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, '-')
@@ -82,7 +82,7 @@ function buildToken(productName, campaignCode) {
  * @param {object} utm         { source, medium, campaign, content?, term? }
  * @returns {string}           destination with UTM params appended
  */
-function appendUtm(destination, utm = {}) {
+export function appendUtm(destination, utm = {}) {
   if (!destination) return destination;
   try {
     const u = new URL(destination);
@@ -96,10 +96,3 @@ function appendUtm(destination, utm = {}) {
     return destination; // if the destination isn't a valid URL, return as-is
   }
 }
-
-module.exports = {
-  slugify,
-  buildToken,
-  appendUtm,
-  MAX_TOKEN_LENGTH,
-};
