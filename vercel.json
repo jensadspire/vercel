@@ -12,6 +12,7 @@
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/user-terms", "destination": "/user-terms.html" },
-    { "source": "/moderation-policy", "destination": "/moderation-policy.html" }
+    { "source": "/moderation-policy", "destination": "/moderation-policy.html" },
+    { "source": "/r/:token", "destination": "/api/r/:token" }
   ]
 }
