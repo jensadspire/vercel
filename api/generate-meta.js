@@ -264,7 +264,7 @@ Rules:
     const raw = claudeData.content?.[0]?.text || "";
     if (!raw) {
       const errMsg = claudeData.error?.message || JSON.stringify(claudeData);
-      return res.status(500).json({ error: "Copy generation failed", detail: errMsg });
+      return res.status(503).json({ error: "Extended workload at the moment — please check back a bit later.", detail: errMsg });
     }
     const clean = raw.replace(/```json|```/g, "").trim();
     try {
@@ -275,7 +275,7 @@ Rules:
     }
   } catch (e) {
     console.error('Claude call failed:', e.message);
-    return res.status(500).json({ error: "Copy generation failed", detail: e.message });
+    return res.status(503).json({ error: "Extended workload at the moment — please check back a bit later.", detail: e.message });
   }
 
   // ── Step 3: Generate image variations in parallel ───────────────────────────
