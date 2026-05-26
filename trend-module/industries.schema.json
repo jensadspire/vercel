@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Industry Taxonomy",
+  "description": "Schema for trend module industry configuration",
+  "type": "object",
+  "required": ["version", "industries"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date" },
+    "notes": { "type": "string" },
+    "industries": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/industry" }
+    }
+  },
+  "definitions": {
+    "industry": {
+      "type": "object",
+      "required": [
+        "slug",
+        "name",
+        "sub_categories",
+        "trend_threshold_pct",
+        "prospect_cap_per_quarter",
+        "seasonal_active_months",
+        "primary_countries",
+        "enabled"
+      ],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Machine identifier — lowercase, underscore-separated, no spaces or hyphens"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable display name"
+        },
+        "description": {
+          "type": "string",
+          "description": "One-line description of what this industry covers"
+        },
+        "sub_categories": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 0,
+          "maxItems": 20,
+          "description": "Sub-category queries to track via pytrends. 10-15 is the sweet spot; more = more API load."
+        },
+        "trend_threshold_pct": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Minimum week-over-week interest change to qualify as a trend event. Null disables trend tracking for this industry."
+        },
+        "prospect_cap_per_quarter": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Maximum trend emails per prospect per quarter. 0 disables emails for this industry."
+        },
+        "seasonal_active_months": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 12 },
+          "uniqueItems": true,
+          "description": "Months (1-12) when trend events can fire. Empty array = year-round."
+        },
+        "primary_countries": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z]{2}$" },
+          "description": "ISO 3166-1 alpha-2 country codes where pytrends should be queried for this industry."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Master switch for this industry. Disabled industries skip all processing."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Free-text notes for human reference"
+        }
+      }
+    }
+  }
+}
