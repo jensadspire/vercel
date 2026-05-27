@@ -44,6 +44,28 @@ from pytrends.request import TrendReq
 # AND in this set will be queried.
 V1_COUNTRIES = {"DK"}
 
+# Country → language mapping for taxonomy localization. The script looks up
+# the sub-category's translation for this language before querying pytrends.
+# Countries not in this map will fall back to the English term.
+COUNTRY_TO_LANGUAGE = {
+    "DK": "da",
+    "SE": "sv",
+    "NO": "no",
+    "DE": "de",
+    "AT": "de",
+    "CH": "de",
+    "NL": "nl",
+    "BE": "nl",
+    "UK": "en",
+    "IE": "en",
+    "US": "en",
+    "FR": "fr",
+    "ES": "es",
+    "PT": "pt",
+    "IT": "it",
+    "FI": "fi",
+}
+
 # Pytrends rate limit pacing. Google's unofficial limit is roughly 1 request
 # per 5 seconds sustained. Going slower is safer; going faster invites bans.
 SECONDS_BETWEEN_QUERIES = 6.0
@@ -219,21 +241,45 @@ def ingest(industries_data: dict, upstash: UpstashClient, industry_filter: str |
         }
 
         for country in countries_to_query:
-            for sub_cat in sub_categories:
-                summary["total_queries_attempted"] += 1
-                log.info(f"  Fetching '{sub_cat}' in {country}...")
+            # Look up the language for this country
+            lang = COUNTRY_TO_LANGUAGE.get(country, "en")
 
-                result = fetch_query_interest(pytrends, sub_cat, country)
+            for sub_cat in sub_categories:
+                # Resolve the actual query string. Sub-category may be:
+                #   - a dict like {"en": "patio set", "translations": {"da": "havemøbelsæt", ...}}
+                #   - a plain string (legacy / disabled industries)
+                if isinstance(sub_cat, dict):
+                    en_term = sub_cat.get("en", "")
+                    query_text = sub_cat.get("translations", {}).get(lang) or en_term
+                    # The Upstash key always uses the English term as identifier
+                    # so keys are stable across language changes.
+                    key_sub = en_term
+                else:
+                    query_text = sub_cat
+                    key_sub = sub_cat
+
+                if not query_text:
+                    log.warning(f"  Skipping sub-category with no query text in {industry['slug']}")
+                    continue
+
+                summary["total_queries_attempted"] += 1
+                log.info(f"  Fetching '{query_text}' ({lang}) in {country}...")
+
+                result = fetch_query_interest(pytrends, query_text, country)
 
                 if result == "EMPTY":
                     # No data from Google Trends — not an error, just low volume
                     summary["total_queries_empty"] = summary.get("total_queries_empty", 0) + 1
                     industry_summary["queries_empty"] = industry_summary.get("queries_empty", 0) + 1
                 elif result is not None:
-                    # Build Upstash key. Sub-categories may contain spaces;
-                    # replace with underscores for clean keys.
-                    safe_sub = sub_cat.replace(" ", "_").lower()
+                    # Build Upstash key. Use English term as identifier so keys
+                    # stay stable when translations are refined.
+                    safe_sub = key_sub.replace(" ", "_").lower()
                     key = f"trend:query:{industry['slug']}:{country}:{safe_sub}"
+                    # Store the actual queried language in the payload for debug
+                    if isinstance(result, dict):
+                        result["query_language"] = lang
+                        result["query_text_used"] = query_text
                     if upstash.set_json(key, result, UPSTASH_TTL_SECONDS):
                         summary["total_queries_succeeded"] += 1
                         industry_summary["queries_succeeded"] += 1
@@ -241,13 +287,13 @@ def ingest(industries_data: dict, upstash: UpstashClient, industry_filter: str |
                         summary["total_queries_failed"] += 1
                         industry_summary["queries_failed"] += 1
                         summary["errors"].append(
-                            f"Upstash write failed: {industry['slug']}/{country}/{sub_cat}"
+                            f"Upstash write failed: {industry['slug']}/{country}/{key_sub}"
                         )
                 else:
                     summary["total_queries_failed"] += 1
                     industry_summary["queries_failed"] += 1
                     summary["errors"].append(
-                        f"Pytrends fetch failed: {industry['slug']}/{country}/{sub_cat}"
+                        f"Pytrends fetch failed: {industry['slug']}/{country}/{key_sub}"
                     )
 
                 paced_sleep()
