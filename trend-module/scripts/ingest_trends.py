@@ -127,8 +127,8 @@ def fetch_query_interest(pytrends: TrendReq, query: str, country: str) -> dict |
             df = pytrends.interest_over_time()
 
             if df is None or df.empty:
-                log.warning(f"  Empty result for '{query}' in {country}")
-                return None
+                log.info(f"  No data for '{query}' in {country} (low search volume)")
+                return "EMPTY"
 
             # Drop the 'isPartial' column if present (pytrends adds it)
             if "isPartial" in df.columns:
@@ -179,6 +179,7 @@ def ingest(industries_data: dict, upstash: UpstashClient, industry_filter: str |
         "completed_at": None,
         "total_queries_attempted": 0,
         "total_queries_succeeded": 0,
+        "total_queries_empty": 0,
         "total_queries_failed": 0,
         "industries_processed": [],
         "errors": [],
@@ -224,7 +225,11 @@ def ingest(industries_data: dict, upstash: UpstashClient, industry_filter: str |
 
                 result = fetch_query_interest(pytrends, sub_cat, country)
 
-                if result is not None:
+                if result == "EMPTY":
+                    # No data from Google Trends — not an error, just low volume
+                    summary["total_queries_empty"] = summary.get("total_queries_empty", 0) + 1
+                    industry_summary["queries_empty"] = industry_summary.get("queries_empty", 0) + 1
+                elif result is not None:
                     # Build Upstash key. Sub-categories may contain spaces;
                     # replace with underscores for clean keys.
                     safe_sub = sub_cat.replace(" ", "_").lower()
@@ -311,14 +316,19 @@ def main():
 
     # Print summary to stdout
     log.info("━" * 60)
-    log.info(f"Run complete: {summary['total_queries_succeeded']}/{summary['total_queries_attempted']} queries succeeded")
+    succeeded = summary["total_queries_succeeded"]
+    attempted = summary["total_queries_attempted"]
+    empty = summary.get("total_queries_empty", 0)
+    failed = summary["total_queries_failed"]
+    log.info(f"Run complete: {succeeded}/{attempted} succeeded, {empty} empty (no data), {failed} failed")
     if summary["errors"]:
         log.warning(f"Errors: {len(summary['errors'])}")
         for err in summary["errors"][:10]:
             log.warning(f"  • {err}")
 
-    # Exit non-zero if any failures, so GitHub Actions surfaces it
-    if summary["total_queries_failed"] > 0:
+    # Exit non-zero only on real failures (Upstash writes, network errors).
+    # Empty results are not failures — they just mean low Google Trends volume.
+    if failed > 0:
         sys.exit(2)
 
 
