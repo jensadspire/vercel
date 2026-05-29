@@ -182,7 +182,36 @@ export default async function handler(req, res) {
       return parts.filter(u => u.startsWith('http') || u.startsWith('/'));
     });
     // Extract product image URLs from JSON/script tags (common in SPAs)
-    const jsonImgMatches = [...html.matchAll(/"(?:image|img|photo|thumbnail|src)":\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)];
+    // Pattern A: direct string under common keys → "image":"https://..."
+    const jsonImgMatches = [...html.matchAll(/"(?:image|img|photo|thumbnail|src|hoverImage|productImage|primaryImage)":\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)];
+
+    // Pattern B: array of URL strings under plural/collection keys.
+    // Catches CommerceTools-style structures like:
+    //   "images":{"value":["https://...jpg","https://...png"]}
+    //   "images":["https://...jpg","https://...png"]
+    //   "galleryImages":[{"url":"https://..."}, ...]   ← handled below in Pattern C
+    // The regex finds the key, then captures everything up to the closing bracket;
+    // we extract individual URLs from that block in a second pass.
+    const jsonImgArrayBlocks = [...html.matchAll(
+      /"(?:images|productImages|galleryImages|media|mediaGallery|productMedia|productGallery)"\s*:\s*(?:\{\s*"value"\s*:\s*)?\[([^\]]{0,4000})\]/gi
+    )];
+    const jsonImgArrayMatches = [];
+    for (const block of jsonImgArrayBlocks) {
+      const urls = [...block[1].matchAll(/"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)];
+      for (const u of urls) jsonImgArrayMatches.push(u);
+    }
+
+    // Pattern C: array of objects with url property, common in some headless setups.
+    //   "image":[{"url":"https://..."},{"url":"https://..."}]
+    const jsonImgObjectMatches = [...html.matchAll(
+      /"(?:image|images|productImage|productImages|media|gallery)"\s*:\s*\[(?:\s*\{\s*"(?:url|src|href)"\s*:\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"[^}]*\}\s*,?\s*){1,20}\]/gi
+    )];
+    // The outer match captures the entire array; pull individual URLs out of each match's full text.
+    const jsonImgObjectUrls = [];
+    for (const m of jsonImgObjectMatches) {
+      const urls = [...m[0].matchAll(/"(?:url|src|href)"\s*:\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)];
+      for (const u of urls) jsonImgObjectUrls.push(u);
+    }
     const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
 
     // ── JSON-LD Product.image extraction ────────────────────────────────────
@@ -214,23 +243,49 @@ export default async function handler(req, res) {
     // parasol page's product image usually has "parasol" or "lima" in its
     // filename; an unrelated promo spot (like "forside-cta-spot-espresso-house")
     // doesn't.
+    //
+    // We extract TWO kinds of tokens:
+    //   1. Word tokens (e.g. "lima", "haengeparasol", "loungesaet")
+    //   2. SKU-style codes (e.g. "pg-7587-0255-670", "7260-9871500") —
+    //      important because CommerceTools-style sites name image files
+    //      after the SKU rather than the product name.
     const extractProductSlugTokens = (pageUrl) => {
       try {
         const path = new URL(pageUrl).pathname.toLowerCase();
         const segments = path.split('/').filter(Boolean);
-        // Walk backwards through segments to find the first one with
-        // meaningful tokens. Many sites end product URLs with a numeric ID
-        // (e.g. /produkter/lima-haengeparasol-oe3m-taupe/3014013999),
-        // so the last segment is just digits and we need to skip past it.
-        for (let i = segments.length - 1; i >= 0; i--) {
-          const tokens = segments[i]
+
+        const wordTokens = [];
+        const skuTokens = [];
+
+        // Look at all segments, not just the last — SKUs can appear mid-path.
+        for (const segment of segments) {
+          // Detect SKU-style codes: 2+ dash-separated parts where at least
+          // one part is purely numeric and 3+ chars long. Catches:
+          //   pg-7587-0255-670, 7260-9871500, sku-12345-789
+          // Avoids matching simple two-word slugs like "linen-dress".
+          const skuMatch = segment.match(/(?:^|[^a-z0-9])([a-z]{1,4}-)?(\d{3,}-\d{3,}(?:-\d{2,}){0,3})/i);
+          if (skuMatch) {
+            const code = (skuMatch[1] || '') + skuMatch[2];
+            // Store both the full code and the dash-separated parts —
+            // image filenames sometimes use uppercase prefix (PG-) and
+            // sometimes drop it, so we want flexibility.
+            skuTokens.push(code.toLowerCase());
+            // Also store the numeric core, which is highly distinctive.
+            skuTokens.push(skuMatch[2].toLowerCase());
+          }
+
+          // Word tokens — same logic as before.
+          const tokens = segment
             .split(/[-_]/)
-            .filter(t => t.length >= 3 && !/^\d+$/.test(t));
-          if (tokens.length > 0) return tokens;
+            .filter(t => t.length >= 3 && !/^\d+$/.test(t) && !/^\d+[a-z]?$/i.test(t));
+          for (const t of tokens) {
+            if (!wordTokens.includes(t)) wordTokens.push(t);
+          }
         }
-        return [];
+
+        return { wordTokens, skuTokens };
       } catch (_) {
-        return [];
+        return { wordTokens: [], skuTokens: [] };
       }
     };
     const productSlugTokens = extractProductSlugTokens(url);
@@ -289,11 +344,25 @@ export default async function handler(req, res) {
       // is the strongest "this is THE product image" signal we can derive
       // cheaply — it separates the right product image from unrelated
       // graphics that happen to live on the page.
-      if (productSlugTokens.length > 0) {
-        const matchedTokens = productSlugTokens.filter(token => filename.includes(token));
-        if (matchedTokens.length > 0) {
-          // +3 per matched token, capped at +9 (don't run away on long slugs)
-          score += Math.min(matchedTokens.length * 3, 9);
+      //
+      // Two kinds of matches:
+      //   - Word tokens (lima, parasol, loungesaet) at +3 each, capped at +9.
+      //     Loose: catches partial filename echoes.
+      //   - SKU tokens (pg-7587-0255-670, 7260-9871500) at +12 each.
+      //     Strict: SKU presence is a near-certain "THIS is the product image"
+      //     signal. CommerceTools / Centra / Magento sites often name image
+      //     files after the SKU rather than the product name, which is why
+      //     this is a separate, heavier-weighted signal.
+      if (productSlugTokens.wordTokens.length > 0) {
+        const matchedWords = productSlugTokens.wordTokens.filter(t => filename.includes(t));
+        if (matchedWords.length > 0) {
+          score += Math.min(matchedWords.length * 3, 9);
+        }
+      }
+      if (productSlugTokens.skuTokens.length > 0) {
+        const matchedSku = productSlugTokens.skuTokens.some(t => filename.includes(t));
+        if (matchedSku) {
+          score += 12;
         }
       }
 
@@ -373,10 +442,12 @@ export default async function handler(req, res) {
     const allImgTags = imgMatches.map(m => ({ tag: m[0], src: extractSrc(m[0]) }));
     const lazyImgs = lazySrcMatches.map(m => ({ tag: '', src: m[1] }));
     const jsonImgs = jsonImgMatches.map(m => ({ tag: '', src: m[1] }));
+    const jsonArrayImgs = jsonImgArrayMatches.map(m => ({ tag: '', src: m[1] }));
+    const jsonObjectImgs = jsonImgObjectUrls.map(m => ({ tag: '', src: m[1] }));
     const srcsetImgsList = srcsetUrls.map(src => ({ tag: '', src }));
 
     // Apply hard-exclude filter, then score the survivors.
-    const scoredImages = [...allImgTags, ...lazyImgs, ...jsonImgs, ...srcsetImgsList]
+    const scoredImages = [...allImgTags, ...lazyImgs, ...jsonImgs, ...jsonArrayImgs, ...jsonObjectImgs, ...srcsetImgsList]
       .filter(({ src }) => src && !isHardExcluded(src))
       .map(({ tag, src }) => ({ src, score: scoreImage(tag, src) }));
 
