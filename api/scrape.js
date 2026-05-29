@@ -182,8 +182,24 @@ export default async function handler(req, res) {
       return parts.filter(u => u.startsWith('http') || u.startsWith('/'));
     });
     // Extract product image URLs from JSON/script tags (common in SPAs)
+    //
+    // Two forms to handle:
+    //   (1) Raw JSON in <script>: "image":"https://..."
+    //   (2) JSON-embedded-in-JSON (Next.js __NEXT_DATA__, similar SSR patterns):
+    //       \"image\":\"https://...\"
+    //   Many modern e-commerce stacks (Next.js, Nuxt, SvelteKit with hydration)
+    //   serialize state as a JSON string inside another JSON wrapper, so the
+    //   inner quotes get backslash-escaped. We handle (2) by running all three
+    //   patterns against an unescape-normalized copy of the HTML in addition
+    //   to the raw HTML. URLs are deduplicated later, so this is safe.
+    const htmlUnescaped = html.replace(/\\"/g, '"').replace(/\\\//g, '/');
+
     // Pattern A: direct string under common keys → "image":"https://..."
-    const jsonImgMatches = [...html.matchAll(/"(?:image|img|photo|thumbnail|src|hoverImage|productImage|primaryImage)":\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)];
+    const patternA = /"(?:image|img|photo|thumbnail|src|hoverImage|productImage|primaryImage)":\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi;
+    const jsonImgMatches = [
+      ...html.matchAll(patternA),
+      ...htmlUnescaped.matchAll(patternA),
+    ];
 
     // Pattern B: array of URL strings under plural/collection keys.
     // Catches CommerceTools-style structures like:
@@ -192,9 +208,11 @@ export default async function handler(req, res) {
     //   "galleryImages":[{"url":"https://..."}, ...]   ← handled below in Pattern C
     // The regex finds the key, then captures everything up to the closing bracket;
     // we extract individual URLs from that block in a second pass.
-    const jsonImgArrayBlocks = [...html.matchAll(
-      /"(?:images|productImages|galleryImages|media|mediaGallery|productMedia|productGallery)"\s*:\s*(?:\{\s*"value"\s*:\s*)?\[([^\]]{0,4000})\]/gi
-    )];
+    const patternB = /"(?:images|productImages|galleryImages|media|mediaGallery|productMedia|productGallery)"\s*:\s*(?:\{\s*"value"\s*:\s*)?\[([^\]]{0,4000})\]/gi;
+    const jsonImgArrayBlocks = [
+      ...html.matchAll(patternB),
+      ...htmlUnescaped.matchAll(patternB),
+    ];
     const jsonImgArrayMatches = [];
     for (const block of jsonImgArrayBlocks) {
       const urls = [...block[1].matchAll(/"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)];
@@ -203,9 +221,11 @@ export default async function handler(req, res) {
 
     // Pattern C: array of objects with url property, common in some headless setups.
     //   "image":[{"url":"https://..."},{"url":"https://..."}]
-    const jsonImgObjectMatches = [...html.matchAll(
-      /"(?:image|images|productImage|productImages|media|gallery)"\s*:\s*\[(?:\s*\{\s*"(?:url|src|href)"\s*:\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"[^}]*\}\s*,?\s*){1,20}\]/gi
-    )];
+    const patternC = /"(?:image|images|productImage|productImages|media|gallery)"\s*:\s*\[(?:\s*\{\s*"(?:url|src|href)"\s*:\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"[^}]*\}\s*,?\s*){1,20}\]/gi;
+    const jsonImgObjectMatches = [
+      ...html.matchAll(patternC),
+      ...htmlUnescaped.matchAll(patternC),
+    ];
     // The outer match captures the entire array; pull individual URLs out of each match's full text.
     const jsonImgObjectUrls = [];
     for (const m of jsonImgObjectMatches) {
