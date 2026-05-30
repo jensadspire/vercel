@@ -22,16 +22,21 @@ export default async function handler(req, res) {
   // ── Step 1: Scrape the URL ────────────────────────────────────────────────
   let pageContent = "";
   let scrapeImages = [];
+  const scrapeUrl = `${req.headers.origin || "https://" + req.headers.host}/api/scrape`;
+  console.log(`[META DEBUG] Calling internal scrape at: ${scrapeUrl}`);
   try {
-    const scrapeRes = await fetch(`${req.headers.origin || "https://" + req.headers.host}/api/scrape`, {
+    const scrapeRes = await fetch(scrapeUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
     });
+    console.log(`[META DEBUG] Internal scrape status: ${scrapeRes.status}, content-type: ${scrapeRes.headers.get('content-type')}`);
     const scrapeData = await scrapeRes.json();
     pageContent = scrapeData.content || scrapeData.text || "";
     scrapeImages = scrapeData.images || [];
+    console.log(`[META DEBUG] scrapeData keys: ${Object.keys(scrapeData).join(', ')}`);
   } catch (e) {
+    console.log(`[META DEBUG] Internal scrape FAILED: ${e.message}`);
     pageContent = url; // fallback to URL only
   }
 
