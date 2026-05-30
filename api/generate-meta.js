@@ -35,6 +35,15 @@ export default async function handler(req, res) {
     pageContent = url; // fallback to URL only
   }
 
+  // ── DIAGNOSTIC LOG (remove after debugging) ─────────────────────────────────
+  console.log(`[META DEBUG] ${url}`);
+  console.log(`  scrapeImages.length: ${scrapeImages.length}`);
+  if (scrapeImages.length > 0) {
+    console.log(`  First 3 scrapeImages:`);
+    for (const u of scrapeImages.slice(0, 3)) console.log(`    ${u.slice(0, 100)}`);
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+
   // ── Smart image selection — works for both product and category URLs ──────────
   // Expanded URL patterns for product pages across many platforms/languages
   const isProductUrl = /\/p-|\/product|\/produkt|\/pd\/|\/item\/|\/p\/|[a-f0-9]{8}-[a-f0-9]{4}|\.html|\.htm|\?.*color=|\?.*variant|itemid=|productid=/i.test(url);
@@ -53,7 +62,7 @@ export default async function handler(req, res) {
     if (/(_main|_hero|_primary|_front|_pdp|_full)/i.test(img)) score += 5; // PDP hero patterns
     if (/\.jpg|\.jpeg|\.webp|\.png/i.test(img)) score += 1;
     // Boost large editorial/collage images for category/general pages
-    if (/collage|editorial|campaign|hero|cover|feature|banner-img|header-img|splash|lifestyle/i.test(img)) score += 4;
+    if (/collage|editorial|campaign|hero|cover|feature|banner-img|header-img|splash/i.test(img)) score += 4;
     if (/1920|1600|1440|1280|1200x[4-9]/i.test(img)) score += 3; // wide landscape dimensions = hero image
     // Penalise small icons and UI elements
     if (/logo|icon|sprite|membership|plus|exclusive|mobil|vektor/i.test(img)) score -= 5;
@@ -110,6 +119,15 @@ export default async function handler(req, res) {
 
   const heroProductImage = scoredImages[0] || scrapeImages[0] || null;
   const isSingleProduct = isProductUrl || scrapeImages.length <= 6;
+
+  // ── DIAGNOSTIC LOG (remove after debugging) ─────────────────────────────────
+  console.log(`  After scoring: scoredImages.length=${scoredImages.length}, scoredImagesAll.length=${scoredImagesAll.length}`);
+  console.log(`  heroProductImage: ${heroProductImage ? heroProductImage.slice(0, 100) : 'null'}`);
+  if (scoredImages.length > 0) {
+    console.log(`  Top 3 scored:`);
+    for (const u of scoredImages.slice(0, 3)) console.log(`    ${u.slice(0, 100)}`);
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   // ── Shopify JSON API: fetch product images directly ────────────────────────────
   // Always try for Shopify URLs — bypasses HTML scraping limitations
@@ -392,6 +410,11 @@ Rules:
 
       const allCleanPro = scoredImagesAll.filter(img => !BLOCKED.test(img));
       const allScoredImagesPro = allCleanPro.filter(img => img !== heroProductImage).slice(0, 16);
+
+      // ── DIAGNOSTIC LOG (remove after debugging) ─────────────────────────────
+      console.log(`  [PRO RETURN] hero=${heroProductImage ? 'set' : 'null'}, secondary=${secondaryImage ? 'set' : 'null'}, tertiary=${tertiaryImage ? 'set' : 'null'}, allImages.length=${allScoredImagesPro.length}`);
+      // ────────────────────────────────────────────────────────────────────────
+
       return res.json({
         primaryTexts: parsed.primaryTexts || [],
         headlines: (parsed.headlines || []).map(h => h.slice(0, 40)),
