@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     if (/(_main|_hero|_primary|_front|_pdp|_full)/i.test(img)) score += 5; // PDP hero patterns
     if (/\.jpg|\.jpeg|\.webp|\.png/i.test(img)) score += 1;
     // Boost large editorial/collage images for category/general pages
-    if (/collage|editorial|campaign|hero|cover|feature|banner-img|header-img|splash/i.test(img)) score += 4;
+    if (/collage|editorial|campaign|hero|cover|feature|banner-img|header-img|splash|lifestyle/i.test(img)) score += 4;
     if (/1920|1600|1440|1280|1200x[4-9]/i.test(img)) score += 3; // wide landscape dimensions = hero image
     // Penalise small icons and UI elements
     if (/logo|icon|sprite|membership|plus|exclusive|mobil|vektor/i.test(img)) score -= 5;
