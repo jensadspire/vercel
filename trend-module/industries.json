@@ -1,0 +1,4906 @@
+{
+  "$schema": "./industries.schema.json",
+  "version": "2.0.0",
+  "generated_at": "2026-06-09",
+  "notes": "Localized taxonomy v2. Each sub_category is now an object with an English key and a 'translations' map keyed by language code. The ingestion script reads the translated query for the target country's language. Country→language map: DK→da, SE→sv, NO→no, DE→de, NL→nl, BE→nl, UK→en, IE→en, US→en, FR→fr, ES→es, PT→pt, IT→it, FI→fi. Countries without a mapping fall back to English.",
+  "industries": [
+    {
+      "slug": "garden_outdoor",
+      "name": "Garden & outdoor furniture",
+      "description": "Outdoor furniture, garden accessories, BBQs, seasonal outdoor goods",
+      "sub_categories": [
+        {
+          "en": "patio set",
+          "translations": {
+            "da": "havemøbelsæt",
+            "sv": "trädgårdsmöbelset",
+            "no": "hagemøbelsett",
+            "de": "gartenmöbel set",
+            "nl": "tuinset",
+            "fr": "salon de jardin",
+            "es": "conjunto de jardín",
+            "pt": "conjunto de jardim",
+            "it": "set da giardino",
+            "fi": "puutarhakalusteet"
+          }
+        },
+        {
+          "en": "bistro table",
+          "translations": {
+            "da": "bistrobord",
+            "sv": "bistrobord",
+            "no": "bistrobord",
+            "de": "bistrotisch",
+            "nl": "bistrotafel",
+            "fr": "table bistrot",
+            "es": "mesa bistró",
+            "pt": "mesa bistrô",
+            "it": "tavolino bistrot",
+            "fi": "bistropöytä"
+          }
+        },
+        {
+          "en": "garden hammock",
+          "translations": {
+            "da": "hængekøje",
+            "sv": "hängmatta",
+            "no": "hengekøye",
+            "de": "hängematte",
+            "nl": "hangmat",
+            "fr": "hamac",
+            "es": "hamaca",
+            "pt": "rede de descanso",
+            "it": "amaca",
+            "fi": "riippumatto"
+          }
+        },
+        {
+          "en": "outdoor sofa",
+          "translations": {
+            "da": "havesofa",
+            "sv": "utesoffa",
+            "no": "hagesofa",
+            "de": "gartensofa",
+            "nl": "loungebank tuin",
+            "fr": "canapé de jardin",
+            "es": "sofá de jardín",
+            "pt": "sofá de exterior",
+            "it": "divano da giardino",
+            "fi": "ulkosohva"
+          }
+        },
+        {
+          "en": "parasol",
+          "translations": {
+            "da": "parasol",
+            "sv": "parasoll",
+            "no": "parasoll",
+            "de": "sonnenschirm",
+            "nl": "parasol",
+            "fr": "parasol",
+            "es": "sombrilla",
+            "pt": "guarda-sol",
+            "it": "ombrellone",
+            "fi": "aurinkovarjo"
+          }
+        },
+        {
+          "en": "garden lighting",
+          "translations": {
+            "da": "havebelysning",
+            "sv": "trädgårdsbelysning",
+            "no": "hagebelysning",
+            "de": "gartenbeleuchtung",
+            "nl": "tuinverlichting",
+            "fr": "éclairage jardin",
+            "es": "iluminación jardín",
+            "pt": "iluminação jardim",
+            "it": "illuminazione giardino",
+            "fi": "puutarhavalaisin"
+          }
+        },
+        {
+          "en": "BBQ",
+          "translations": {
+            "da": "grill",
+            "sv": "grill",
+            "no": "grill",
+            "de": "grill",
+            "nl": "barbecue",
+            "fr": "barbecue",
+            "es": "barbacoa",
+            "pt": "churrasqueira",
+            "it": "barbecue",
+            "fi": "grilli"
+          }
+        },
+        {
+          "en": "fire pit",
+          "translations": {
+            "da": "bålfad",
+            "sv": "eldkorg",
+            "no": "bålpanne",
+            "de": "feuerschale",
+            "nl": "vuurschaal",
+            "fr": "brasero",
+            "es": "brasero",
+            "pt": "braseiro",
+            "it": "braciere",
+            "fi": "tulisija"
+          }
+        },
+        {
+          "en": "outdoor rug",
+          "translations": {
+            "da": "udendørs tæppe",
+            "sv": "uteryta",
+            "no": "uteteppe",
+            "de": "outdoor teppich",
+            "nl": "buitenkleed",
+            "fr": "tapis extérieur",
+            "es": "alfombra exterior",
+            "pt": "tapete exterior",
+            "it": "tappeto da esterno",
+            "fi": "ulkomatto"
+          }
+        },
+        {
+          "en": "garden chair",
+          "translations": {
+            "da": "havestol",
+            "sv": "trädgårdsstol",
+            "no": "hagestol",
+            "de": "gartenstuhl",
+            "nl": "tuinstoel",
+            "fr": "chaise de jardin",
+            "es": "silla de jardín",
+            "pt": "cadeira de jardim",
+            "it": "sedia da giardino",
+            "fi": "puutarhatuoli"
+          }
+        }
+      ],
+      "trend_threshold_pct": 25,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FI"
+      ],
+      "enabled": true,
+      "notes": "Highly seasonal. Threshold lowered because seasonal moves can be modest in percentage terms but commercially significant."
+    },
+    {
+      "slug": "fashion_women",
+      "name": "Women's fashion",
+      "description": "Apparel, accessories, footwear for women",
+      "sub_categories": [
+        {
+          "en": "linen dress",
+          "translations": {
+            "da": "hørkjole",
+            "sv": "linneklänning",
+            "no": "linkjole",
+            "de": "leinenkleid",
+            "nl": "linnen jurk",
+            "fr": "robe en lin",
+            "es": "vestido de lino",
+            "pt": "vestido de linho",
+            "it": "vestito di lino",
+            "fi": "pellavamekko"
+          }
+        },
+        {
+          "en": "slip skirt",
+          "translations": {
+            "da": "slipskirt",
+            "sv": "slipnederdel",
+            "no": "slipkjole",
+            "de": "slip skirt",
+            "nl": "slip rok",
+            "fr": "jupe satinée",
+            "es": "falda lencera",
+            "pt": "saia lingerie",
+            "it": "gonna sottoveste",
+            "fi": "satiinihame"
+          }
+        },
+        {
+          "en": "oversized blazer",
+          "translations": {
+            "da": "oversize blazer",
+            "sv": "oversize blazer",
+            "no": "oversize blazer",
+            "de": "oversize blazer",
+            "nl": "oversized blazer",
+            "fr": "blazer oversize",
+            "es": "blazer oversize",
+            "pt": "blazer oversize",
+            "it": "blazer oversize",
+            "fi": "oversize bleiseri"
+          }
+        },
+        {
+          "en": "cargo trousers",
+          "translations": {
+            "da": "cargo bukser",
+            "sv": "cargobyxor",
+            "no": "cargobukse",
+            "de": "cargohose",
+            "nl": "cargobroek",
+            "fr": "pantalon cargo",
+            "es": "pantalón cargo",
+            "pt": "calças cargo",
+            "it": "pantaloni cargo",
+            "fi": "cargohousut"
+          }
+        },
+        {
+          "en": "summer sandals",
+          "translations": {
+            "da": "sommersandaler",
+            "sv": "sommarsandaler",
+            "no": "sommersandaler",
+            "de": "sommersandalen",
+            "nl": "zomerse sandalen",
+            "fr": "sandales été",
+            "es": "sandalias verano",
+            "pt": "sandálias verão",
+            "it": "sandali estivi",
+            "fi": "kesäsandaalit"
+          }
+        },
+        {
+          "en": "wrap top",
+          "translations": {
+            "da": "slå-om top",
+            "sv": "omlottopp",
+            "no": "slå-om topp",
+            "de": "wickel top",
+            "nl": "overslag top",
+            "fr": "top cache-cœur",
+            "es": "top cruzado",
+            "pt": "top cruzado",
+            "it": "top a portafoglio",
+            "fi": "kietaisupaita"
+          }
+        },
+        {
+          "en": "midi skirt",
+          "translations": {
+            "da": "midi nederdel",
+            "sv": "midikjol",
+            "no": "midi skjørt",
+            "de": "midirock",
+            "nl": "midi rok",
+            "fr": "jupe midi",
+            "es": "falda midi",
+            "pt": "saia midi",
+            "it": "gonna midi",
+            "fi": "midihame"
+          }
+        },
+        {
+          "en": "ballet flats",
+          "translations": {
+            "da": "ballerinasko",
+            "sv": "ballerinaskor",
+            "no": "ballerinasko",
+            "de": "ballerinas",
+            "nl": "ballerinas",
+            "fr": "ballerines",
+            "es": "bailarinas",
+            "pt": "sabrinas",
+            "it": "ballerine",
+            "fi": "balleriinat"
+          }
+        },
+        {
+          "en": "trench coat",
+          "translations": {
+            "da": "trenchcoat",
+            "sv": "trenchcoat",
+            "no": "trenchcoat",
+            "de": "trenchcoat",
+            "nl": "trenchcoat",
+            "fr": "trench-coat",
+            "es": "trench",
+            "pt": "trench coat",
+            "it": "trench",
+            "fi": "trenssitakki"
+          }
+        },
+        {
+          "en": "knit cardigan",
+          "translations": {
+            "da": "strikket cardigan",
+            "sv": "stickad kofta",
+            "no": "strikket cardigan",
+            "de": "strickjacke",
+            "nl": "gebreid vest",
+            "fr": "cardigan en maille",
+            "es": "cárdigan punto",
+            "pt": "casaco de malha",
+            "it": "cardigan in maglia",
+            "fi": "neuletakki"
+          }
+        }
+      ],
+      "trend_threshold_pct": 40,
+      "prospect_cap_per_quarter": 4,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "ES",
+        "IT"
+      ],
+      "enabled": true,
+      "notes": "High-velocity. Threshold raised because micro-trends are constant — only meaningful movements should qualify. Cap raised to allow more frequent emails."
+    },
+    {
+      "slug": "fashion_men",
+      "name": "Men's fashion",
+      "description": "Apparel, accessories, footwear for men",
+      "sub_categories": [
+        {
+          "en": "oxford shirt",
+          "translations": {
+            "da": "oxford skjorte",
+            "sv": "oxfordskjorta",
+            "no": "oxfordskjorte",
+            "de": "oxfordhemd",
+            "nl": "oxford overhemd",
+            "fr": "chemise oxford",
+            "es": "camisa oxford",
+            "pt": "camisa oxford",
+            "it": "camicia oxford",
+            "fi": "oxford-paita"
+          }
+        },
+        {
+          "en": "chinos",
+          "translations": {
+            "da": "chinos",
+            "sv": "chinos",
+            "no": "chinos",
+            "de": "chinos",
+            "nl": "chino broek",
+            "fr": "chinos",
+            "es": "chinos",
+            "pt": "chinos",
+            "it": "chinos",
+            "fi": "chinot"
+          }
+        },
+        {
+          "en": "leather jacket",
+          "translations": {
+            "da": "læderjakke",
+            "sv": "skinnjacka",
+            "no": "skinnjakke",
+            "de": "lederjacke",
+            "nl": "leren jas",
+            "fr": "veste en cuir",
+            "es": "chaqueta cuero",
+            "pt": "casaco de cabedal",
+            "it": "giacca di pelle",
+            "fi": "nahkatakki"
+          }
+        },
+        {
+          "en": "raw denim",
+          "translations": {
+            "da": "raw denim",
+            "sv": "raw denim",
+            "no": "raw denim",
+            "de": "raw denim",
+            "nl": "raw denim",
+            "fr": "raw denim",
+            "es": "raw denim",
+            "pt": "raw denim",
+            "it": "raw denim",
+            "fi": "raw denim"
+          }
+        },
+        {
+          "en": "polo shirt",
+          "translations": {
+            "da": "polo shirt",
+            "sv": "pikétröja",
+            "no": "poloskjorte",
+            "de": "poloshirt",
+            "nl": "polo shirt",
+            "fr": "polo",
+            "es": "polo",
+            "pt": "polo",
+            "it": "polo",
+            "fi": "pikeepaita"
+          }
+        },
+        {
+          "en": "knitwear",
+          "translations": {
+            "da": "strikvarer",
+            "sv": "stickat",
+            "no": "strikkevarer",
+            "de": "strickwaren",
+            "nl": "gebreide kleding",
+            "fr": "maille",
+            "es": "punto",
+            "pt": "malhas",
+            "it": "maglieria",
+            "fi": "neuleet"
+          }
+        },
+        {
+          "en": "dress shoes",
+          "translations": {
+            "da": "lædersko",
+            "sv": "kostymskor",
+            "no": "pensko",
+            "de": "anzugschuhe",
+            "nl": "nette schoenen",
+            "fr": "chaussures habillées",
+            "es": "zapatos vestir",
+            "pt": "sapatos clássicos",
+            "it": "scarpe eleganti",
+            "fi": "puvun kengät"
+          }
+        },
+        {
+          "en": "suit",
+          "translations": {
+            "da": "jakkesæt",
+            "sv": "kostym",
+            "no": "dress",
+            "de": "anzug",
+            "nl": "pak",
+            "fr": "costume",
+            "es": "traje",
+            "pt": "fato",
+            "it": "abito uomo",
+            "fi": "puku"
+          }
+        },
+        {
+          "en": "tee basics",
+          "translations": {
+            "da": "basis t-shirt",
+            "sv": "basic t-shirt",
+            "no": "basic t-skjorte",
+            "de": "basic t-shirt",
+            "nl": "basic t-shirt",
+            "fr": "t-shirt basique",
+            "es": "camiseta básica",
+            "pt": "t-shirt básica",
+            "it": "t-shirt basic",
+            "fi": "perus t-paita"
+          }
+        },
+        {
+          "en": "wool overcoat",
+          "translations": {
+            "da": "uldfrakke",
+            "sv": "ullrock",
+            "no": "ullfrakk",
+            "de": "wollmantel",
+            "nl": "wollen jas",
+            "fr": "manteau en laine",
+            "es": "abrigo de lana",
+            "pt": "sobretudo lã",
+            "it": "cappotto in lana",
+            "fi": "villakangastakki"
+          }
+        }
+      ],
+      "trend_threshold_pct": 35,
+      "prospect_cap_per_quarter": 3,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "ES",
+        "IT"
+      ],
+      "enabled": true,
+      "notes": "Lower velocity than women's fashion. Threshold slightly lower than women's but still high."
+    },
+    {
+      "slug": "beauty_skincare",
+      "name": "Beauty & skincare",
+      "description": "Skincare products, treatments, ingredients",
+      "sub_categories": [
+        {
+          "en": "retinol serum",
+          "translations": {
+            "da": "retinol serum",
+            "sv": "retinol serum",
+            "no": "retinol serum",
+            "de": "retinol serum",
+            "nl": "retinol serum",
+            "fr": "sérum rétinol",
+            "es": "sérum retinol",
+            "pt": "sérum retinol",
+            "it": "siero al retinolo",
+            "fi": "retinoliseerumi"
+          }
+        },
+        {
+          "en": "vitamin c serum",
+          "translations": {
+            "da": "c-vitamin serum",
+            "sv": "c-vitamin serum",
+            "no": "c-vitamin serum",
+            "de": "vitamin c serum",
+            "nl": "vitamine c serum",
+            "fr": "sérum vitamine c",
+            "es": "sérum vitamina c",
+            "pt": "sérum vitamina c",
+            "it": "siero vitamina c",
+            "fi": "c-vitamiini seerumi"
+          }
+        },
+        {
+          "en": "hyaluronic acid",
+          "translations": {
+            "da": "hyaluronsyre",
+            "sv": "hyaluronsyra",
+            "no": "hyaluronsyre",
+            "de": "hyaluronsäure",
+            "nl": "hyaluronzuur",
+            "fr": "acide hyaluronique",
+            "es": "ácido hialurónico",
+            "pt": "ácido hialurónico",
+            "it": "acido ialuronico",
+            "fi": "hyaluronihappo"
+          }
+        },
+        {
+          "en": "niacinamide",
+          "translations": {
+            "da": "niacinamid",
+            "sv": "niacinamid",
+            "no": "niacinamid",
+            "de": "niacinamid",
+            "nl": "niacinamide",
+            "fr": "niacinamide",
+            "es": "niacinamida",
+            "pt": "niacinamida",
+            "it": "niacinamide",
+            "fi": "niasiiniamidi"
+          }
+        },
+        {
+          "en": "sunscreen",
+          "translations": {
+            "da": "solcreme",
+            "sv": "solkräm",
+            "no": "solkrem",
+            "de": "sonnencreme",
+            "nl": "zonnebrand",
+            "fr": "crème solaire",
+            "es": "protector solar",
+            "pt": "protetor solar",
+            "it": "crema solare",
+            "fi": "aurinkovoide"
+          }
+        },
+        {
+          "en": "exfoliant",
+          "translations": {
+            "da": "peeling",
+            "sv": "peeling",
+            "no": "peeling",
+            "de": "peeling",
+            "nl": "exfoliant",
+            "fr": "exfoliant",
+            "es": "exfoliante",
+            "pt": "esfoliante",
+            "it": "esfoliante",
+            "fi": "kuorinta"
+          }
+        },
+        {
+          "en": "cleansing oil",
+          "translations": {
+            "da": "renseolie",
+            "sv": "rengöringsolja",
+            "no": "renseolje",
+            "de": "reinigungsöl",
+            "nl": "reinigingsolie",
+            "fr": "huile démaquillante",
+            "es": "aceite limpiador",
+            "pt": "óleo de limpeza",
+            "it": "olio detergente",
+            "fi": "puhdistusöljy"
+          }
+        },
+        {
+          "en": "retinol cream",
+          "translations": {
+            "da": "retinol creme",
+            "sv": "retinolkräm",
+            "no": "retinolkrem",
+            "de": "retinol creme",
+            "nl": "retinol crème",
+            "fr": "crème rétinol",
+            "es": "crema retinol",
+            "pt": "creme retinol",
+            "it": "crema al retinolo",
+            "fi": "retinolivoide"
+          }
+        },
+        {
+          "en": "eye cream",
+          "translations": {
+            "da": "øjencreme",
+            "sv": "ögonkräm",
+            "no": "øyenkrem",
+            "de": "augencreme",
+            "nl": "oogcrème",
+            "fr": "crème contour des yeux",
+            "es": "contorno de ojos",
+            "pt": "creme contorno olhos",
+            "it": "crema contorno occhi",
+            "fi": "silmänympärysvoide"
+          }
+        },
+        {
+          "en": "face mist",
+          "translations": {
+            "da": "ansigtsmist",
+            "sv": "ansiktsmist",
+            "no": "ansiktsmist",
+            "de": "gesichtsspray",
+            "nl": "gezichtsmist",
+            "fr": "brume visage",
+            "es": "bruma facial",
+            "pt": "bruma facial",
+            "it": "mist viso",
+            "fi": "kasvosumute"
+          }
+        }
+      ],
+      "trend_threshold_pct": 35,
+      "prospect_cap_per_quarter": 3,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "ES",
+        "IT",
+        "US"
+      ],
+      "enabled": true,
+      "notes": "Ingredient-driven trends move fast. TikTok and beauty blog influence is strong; RSS confirmation signal is especially valuable here."
+    },
+    {
+      "slug": "beauty_makeup",
+      "name": "Beauty & makeup",
+      "description": "Color cosmetics, makeup tools, brands",
+      "sub_categories": [
+        {
+          "en": "liquid blush",
+          "translations": {
+            "da": "flydende blush",
+            "sv": "flytande blush",
+            "no": "flytende blush",
+            "de": "liquid blush",
+            "nl": "vloeibare blush",
+            "fr": "blush liquide",
+            "es": "colorete líquido",
+            "pt": "blush líquido",
+            "it": "blush liquido",
+            "fi": "nestemäinen poskipuna"
+          }
+        },
+        {
+          "en": "lip oil",
+          "translations": {
+            "da": "lip oil",
+            "sv": "lip oil",
+            "no": "lip oil",
+            "de": "lip oil",
+            "nl": "lip oil",
+            "fr": "huile à lèvres",
+            "es": "aceite labial",
+            "pt": "óleo labial",
+            "it": "olio labbra",
+            "fi": "huuliöljy"
+          }
+        },
+        {
+          "en": "contour stick",
+          "translations": {
+            "da": "contour stick",
+            "sv": "contour stick",
+            "no": "contour stick",
+            "de": "contour stick",
+            "nl": "contour stick",
+            "fr": "stick contouring",
+            "es": "contour stick",
+            "pt": "contour stick",
+            "it": "stick contouring",
+            "fi": "contour stick"
+          }
+        },
+        {
+          "en": "concealer",
+          "translations": {
+            "da": "concealer",
+            "sv": "concealer",
+            "no": "concealer",
+            "de": "concealer",
+            "nl": "concealer",
+            "fr": "anti-cernes",
+            "es": "corrector",
+            "pt": "corretor",
+            "it": "correttore",
+            "fi": "peitevoide"
+          }
+        },
+        {
+          "en": "mascara",
+          "translations": {
+            "da": "mascara",
+            "sv": "mascara",
+            "no": "mascara",
+            "de": "mascara",
+            "nl": "mascara",
+            "fr": "mascara",
+            "es": "máscara pestañas",
+            "pt": "rímel",
+            "it": "mascara",
+            "fi": "ripsiväri"
+          }
+        },
+        {
+          "en": "highlighter",
+          "translations": {
+            "da": "highlighter",
+            "sv": "highlighter",
+            "no": "highlighter",
+            "de": "highlighter",
+            "nl": "highlighter",
+            "fr": "enlumineur",
+            "es": "iluminador",
+            "pt": "iluminador",
+            "it": "illuminante",
+            "fi": "korostusväri"
+          }
+        },
+        {
+          "en": "lip liner",
+          "translations": {
+            "da": "lip liner",
+            "sv": "lip liner",
+            "no": "lip liner",
+            "de": "lipliner",
+            "nl": "lipliner",
+            "fr": "crayon à lèvres",
+            "es": "perfilador labios",
+            "pt": "lápis lábios",
+            "it": "matita labbra",
+            "fi": "huultenrajauskynä"
+          }
+        },
+        {
+          "en": "setting spray",
+          "translations": {
+            "da": "setting spray",
+            "sv": "setting spray",
+            "no": "setting spray",
+            "de": "setting spray",
+            "nl": "setting spray",
+            "fr": "spray fixateur",
+            "es": "spray fijador",
+            "pt": "spray fixador",
+            "it": "spray fissante",
+            "fi": "kiinnityssuihke"
+          }
+        },
+        {
+          "en": "eyeshadow palette",
+          "translations": {
+            "da": "øjenskygge palette",
+            "sv": "ögonskuggspalett",
+            "no": "øyenskygge palett",
+            "de": "lidschatten palette",
+            "nl": "oogschaduw palet",
+            "fr": "palette fards à paupières",
+            "es": "paleta sombras ojos",
+            "pt": "paleta sombras",
+            "it": "palette ombretti",
+            "fi": "luomiväripaletti"
+          }
+        },
+        {
+          "en": "tinted moisturizer",
+          "translations": {
+            "da": "tinted moisturizer",
+            "sv": "tonad fuktkräm",
+            "no": "tonet fuktighetskrem",
+            "de": "getönte feuchtigkeitscreme",
+            "nl": "getinte dagcrème",
+            "fr": "crème teintée",
+            "es": "crema hidratante color",
+            "pt": "creme hidratante tom",
+            "it": "crema colorata",
+            "fi": "sävyttävä kosteusvoide"
+          }
+        }
+      ],
+      "trend_threshold_pct": 40,
+      "prospect_cap_per_quarter": 3,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "ES",
+        "IT",
+        "US"
+      ],
+      "enabled": true,
+      "notes": "Very TikTok-driven. Threshold high because constant noise."
+    },
+    {
+      "slug": "home_decor",
+      "name": "Home decor & interior",
+      "description": "Decorative goods, soft furnishings, lighting",
+      "sub_categories": [
+        {
+          "en": "wall art",
+          "translations": {
+            "da": "vægkunst",
+            "sv": "väggkonst",
+            "no": "veggkunst",
+            "de": "wandbilder",
+            "nl": "wandkunst",
+            "fr": "art mural",
+            "es": "arte pared",
+            "pt": "arte parede",
+            "it": "quadri parete",
+            "fi": "seinätaide"
+          }
+        },
+        {
+          "en": "area rug",
+          "translations": {
+            "da": "gulvtæppe",
+            "sv": "matta",
+            "no": "teppe",
+            "de": "teppich",
+            "nl": "vloerkleed",
+            "fr": "tapis",
+            "es": "alfombra",
+            "pt": "tapete",
+            "it": "tappeto",
+            "fi": "matto"
+          }
+        },
+        {
+          "en": "throw pillow",
+          "translations": {
+            "da": "pyntepude",
+            "sv": "prydnadskudde",
+            "no": "pyntepute",
+            "de": "dekokissen",
+            "nl": "sierkussen",
+            "fr": "coussin déco",
+            "es": "cojín decorativo",
+            "pt": "almofada decorativa",
+            "it": "cuscino decorativo",
+            "fi": "koristetyyny"
+          }
+        },
+        {
+          "en": "vase",
+          "translations": {
+            "da": "vase",
+            "sv": "vas",
+            "no": "vase",
+            "de": "vase",
+            "nl": "vaas",
+            "fr": "vase",
+            "es": "jarrón",
+            "pt": "jarra",
+            "it": "vaso",
+            "fi": "maljakko"
+          }
+        },
+        {
+          "en": "table lamp",
+          "translations": {
+            "da": "bordlampe",
+            "sv": "bordslampa",
+            "no": "bordlampe",
+            "de": "tischlampe",
+            "nl": "tafellamp",
+            "fr": "lampe de table",
+            "es": "lámpara mesa",
+            "pt": "candeeiro mesa",
+            "it": "lampada da tavolo",
+            "fi": "pöytälamppu"
+          }
+        },
+        {
+          "en": "wall mirror",
+          "translations": {
+            "da": "vægspejl",
+            "sv": "väggspegel",
+            "no": "veggspeil",
+            "de": "wandspiegel",
+            "nl": "wandspiegel",
+            "fr": "miroir mural",
+            "es": "espejo pared",
+            "pt": "espelho parede",
+            "it": "specchio da parete",
+            "fi": "seinäpeili"
+          }
+        },
+        {
+          "en": "candle",
+          "translations": {
+            "da": "stearinlys",
+            "sv": "ljus",
+            "no": "stearinlys",
+            "de": "kerze",
+            "nl": "kaars",
+            "fr": "bougie",
+            "es": "vela",
+            "pt": "vela",
+            "it": "candela",
+            "fi": "kynttilä"
+          }
+        },
+        {
+          "en": "curtains",
+          "translations": {
+            "da": "gardiner",
+            "sv": "gardiner",
+            "no": "gardiner",
+            "de": "gardinen",
+            "nl": "gordijnen",
+            "fr": "rideaux",
+            "es": "cortinas",
+            "pt": "cortinas",
+            "it": "tende",
+            "fi": "verhot"
+          }
+        },
+        {
+          "en": "bedding set",
+          "translations": {
+            "da": "sengetøj sæt",
+            "sv": "påslakanset",
+            "no": "sengetøy sett",
+            "de": "bettwäsche set",
+            "nl": "dekbedovertrek set",
+            "fr": "parure de lit",
+            "es": "juego de cama",
+            "pt": "conjunto de cama",
+            "it": "set lenzuola",
+            "fi": "vuodevaatesetti"
+          }
+        },
+        {
+          "en": "indoor planter",
+          "translations": {
+            "da": "urtepotte",
+            "sv": "kruka",
+            "no": "blomsterpotte",
+            "de": "blumentopf",
+            "nl": "bloempot",
+            "fr": "cache-pot",
+            "es": "maceta interior",
+            "pt": "vaso interior",
+            "it": "vaso da interno",
+            "fi": "kukkaruukku"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR"
+      ],
+      "enabled": true,
+      "notes": "Moderate velocity. Editorial/design magazine influence strong; RSS confirmation valuable."
+    },
+    {
+      "slug": "furniture_indoor",
+      "name": "Indoor furniture",
+      "description": "Sofas, beds, tables, storage furniture",
+      "sub_categories": [
+        {
+          "en": "modular sofa",
+          "translations": {
+            "da": "modulsofa",
+            "sv": "modulsoffa",
+            "no": "modulsofa",
+            "de": "modulsofa",
+            "nl": "modulaire bank",
+            "fr": "canapé modulable",
+            "es": "sofá modular",
+            "pt": "sofá modular",
+            "it": "divano modulare",
+            "fi": "moduulisohva"
+          }
+        },
+        {
+          "en": "platform bed",
+          "translations": {
+            "da": "platformseng",
+            "sv": "platåsäng",
+            "no": "plattformseng",
+            "de": "polsterbett",
+            "nl": "platformbed",
+            "fr": "lit plateforme",
+            "es": "cama plataforma",
+            "pt": "cama plataforma",
+            "it": "letto a piattaforma",
+            "fi": "tasosänky"
+          }
+        },
+        {
+          "en": "dining table",
+          "translations": {
+            "da": "spisebord",
+            "sv": "matbord",
+            "no": "spisebord",
+            "de": "esstisch",
+            "nl": "eettafel",
+            "fr": "table à manger",
+            "es": "mesa comedor",
+            "pt": "mesa jantar",
+            "it": "tavolo da pranzo",
+            "fi": "ruokapöytä"
+          }
+        },
+        {
+          "en": "bookshelf",
+          "translations": {
+            "da": "bogreol",
+            "sv": "bokhylla",
+            "no": "bokhylle",
+            "de": "bücherregal",
+            "nl": "boekenkast",
+            "fr": "bibliothèque",
+            "es": "estantería libros",
+            "pt": "estante livros",
+            "it": "libreria",
+            "fi": "kirjahylly"
+          }
+        },
+        {
+          "en": "storage bench",
+          "translations": {
+            "da": "opbevaringsbænk",
+            "sv": "förvaringsbänk",
+            "no": "oppbevaringsbenk",
+            "de": "sitzbank mit stauraum",
+            "nl": "opbergbank",
+            "fr": "banc de rangement",
+            "es": "banco almacenaje",
+            "pt": "banco arrumação",
+            "it": "panca contenitore",
+            "fi": "säilytyspenkki"
+          }
+        },
+        {
+          "en": "armchair",
+          "translations": {
+            "da": "lænestol",
+            "sv": "fåtölj",
+            "no": "lenestol",
+            "de": "sessel",
+            "nl": "fauteuil",
+            "fr": "fauteuil",
+            "es": "sillón",
+            "pt": "poltrona",
+            "it": "poltrona",
+            "fi": "nojatuoli"
+          }
+        },
+        {
+          "en": "tv stand",
+          "translations": {
+            "da": "tv bord",
+            "sv": "tv-bänk",
+            "no": "tv-benk",
+            "de": "tv lowboard",
+            "nl": "tv meubel",
+            "fr": "meuble tv",
+            "es": "mueble tv",
+            "pt": "móvel tv",
+            "it": "mobile tv",
+            "fi": "tv-taso"
+          }
+        },
+        {
+          "en": "wardrobe",
+          "translations": {
+            "da": "garderobe",
+            "sv": "garderob",
+            "no": "garderobe",
+            "de": "kleiderschrank",
+            "nl": "kledingkast",
+            "fr": "armoire",
+            "es": "armario",
+            "pt": "guarda-roupa",
+            "it": "armadio",
+            "fi": "vaatekaappi"
+          }
+        },
+        {
+          "en": "office chair",
+          "translations": {
+            "da": "kontorstol",
+            "sv": "kontorsstol",
+            "no": "kontorstol",
+            "de": "bürostuhl",
+            "nl": "bureaustoel",
+            "fr": "chaise de bureau",
+            "es": "silla oficina",
+            "pt": "cadeira escritório",
+            "it": "sedia ufficio",
+            "fi": "toimistotuoli"
+          }
+        },
+        {
+          "en": "side table",
+          "translations": {
+            "da": "sidebord",
+            "sv": "sidobord",
+            "no": "sidebord",
+            "de": "beistelltisch",
+            "nl": "bijzettafel",
+            "fr": "table d'appoint",
+            "es": "mesa auxiliar",
+            "pt": "mesa apoio",
+            "it": "tavolino",
+            "fi": "sivupöytä"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 1,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK"
+      ],
+      "enabled": true,
+      "notes": "Lower velocity (large purchase decisions). Cap kept conservative."
+    },
+    {
+      "slug": "sports_fitness",
+      "name": "Sports & fitness equipment",
+      "description": "Athletic gear, home gym, training tools",
+      "sub_categories": [
+        {
+          "en": "running shoes",
+          "translations": {
+            "da": "løbesko",
+            "sv": "löparskor",
+            "no": "løpesko",
+            "de": "laufschuhe",
+            "nl": "hardloopschoenen",
+            "fr": "chaussures de running",
+            "es": "zapatillas running",
+            "pt": "ténis corrida",
+            "it": "scarpe da corsa",
+            "fi": "juoksukengät"
+          }
+        },
+        {
+          "en": "yoga mat",
+          "translations": {
+            "da": "yogamåtte",
+            "sv": "yogamatta",
+            "no": "yogamatte",
+            "de": "yogamatte",
+            "nl": "yogamat",
+            "fr": "tapis yoga",
+            "es": "esterilla yoga",
+            "pt": "tapete yoga",
+            "it": "tappetino yoga",
+            "fi": "joogamatto"
+          }
+        },
+        {
+          "en": "resistance bands",
+          "translations": {
+            "da": "elastik bånd",
+            "sv": "träningsband",
+            "no": "treningsstrikker",
+            "de": "fitnessband",
+            "nl": "weerstandsband",
+            "fr": "bande de résistance",
+            "es": "banda elástica",
+            "pt": "elásticos treino",
+            "it": "elastico fitness",
+            "fi": "vastuskuminauha"
+          }
+        },
+        {
+          "en": "kettlebell",
+          "translations": {
+            "da": "kettlebell",
+            "sv": "kettlebell",
+            "no": "kettlebell",
+            "de": "kettlebell",
+            "nl": "kettlebell",
+            "fr": "kettlebell",
+            "es": "kettlebell",
+            "pt": "kettlebell",
+            "it": "kettlebell",
+            "fi": "kahvakuula"
+          }
+        },
+        {
+          "en": "foam roller",
+          "translations": {
+            "da": "foam roller",
+            "sv": "foam roller",
+            "no": "foam roller",
+            "de": "faszienrolle",
+            "nl": "foam roller",
+            "fr": "rouleau massage",
+            "es": "rodillo foam",
+            "pt": "rolo massagem",
+            "it": "foam roller",
+            "fi": "putkirulla"
+          }
+        },
+        {
+          "en": "water bottle",
+          "translations": {
+            "da": "drikkedunk",
+            "sv": "vattenflaska",
+            "no": "drikkeflaske",
+            "de": "trinkflasche",
+            "nl": "drinkfles",
+            "fr": "gourde",
+            "es": "botella agua",
+            "pt": "garrafa água",
+            "it": "borraccia",
+            "fi": "juomapullo"
+          }
+        },
+        {
+          "en": "gym bag",
+          "translations": {
+            "da": "sportstaske",
+            "sv": "gymväska",
+            "no": "treningsveske",
+            "de": "sporttasche",
+            "nl": "sporttas",
+            "fr": "sac de sport",
+            "es": "bolsa deporte",
+            "pt": "mala desporto",
+            "it": "borsa palestra",
+            "fi": "treenikassi"
+          }
+        },
+        {
+          "en": "weighted vest",
+          "translations": {
+            "da": "vægtvest",
+            "sv": "viktväst",
+            "no": "vektvest",
+            "de": "gewichtsweste",
+            "nl": "gewichtsvest",
+            "fr": "gilet lesté",
+            "es": "chaleco lastrado",
+            "pt": "colete pesado",
+            "it": "gilet zavorrato",
+            "fi": "painoliivi"
+          }
+        },
+        {
+          "en": "compression wear",
+          "translations": {
+            "da": "kompressionstøj",
+            "sv": "kompressionskläder",
+            "no": "kompresjonsklær",
+            "de": "kompressionskleidung",
+            "nl": "compressiekleding",
+            "fr": "vêtements compression",
+            "es": "ropa compresión",
+            "pt": "roupa compressão",
+            "it": "abbigliamento compressione",
+            "fi": "puristusvaatteet"
+          }
+        },
+        {
+          "en": "fitness tracker",
+          "translations": {
+            "da": "aktivitetsmåler",
+            "sv": "aktivitetsmätare",
+            "no": "aktivitetsmåler",
+            "de": "fitness tracker",
+            "nl": "fitness tracker",
+            "fr": "bracelet connecté",
+            "es": "pulsera actividad",
+            "pt": "pulseira atividade",
+            "it": "fitness tracker",
+            "fi": "aktiivisuusranneke"
+          }
+        }
+      ],
+      "trend_threshold_pct": 35,
+      "prospect_cap_per_quarter": 3,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "US"
+      ],
+      "enabled": true,
+      "notes": "Event-driven (Olympics, marathons, fitness fads). January spike for resolutions, September spike for back-to-routine."
+    },
+    {
+      "slug": "outdoor_recreation",
+      "name": "Outdoor recreation & camping",
+      "description": "Camping, hiking, outdoor adventure gear",
+      "sub_categories": [
+        {
+          "en": "tent",
+          "translations": {
+            "da": "telt",
+            "sv": "tält",
+            "no": "telt",
+            "de": "zelt",
+            "nl": "tent",
+            "fr": "tente",
+            "es": "tienda de campaña",
+            "pt": "tenda",
+            "it": "tenda",
+            "fi": "teltta"
+          }
+        },
+        {
+          "en": "sleeping bag",
+          "translations": {
+            "da": "sovepose",
+            "sv": "sovsäck",
+            "no": "sovepose",
+            "de": "schlafsack",
+            "nl": "slaapzak",
+            "fr": "sac de couchage",
+            "es": "saco de dormir",
+            "pt": "saco-cama",
+            "it": "sacco a pelo",
+            "fi": "makuupussi"
+          }
+        },
+        {
+          "en": "hiking boots",
+          "translations": {
+            "da": "vandrestøvler",
+            "sv": "vandringskängor",
+            "no": "fjellsko",
+            "de": "wanderschuhe",
+            "nl": "wandelschoenen",
+            "fr": "chaussures de randonnée",
+            "es": "botas de montaña",
+            "pt": "botas de caminhada",
+            "it": "scarponi da trekking",
+            "fi": "vaelluskengät"
+          }
+        },
+        {
+          "en": "backpack",
+          "translations": {
+            "da": "rygsæk",
+            "sv": "ryggsäck",
+            "no": "ryggsekk",
+            "de": "rucksack",
+            "nl": "rugzak",
+            "fr": "sac à dos",
+            "es": "mochila",
+            "pt": "mochila",
+            "it": "zaino",
+            "fi": "reppu"
+          }
+        },
+        {
+          "en": "camping stove",
+          "translations": {
+            "da": "trangia",
+            "sv": "stormkök",
+            "no": "stormkjøkken",
+            "de": "campingkocher",
+            "nl": "campingkooktoestel",
+            "fr": "réchaud camping",
+            "es": "hornillo camping",
+            "pt": "fogão campismo",
+            "it": "fornello da campeggio",
+            "fi": "retkikeitin"
+          }
+        },
+        {
+          "en": "trekking poles",
+          "translations": {
+            "da": "vandrestave",
+            "sv": "vandringsstavar",
+            "no": "turstaver",
+            "de": "wanderstöcke",
+            "nl": "wandelstokken",
+            "fr": "bâtons de randonnée",
+            "es": "bastones de trekking",
+            "pt": "bastões de caminhada",
+            "it": "bastoncini da trekking",
+            "fi": "sauvat"
+          }
+        },
+        {
+          "en": "headlamp",
+          "translations": {
+            "da": "pandelampe",
+            "sv": "pannlampa",
+            "no": "hodelykt",
+            "de": "stirnlampe",
+            "nl": "hoofdlamp",
+            "fr": "lampe frontale",
+            "es": "linterna frontal",
+            "pt": "lanterna frontal",
+            "it": "lampada frontale",
+            "fi": "otsalamppu"
+          }
+        },
+        {
+          "en": "rain jacket",
+          "translations": {
+            "da": "regnjakke",
+            "sv": "regnjacka",
+            "no": "regnjakke",
+            "de": "regenjacke",
+            "nl": "regenjas",
+            "fr": "veste imperméable",
+            "es": "chaqueta impermeable",
+            "pt": "casaco impermeável",
+            "it": "giacca antipioggia",
+            "fi": "sadetakki"
+          }
+        },
+        {
+          "en": "cooler",
+          "translations": {
+            "da": "køleboks",
+            "sv": "kylväska",
+            "no": "kjøleboks",
+            "de": "kühlbox",
+            "nl": "koelbox",
+            "fr": "glacière",
+            "es": "nevera portátil",
+            "pt": "geleira portátil",
+            "it": "frigo portatile",
+            "fi": "kylmälaukku"
+          }
+        },
+        {
+          "en": "campsite chair",
+          "translations": {
+            "da": "campingstol",
+            "sv": "campingstol",
+            "no": "campingstol",
+            "de": "campingstuhl",
+            "nl": "kampeerstoel",
+            "fr": "chaise camping",
+            "es": "silla camping",
+            "pt": "cadeira campismo",
+            "it": "sedia da campeggio",
+            "fi": "retkituoli"
+          }
+        }
+      ],
+      "trend_threshold_pct": 25,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "US",
+        "FI"
+      ],
+      "enabled": true,
+      "notes": "Spring/summer peak. Nordic + DACH markets are core."
+    },
+    {
+      "slug": "pet_supplies",
+      "name": "Pet supplies",
+      "description": "Pet food, accessories, care products",
+      "sub_categories": [
+        {
+          "en": "dog bed",
+          "translations": {
+            "da": "hundeseng",
+            "sv": "hundbädd",
+            "no": "hundeseng",
+            "de": "hundebett",
+            "nl": "hondenmand",
+            "fr": "panier chien",
+            "es": "cama perro",
+            "pt": "cama cão",
+            "it": "cuccia cane",
+            "fi": "koiranpeti"
+          }
+        },
+        {
+          "en": "cat tree",
+          "translations": {
+            "da": "kradsetræ",
+            "sv": "klösträd",
+            "no": "klorestativ",
+            "de": "kratzbaum",
+            "nl": "krabpaal",
+            "fr": "arbre à chat",
+            "es": "rascador gato",
+            "pt": "árvore gato",
+            "it": "tiragraffi",
+            "fi": "kissan kiipeilypuu"
+          }
+        },
+        {
+          "en": "pet carrier",
+          "translations": {
+            "da": "transporttaske kæledyr",
+            "sv": "transportbur",
+            "no": "transportbur",
+            "de": "transportbox haustier",
+            "nl": "transporttas dier",
+            "fr": "sac de transport animal",
+            "es": "transportín mascota",
+            "pt": "transportadora animal",
+            "it": "trasportino animali",
+            "fi": "lemmikkilaukku"
+          }
+        },
+        {
+          "en": "leash",
+          "translations": {
+            "da": "hundesnor",
+            "sv": "hundkoppel",
+            "no": "bånd hund",
+            "de": "hundeleine",
+            "nl": "hondenriem",
+            "fr": "laisse chien",
+            "es": "correa perro",
+            "pt": "trela cão",
+            "it": "guinzaglio",
+            "fi": "koiran hihna"
+          }
+        },
+        {
+          "en": "food bowl",
+          "translations": {
+            "da": "foderskål",
+            "sv": "matskål",
+            "no": "matskål",
+            "de": "futternapf",
+            "nl": "voerbak",
+            "fr": "gamelle",
+            "es": "comedero",
+            "pt": "tigela comida",
+            "it": "ciotola",
+            "fi": "ruokakuppi"
+          }
+        },
+        {
+          "en": "scratching post",
+          "translations": {
+            "da": "kradsetræ",
+            "sv": "klöspelare",
+            "no": "klorestolpe",
+            "de": "kratzbaum",
+            "nl": "krabpaal",
+            "fr": "griffoir",
+            "es": "rascador",
+            "pt": "arranhador",
+            "it": "tiragraffi",
+            "fi": "raapimispylväs"
+          }
+        },
+        {
+          "en": "pet harness",
+          "translations": {
+            "da": "hundesele",
+            "sv": "hundsele",
+            "no": "hundesele",
+            "de": "hundegeschirr",
+            "nl": "hondentuig",
+            "fr": "harnais chien",
+            "es": "arnés perro",
+            "pt": "peitoral cão",
+            "it": "pettorina cane",
+            "fi": "koiranvaljaat"
+          }
+        },
+        {
+          "en": "litter box",
+          "translations": {
+            "da": "kattebakke",
+            "sv": "kattlåda",
+            "no": "kattedo",
+            "de": "katzentoilette",
+            "nl": "kattenbak",
+            "fr": "litière chat",
+            "es": "arenero gato",
+            "pt": "caixa areia gato",
+            "it": "lettiera gatto",
+            "fi": "kissanhiekkalaatikko"
+          }
+        },
+        {
+          "en": "chew toys",
+          "translations": {
+            "da": "tyggelegetøj",
+            "sv": "tuggleksak",
+            "no": "tyggeleke",
+            "de": "kauspielzeug",
+            "nl": "kauwspeelgoed",
+            "fr": "jouet à mâcher",
+            "es": "juguete morder",
+            "pt": "brinquedo mastigar",
+            "it": "gioco da masticare",
+            "fi": "purulelu"
+          }
+        },
+        {
+          "en": "grain free dog food",
+          "translations": {
+            "da": "kornfri hundemad",
+            "sv": "spannmålsfritt hundfoder",
+            "no": "kornfri hundemat",
+            "de": "getreidefreies hundefutter",
+            "nl": "graanvrij hondenvoer",
+            "fr": "croquettes sans céréales",
+            "es": "pienso perro sin cereales",
+            "pt": "ração cão sem cereais",
+            "it": "cibo cane senza cereali",
+            "fi": "viljaton koiranruoka"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK"
+      ],
+      "enabled": true,
+      "notes": "Steady demand category. Premium pet food trends emerge from health-conscious owner segments."
+    },
+    {
+      "slug": "kids_baby",
+      "name": "Kids & baby",
+      "description": "Baby gear, kids' clothing, nursery, toys",
+      "sub_categories": [
+        {
+          "en": "stroller",
+          "translations": {
+            "da": "klapvogn",
+            "sv": "barnvagn",
+            "no": "barnevogn",
+            "de": "kinderwagen",
+            "nl": "kinderwagen",
+            "fr": "poussette",
+            "es": "carrito bebé",
+            "pt": "carrinho bebé",
+            "it": "passeggino",
+            "fi": "lastenvaunut"
+          }
+        },
+        {
+          "en": "high chair",
+          "translations": {
+            "da": "højstol",
+            "sv": "barnstol",
+            "no": "barnestol",
+            "de": "hochstuhl",
+            "nl": "kinderstoel",
+            "fr": "chaise haute",
+            "es": "trona",
+            "pt": "cadeira refeição",
+            "it": "seggiolone",
+            "fi": "syöttötuoli"
+          }
+        },
+        {
+          "en": "baby carrier",
+          "translations": {
+            "da": "bæresele",
+            "sv": "bärsele",
+            "no": "bæresele",
+            "de": "babytrage",
+            "nl": "draagzak baby",
+            "fr": "porte-bébé",
+            "es": "portabebés",
+            "pt": "porta-bebé",
+            "it": "marsupio porta bebè",
+            "fi": "kantoreppu"
+          }
+        },
+        {
+          "en": "nursery decor",
+          "translations": {
+            "da": "børneværelse indretning",
+            "sv": "barnrumsdekor",
+            "no": "barnerom dekor",
+            "de": "kinderzimmer deko",
+            "nl": "babykamer decoratie",
+            "fr": "déco chambre bébé",
+            "es": "decoración habitación bebé",
+            "pt": "decoração quarto bebé",
+            "it": "decorazione cameretta",
+            "fi": "lastenhuoneen sisustus"
+          }
+        },
+        {
+          "en": "kids toys",
+          "translations": {
+            "da": "børnelegetøj",
+            "sv": "barnleksaker",
+            "no": "barneleker",
+            "de": "kinderspielzeug",
+            "nl": "kinderspeelgoed",
+            "fr": "jouets enfants",
+            "es": "juguetes niños",
+            "pt": "brinquedos crianças",
+            "it": "giochi bambini",
+            "fi": "lasten lelut"
+          }
+        },
+        {
+          "en": "school bag",
+          "translations": {
+            "da": "skoletaske",
+            "sv": "skolväska",
+            "no": "skolesekk",
+            "de": "schultasche",
+            "nl": "schooltas",
+            "fr": "cartable",
+            "es": "mochila escolar",
+            "pt": "mochila escolar",
+            "it": "zaino scuola",
+            "fi": "koululaukku"
+          }
+        },
+        {
+          "en": "baby monitor",
+          "translations": {
+            "da": "babyalarm",
+            "sv": "babyvakt",
+            "no": "babycall",
+            "de": "babyphone",
+            "nl": "babyfoon",
+            "fr": "babyphone",
+            "es": "vigilabebés",
+            "pt": "intercomunicador bebé",
+            "it": "baby monitor",
+            "fi": "itkuhälytin"
+          }
+        },
+        {
+          "en": "diaper bag",
+          "translations": {
+            "da": "pusletaske",
+            "sv": "skötväska",
+            "no": "stelleveske",
+            "de": "wickeltasche",
+            "nl": "luiertas",
+            "fr": "sac à langer",
+            "es": "bolso pañales",
+            "pt": "saco fraldas",
+            "it": "borsa fasciatoio",
+            "fi": "hoitolaukku"
+          }
+        },
+        {
+          "en": "kids clothing",
+          "translations": {
+            "da": "børnetøj",
+            "sv": "barnkläder",
+            "no": "barneklær",
+            "de": "kinderkleidung",
+            "nl": "kinderkleding",
+            "fr": "vêtements enfants",
+            "es": "ropa niños",
+            "pt": "roupa crianças",
+            "it": "abbigliamento bambini",
+            "fi": "lastenvaatteet"
+          }
+        },
+        {
+          "en": "baby bath",
+          "translations": {
+            "da": "babybadekar",
+            "sv": "babybadkar",
+            "no": "babybadekar",
+            "de": "babybadewanne",
+            "nl": "babybadje",
+            "fr": "baignoire bébé",
+            "es": "bañera bebé",
+            "pt": "banheira bebé",
+            "it": "vaschetta bagnetto",
+            "fi": "vauvan kylpyamme"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR"
+      ],
+      "enabled": true,
+      "notes": "Back-to-school spike in August. Holiday gifting spike in November-December."
+    },
+    {
+      "slug": "food_beverage_specialty",
+      "name": "Specialty food & beverage",
+      "description": "Premium food, craft producers, gourmet goods",
+      "sub_categories": [
+        {
+          "en": "specialty coffee",
+          "translations": {
+            "da": "specialty kaffe",
+            "sv": "specialkaffe",
+            "no": "specialty kaffe",
+            "de": "specialty coffee",
+            "nl": "specialty koffie",
+            "fr": "café de spécialité",
+            "es": "café especialidad",
+            "pt": "café especialidade",
+            "it": "caffè specialty",
+            "fi": "erikoiskahvi"
+          }
+        },
+        {
+          "en": "natural wine",
+          "translations": {
+            "da": "naturvin",
+            "sv": "naturvin",
+            "no": "naturvin",
+            "de": "naturwein",
+            "nl": "natuurwijn",
+            "fr": "vin nature",
+            "es": "vino natural",
+            "pt": "vinho natural",
+            "it": "vino naturale",
+            "fi": "luonnonviini"
+          }
+        },
+        {
+          "en": "craft chocolate",
+          "translations": {
+            "da": "håndlavet chokolade",
+            "sv": "hantverkschoklad",
+            "no": "håndlaget sjokolade",
+            "de": "craft schokolade",
+            "nl": "ambachtelijke chocolade",
+            "fr": "chocolat artisanal",
+            "es": "chocolate artesanal",
+            "pt": "chocolate artesanal",
+            "it": "cioccolato artigianale",
+            "fi": "käsityösuklaa"
+          }
+        },
+        {
+          "en": "premium tea",
+          "translations": {
+            "da": "premium te",
+            "sv": "premium te",
+            "no": "premium te",
+            "de": "premium tee",
+            "nl": "premium thee",
+            "fr": "thé premium",
+            "es": "té premium",
+            "pt": "chá premium",
+            "it": "tè premium",
+            "fi": "premium tee"
+          }
+        },
+        {
+          "en": "olive oil",
+          "translations": {
+            "da": "olivenolie",
+            "sv": "olivolja",
+            "no": "olivenolje",
+            "de": "olivenöl",
+            "nl": "olijfolie",
+            "fr": "huile d'olive",
+            "es": "aceite oliva",
+            "pt": "azeite",
+            "it": "olio extravergine",
+            "fi": "oliiviöljy"
+          }
+        },
+        {
+          "en": "hot sauce",
+          "translations": {
+            "da": "hot sauce",
+            "sv": "hot sauce",
+            "no": "hot sauce",
+            "de": "scharfe sauce",
+            "nl": "hete saus",
+            "fr": "sauce piquante",
+            "es": "salsa picante",
+            "pt": "molho picante",
+            "it": "salsa piccante",
+            "fi": "tulinen kastike"
+          }
+        },
+        {
+          "en": "single origin coffee",
+          "translations": {
+            "da": "single origin kaffe",
+            "sv": "single origin kaffe",
+            "no": "single origin kaffe",
+            "de": "single origin kaffee",
+            "nl": "single origin koffie",
+            "fr": "café single origin",
+            "es": "café single origin",
+            "pt": "café single origin",
+            "it": "caffè single origin",
+            "fi": "single origin kahvi"
+          }
+        },
+        {
+          "en": "natural snacks",
+          "translations": {
+            "da": "naturlige snacks",
+            "sv": "naturliga snacks",
+            "no": "naturlige snacks",
+            "de": "natürliche snacks",
+            "nl": "natuurlijke snacks",
+            "fr": "snacks naturels",
+            "es": "snacks naturales",
+            "pt": "snacks naturais",
+            "it": "snack naturali",
+            "fi": "luonnolliset välipalat"
+          }
+        },
+        {
+          "en": "fermented foods",
+          "translations": {
+            "da": "fermenterede fødevarer",
+            "sv": "fermenterad mat",
+            "no": "fermentert mat",
+            "de": "fermentierte lebensmittel",
+            "nl": "gefermenteerd voedsel",
+            "fr": "aliments fermentés",
+            "es": "alimentos fermentados",
+            "pt": "alimentos fermentados",
+            "it": "cibi fermentati",
+            "fi": "fermentoidut ruoat"
+          }
+        },
+        {
+          "en": "craft liquorice",
+          "translations": {
+            "da": "lakrids",
+            "sv": "lakrits",
+            "no": "lakris",
+            "de": "lakritz",
+            "nl": "drop",
+            "fr": "réglisse",
+            "es": "regaliz",
+            "pt": "alcaçuz",
+            "it": "liquirizia",
+            "fi": "lakritsi"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "IT"
+      ],
+      "enabled": true,
+      "notes": "Gift-giving seasons important: Easter, Mother's Day, holidays. Includes Nordic specialty producers like Lakrids by Bülow."
+    },
+    {
+      "slug": "wellness_supplements",
+      "name": "Wellness & supplements",
+      "description": "Vitamins, supplements, wellness tools",
+      "sub_categories": [
+        {
+          "en": "magnesium supplement",
+          "translations": {
+            "da": "magnesium tilskud",
+            "sv": "magnesiumtillskott",
+            "no": "magnesium tilskudd",
+            "de": "magnesium",
+            "nl": "magnesium supplement",
+            "fr": "complément magnésium",
+            "es": "magnesio suplemento",
+            "pt": "magnésio suplemento",
+            "it": "integratore magnesio",
+            "fi": "magnesium lisäravinne"
+          }
+        },
+        {
+          "en": "vitamin d",
+          "translations": {
+            "da": "d-vitamin",
+            "sv": "d-vitamin",
+            "no": "d-vitamin",
+            "de": "vitamin d",
+            "nl": "vitamine d",
+            "fr": "vitamine d",
+            "es": "vitamina d",
+            "pt": "vitamina d",
+            "it": "vitamina d",
+            "fi": "d-vitamiini"
+          }
+        },
+        {
+          "en": "collagen powder",
+          "translations": {
+            "da": "kollagen pulver",
+            "sv": "kollagenpulver",
+            "no": "kollagen pulver",
+            "de": "kollagen pulver",
+            "nl": "collageen poeder",
+            "fr": "collagène en poudre",
+            "es": "colágeno en polvo",
+            "pt": "colagénio em pó",
+            "it": "collagene in polvere",
+            "fi": "kollageenijauhe"
+          }
+        },
+        {
+          "en": "ashwagandha",
+          "translations": {
+            "da": "ashwagandha",
+            "sv": "ashwagandha",
+            "no": "ashwagandha",
+            "de": "ashwagandha",
+            "nl": "ashwagandha",
+            "fr": "ashwagandha",
+            "es": "ashwagandha",
+            "pt": "ashwagandha",
+            "it": "ashwagandha",
+            "fi": "ashwagandha"
+          }
+        },
+        {
+          "en": "creatine",
+          "translations": {
+            "da": "kreatin",
+            "sv": "kreatin",
+            "no": "kreatin",
+            "de": "kreatin",
+            "nl": "creatine",
+            "fr": "créatine",
+            "es": "creatina",
+            "pt": "creatina",
+            "it": "creatina",
+            "fi": "kreatiini"
+          }
+        },
+        {
+          "en": "protein powder",
+          "translations": {
+            "da": "proteinpulver",
+            "sv": "proteinpulver",
+            "no": "proteinpulver",
+            "de": "proteinpulver",
+            "nl": "eiwitpoeder",
+            "fr": "protéine en poudre",
+            "es": "proteína en polvo",
+            "pt": "proteína em pó",
+            "it": "proteine in polvere",
+            "fi": "proteiinijauhe"
+          }
+        },
+        {
+          "en": "essential oils",
+          "translations": {
+            "da": "æteriske olier",
+            "sv": "eteriska oljor",
+            "no": "eteriske oljer",
+            "de": "ätherische öle",
+            "nl": "etherische oliën",
+            "fr": "huiles essentielles",
+            "es": "aceites esenciales",
+            "pt": "óleos essenciais",
+            "it": "oli essenziali",
+            "fi": "eteeriset öljyt"
+          }
+        },
+        {
+          "en": "massage gun",
+          "translations": {
+            "da": "massagepistol",
+            "sv": "massagepistol",
+            "no": "massasjepistol",
+            "de": "massagepistole",
+            "nl": "massage gun",
+            "fr": "pistolet de massage",
+            "es": "pistola masaje",
+            "pt": "pistola massagem",
+            "it": "pistola massaggio",
+            "fi": "hierontapistooli"
+          }
+        },
+        {
+          "en": "sleep aids",
+          "translations": {
+            "da": "søvnhjælp",
+            "sv": "sömnhjälp",
+            "no": "søvnhjelp",
+            "de": "schlafhilfe",
+            "nl": "slaapmiddel",
+            "fr": "aide au sommeil",
+            "es": "ayuda dormir",
+            "pt": "ajuda para dormir",
+            "it": "aiuto per dormire",
+            "fi": "uniapu"
+          }
+        },
+        {
+          "en": "electrolyte drink",
+          "translations": {
+            "da": "elektrolyt drik",
+            "sv": "elektrolytdryck",
+            "no": "elektrolytt drikke",
+            "de": "elektrolyt drink",
+            "nl": "elektrolyten drank",
+            "fr": "boisson électrolytes",
+            "es": "bebida electrolitos",
+            "pt": "bebida eletrólitos",
+            "it": "bevanda elettroliti",
+            "fi": "elektrolyyttijuoma"
+          }
+        }
+      ],
+      "trend_threshold_pct": 35,
+      "prospect_cap_per_quarter": 3,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "US"
+      ],
+      "enabled": true,
+      "notes": "Influencer-driven trends move fast. TikTok and YouTube health content drives many spikes."
+    },
+    {
+      "slug": "tech_accessories",
+      "name": "Tech accessories",
+      "description": "Consumer tech peripherals and accessories",
+      "sub_categories": [
+        {
+          "en": "phone case",
+          "translations": {
+            "da": "mobilcover",
+            "sv": "mobilskal",
+            "no": "mobildeksel",
+            "de": "handyhülle",
+            "nl": "telefoonhoesje",
+            "fr": "coque téléphone",
+            "es": "funda móvil",
+            "pt": "capa telemóvel",
+            "it": "cover telefono",
+            "fi": "puhelinkuori"
+          }
+        },
+        {
+          "en": "wireless charger",
+          "translations": {
+            "da": "trådløs oplader",
+            "sv": "trådlös laddare",
+            "no": "trådløs lader",
+            "de": "kabelloses ladegerät",
+            "nl": "draadloze oplader",
+            "fr": "chargeur sans fil",
+            "es": "cargador inalámbrico",
+            "pt": "carregador sem fios",
+            "it": "caricatore wireless",
+            "fi": "langaton laturi"
+          }
+        },
+        {
+          "en": "laptop stand",
+          "translations": {
+            "da": "laptop stander",
+            "sv": "laptopställ",
+            "no": "laptopstativ",
+            "de": "laptop ständer",
+            "nl": "laptopstandaard",
+            "fr": "support ordinateur portable",
+            "es": "soporte portátil",
+            "pt": "suporte portátil",
+            "it": "supporto laptop",
+            "fi": "kannettavan teline"
+          }
+        },
+        {
+          "en": "mechanical keyboard",
+          "translations": {
+            "da": "mekanisk tastatur",
+            "sv": "mekaniskt tangentbord",
+            "no": "mekanisk tastatur",
+            "de": "mechanische tastatur",
+            "nl": "mechanisch toetsenbord",
+            "fr": "clavier mécanique",
+            "es": "teclado mecánico",
+            "pt": "teclado mecânico",
+            "it": "tastiera meccanica",
+            "fi": "mekaaninen näppäimistö"
+          }
+        },
+        {
+          "en": "mouse pad",
+          "translations": {
+            "da": "musemåtte",
+            "sv": "musmatta",
+            "no": "musematte",
+            "de": "mauspad",
+            "nl": "muismat",
+            "fr": "tapis souris",
+            "es": "alfombrilla ratón",
+            "pt": "tapete rato",
+            "it": "tappetino mouse",
+            "fi": "hiirimatto"
+          }
+        },
+        {
+          "en": "headphones",
+          "translations": {
+            "da": "hovedtelefoner",
+            "sv": "hörlurar",
+            "no": "hodetelefoner",
+            "de": "kopfhörer",
+            "nl": "koptelefoon",
+            "fr": "casque audio",
+            "es": "auriculares",
+            "pt": "auscultadores",
+            "it": "cuffie",
+            "fi": "kuulokkeet"
+          }
+        },
+        {
+          "en": "webcam",
+          "translations": {
+            "da": "webcam",
+            "sv": "webbkamera",
+            "no": "webkamera",
+            "de": "webcam",
+            "nl": "webcam",
+            "fr": "webcam",
+            "es": "webcam",
+            "pt": "webcam",
+            "it": "webcam",
+            "fi": "verkkokamera"
+          }
+        },
+        {
+          "en": "monitor arm",
+          "translations": {
+            "da": "skærmarm",
+            "sv": "skärmarm",
+            "no": "skjermarm",
+            "de": "monitorarm",
+            "nl": "monitorarm",
+            "fr": "bras moniteur",
+            "es": "brazo monitor",
+            "pt": "braço monitor",
+            "it": "braccio monitor",
+            "fi": "näytön varsi"
+          }
+        },
+        {
+          "en": "usb hub",
+          "translations": {
+            "da": "usb hub",
+            "sv": "usb hubb",
+            "no": "usb hub",
+            "de": "usb hub",
+            "nl": "usb hub",
+            "fr": "hub usb",
+            "es": "hub usb",
+            "pt": "hub usb",
+            "it": "hub usb",
+            "fi": "usb-jakaja"
+          }
+        },
+        {
+          "en": "screen protector",
+          "translations": {
+            "da": "skærmbeskytter",
+            "sv": "skärmskydd",
+            "no": "skjermbeskytter",
+            "de": "displayschutz",
+            "nl": "screenprotector",
+            "fr": "protection écran",
+            "es": "protector pantalla",
+            "pt": "protetor ecrã",
+            "it": "pellicola schermo",
+            "fi": "näytönsuoja"
+          }
+        }
+      ],
+      "trend_threshold_pct": 35,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "US"
+      ],
+      "enabled": true,
+      "notes": "Apple/Samsung product launches drive sub-category spikes. September iPhone launches especially relevant."
+    },
+    {
+      "slug": "jewelry_accessories",
+      "name": "Jewelry & accessories",
+      "description": "Fine and fashion jewelry, watches, leather goods",
+      "sub_categories": [
+        {
+          "en": "stacking rings",
+          "translations": {
+            "da": "stacking ringe",
+            "sv": "stacking ringar",
+            "no": "stacking ringer",
+            "de": "stacking ringe",
+            "nl": "stack ringen",
+            "fr": "bagues empilables",
+            "es": "anillos apilables",
+            "pt": "anéis empilháveis",
+            "it": "anelli sovrapponibili",
+            "fi": "pinottavat sormukset"
+          }
+        },
+        {
+          "en": "pearl necklace",
+          "translations": {
+            "da": "perlekæde",
+            "sv": "pärlhalsband",
+            "no": "perlekjede",
+            "de": "perlenkette",
+            "nl": "parelketting",
+            "fr": "collier de perles",
+            "es": "collar de perlas",
+            "pt": "colar de pérolas",
+            "it": "collana di perle",
+            "fi": "helmikaulakoru"
+          }
+        },
+        {
+          "en": "tennis bracelet",
+          "translations": {
+            "da": "tennisarmbånd",
+            "sv": "tennisarmband",
+            "no": "tennisarmbånd",
+            "de": "tennisarmband",
+            "nl": "tennisarmband",
+            "fr": "bracelet tennis",
+            "es": "pulsera tenis",
+            "pt": "pulseira tennis",
+            "it": "bracciale tennis",
+            "fi": "tennisrannekoru"
+          }
+        },
+        {
+          "en": "signet ring",
+          "translations": {
+            "da": "signetring",
+            "sv": "signetring",
+            "no": "signetring",
+            "de": "siegelring",
+            "nl": "zegelring",
+            "fr": "chevalière",
+            "es": "anillo sello",
+            "pt": "anel sinete",
+            "it": "anello da mignolo",
+            "fi": "sinettisormus"
+          }
+        },
+        {
+          "en": "minimalist watch",
+          "translations": {
+            "da": "minimalistisk ur",
+            "sv": "minimalistisk klocka",
+            "no": "minimalistisk klokke",
+            "de": "minimalistische uhr",
+            "nl": "minimalistisch horloge",
+            "fr": "montre minimaliste",
+            "es": "reloj minimalista",
+            "pt": "relógio minimalista",
+            "it": "orologio minimalista",
+            "fi": "minimalistinen kello"
+          }
+        },
+        {
+          "en": "hoop earrings",
+          "translations": {
+            "da": "creoler",
+            "sv": "ringörhängen",
+            "no": "ringøreringer",
+            "de": "creolen",
+            "nl": "creoolringen",
+            "fr": "boucles d'oreilles créoles",
+            "es": "pendientes aro",
+            "pt": "brincos argola",
+            "it": "orecchini a cerchio",
+            "fi": "rengaskorvakorut"
+          }
+        },
+        {
+          "en": "leather wallet",
+          "translations": {
+            "da": "læderpung",
+            "sv": "läderplånbok",
+            "no": "skinnlommebok",
+            "de": "ledergeldbörse",
+            "nl": "leren portemonnee",
+            "fr": "portefeuille cuir",
+            "es": "cartera cuero",
+            "pt": "carteira pele",
+            "it": "portafoglio pelle",
+            "fi": "nahkalompakko"
+          }
+        },
+        {
+          "en": "crossbody bag",
+          "translations": {
+            "da": "crossbody taske",
+            "sv": "crossbodyväska",
+            "no": "crossbody veske",
+            "de": "umhängetasche",
+            "nl": "schoudertas",
+            "fr": "sac bandoulière",
+            "es": "bolso bandolera",
+            "pt": "mala tiracolo",
+            "it": "borsa a tracolla",
+            "fi": "olkalaukku"
+          }
+        },
+        {
+          "en": "silver chain",
+          "translations": {
+            "da": "sølvkæde",
+            "sv": "silverkedja",
+            "no": "sølvkjede",
+            "de": "silberkette",
+            "nl": "zilveren ketting",
+            "fr": "chaîne argent",
+            "es": "cadena plata",
+            "pt": "corrente prata",
+            "it": "catena argento",
+            "fi": "hopeaketju"
+          }
+        },
+        {
+          "en": "engagement ring",
+          "translations": {
+            "da": "forlovelsesring",
+            "sv": "förlovningsring",
+            "no": "forlovelsesring",
+            "de": "verlobungsring",
+            "nl": "verlovingsring",
+            "fr": "bague de fiançailles",
+            "es": "anillo compromiso",
+            "pt": "anel noivado",
+            "it": "anello fidanzamento",
+            "fi": "kihlasormus"
+          }
+        }
+      ],
+      "trend_threshold_pct": 35,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "IT"
+      ],
+      "enabled": true,
+      "notes": "Gift-giving driven. Valentine's, Mother's Day, holidays = major peaks. Engagement ring searches peak November-December."
+    },
+    {
+      "slug": "footwear_casual",
+      "name": "Footwear — casual & sneakers",
+      "description": "Sneakers, casual shoes, lifestyle footwear",
+      "sub_categories": [
+        {
+          "en": "white sneakers",
+          "translations": {
+            "da": "hvide sneakers",
+            "sv": "vita sneakers",
+            "no": "hvite sneakers",
+            "de": "weiße sneaker",
+            "nl": "witte sneakers",
+            "fr": "sneakers blanches",
+            "es": "zapatillas blancas",
+            "pt": "ténis brancos",
+            "it": "sneakers bianche",
+            "fi": "valkoiset tennarit"
+          }
+        },
+        {
+          "en": "running shoes",
+          "translations": {
+            "da": "løbesko",
+            "sv": "löparskor",
+            "no": "løpesko",
+            "de": "laufschuhe",
+            "nl": "hardloopschoenen",
+            "fr": "chaussures de running",
+            "es": "zapatillas running",
+            "pt": "ténis de corrida",
+            "it": "scarpe da corsa",
+            "fi": "juoksukengät"
+          }
+        },
+        {
+          "en": "loafers",
+          "translations": {
+            "da": "loafers",
+            "sv": "loafers",
+            "no": "loafers",
+            "de": "loafer",
+            "nl": "loafers",
+            "fr": "mocassins",
+            "es": "mocasines",
+            "pt": "mocassins",
+            "it": "mocassini",
+            "fi": "loaferit"
+          }
+        },
+        {
+          "en": "chelsea boots",
+          "translations": {
+            "da": "chelsea boots",
+            "sv": "chelsea boots",
+            "no": "chelsea boots",
+            "de": "chelsea boots",
+            "nl": "chelsea boots",
+            "fr": "chelsea boots",
+            "es": "botines chelsea",
+            "pt": "botas chelsea",
+            "it": "chelsea boots",
+            "fi": "chelsea-saappaat"
+          }
+        },
+        {
+          "en": "slides",
+          "translations": {
+            "da": "badesandaler",
+            "sv": "slides",
+            "no": "slides",
+            "de": "slides",
+            "nl": "slippers",
+            "fr": "claquettes",
+            "es": "chanclas",
+            "pt": "chinelos slide",
+            "it": "ciabatte slide",
+            "fi": "sliders"
+          }
+        },
+        {
+          "en": "trail runners",
+          "translations": {
+            "da": "trail løbesko",
+            "sv": "trailskor",
+            "no": "trail sko",
+            "de": "trailrunning schuhe",
+            "nl": "trailrunning schoenen",
+            "fr": "chaussures trail",
+            "es": "zapatillas trail",
+            "pt": "sapatilhas trail",
+            "it": "scarpe trail",
+            "fi": "polkujuoksukengät"
+          }
+        },
+        {
+          "en": "platform sneakers",
+          "translations": {
+            "da": "platform sneakers",
+            "sv": "platåsneakers",
+            "no": "platå sneakers",
+            "de": "plateau sneaker",
+            "nl": "plateau sneakers",
+            "fr": "sneakers plateforme",
+            "es": "zapatillas plataforma",
+            "pt": "ténis plataforma",
+            "it": "sneakers platform",
+            "fi": "platform tennarit"
+          }
+        },
+        {
+          "en": "ballet flats",
+          "translations": {
+            "da": "ballerinasko",
+            "sv": "ballerinaskor",
+            "no": "ballerinasko",
+            "de": "ballerinas",
+            "nl": "ballerinas",
+            "fr": "ballerines",
+            "es": "bailarinas",
+            "pt": "sabrinas",
+            "it": "ballerine",
+            "fi": "balleriinat"
+          }
+        },
+        {
+          "en": "boat shoes",
+          "translations": {
+            "da": "sejlersko",
+            "sv": "båtskor",
+            "no": "båtsko",
+            "de": "bootsschuhe",
+            "nl": "bootschoenen",
+            "fr": "chaussures bateau",
+            "es": "náuticos",
+            "pt": "sapatos vela",
+            "it": "scarpe da barca",
+            "fi": "veneilykengät"
+          }
+        },
+        {
+          "en": "high tops",
+          "translations": {
+            "da": "høje sneakers",
+            "sv": "höga sneakers",
+            "no": "høye sneakers",
+            "de": "high top sneaker",
+            "nl": "hoge sneakers",
+            "fr": "sneakers montantes",
+            "es": "zapatillas altas",
+            "pt": "ténis cano alto",
+            "it": "sneakers alte",
+            "fi": "korkeavartiset tennarit"
+          }
+        }
+      ],
+      "trend_threshold_pct": 35,
+      "prospect_cap_per_quarter": 3,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "ES",
+        "IT"
+      ],
+      "enabled": true,
+      "notes": "Sneaker culture drives strong sub-category movements. Nike/Adidas/On Running launches cause spikes."
+    },
+    {
+      "slug": "lingerie_intimates",
+      "name": "Lingerie & intimates",
+      "description": "Underwear, lingerie, sleepwear, swimwear",
+      "sub_categories": [
+        {
+          "en": "bralette",
+          "translations": {
+            "da": "bralette",
+            "sv": "bralette",
+            "no": "bralette",
+            "de": "bralette",
+            "nl": "bralette",
+            "fr": "brassière",
+            "es": "bralette",
+            "pt": "bralette",
+            "it": "bralette",
+            "fi": "bralette"
+          }
+        },
+        {
+          "en": "seamless underwear",
+          "translations": {
+            "da": "sømløse trusser",
+            "sv": "sömlösa trosor",
+            "no": "sømløse truser",
+            "de": "nahtlose unterwäsche",
+            "nl": "naadloos ondergoed",
+            "fr": "culotte sans couture",
+            "es": "braga sin costuras",
+            "pt": "cuecas sem costura",
+            "it": "intimo senza cuciture",
+            "fi": "saumattomat alusvaatteet"
+          }
+        },
+        {
+          "en": "shapewear",
+          "translations": {
+            "da": "shapewear",
+            "sv": "shapewear",
+            "no": "shapewear",
+            "de": "shapewear",
+            "nl": "shapewear",
+            "fr": "gainant",
+            "es": "fajas reductoras",
+            "pt": "shapewear",
+            "it": "shapewear",
+            "fi": "muotoiluvaatteet"
+          }
+        },
+        {
+          "en": "lounge set",
+          "translations": {
+            "da": "loungewear sæt",
+            "sv": "loungeset",
+            "no": "loungesett",
+            "de": "loungewear set",
+            "nl": "lounge set",
+            "fr": "ensemble loungewear",
+            "es": "conjunto loungewear",
+            "pt": "conjunto loungewear",
+            "it": "completo lounge",
+            "fi": "loungesetti"
+          }
+        },
+        {
+          "en": "silk pajamas",
+          "translations": {
+            "da": "silke pyjamas",
+            "sv": "silkespyjamas",
+            "no": "silke pyjamas",
+            "de": "seidenpyjama",
+            "nl": "zijden pyjama",
+            "fr": "pyjama soie",
+            "es": "pijama seda",
+            "pt": "pijama seda",
+            "it": "pigiama seta",
+            "fi": "silkki pyjama"
+          }
+        },
+        {
+          "en": "bikini",
+          "translations": {
+            "da": "bikini",
+            "sv": "bikini",
+            "no": "bikini",
+            "de": "bikini",
+            "nl": "bikini",
+            "fr": "bikini",
+            "es": "bikini",
+            "pt": "biquíni",
+            "it": "bikini",
+            "fi": "bikinit"
+          }
+        },
+        {
+          "en": "one piece swimsuit",
+          "translations": {
+            "da": "badedragt",
+            "sv": "baddräkt",
+            "no": "badedrakt",
+            "de": "badeanzug",
+            "nl": "badpak",
+            "fr": "maillot une pièce",
+            "es": "bañador entero",
+            "pt": "fato banho inteiro",
+            "it": "costume intero",
+            "fi": "uimapuku"
+          }
+        },
+        {
+          "en": "sports bra",
+          "translations": {
+            "da": "sports bh",
+            "sv": "sport-bh",
+            "no": "sports bh",
+            "de": "sport-bh",
+            "nl": "sportbh",
+            "fr": "brassière sport",
+            "es": "sujetador deportivo",
+            "pt": "soutien desporto",
+            "it": "reggiseno sportivo",
+            "fi": "urheilurintaliivit"
+          }
+        },
+        {
+          "en": "robe",
+          "translations": {
+            "da": "morgenkåbe",
+            "sv": "morgonrock",
+            "no": "morgenkåpe",
+            "de": "bademantel",
+            "nl": "ochtendjas",
+            "fr": "peignoir",
+            "es": "albornoz",
+            "pt": "roupão",
+            "it": "vestaglia",
+            "fi": "kylpytakki"
+          }
+        },
+        {
+          "en": "matching set",
+          "translations": {
+            "da": "matching sæt",
+            "sv": "matchande set",
+            "no": "matchende sett",
+            "de": "matching set",
+            "nl": "matching set",
+            "fr": "ensemble assorti",
+            "es": "conjunto a juego",
+            "pt": "conjunto a condizer",
+            "it": "set coordinato",
+            "fi": "yhteensopiva setti"
+          }
+        }
+      ],
+      "trend_threshold_pct": 35,
+      "prospect_cap_per_quarter": 3,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "IT"
+      ],
+      "enabled": true,
+      "notes": "Valentine's Day spike. Swimwear seasonal (Mar-Aug primary)."
+    },
+    {
+      "slug": "stationery_office",
+      "name": "Stationery & office",
+      "description": "Pens, notebooks, planners, desk goods",
+      "sub_categories": [
+        {
+          "en": "fountain pen",
+          "translations": {
+            "da": "fyldepen",
+            "sv": "reservoarpenna",
+            "no": "fyllepenn",
+            "de": "füllfederhalter",
+            "nl": "vulpen",
+            "fr": "stylo plume",
+            "es": "pluma estilográfica",
+            "pt": "caneta tinteiro",
+            "it": "stilografica",
+            "fi": "täytekynä"
+          }
+        },
+        {
+          "en": "notebook",
+          "translations": {
+            "da": "notesbog",
+            "sv": "anteckningsbok",
+            "no": "notatbok",
+            "de": "notizbuch",
+            "nl": "notitieboek",
+            "fr": "carnet",
+            "es": "cuaderno",
+            "pt": "caderno",
+            "it": "quaderno",
+            "fi": "muistikirja"
+          }
+        },
+        {
+          "en": "planner",
+          "translations": {
+            "da": "kalender",
+            "sv": "kalender",
+            "no": "kalender",
+            "de": "planer",
+            "nl": "planner",
+            "fr": "agenda",
+            "es": "planificador",
+            "pt": "planeador",
+            "it": "agenda",
+            "fi": "kalenteri"
+          }
+        },
+        {
+          "en": "desk organizer",
+          "translations": {
+            "da": "skrivebordsorganizer",
+            "sv": "skrivbordsorganiserare",
+            "no": "skrivebordorganiserer",
+            "de": "schreibtisch organizer",
+            "nl": "bureau organizer",
+            "fr": "organiseur de bureau",
+            "es": "organizador escritorio",
+            "pt": "organizador secretária",
+            "it": "organizer scrivania",
+            "fi": "työpöydän järjestäjä"
+          }
+        },
+        {
+          "en": "highlighters",
+          "translations": {
+            "da": "overstregningstusser",
+            "sv": "överstrykningspennor",
+            "no": "markeringstusjer",
+            "de": "textmarker",
+            "nl": "markeerstiften",
+            "fr": "surligneurs",
+            "es": "marcadores fluorescentes",
+            "pt": "marcadores fluorescentes",
+            "it": "evidenziatori",
+            "fi": "korostustussit"
+          }
+        },
+        {
+          "en": "sticky notes",
+          "translations": {
+            "da": "post-it",
+            "sv": "post-it",
+            "no": "post-it",
+            "de": "haftnotizen",
+            "nl": "post-its",
+            "fr": "post-it",
+            "es": "notas adhesivas",
+            "pt": "post-its",
+            "it": "post-it",
+            "fi": "post-it laput"
+          }
+        },
+        {
+          "en": "calligraphy pen",
+          "translations": {
+            "da": "kalligrafi pen",
+            "sv": "kalligrafipenna",
+            "no": "kalligrafipenn",
+            "de": "kalligraphie stift",
+            "nl": "kalligrafiepen",
+            "fr": "plume calligraphie",
+            "es": "pluma caligrafía",
+            "pt": "caneta caligrafia",
+            "it": "penna calligrafia",
+            "fi": "kalligrafiakynä"
+          }
+        },
+        {
+          "en": "leather journal",
+          "translations": {
+            "da": "læder notesbog",
+            "sv": "läderdagbok",
+            "no": "skinn notatbok",
+            "de": "ledernotizbuch",
+            "nl": "leren notitieboek",
+            "fr": "carnet en cuir",
+            "es": "diario cuero",
+            "pt": "diário pele",
+            "it": "diario in pelle",
+            "fi": "nahkamuistikirja"
+          }
+        },
+        {
+          "en": "calendar",
+          "translations": {
+            "da": "kalender",
+            "sv": "kalender",
+            "no": "kalender",
+            "de": "kalender",
+            "nl": "kalender",
+            "fr": "calendrier",
+            "es": "calendario",
+            "pt": "calendário",
+            "it": "calendario",
+            "fi": "kalenteri"
+          }
+        },
+        {
+          "en": "office desk",
+          "translations": {
+            "da": "skrivebord",
+            "sv": "skrivbord",
+            "no": "skrivebord",
+            "de": "schreibtisch",
+            "nl": "bureau",
+            "fr": "bureau",
+            "es": "escritorio",
+            "pt": "secretária",
+            "it": "scrivania",
+            "fi": "työpöytä"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 1,
+      "seasonal_active_months": [
+        1,
+        8,
+        9,
+        11,
+        12
+      ],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR"
+      ],
+      "enabled": true,
+      "notes": "Back-to-school (Aug-Sep), planner season (Nov-Jan). Mostly quiet rest of year."
+    },
+    {
+      "slug": "kitchen_dining",
+      "name": "Kitchen & dining",
+      "description": "Cookware, kitchen tools, tableware",
+      "sub_categories": [
+        {
+          "en": "cast iron pan",
+          "translations": {
+            "da": "støbejernspande",
+            "sv": "gjutjärnspanna",
+            "no": "støpejernspanne",
+            "de": "gusseisenpfanne",
+            "nl": "gietijzeren pan",
+            "fr": "poêle fonte",
+            "es": "sartén hierro fundido",
+            "pt": "frigideira ferro fundido",
+            "it": "padella in ghisa",
+            "fi": "valurautapannu"
+          }
+        },
+        {
+          "en": "chef knife",
+          "translations": {
+            "da": "kokkekniv",
+            "sv": "kockkniv",
+            "no": "kokkekniv",
+            "de": "kochmesser",
+            "nl": "koksmes",
+            "fr": "couteau de chef",
+            "es": "cuchillo cocinero",
+            "pt": "faca chef",
+            "it": "coltello chef",
+            "fi": "kokin veitsi"
+          }
+        },
+        {
+          "en": "stand mixer",
+          "translations": {
+            "da": "røremaskine",
+            "sv": "köksmaskin",
+            "no": "kjøkkenmaskin",
+            "de": "küchenmaschine",
+            "nl": "keukenmachine",
+            "fr": "robot pâtissier",
+            "es": "amasadora",
+            "pt": "batedeira",
+            "it": "impastatrice",
+            "fi": "yleiskone"
+          }
+        },
+        {
+          "en": "espresso machine",
+          "translations": {
+            "da": "espressomaskine",
+            "sv": "espressomaskin",
+            "no": "espressomaskin",
+            "de": "espressomaschine",
+            "nl": "espressomachine",
+            "fr": "machine espresso",
+            "es": "cafetera espresso",
+            "pt": "máquina espresso",
+            "it": "macchina espresso",
+            "fi": "espressokone"
+          }
+        },
+        {
+          "en": "dinnerware set",
+          "translations": {
+            "da": "stel",
+            "sv": "porslin set",
+            "no": "servise",
+            "de": "geschirr set",
+            "nl": "serviesset",
+            "fr": "service de table",
+            "es": "vajilla",
+            "pt": "loiça serviço",
+            "it": "servizio piatti",
+            "fi": "astiasto"
+          }
+        },
+        {
+          "en": "wine glasses",
+          "translations": {
+            "da": "vinglas",
+            "sv": "vinglas",
+            "no": "vinglass",
+            "de": "weingläser",
+            "nl": "wijnglazen",
+            "fr": "verres à vin",
+            "es": "copas vino",
+            "pt": "copos vinho",
+            "it": "bicchieri vino",
+            "fi": "viinilasit"
+          }
+        },
+        {
+          "en": "cutting board",
+          "translations": {
+            "da": "skærebræt",
+            "sv": "skärbräda",
+            "no": "skjærefjøl",
+            "de": "schneidebrett",
+            "nl": "snijplank",
+            "fr": "planche à découper",
+            "es": "tabla cortar",
+            "pt": "tábua corte",
+            "it": "tagliere",
+            "fi": "leikkuulauta"
+          }
+        },
+        {
+          "en": "ceramic mugs",
+          "translations": {
+            "da": "keramikkrus",
+            "sv": "keramikmuggar",
+            "no": "keramikkrus",
+            "de": "keramikbecher",
+            "nl": "keramische mokken",
+            "fr": "mugs céramique",
+            "es": "tazas cerámica",
+            "pt": "canecas cerâmica",
+            "it": "tazze ceramica",
+            "fi": "keraamiset mukit"
+          }
+        },
+        {
+          "en": "cookware set",
+          "translations": {
+            "da": "grydesæt",
+            "sv": "grytset",
+            "no": "grytsett",
+            "de": "topfset",
+            "nl": "pannenset",
+            "fr": "set casseroles",
+            "es": "batería cocina",
+            "pt": "conjunto panelas",
+            "it": "set pentole",
+            "fi": "kattilasarja"
+          }
+        },
+        {
+          "en": "kitchen scale",
+          "translations": {
+            "da": "køkkenvægt",
+            "sv": "köksvåg",
+            "no": "kjøkkenvekt",
+            "de": "küchenwaage",
+            "nl": "keukenweegschaal",
+            "fr": "balance cuisine",
+            "es": "báscula cocina",
+            "pt": "balança cozinha",
+            "it": "bilancia cucina",
+            "fi": "keittiövaaka"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "IT"
+      ],
+      "enabled": true,
+      "notes": "Wedding registry season (spring/summer). Holiday gifting peak."
+    },
+    {
+      "slug": "bath_personal_care",
+      "name": "Bath & personal care",
+      "description": "Body care, bath products, fragrance",
+      "sub_categories": [
+        {
+          "en": "body lotion",
+          "translations": {
+            "da": "bodylotion",
+            "sv": "bodylotion",
+            "no": "bodylotion",
+            "de": "bodylotion",
+            "nl": "bodylotion",
+            "fr": "lait corporel",
+            "es": "loción corporal",
+            "pt": "loção corporal",
+            "it": "lozione corpo",
+            "fi": "vartalovoide"
+          }
+        },
+        {
+          "en": "shower gel",
+          "translations": {
+            "da": "shower gel",
+            "sv": "duschgel",
+            "no": "dusjsåpe",
+            "de": "duschgel",
+            "nl": "douchegel",
+            "fr": "gel douche",
+            "es": "gel ducha",
+            "pt": "gel duche",
+            "it": "gel doccia",
+            "fi": "suihkugeeli"
+          }
+        },
+        {
+          "en": "bath bomb",
+          "translations": {
+            "da": "badebombe",
+            "sv": "badbomb",
+            "no": "badebombe",
+            "de": "badebombe",
+            "nl": "badbruisbal",
+            "fr": "bombe de bain",
+            "es": "bomba de baño",
+            "pt": "bomba de banho",
+            "it": "bomba da bagno",
+            "fi": "kylpypommi"
+          }
+        },
+        {
+          "en": "perfume",
+          "translations": {
+            "da": "parfume",
+            "sv": "parfym",
+            "no": "parfyme",
+            "de": "parfüm",
+            "nl": "parfum",
+            "fr": "parfum",
+            "es": "perfume",
+            "pt": "perfume",
+            "it": "profumo",
+            "fi": "hajuvesi"
+          }
+        },
+        {
+          "en": "deodorant natural",
+          "translations": {
+            "da": "naturlig deodorant",
+            "sv": "naturlig deodorant",
+            "no": "naturlig deodorant",
+            "de": "naturdeo",
+            "nl": "natuurlijke deodorant",
+            "fr": "déodorant naturel",
+            "es": "desodorante natural",
+            "pt": "desodorizante natural",
+            "it": "deodorante naturale",
+            "fi": "luonnollinen deodorantti"
+          }
+        },
+        {
+          "en": "body scrub",
+          "translations": {
+            "da": "body scrub",
+            "sv": "kroppsskrubb",
+            "no": "kroppsskrubb",
+            "de": "körperpeeling",
+            "nl": "body scrub",
+            "fr": "gommage corps",
+            "es": "exfoliante corporal",
+            "pt": "esfoliante corporal",
+            "it": "scrub corpo",
+            "fi": "vartalokuorinta"
+          }
+        },
+        {
+          "en": "hand cream",
+          "translations": {
+            "da": "håndcreme",
+            "sv": "handkräm",
+            "no": "håndkrem",
+            "de": "handcreme",
+            "nl": "handcrème",
+            "fr": "crème mains",
+            "es": "crema manos",
+            "pt": "creme mãos",
+            "it": "crema mani",
+            "fi": "käsivoide"
+          }
+        },
+        {
+          "en": "shampoo bar",
+          "translations": {
+            "da": "shampoo bar",
+            "sv": "schampokaka",
+            "no": "sjampobar",
+            "de": "festes shampoo",
+            "nl": "shampoo bar",
+            "fr": "shampoing solide",
+            "es": "champú sólido",
+            "pt": "champô sólido",
+            "it": "shampoo solido",
+            "fi": "palashampoo"
+          }
+        },
+        {
+          "en": "bath salts",
+          "translations": {
+            "da": "badesalt",
+            "sv": "badsalt",
+            "no": "badesalt",
+            "de": "badesalz",
+            "nl": "badzout",
+            "fr": "sels de bain",
+            "es": "sales de baño",
+            "pt": "sais de banho",
+            "it": "sali da bagno",
+            "fi": "kylpysuola"
+          }
+        },
+        {
+          "en": "essential oils",
+          "translations": {
+            "da": "æteriske olier",
+            "sv": "eteriska oljor",
+            "no": "eteriske oljer",
+            "de": "ätherische öle",
+            "nl": "etherische oliën",
+            "fr": "huiles essentielles",
+            "es": "aceites esenciales",
+            "pt": "óleos essenciais",
+            "it": "oli essenziali",
+            "fi": "eteeriset öljyt"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR"
+      ],
+      "enabled": true,
+      "notes": "Gifting season important. Natural/sustainable trends consistent."
+    },
+    {
+      "slug": "hair_care",
+      "name": "Hair care",
+      "description": "Hair products, tools, treatments",
+      "sub_categories": [
+        {
+          "en": "scalp serum",
+          "translations": {
+            "da": "hovedbund serum",
+            "sv": "hårbottenserum",
+            "no": "hodebunn serum",
+            "de": "kopfhaut serum",
+            "nl": "hoofdhuid serum",
+            "fr": "sérum cuir chevelu",
+            "es": "sérum cuero cabelludo",
+            "pt": "sérum couro cabeludo",
+            "it": "siero cuoio capelluto",
+            "fi": "päänahkaseerumi"
+          }
+        },
+        {
+          "en": "hair oil",
+          "translations": {
+            "da": "hårolie",
+            "sv": "hårolja",
+            "no": "hårolje",
+            "de": "haaröl",
+            "nl": "haarolie",
+            "fr": "huile cheveux",
+            "es": "aceite cabello",
+            "pt": "óleo capilar",
+            "it": "olio capelli",
+            "fi": "hiusöljy"
+          }
+        },
+        {
+          "en": "curl cream",
+          "translations": {
+            "da": "krølle creme",
+            "sv": "lockcream",
+            "no": "krøllkrem",
+            "de": "locken creme",
+            "nl": "krullencrème",
+            "fr": "crème boucles",
+            "es": "crema rizos",
+            "pt": "creme caracóis",
+            "it": "crema ricci",
+            "fi": "kiharavoide"
+          }
+        },
+        {
+          "en": "hair mask",
+          "translations": {
+            "da": "hårmaske",
+            "sv": "hårinpackning",
+            "no": "hårmaske",
+            "de": "haarmaske",
+            "nl": "haarmasker",
+            "fr": "masque cheveux",
+            "es": "mascarilla cabello",
+            "pt": "máscara capilar",
+            "it": "maschera capelli",
+            "fi": "hiusnaamio"
+          }
+        },
+        {
+          "en": "dry shampoo",
+          "translations": {
+            "da": "tørshampoo",
+            "sv": "torrschampo",
+            "no": "tørrsjampo",
+            "de": "trockenshampoo",
+            "nl": "droogshampoo",
+            "fr": "shampoing sec",
+            "es": "champú seco",
+            "pt": "champô seco",
+            "it": "shampoo secco",
+            "fi": "kuivashampoo"
+          }
+        },
+        {
+          "en": "hair dryer",
+          "translations": {
+            "da": "hårtørrer",
+            "sv": "hårtork",
+            "no": "hårføner",
+            "de": "föhn",
+            "nl": "föhn",
+            "fr": "sèche-cheveux",
+            "es": "secador pelo",
+            "pt": "secador cabelo",
+            "it": "asciugacapelli",
+            "fi": "hiustenkuivaaja"
+          }
+        },
+        {
+          "en": "curling iron",
+          "translations": {
+            "da": "krøllejern",
+            "sv": "locktång",
+            "no": "krølltang",
+            "de": "lockenstab",
+            "nl": "krultang",
+            "fr": "fer à boucler",
+            "es": "rizador pelo",
+            "pt": "ferro frisar",
+            "it": "ferro arricciacapelli",
+            "fi": "kiharrin"
+          }
+        },
+        {
+          "en": "leave in conditioner",
+          "translations": {
+            "da": "leave in conditioner",
+            "sv": "leave in balsam",
+            "no": "leave in balsam",
+            "de": "leave-in conditioner",
+            "nl": "leave-in conditioner",
+            "fr": "leave-in",
+            "es": "leave in acondicionador",
+            "pt": "leave-in",
+            "it": "balsamo leave-in",
+            "fi": "leave-in hoitoaine"
+          }
+        },
+        {
+          "en": "rosemary oil",
+          "translations": {
+            "da": "rosmarinolie",
+            "sv": "rosmarinolja",
+            "no": "rosmarinolje",
+            "de": "rosmarinöl",
+            "nl": "rozemarijnolie",
+            "fr": "huile romarin",
+            "es": "aceite romero",
+            "pt": "óleo alecrim",
+            "it": "olio rosmarino",
+            "fi": "rosmariiniöljy"
+          }
+        },
+        {
+          "en": "hair growth serum",
+          "translations": {
+            "da": "hårvækst serum",
+            "sv": "hårtillväxt serum",
+            "no": "hårvekst serum",
+            "de": "haarwuchs serum",
+            "nl": "haargroei serum",
+            "fr": "sérum pousse cheveux",
+            "es": "sérum crecimiento cabello",
+            "pt": "sérum crescimento cabelo",
+            "it": "siero crescita capelli",
+            "fi": "hiustenkasvuseerumi"
+          }
+        }
+      ],
+      "trend_threshold_pct": 35,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "US"
+      ],
+      "enabled": true,
+      "notes": "TikTok-driven trends (rosemary oil, scalp care)."
+    },
+    {
+      "slug": "books_media",
+      "name": "Books & media",
+      "description": "Physical books, ebooks, audiobooks, learning materials",
+      "sub_categories": [
+        "self help books",
+        "fiction bestseller",
+        "cookbook",
+        "children books",
+        "audiobook",
+        "kindle",
+        "puzzle books",
+        "language learning",
+        "history books",
+        "biography"
+      ],
+      "trend_threshold_pct": 35,
+      "prospect_cap_per_quarter": 1,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK"
+      ],
+      "enabled": false,
+      "notes": "Lower priority — book retailers rarely use ad-creative tools heavily. Disabled by default. Re-enable if prospects appear."
+    },
+    {
+      "slug": "toys_games",
+      "name": "Toys & games",
+      "description": "Children's toys, board games, hobby goods",
+      "sub_categories": [
+        {
+          "en": "wooden toys",
+          "translations": {
+            "da": "trælegetøj",
+            "sv": "träleksaker",
+            "no": "treleker",
+            "de": "holzspielzeug",
+            "nl": "houten speelgoed",
+            "fr": "jouets en bois",
+            "es": "juguetes madera",
+            "pt": "brinquedos madeira",
+            "it": "giochi in legno",
+            "fi": "puulelut"
+          }
+        },
+        {
+          "en": "board game",
+          "translations": {
+            "da": "brætspil",
+            "sv": "brädspel",
+            "no": "brettspill",
+            "de": "brettspiel",
+            "nl": "bordspel",
+            "fr": "jeu de société",
+            "es": "juego de mesa",
+            "pt": "jogo de tabuleiro",
+            "it": "gioco da tavolo",
+            "fi": "lautapeli"
+          }
+        },
+        {
+          "en": "puzzle",
+          "translations": {
+            "da": "puslespil",
+            "sv": "pussel",
+            "no": "puslespill",
+            "de": "puzzle",
+            "nl": "puzzel",
+            "fr": "puzzle",
+            "es": "puzzle",
+            "pt": "puzzle",
+            "it": "puzzle",
+            "fi": "palapeli"
+          }
+        },
+        {
+          "en": "stuffed animal",
+          "translations": {
+            "da": "bamse",
+            "sv": "gosedjur",
+            "no": "kosedyr",
+            "de": "kuscheltier",
+            "nl": "knuffel",
+            "fr": "peluche",
+            "es": "peluche",
+            "pt": "peluche",
+            "it": "peluche",
+            "fi": "pehmolelu"
+          }
+        },
+        {
+          "en": "building blocks",
+          "translations": {
+            "da": "klodser",
+            "sv": "byggklossar",
+            "no": "byggeklosser",
+            "de": "bauklötze",
+            "nl": "bouwblokken",
+            "fr": "blocs de construction",
+            "es": "bloques construcción",
+            "pt": "blocos construção",
+            "it": "costruzioni",
+            "fi": "rakennuspalikat"
+          }
+        },
+        {
+          "en": "outdoor toys",
+          "translations": {
+            "da": "udendørs legetøj",
+            "sv": "utomhusleksaker",
+            "no": "uteleker",
+            "de": "outdoor spielzeug",
+            "nl": "buitenspeelgoed",
+            "fr": "jouets extérieur",
+            "es": "juguetes exterior",
+            "pt": "brinquedos exterior",
+            "it": "giochi da esterno",
+            "fi": "ulkolelut"
+          }
+        },
+        {
+          "en": "kids art supplies",
+          "translations": {
+            "da": "børne hobbyartikler",
+            "sv": "barn pyssel",
+            "no": "barn hobby",
+            "de": "kinder bastelbedarf",
+            "nl": "kinder knutselspullen",
+            "fr": "fournitures créatives enfants",
+            "es": "manualidades niños",
+            "pt": "material arte crianças",
+            "it": "materiale creativo bambini",
+            "fi": "lasten askartelutarvikkeet"
+          }
+        },
+        {
+          "en": "educational toys",
+          "translations": {
+            "da": "lærings legetøj",
+            "sv": "pedagogiska leksaker",
+            "no": "pedagogiske leker",
+            "de": "lernspielzeug",
+            "nl": "educatief speelgoed",
+            "fr": "jouets éducatifs",
+            "es": "juguetes educativos",
+            "pt": "brinquedos educativos",
+            "it": "giochi educativi",
+            "fi": "opetuslelut"
+          }
+        },
+        {
+          "en": "trampoline",
+          "translations": {
+            "da": "trampolin",
+            "sv": "studsmatta",
+            "no": "trampoline",
+            "de": "trampolin",
+            "nl": "trampoline",
+            "fr": "trampoline",
+            "es": "trampolín",
+            "pt": "trampolim",
+            "it": "trampolino",
+            "fi": "trampoliini"
+          }
+        },
+        {
+          "en": "doll house",
+          "translations": {
+            "da": "dukkehus",
+            "sv": "dockskåp",
+            "no": "dukkehus",
+            "de": "puppenhaus",
+            "nl": "poppenhuis",
+            "fr": "maison de poupée",
+            "es": "casa muñecas",
+            "pt": "casa bonecas",
+            "it": "casa delle bambole",
+            "fi": "nukkekoti"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [
+        3,
+        4,
+        10,
+        11,
+        12
+      ],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK"
+      ],
+      "enabled": true,
+      "notes": "Easter (Mar-Apr) and Christmas (Oct-Dec) are the big windows."
+    },
+    {
+      "slug": "bikes_cycling",
+      "name": "Bikes & cycling",
+      "description": "Bicycles, e-bikes, cycling accessories",
+      "sub_categories": [
+        {
+          "en": "electric bike",
+          "translations": {
+            "da": "elcykel",
+            "sv": "elcykel",
+            "no": "elsykkel",
+            "de": "e-bike",
+            "nl": "e-bike",
+            "fr": "vélo électrique",
+            "es": "bicicleta eléctrica",
+            "pt": "bicicleta elétrica",
+            "it": "bici elettrica",
+            "fi": "sähköpyörä"
+          }
+        },
+        {
+          "en": "road bike",
+          "translations": {
+            "da": "racercykel",
+            "sv": "racercykel",
+            "no": "landeveissykkel",
+            "de": "rennrad",
+            "nl": "racefiets",
+            "fr": "vélo de route",
+            "es": "bicicleta de carretera",
+            "pt": "bicicleta de estrada",
+            "it": "bici da corsa",
+            "fi": "maantiepyörä"
+          }
+        },
+        {
+          "en": "gravel bike",
+          "translations": {
+            "da": "gravel bike",
+            "sv": "gravelcykel",
+            "no": "gravelsykkel",
+            "de": "gravel bike",
+            "nl": "gravelfiets",
+            "fr": "vélo gravel",
+            "es": "bicicleta gravel",
+            "pt": "bicicleta gravel",
+            "it": "bici gravel",
+            "fi": "gravelpyörä"
+          }
+        },
+        {
+          "en": "cycling helmet",
+          "translations": {
+            "da": "cykelhjelm",
+            "sv": "cykelhjälm",
+            "no": "sykkelhjelm",
+            "de": "fahrradhelm",
+            "nl": "fietshelm",
+            "fr": "casque vélo",
+            "es": "casco bicicleta",
+            "pt": "capacete bicicleta",
+            "it": "casco bici",
+            "fi": "pyöräilykypärä"
+          }
+        },
+        {
+          "en": "bike lock",
+          "translations": {
+            "da": "cykellås",
+            "sv": "cykellås",
+            "no": "sykkellås",
+            "de": "fahrradschloss",
+            "nl": "fietsslot",
+            "fr": "antivol vélo",
+            "es": "candado bicicleta",
+            "pt": "cadeado bicicleta",
+            "it": "lucchetto bici",
+            "fi": "pyörälukko"
+          }
+        },
+        {
+          "en": "cycling jersey",
+          "translations": {
+            "da": "cykeltrøje",
+            "sv": "cykeltröja",
+            "no": "sykkeltrøye",
+            "de": "radtrikot",
+            "nl": "wielershirt",
+            "fr": "maillot cyclisme",
+            "es": "maillot ciclismo",
+            "pt": "camisola ciclismo",
+            "it": "maglia ciclismo",
+            "fi": "pyöräilypaita"
+          }
+        },
+        {
+          "en": "bike lights",
+          "translations": {
+            "da": "cykellygter",
+            "sv": "cykelbelysning",
+            "no": "sykkellykt",
+            "de": "fahrradlicht",
+            "nl": "fietsverlichting",
+            "fr": "éclairage vélo",
+            "es": "luces bicicleta",
+            "pt": "luzes bicicleta",
+            "it": "luci bici",
+            "fi": "pyörän valot"
+          }
+        },
+        {
+          "en": "cargo bike",
+          "translations": {
+            "da": "ladcykel",
+            "sv": "lådcykel",
+            "no": "lastesykkel",
+            "de": "lastenrad",
+            "nl": "bakfiets",
+            "fr": "vélo cargo",
+            "es": "bicicleta de carga",
+            "pt": "bicicleta de carga",
+            "it": "cargo bike",
+            "fi": "tavarapyörä"
+          }
+        },
+        {
+          "en": "bike pannier",
+          "translations": {
+            "da": "cykeltaske",
+            "sv": "cykelväska",
+            "no": "sykkelveske",
+            "de": "fahrradtasche",
+            "nl": "fietstas",
+            "fr": "sacoche vélo",
+            "es": "alforja bicicleta",
+            "pt": "alforge bicicleta",
+            "it": "borsa bici",
+            "fi": "pyörälaukku"
+          }
+        },
+        {
+          "en": "indoor trainer",
+          "translations": {
+            "da": "hometrainer",
+            "sv": "cykeltränare",
+            "no": "rulle sykkel",
+            "de": "rollentrainer",
+            "nl": "fietstrainer",
+            "fr": "home trainer",
+            "es": "rodillo bicicleta",
+            "pt": "rolo de treino",
+            "it": "rullo bici",
+            "fi": "rullatreeni"
+          }
+        }
+      ],
+      "trend_threshold_pct": 25,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "BE"
+      ],
+      "enabled": true,
+      "notes": "Spring/summer peak. NL/DK/DE cycling cultures core. E-bike trend ongoing."
+    },
+    {
+      "slug": "travel_luggage",
+      "name": "Travel & luggage",
+      "description": "Suitcases, travel accessories, packing goods",
+      "sub_categories": [
+        {
+          "en": "carry on suitcase",
+          "translations": {
+            "da": "håndbagage kuffert",
+            "sv": "handbagage resväska",
+            "no": "håndbagasje koffert",
+            "de": "handgepäck koffer",
+            "nl": "handbagage koffer",
+            "fr": "valise cabine",
+            "es": "maleta cabina",
+            "pt": "mala cabine",
+            "it": "trolley cabina",
+            "fi": "käsimatkalaukku"
+          }
+        },
+        {
+          "en": "checked luggage",
+          "translations": {
+            "da": "kuffert indchecket",
+            "sv": "incheckat bagage",
+            "no": "innsjekket bagasje",
+            "de": "aufgegebenes gepäck",
+            "nl": "ruimbagage",
+            "fr": "bagage en soute",
+            "es": "maleta facturada",
+            "pt": "mala despacho",
+            "it": "bagaglio da stiva",
+            "fi": "ruumamatkatavara"
+          }
+        },
+        {
+          "en": "packing cubes",
+          "translations": {
+            "da": "packing cubes",
+            "sv": "packing cubes",
+            "no": "packing cubes",
+            "de": "packwürfel",
+            "nl": "packing cubes",
+            "fr": "cubes de rangement",
+            "es": "organizadores maleta",
+            "pt": "organizadores mala",
+            "it": "cubi da viaggio",
+            "fi": "pakkauskuutiot"
+          }
+        },
+        {
+          "en": "travel pillow",
+          "translations": {
+            "da": "rejsepude",
+            "sv": "resekudde",
+            "no": "reisepute",
+            "de": "reisekissen",
+            "nl": "reiskussen",
+            "fr": "oreiller voyage",
+            "es": "almohada viaje",
+            "pt": "almofada viagem",
+            "it": "cuscino da viaggio",
+            "fi": "matkatyyny"
+          }
+        },
+        {
+          "en": "travel adapter",
+          "translations": {
+            "da": "rejseadapter",
+            "sv": "reseadapter",
+            "no": "reiseadapter",
+            "de": "reiseadapter",
+            "nl": "reisstekker",
+            "fr": "adaptateur voyage",
+            "es": "adaptador viaje",
+            "pt": "adaptador viagem",
+            "it": "adattatore viaggio",
+            "fi": "matka-adapteri"
+          }
+        },
+        {
+          "en": "weekender bag",
+          "translations": {
+            "da": "weekendtaske",
+            "sv": "weekendväska",
+            "no": "weekendbag",
+            "de": "weekender",
+            "nl": "weekendtas",
+            "fr": "sac weekend",
+            "es": "bolsa fin de semana",
+            "pt": "saco fim semana",
+            "it": "borsa weekend",
+            "fi": "viikonloppulaukku"
+          }
+        },
+        {
+          "en": "travel toiletry",
+          "translations": {
+            "da": "toilettaske",
+            "sv": "necessär",
+            "no": "toalettmappe",
+            "de": "kulturbeutel",
+            "nl": "toilettas",
+            "fr": "trousse toilette",
+            "es": "neceser",
+            "pt": "necessaire",
+            "it": "beauty case",
+            "fi": "toilettilaukku"
+          }
+        },
+        {
+          "en": "luggage tags",
+          "translations": {
+            "da": "kuffertmærker",
+            "sv": "bagagetaggar",
+            "no": "kofferttagger",
+            "de": "kofferanhänger",
+            "nl": "bagagelabels",
+            "fr": "étiquettes bagage",
+            "es": "etiquetas equipaje",
+            "pt": "etiquetas bagagem",
+            "it": "etichette bagaglio",
+            "fi": "matkatavaramerkit"
+          }
+        },
+        {
+          "en": "hardside luggage",
+          "translations": {
+            "da": "hardcase kuffert",
+            "sv": "hårdskal resväska",
+            "no": "hard koffert",
+            "de": "hartschalenkoffer",
+            "nl": "hardshell koffer",
+            "fr": "valise rigide",
+            "es": "maleta rígida",
+            "pt": "mala rígida",
+            "it": "trolley rigido",
+            "fi": "kova matkalaukku"
+          }
+        },
+        {
+          "en": "travel backpack",
+          "translations": {
+            "da": "rejserygsæk",
+            "sv": "ryggsäck resa",
+            "no": "reisesekk",
+            "de": "reiserucksack",
+            "nl": "reisrugzak",
+            "fr": "sac à dos voyage",
+            "es": "mochila viaje",
+            "pt": "mochila viagem",
+            "it": "zaino da viaggio",
+            "fi": "matkareppu"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        9,
+        10,
+        11
+      ],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "ES",
+        "IT"
+      ],
+      "enabled": true,
+      "notes": "Spring (planning summer trips) and fall (planning winter trips) are peak windows."
+    },
+    {
+      "slug": "automotive_accessories",
+      "name": "Automotive accessories",
+      "description": "Car accessories, EV chargers, automotive lifestyle",
+      "sub_categories": [
+        {
+          "en": "dash cam",
+          "translations": {
+            "da": "dashcam",
+            "sv": "bilkamera",
+            "no": "dashcam",
+            "de": "dashcam",
+            "nl": "dashcam",
+            "fr": "dashcam",
+            "es": "cámara coche",
+            "pt": "câmara carro",
+            "it": "dashcam",
+            "fi": "autokamera"
+          }
+        },
+        {
+          "en": "car cover",
+          "translations": {
+            "da": "biltæppe",
+            "sv": "bilskydd",
+            "no": "biltrekk",
+            "de": "autoabdeckung",
+            "nl": "autohoes",
+            "fr": "housse voiture",
+            "es": "funda coche",
+            "pt": "capa carro",
+            "it": "telo auto",
+            "fi": "autonpeite"
+          }
+        },
+        {
+          "en": "phone mount",
+          "translations": {
+            "da": "mobilholder bil",
+            "sv": "mobilhållare bil",
+            "no": "mobilholder bil",
+            "de": "handyhalterung auto",
+            "nl": "telefoonhouder auto",
+            "fr": "support téléphone voiture",
+            "es": "soporte móvil coche",
+            "pt": "suporte telemóvel carro",
+            "it": "supporto telefono auto",
+            "fi": "puhelinteline auto"
+          }
+        },
+        {
+          "en": "ev charger",
+          "translations": {
+            "da": "elbil oplader",
+            "sv": "elbilsladdare",
+            "no": "elbillader",
+            "de": "wallbox",
+            "nl": "laadpaal",
+            "fr": "borne de recharge",
+            "es": "cargador coche eléctrico",
+            "pt": "carregador carro elétrico",
+            "it": "wallbox auto elettrica",
+            "fi": "sähköauton laturi"
+          }
+        },
+        {
+          "en": "car vacuum",
+          "translations": {
+            "da": "bilstøvsuger",
+            "sv": "bildammsugare",
+            "no": "bilstøvsuger",
+            "de": "autostaubsauger",
+            "nl": "autostofzuiger",
+            "fr": "aspirateur voiture",
+            "es": "aspiradora coche",
+            "pt": "aspirador carro",
+            "it": "aspirapolvere auto",
+            "fi": "autoimuri"
+          }
+        },
+        {
+          "en": "roof box",
+          "translations": {
+            "da": "tagboks",
+            "sv": "takbox",
+            "no": "takboks",
+            "de": "dachbox",
+            "nl": "dakkoffer",
+            "fr": "coffre de toit",
+            "es": "cofre de techo",
+            "pt": "caixa de tejadilho",
+            "it": "box da tetto",
+            "fi": "kattolaatikko"
+          }
+        },
+        {
+          "en": "child car seat",
+          "translations": {
+            "da": "autostol",
+            "sv": "bilbarnstol",
+            "no": "barnesete bil",
+            "de": "kindersitz auto",
+            "nl": "autostoeltje",
+            "fr": "siège auto enfant",
+            "es": "silla coche niño",
+            "pt": "cadeira auto criança",
+            "it": "seggiolino auto",
+            "fi": "turvaistuin"
+          }
+        },
+        {
+          "en": "car detailing",
+          "translations": {
+            "da": "bilpleje",
+            "sv": "bilvård",
+            "no": "bilpleie",
+            "de": "autopflege",
+            "nl": "autoverzorging",
+            "fr": "detailing auto",
+            "es": "detailing coche",
+            "pt": "detailing carro",
+            "it": "detailing auto",
+            "fi": "auton hoito"
+          }
+        },
+        {
+          "en": "winter tires",
+          "translations": {
+            "da": "vinterdæk",
+            "sv": "vinterdäck",
+            "no": "vinterdekk",
+            "de": "winterreifen",
+            "nl": "winterbanden",
+            "fr": "pneus hiver",
+            "es": "neumáticos invierno",
+            "pt": "pneus inverno",
+            "it": "pneumatici invernali",
+            "fi": "talvirenkaat"
+          }
+        },
+        {
+          "en": "wiper blades",
+          "translations": {
+            "da": "viskerblade",
+            "sv": "vindrutetorkare",
+            "no": "vindusviskere",
+            "de": "scheibenwischer",
+            "nl": "ruitenwissers",
+            "fr": "essuie-glace",
+            "es": "limpiaparabrisas",
+            "pt": "limpa para-brisas",
+            "it": "tergicristalli",
+            "fi": "pyyhkijänsulat"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 1,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK"
+      ],
+      "enabled": true,
+      "notes": "Winter tires highly seasonal (Sep-Nov). EV charging trend ongoing."
+    },
+    {
+      "slug": "fitness_apparel",
+      "name": "Fitness & athleisure apparel",
+      "description": "Activewear, leggings, gym clothing, athleisure",
+      "sub_categories": [
+        {
+          "en": "leggings",
+          "translations": {
+            "da": "leggings",
+            "sv": "leggings",
+            "no": "leggings",
+            "de": "leggings",
+            "nl": "leggings",
+            "fr": "leggings",
+            "es": "mallas",
+            "pt": "leggings",
+            "it": "leggings",
+            "fi": "leggingsit"
+          }
+        },
+        {
+          "en": "sports bra",
+          "translations": {
+            "da": "sports bh",
+            "sv": "sport-bh",
+            "no": "sports bh",
+            "de": "sport-bh",
+            "nl": "sportbh",
+            "fr": "brassière sport",
+            "es": "sujetador deportivo",
+            "pt": "soutien desporto",
+            "it": "reggiseno sportivo",
+            "fi": "urheilurintaliivit"
+          }
+        },
+        {
+          "en": "running shorts",
+          "translations": {
+            "da": "løbeshorts",
+            "sv": "löparshorts",
+            "no": "løpeshorts",
+            "de": "laufshorts",
+            "nl": "hardloopshort",
+            "fr": "short running",
+            "es": "pantalón corto running",
+            "pt": "calções corrida",
+            "it": "pantaloncini corsa",
+            "fi": "juoksushortsit"
+          }
+        },
+        {
+          "en": "yoga pants",
+          "translations": {
+            "da": "yogabukser",
+            "sv": "yogabyxor",
+            "no": "yogabukser",
+            "de": "yogahose",
+            "nl": "yogabroek",
+            "fr": "pantalon yoga",
+            "es": "pantalones yoga",
+            "pt": "calças yoga",
+            "it": "pantaloni yoga",
+            "fi": "joogahousut"
+          }
+        },
+        {
+          "en": "athletic tee",
+          "translations": {
+            "da": "trænings t-shirt",
+            "sv": "tränings t-shirt",
+            "no": "trenings t-skjorte",
+            "de": "sport t-shirt",
+            "nl": "sport t-shirt",
+            "fr": "t-shirt sport",
+            "es": "camiseta deportiva",
+            "pt": "t-shirt desporto",
+            "it": "t-shirt sportiva",
+            "fi": "urheilu t-paita"
+          }
+        },
+        {
+          "en": "training jacket",
+          "translations": {
+            "da": "trænings jakke",
+            "sv": "träningsjacka",
+            "no": "treningsjakke",
+            "de": "trainingsjacke",
+            "nl": "trainingsjack",
+            "fr": "veste d'entraînement",
+            "es": "chaqueta deportiva",
+            "pt": "casaco treino",
+            "it": "giacca allenamento",
+            "fi": "treenitakki"
+          }
+        },
+        {
+          "en": "compression tights",
+          "translations": {
+            "da": "kompressionstights",
+            "sv": "kompressionstights",
+            "no": "kompresjonstights",
+            "de": "kompressionstights",
+            "nl": "compressie tights",
+            "fr": "collant compression",
+            "es": "mallas compresión",
+            "pt": "leggings compressão",
+            "it": "calzamaglia compressione",
+            "fi": "puristustrikoot"
+          }
+        },
+        {
+          "en": "matching set",
+          "translations": {
+            "da": "matching sæt",
+            "sv": "matchande set",
+            "no": "matchende sett",
+            "de": "matching set",
+            "nl": "matching set",
+            "fr": "ensemble assorti",
+            "es": "conjunto a juego",
+            "pt": "conjunto a condizer",
+            "it": "set coordinato",
+            "fi": "yhteensopiva setti"
+          }
+        },
+        {
+          "en": "tennis skirt",
+          "translations": {
+            "da": "tennis nederdel",
+            "sv": "tenniskjol",
+            "no": "tennisskjørt",
+            "de": "tennisrock",
+            "nl": "tennisrok",
+            "fr": "jupe tennis",
+            "es": "falda tenis",
+            "pt": "saia ténis",
+            "it": "gonna da tennis",
+            "fi": "tennishame"
+          }
+        },
+        {
+          "en": "performance fabric",
+          "translations": {
+            "da": "funktionstekstil",
+            "sv": "funktionsmaterial",
+            "no": "funksjonstekstil",
+            "de": "funktionsstoff",
+            "nl": "performance stof",
+            "fr": "tissu technique",
+            "es": "tejido técnico",
+            "pt": "tecido técnico",
+            "it": "tessuto tecnico",
+            "fi": "tekninen kangas"
+          }
+        }
+      ],
+      "trend_threshold_pct": 35,
+      "prospect_cap_per_quarter": 3,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FR",
+        "US"
+      ],
+      "enabled": true,
+      "notes": "January resolution spike. Pickleball/tennis trends driving recent growth."
+    },
+    {
+      "slug": "diy_tools",
+      "name": "DIY tools & hardware",
+      "description": "Power tools, hand tools, hardware for home projects",
+      "sub_categories": [
+        {
+          "en": "cordless drill",
+          "translations": {
+            "da": "akku boremaskine",
+            "sv": "borrmaskin sladdlös",
+            "no": "drill batteri",
+            "de": "akkuschrauber",
+            "nl": "accuboormachine",
+            "fr": "perceuse sans fil",
+            "es": "taladro inalámbrico",
+            "pt": "berbequim sem fios",
+            "it": "trapano avvitatore",
+            "fi": "akkuporakone"
+          }
+        },
+        {
+          "en": "tool box",
+          "translations": {
+            "da": "værktøjskasse",
+            "sv": "verktygslåda",
+            "no": "verktøykasse",
+            "de": "werkzeugkoffer",
+            "nl": "gereedschapskist",
+            "fr": "boîte à outils",
+            "es": "caja herramientas",
+            "pt": "caixa ferramentas",
+            "it": "cassetta attrezzi",
+            "fi": "työkalulaatikko"
+          }
+        },
+        {
+          "en": "screwdriver set",
+          "translations": {
+            "da": "skruetrækkersæt",
+            "sv": "skruvmejselset",
+            "no": "skrutrekkersett",
+            "de": "schraubendreher set",
+            "nl": "schroevendraaier set",
+            "fr": "kit tournevis",
+            "es": "juego destornilladores",
+            "pt": "conjunto chaves de fendas",
+            "it": "set cacciaviti",
+            "fi": "ruuvimeisselisarja"
+          }
+        },
+        {
+          "en": "measuring tape",
+          "translations": {
+            "da": "målebånd",
+            "sv": "måttband",
+            "no": "målebånd",
+            "de": "maßband",
+            "nl": "rolmaat",
+            "fr": "mètre ruban",
+            "es": "cinta métrica",
+            "pt": "fita métrica",
+            "it": "metro a nastro",
+            "fi": "mittanauha"
+          }
+        },
+        {
+          "en": "ladder",
+          "translations": {
+            "da": "stige",
+            "sv": "stege",
+            "no": "stige",
+            "de": "leiter",
+            "nl": "ladder",
+            "fr": "échelle",
+            "es": "escalera",
+            "pt": "escada",
+            "it": "scala",
+            "fi": "tikkaat"
+          }
+        },
+        {
+          "en": "tool belt",
+          "translations": {
+            "da": "værktøjsbælte",
+            "sv": "verktygsbälte",
+            "no": "verktøybelte",
+            "de": "werkzeuggürtel",
+            "nl": "gereedschapsgordel",
+            "fr": "ceinture porte-outils",
+            "es": "cinturón herramientas",
+            "pt": "cinto ferramentas",
+            "it": "cintura porta attrezzi",
+            "fi": "työkaluvyö"
+          }
+        },
+        {
+          "en": "shop vacuum",
+          "translations": {
+            "da": "værkstedstøvsuger",
+            "sv": "byggdammsugare",
+            "no": "industristøvsuger",
+            "de": "werkstattsauger",
+            "nl": "bouwstofzuiger",
+            "fr": "aspirateur atelier",
+            "es": "aspirador industrial",
+            "pt": "aspirador oficina",
+            "it": "aspiratore officina",
+            "fi": "rakennusimuri"
+          }
+        },
+        {
+          "en": "circular saw",
+          "translations": {
+            "da": "rundsav",
+            "sv": "cirkelsåg",
+            "no": "sirkelsag",
+            "de": "kreissäge",
+            "nl": "cirkelzaag",
+            "fr": "scie circulaire",
+            "es": "sierra circular",
+            "pt": "serra circular",
+            "it": "sega circolare",
+            "fi": "pyörösaha"
+          }
+        },
+        {
+          "en": "tool storage",
+          "translations": {
+            "da": "værktøjsopbevaring",
+            "sv": "verktygsförvaring",
+            "no": "verktøyoppbevaring",
+            "de": "werkzeugaufbewahrung",
+            "nl": "gereedschapsopberging",
+            "fr": "rangement outils",
+            "es": "almacenaje herramientas",
+            "pt": "arrumação ferramentas",
+            "it": "organizzatore attrezzi",
+            "fi": "työkalujen säilytys"
+          }
+        },
+        {
+          "en": "work gloves",
+          "translations": {
+            "da": "arbejdshandsker",
+            "sv": "arbetshandskar",
+            "no": "arbeidshansker",
+            "de": "arbeitshandschuhe",
+            "nl": "werkhandschoenen",
+            "fr": "gants de travail",
+            "es": "guantes de trabajo",
+            "pt": "luvas de trabalho",
+            "it": "guanti da lavoro",
+            "fi": "työkäsineet"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 1,
+      "seasonal_active_months": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK"
+      ],
+      "enabled": true,
+      "notes": "Spring/summer DIY peak. Father's Day spike. Lower velocity overall."
+    },
+    {
+      "slug": "lighting",
+      "name": "Lighting (indoor)",
+      "description": "Lamps, fixtures, smart lighting, decorative lighting",
+      "sub_categories": [
+        {
+          "en": "pendant light",
+          "translations": {
+            "da": "pendel",
+            "sv": "taklampa pendel",
+            "no": "taklampe pendel",
+            "de": "pendelleuchte",
+            "nl": "hanglamp",
+            "fr": "suspension luminaire",
+            "es": "lámpara colgante",
+            "pt": "candeeiro suspenso",
+            "it": "lampada a sospensione",
+            "fi": "riippuvalaisin"
+          }
+        },
+        {
+          "en": "floor lamp",
+          "translations": {
+            "da": "standerlampe",
+            "sv": "golvlampa",
+            "no": "gulvlampe",
+            "de": "stehlampe",
+            "nl": "vloerlamp",
+            "fr": "lampadaire",
+            "es": "lámpara de pie",
+            "pt": "candeeiro pé",
+            "it": "lampada da terra",
+            "fi": "lattialamppu"
+          }
+        },
+        {
+          "en": "smart bulb",
+          "translations": {
+            "da": "smart pære",
+            "sv": "smart lampa",
+            "no": "smart lyspære",
+            "de": "smarte glühbirne",
+            "nl": "slimme lamp",
+            "fr": "ampoule connectée",
+            "es": "bombilla inteligente",
+            "pt": "lâmpada inteligente",
+            "it": "lampadina smart",
+            "fi": "älylamppu"
+          }
+        },
+        {
+          "en": "string lights",
+          "translations": {
+            "da": "lyskæde",
+            "sv": "ljusslinga",
+            "no": "lysslynge",
+            "de": "lichterkette",
+            "nl": "lichtsnoer",
+            "fr": "guirlande lumineuse",
+            "es": "guirnalda luces",
+            "pt": "fio luzes",
+            "it": "ghirlanda luminosa",
+            "fi": "valoketju"
+          }
+        },
+        {
+          "en": "table lamp",
+          "translations": {
+            "da": "bordlampe",
+            "sv": "bordslampa",
+            "no": "bordlampe",
+            "de": "tischlampe",
+            "nl": "tafellamp",
+            "fr": "lampe de table",
+            "es": "lámpara mesa",
+            "pt": "candeeiro mesa",
+            "it": "lampada da tavolo",
+            "fi": "pöytälamppu"
+          }
+        },
+        {
+          "en": "wall sconce",
+          "translations": {
+            "da": "væglampe",
+            "sv": "vägglampa",
+            "no": "vegglampe",
+            "de": "wandleuchte",
+            "nl": "wandlamp",
+            "fr": "applique murale",
+            "es": "aplique pared",
+            "pt": "candeeiro parede",
+            "it": "applique parete",
+            "fi": "seinävalaisin"
+          }
+        },
+        {
+          "en": "led strip",
+          "translations": {
+            "da": "led strip",
+            "sv": "led-list",
+            "no": "led-strip",
+            "de": "led streifen",
+            "nl": "led strip",
+            "fr": "ruban led",
+            "es": "tira led",
+            "pt": "fita led",
+            "it": "striscia led",
+            "fi": "led-nauha"
+          }
+        },
+        {
+          "en": "chandelier",
+          "translations": {
+            "da": "lysekrone",
+            "sv": "ljuskrona",
+            "no": "lysekrone",
+            "de": "kronleuchter",
+            "nl": "kroonluchter",
+            "fr": "lustre",
+            "es": "araña luces",
+            "pt": "candelabro",
+            "it": "lampadario",
+            "fi": "kruunu"
+          }
+        },
+        {
+          "en": "reading lamp",
+          "translations": {
+            "da": "læselampe",
+            "sv": "läslampa",
+            "no": "leselampe",
+            "de": "leselampe",
+            "nl": "leeslamp",
+            "fr": "lampe de lecture",
+            "es": "lámpara lectura",
+            "pt": "candeeiro leitura",
+            "it": "lampada da lettura",
+            "fi": "lukulamppu"
+          }
+        },
+        {
+          "en": "outdoor solar lights",
+          "translations": {
+            "da": "solcellelamper",
+            "sv": "sollampor",
+            "no": "solcellelamper",
+            "de": "solarleuchten",
+            "nl": "solar verlichting",
+            "fr": "lampes solaires",
+            "es": "luces solares",
+            "pt": "luzes solares",
+            "it": "luci solari",
+            "fi": "aurinkokennovalaisin"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK"
+      ],
+      "enabled": true,
+      "notes": "Nordic markets value lighting heavily (long winters). Smart lighting trend ongoing."
+    },
+    {
+      "slug": "b2b_saas",
+      "name": "B2B SaaS / professional services",
+      "description": "Software, professional tools, business services",
+      "sub_categories": [],
+      "trend_threshold_pct": null,
+      "prospect_cap_per_quarter": 0,
+      "seasonal_active_months": [],
+      "primary_countries": [],
+      "enabled": false,
+      "notes": "Placeholder for B2B prospects that don't fit consumer trend tracking. Trend module disabled for this segment. Other outreach mechanisms more appropriate."
+    }
+  ]
+}

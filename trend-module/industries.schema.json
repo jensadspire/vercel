@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Industry Taxonomy (Localized)",
+  "description": "Schema v2 — sub_categories are localized objects with an English key and translations map.",
+  "type": "object",
+  "required": ["version", "industries"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date" },
+    "notes": { "type": "string" },
+    "industries": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/industry" }
+    }
+  },
+  "definitions": {
+    "industry": {
+      "type": "object",
+      "required": [
+        "slug",
+        "name",
+        "sub_categories",
+        "trend_threshold_pct",
+        "prospect_cap_per_quarter",
+        "seasonal_active_months",
+        "primary_countries",
+        "enabled"
+      ],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "sub_categories": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/definitions/localized_subcategory" },
+              { "type": "string" }
+            ]
+          },
+          "maxItems": 30
+        },
+        "trend_threshold_pct": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "prospect_cap_per_quarter": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "seasonal_active_months": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 12 },
+          "uniqueItems": true
+        },
+        "primary_countries": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z]{2}$" }
+        },
+        "enabled": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+    "localized_subcategory": {
+      "type": "object",
+      "required": ["en", "translations"],
+      "properties": {
+        "en": { "type": "string" },
+        "translations": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-z]{2}$": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  }
+}
