@@ -22,18 +22,32 @@ export default async function handler(req, res) {
   // ── Step 1: Scrape the URL ────────────────────────────────────────────────
   let pageContent = "";
   let scrapeImages = [];
+  const scrapeUrl = `${req.headers.origin || "https://" + req.headers.host}/api/scrape`;
+  console.log(`[META DEBUG] Calling internal scrape at: ${scrapeUrl}`);
   try {
-    const scrapeRes = await fetch(`${req.headers.origin || "https://" + req.headers.host}/api/scrape`, {
+    const scrapeRes = await fetch(scrapeUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
     });
+    console.log(`[META DEBUG] Internal scrape status: ${scrapeRes.status}, content-type: ${scrapeRes.headers.get('content-type')}`);
     const scrapeData = await scrapeRes.json();
     pageContent = scrapeData.content || scrapeData.text || "";
     scrapeImages = scrapeData.images || [];
+    console.log(`[META DEBUG] scrapeData keys: ${Object.keys(scrapeData).join(', ')}`);
   } catch (e) {
+    console.log(`[META DEBUG] Internal scrape FAILED: ${e.message}`);
     pageContent = url; // fallback to URL only
   }
+
+  // ── DIAGNOSTIC LOG (remove after debugging) ─────────────────────────────────
+  console.log(`[META DEBUG] ${url}`);
+  console.log(`  scrapeImages.length: ${scrapeImages.length}`);
+  if (scrapeImages.length > 0) {
+    console.log(`  First 3 scrapeImages:`);
+    for (const u of scrapeImages.slice(0, 3)) console.log(`    ${u.slice(0, 100)}`);
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   // ── Smart image selection — works for both product and category URLs ──────────
   // Expanded URL patterns for product pages across many platforms/languages
@@ -110,6 +124,15 @@ export default async function handler(req, res) {
 
   const heroProductImage = scoredImages[0] || scrapeImages[0] || null;
   const isSingleProduct = isProductUrl || scrapeImages.length <= 6;
+
+  // ── DIAGNOSTIC LOG (remove after debugging) ─────────────────────────────────
+  console.log(`  After scoring: scoredImages.length=${scoredImages.length}, scoredImagesAll.length=${scoredImagesAll.length}`);
+  console.log(`  heroProductImage: ${heroProductImage ? heroProductImage.slice(0, 100) : 'null'}`);
+  if (scoredImages.length > 0) {
+    console.log(`  Top 3 scored:`);
+    for (const u of scoredImages.slice(0, 3)) console.log(`    ${u.slice(0, 100)}`);
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   // ── Shopify JSON API: fetch product images directly ────────────────────────────
   // Always try for Shopify URLs — bypasses HTML scraping limitations
@@ -392,6 +415,11 @@ Rules:
 
       const allCleanPro = scoredImagesAll.filter(img => !BLOCKED.test(img));
       const allScoredImagesPro = allCleanPro.filter(img => img !== heroProductImage).slice(0, 16);
+
+      // ── DIAGNOSTIC LOG (remove after debugging) ─────────────────────────────
+      console.log(`  [PRO RETURN] hero=${heroProductImage ? 'set' : 'null'}, secondary=${secondaryImage ? 'set' : 'null'}, tertiary=${tertiaryImage ? 'set' : 'null'}, allImages.length=${allScoredImagesPro.length}`);
+      // ────────────────────────────────────────────────────────────────────────
+
       return res.json({
         primaryTexts: parsed.primaryTexts || [],
         headlines: (parsed.headlines || []).map(h => h.slice(0, 40)),

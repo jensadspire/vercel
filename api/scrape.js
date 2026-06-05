@@ -182,21 +182,211 @@ export default async function handler(req, res) {
       return parts.filter(u => u.startsWith('http') || u.startsWith('/'));
     });
     // Extract product image URLs from JSON/script tags (common in SPAs)
-    const jsonImgMatches = [...html.matchAll(/"(?:image|img|photo|thumbnail|src)":\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)];
+    //
+    // Two forms to handle:
+    //   (1) Raw JSON in <script>: "image":"https://..."
+    //   (2) JSON-embedded-in-JSON (Next.js __NEXT_DATA__, similar SSR patterns):
+    //       \"image\":\"https://...\"
+    //   Many modern e-commerce stacks (Next.js, Nuxt, SvelteKit with hydration)
+    //   serialize state as a JSON string inside another JSON wrapper, so the
+    //   inner quotes get backslash-escaped. We handle (2) by running all three
+    //   patterns against an unescape-normalized copy of the HTML in addition
+    //   to the raw HTML. URLs are deduplicated later, so this is safe.
+    const htmlUnescaped = html.replace(/\\"/g, '"').replace(/\\\//g, '/');
+
+    // Pattern A: direct string under common keys → "image":"https://..."
+    const patternA = /"(?:image|img|photo|thumbnail|src|hoverImage|productImage|primaryImage)":\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi;
+    const jsonImgMatches = [
+      ...html.matchAll(patternA),
+      ...htmlUnescaped.matchAll(patternA),
+    ];
+
+    // Pattern B: array of URL strings under plural/collection keys.
+    // Catches CommerceTools-style structures like:
+    //   "images":{"value":["https://...jpg","https://...png"]}
+    //   "images":["https://...jpg","https://...png"]
+    //   "galleryImages":[{"url":"https://..."}, ...]   ← handled below in Pattern C
+    // The regex finds the key, then captures everything up to the closing bracket;
+    // we extract individual URLs from that block in a second pass.
+    const patternB = /"(?:images|productImages|galleryImages|media|mediaGallery|productMedia|productGallery)"\s*:\s*(?:\{\s*"value"\s*:\s*)?\[([^\]]{0,4000})\]/gi;
+    const jsonImgArrayBlocks = [
+      ...html.matchAll(patternB),
+      ...htmlUnescaped.matchAll(patternB),
+    ];
+    const jsonImgArrayMatches = [];
+    for (const block of jsonImgArrayBlocks) {
+      const urls = [...block[1].matchAll(/"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)];
+      for (const u of urls) jsonImgArrayMatches.push(u);
+    }
+
+    // Pattern C: array of objects with url property, common in some headless setups.
+    //   "image":[{"url":"https://..."},{"url":"https://..."}]
+    const patternC = /"(?:image|images|productImage|productImages|media|gallery)"\s*:\s*\[(?:\s*\{\s*"(?:url|src|href)"\s*:\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"[^}]*\}\s*,?\s*){1,20}\]/gi;
+    const jsonImgObjectMatches = [
+      ...html.matchAll(patternC),
+      ...htmlUnescaped.matchAll(patternC),
+    ];
+    // The outer match captures the entire array; pull individual URLs out of each match's full text.
+    const jsonImgObjectUrls = [];
+    for (const m of jsonImgObjectMatches) {
+      const urls = [...m[0].matchAll(/"(?:url|src|href)"\s*:\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)];
+      for (const u of urls) jsonImgObjectUrls.push(u);
+    }
     const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
+
+    // ── JSON-LD Product.image extraction ────────────────────────────────────
+    // Schema.org Product schemas often declare canonical product images
+    // independent of og:image. When present, treat them like og:image —
+    // a strong, site-declared signal. Handle both single string and array.
+    let jsonLdImages = [];
+    const jsonLdMatches = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+    for (const m of jsonLdMatches) {
+      try {
+        const parsed = JSON.parse(m[1].trim());
+        const items = Array.isArray(parsed) ? parsed : [parsed];
+        for (const item of items) {
+          if (item && item['@type'] === 'Product' && item.image) {
+            const imgs = Array.isArray(item.image) ? item.image : [item.image];
+            for (const img of imgs) {
+              const url = typeof img === 'object' ? (img.url || img['@id']) : img;
+              if (url && typeof url === 'string') jsonLdImages.push(url);
+            }
+          }
+        }
+        if (jsonLdImages.length > 0) break;
+      } catch (_) {}
+    }
+
+    // ── Product-slug token extraction ───────────────────────────────────────
+    // Powers the new positive signal: images whose filename contains tokens
+    // from the page's product slug get boosted. The intuition: a Plantorama
+    // parasol page's product image usually has "parasol" or "lima" in its
+    // filename; an unrelated promo spot (like "forside-cta-spot-espresso-house")
+    // doesn't.
+    //
+    // We extract TWO kinds of tokens:
+    //   1. Word tokens (e.g. "lima", "haengeparasol", "loungesaet")
+    //   2. SKU-style codes (e.g. "pg-7587-0255-670", "7260-9871500") —
+    //      important because CommerceTools-style sites name image files
+    //      after the SKU rather than the product name.
+    const extractProductSlugTokens = (pageUrl) => {
+      try {
+        const path = new URL(pageUrl).pathname.toLowerCase();
+        const segments = path.split('/').filter(Boolean);
+
+        const wordTokens = [];
+        const skuTokens = [];
+
+        // Look at all segments, not just the last — SKUs can appear mid-path.
+        for (const segment of segments) {
+          // Detect SKU-style codes: 2+ dash-separated parts where at least
+          // one part is purely numeric and 3+ chars long. Catches:
+          //   pg-7587-0255-670, 7260-9871500, sku-12345-789
+          // Avoids matching simple two-word slugs like "linen-dress".
+          const skuMatch = segment.match(/(?:^|[^a-z0-9])([a-z]{1,4}-)?(\d{3,}-\d{3,}(?:-\d{2,}){0,3})/i);
+          if (skuMatch) {
+            const code = (skuMatch[1] || '') + skuMatch[2];
+            // Store both the full code and the dash-separated parts —
+            // image filenames sometimes use uppercase prefix (PG-) and
+            // sometimes drop it, so we want flexibility.
+            skuTokens.push(code.toLowerCase());
+            // Also store the numeric core, which is highly distinctive.
+            skuTokens.push(skuMatch[2].toLowerCase());
+          }
+
+          // Word tokens — same logic as before.
+          const tokens = segment
+            .split(/[-_]/)
+            .filter(t => t.length >= 3 && !/^\d+$/.test(t) && !/^\d+[a-z]?$/i.test(t));
+          for (const t of tokens) {
+            if (!wordTokens.includes(t)) wordTokens.push(t);
+          }
+        }
+
+        return { wordTokens, skuTokens };
+      } catch (_) {
+        return { wordTokens: [], skuTokens: [] };
+      }
+    };
+    const productSlugTokens = extractProductSlugTokens(url);
+
+    // ── Hard-exclude filter ────────────────────────────────────────────────
+    // Categories that are NEVER a product image. These get dropped from the
+    // candidate pool before scoring. og:image and JSON-LD Product.image
+    // bypass this — those are the site's own canonical declaration.
+    // Note: pattern strings include separators like '-' and '/' where useful
+    // to avoid false-positive substring matches (e.g. 'co2-' rather than
+    // 'co2' which could match legitimate product codes).
+    const HARD_EXCLUDE_PATTERNS = [
+      // Payment provider logos
+      'visa', 'mastercard', 'klarna', 'paypal', 'applepay', 'apple-pay',
+      'mobilepay', 'mobile-pay', 'amex', 'american-express',
+      // Trust / approval badges
+      'trustpilot', 'emaerk', 'e-maerket', 'trygehandel', 'tryg-e-handel',
+      '/trust/', '/seal/', '/award/', '/rating/', 'trustbadge',
+      // Sustainability / certification icons
+      'co2-', 'klima-', 'eco-label', 'certified', '-iso-',
+      // Pixels / blanks
+      '1x1', '/pixel.', 'blank.gif', 'blank.png', 'spacer.gif',
+      'transparent.gif', 'transparent.png',
+      // Explicit UX / nav / sprite assets
+      'sprite', '/arrow-', '/chevron-', 'nav-', '/payment-', 'shipping-icon',
+      '/flag-', '/flags/',
+    ];
+
+    const isHardExcluded = (src) => {
+      if (!src) return true;
+      const s = src.toLowerCase();
+      // Exclude all .gif (banners/animations, virtually never product photos)
+      if (s.endsWith('.gif') || s.includes('.gif?') || s.includes('.gif#')) return true;
+      // Exclude .ico (favicons; would be disastrous as an ad creative)
+      if (s.endsWith('.ico') || s.includes('.ico?')) return true;
+      // Match any of the explicit patterns
+      return HARD_EXCLUDE_PATTERNS.some(pattern => s.includes(pattern));
+    };
 
     // Score each image — product gallery thumbnails get priority
     const scoreImage = (tag, src) => {
       let score = 0;
       const t = tag.toLowerCase();
       const s = (src || '').toLowerCase();
-      // Product gallery signals
+      const filename = s.split('/').pop() || '';
+
+      // ── Product gallery signals ──────────────────────────────────────────
       if (t.includes('data-index') || t.includes('data-thumb') || t.includes('gallery')) score += 5;
       if (t.includes('product') || s.includes('product')) score += 4;
       if (t.includes('data-zoom') || t.includes('data-large') || t.includes('data-full')) score += 3;
       if (t.includes('swiper') || t.includes('carousel') || t.includes('slider')) score += 3;
       if (s.includes('/products/') || s.includes('/shop/files/') || s.includes('/shop/product')) score += 3;
-      // Boost high-resolution images, penalise small thumbnails
+
+      // ── Product-slug matching (new) ──────────────────────────────────────
+      // Boost images whose filename echoes the page URL's product slug. This
+      // is the strongest "this is THE product image" signal we can derive
+      // cheaply — it separates the right product image from unrelated
+      // graphics that happen to live on the page.
+      //
+      // Two kinds of matches:
+      //   - Word tokens (lima, parasol, loungesaet) at +3 each, capped at +9.
+      //     Loose: catches partial filename echoes.
+      //   - SKU tokens (pg-7587-0255-670, 7260-9871500) at +12 each.
+      //     Strict: SKU presence is a near-certain "THIS is the product image"
+      //     signal. CommerceTools / Centra / Magento sites often name image
+      //     files after the SKU rather than the product name, which is why
+      //     this is a separate, heavier-weighted signal.
+      if (productSlugTokens.wordTokens.length > 0) {
+        const matchedWords = productSlugTokens.wordTokens.filter(t => filename.includes(t));
+        if (matchedWords.length > 0) {
+          score += Math.min(matchedWords.length * 3, 9);
+        }
+      }
+      if (productSlugTokens.skuTokens.length > 0) {
+        const matchedSku = productSlugTokens.skuTokens.some(t => filename.includes(t));
+        if (matchedSku) {
+          score += 12;
+        }
+      }
+
+      // ── Resolution boosts ────────────────────────────────────────────────
       const wMatch = s.match(/[?&]width=(\d+)/);
       if (wMatch) {
         const w = parseInt(wMatch[1]);
@@ -208,26 +398,58 @@ export default async function handler(req, res) {
       if (/cdn\/shop\/files\//.test(s) && !/width=520|width=300/.test(s)) score += 2;
       if (s.includes('packshot') || s.includes('product-image') || s.includes('produktbild')) score += 4;
       if (s.includes('media.plantorama') || s.includes('cdn.') && s.includes('packshot')) score += 4;
-      // Size signals — larger images preferred
       const widthMatch = t.match(/width=["'](\d+)["']/);
       if (widthMatch && parseInt(widthMatch[1]) > 400) score += 2;
-      // Penalise non-product images
+
+      // ── Modern CDN / responsive-image boosts (new, light touch) ──────────
+      // Sites using these CDNs or serving responsive images tend to have
+      // better-curated product imagery overall. Capped contribution.
+      let cdnBoost = 0;
+      if (s.includes('cloudinary.com')) cdnBoost += 2;
+      if (s.includes('imgix.net')) cdnBoost += 2;
+      if (s.includes('contentful.com')) cdnBoost += 2;
+      if (s.includes('akamaized.net')) cdnBoost += 2;
+      score += Math.min(cdnBoost, 4);
+
+      // ── Penalise non-product images (existing tokens, harmonised at -5) ──
       if (s.includes('icon') || s.includes('logo') || s.includes('banner') || s.includes('badge')) score -= 5;
       if (s.includes('avatar') || s.includes('author') || s.includes('pixel')) score -= 5;
-      if (s.includes('1x1') || s.includes('placeholder') || s.includes('blank')) score -= 10;
-      // Penalise promotional/discount graphics
+      if (s.includes('placeholder') || s.includes('blank')) score -= 10;
+
+      // ── Additional noise tokens (new, harmonised at -5) ──────────────────
+      // Banner spots, promo CTAs, off-page content (e.g. "forside-cta-spot"
+      // appearing on a product page is content from a different page).
+      if (s.includes('cta') || s.includes('spot-') || s.includes('-spot')) score -= 5;
+      if (s.includes('forside') || s.includes('frontpage') || s.includes('/home-')) score -= 5;
+      if (s.includes('wysiwyg') || s.includes('/cms/')) score -= 5;
+
+      // ── Promotional / discount / navigation penalties ────────────────────
       if (s.includes('procent') || s.includes('percent') || s.includes('rabat') || s.includes('discount')) score -= 10;
       if (s.includes('navigation') || s.includes('nav-') || s.includes('noimageindex')) score -= 8;
       if (s.includes('rebate') || s.includes('offer') || s.includes('campaign') || s.includes('promo')) score -= 6;
-      // Penalise landscape banners (wide x height ratio in URL)
+
+      // ── Landscape-banner dimension penalty (existing, unchanged) ─────────
       const dimsMatch = s.match(/(\d{3,4})x(\d{3,4})/);
       if (dimsMatch) {
         const w = parseInt(dimsMatch[1]), h = parseInt(dimsMatch[2]);
         if (w > h * 1.5) score -= 4; // wide landscape = likely banner
         if (w > 2000 && h < 800) score -= 6; // very wide banner
       }
-      // Penalise hex colour codes in filename (promo graphics)
-      if (/[0-9a-f]{6}/i.test(s.split('/').pop())) score -= 3;
+
+      // ── Small-dimension penalty (new — catches 99x32, 180x180, etc.) ─────
+      // The landscape check above only catches 3-4 digit dims, so very small
+      // images like 99x32 (Abena banner) and small squares like 180x180
+      // (Plantorama promo spot) escaped entirely. This catches them.
+      const smallDimsMatch = filename.match(/(\d{2,4})x(\d{2,4})/);
+      if (smallDimsMatch) {
+        const w = parseInt(smallDimsMatch[1]), h = parseInt(smallDimsMatch[2]);
+        if (w < 200 && h < 200) score -= 6;          // small both ways
+        else if (w < 100 || h < 100) score -= 6;     // very small one side
+      }
+
+      // ── Hex colour codes in filename (promo graphics) ────────────────────
+      if (/[0-9a-f]{6}/i.test(filename)) score -= 3;
+
       return score;
     };
 
@@ -240,11 +462,14 @@ export default async function handler(req, res) {
     const allImgTags = imgMatches.map(m => ({ tag: m[0], src: extractSrc(m[0]) }));
     const lazyImgs = lazySrcMatches.map(m => ({ tag: '', src: m[1] }));
     const jsonImgs = jsonImgMatches.map(m => ({ tag: '', src: m[1] }));
+    const jsonArrayImgs = jsonImgArrayMatches.map(m => ({ tag: '', src: m[1] }));
+    const jsonObjectImgs = jsonImgObjectUrls.map(m => ({ tag: '', src: m[1] }));
     const srcsetImgsList = srcsetUrls.map(src => ({ tag: '', src }));
-    
-    const scoredImages = [...allImgTags, ...lazyImgs, ...jsonImgs, ...srcsetImgsList].map(({ tag, src }) => {
-      return { src, score: scoreImage(tag, src) };
-    }).filter(({ src }) => src);
+
+    // Apply hard-exclude filter, then score the survivors.
+    const scoredImages = [...allImgTags, ...lazyImgs, ...jsonImgs, ...jsonArrayImgs, ...jsonObjectImgs, ...srcsetImgsList]
+      .filter(({ src }) => src && !isHardExcluded(src))
+      .map(({ tag, src }) => ({ src, score: scoreImage(tag, src) }));
 
     const normaliseUrl = (src) => {
       if (!src) return null;
@@ -254,11 +479,14 @@ export default async function handler(req, res) {
       return null;
     };
 
-    // Sort by score, put ogImage first, deduplicate
+    // Sort by score, put site-declared canonical images first (og:image and
+    // JSON-LD Product.image bypass the hard-exclude filter — the site itself
+    // declared them as canonical, so we trust that).
     scoredImages.sort((a, b) => b.score - a.score);
 
     const rawImages = [
       ogImage,
+      ...jsonLdImages,
       ...scoredImages.map(({ src }) => src),
     ].filter(Boolean)
      .map(normaliseUrl)
@@ -266,6 +494,34 @@ export default async function handler(req, res) {
 
     // Deduplicate preserving order
     result.images = [...new Set(rawImages)].slice(0, 20);
+
+    // ── DIAGNOSTIC LOG (remove after debugging) ─────────────────────────────
+    // Dumps what each extraction pattern captured plus the final image list,
+    // so we can see exactly where the pipeline succeeds or fails on a given URL.
+    console.log(`[SCRAPE DEBUG] ${url}`);
+    console.log(`  Pattern A (direct keys):  ${jsonImgMatches.length} matches`);
+    console.log(`  Pattern B (array+value):  ${jsonImgArrayMatches.length} matches`);
+    console.log(`  Pattern C (url objects):  ${jsonImgObjectUrls.length} matches`);
+    console.log(`  <img> tags:               ${allImgTags.length}`);
+    console.log(`  Lazy/data-src:            ${lazyImgs.length}`);
+    console.log(`  srcset:                   ${srcsetImgsList.length}`);
+    console.log(`  og:image:                 ${ogImage ? 'YES' : 'no'}`);
+    console.log(`  JSON-LD Product.image:    ${jsonLdImages.length}`);
+    console.log(`  Slug word tokens: ${JSON.stringify(productSlugTokens.wordTokens.slice(0, 8))}`);
+    console.log(`  Slug SKU tokens:  ${JSON.stringify(productSlugTokens.skuTokens)}`);
+    console.log(`  After hard-exclude + scoring: ${scoredImages.length} candidates`);
+    if (scoredImages.length > 0) {
+      console.log(`  Top 5 scored candidates:`);
+      for (const c of scoredImages.slice(0, 5)) {
+        console.log(`    score=${c.score}  ${c.src.slice(0, 100)}`);
+      }
+    }
+    console.log(`  FINAL result.images count: ${result.images.length}`);
+    if (result.images.length > 0) {
+      console.log(`  First 3 final URLs:`);
+      for (const u of result.images.slice(0, 3)) console.log(`    ${u.slice(0, 100)}`);
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     // Extract price from page
     const pricePatterns = [
