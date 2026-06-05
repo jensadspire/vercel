@@ -495,34 +495,6 @@ export default async function handler(req, res) {
     // Deduplicate preserving order
     result.images = [...new Set(rawImages)].slice(0, 20);
 
-    // ── DIAGNOSTIC LOG (remove after debugging) ─────────────────────────────
-    // Dumps what each extraction pattern captured plus the final image list,
-    // so we can see exactly where the pipeline succeeds or fails on a given URL.
-    console.log(`[SCRAPE DEBUG] ${url}`);
-    console.log(`  Pattern A (direct keys):  ${jsonImgMatches.length} matches`);
-    console.log(`  Pattern B (array+value):  ${jsonImgArrayMatches.length} matches`);
-    console.log(`  Pattern C (url objects):  ${jsonImgObjectUrls.length} matches`);
-    console.log(`  <img> tags:               ${allImgTags.length}`);
-    console.log(`  Lazy/data-src:            ${lazyImgs.length}`);
-    console.log(`  srcset:                   ${srcsetImgsList.length}`);
-    console.log(`  og:image:                 ${ogImage ? 'YES' : 'no'}`);
-    console.log(`  JSON-LD Product.image:    ${jsonLdImages.length}`);
-    console.log(`  Slug word tokens: ${JSON.stringify(productSlugTokens.wordTokens.slice(0, 8))}`);
-    console.log(`  Slug SKU tokens:  ${JSON.stringify(productSlugTokens.skuTokens)}`);
-    console.log(`  After hard-exclude + scoring: ${scoredImages.length} candidates`);
-    if (scoredImages.length > 0) {
-      console.log(`  Top 5 scored candidates:`);
-      for (const c of scoredImages.slice(0, 5)) {
-        console.log(`    score=${c.score}  ${c.src.slice(0, 100)}`);
-      }
-    }
-    console.log(`  FINAL result.images count: ${result.images.length}`);
-    if (result.images.length > 0) {
-      console.log(`  First 3 final URLs:`);
-      for (const u of result.images.slice(0, 3)) console.log(`    ${u.slice(0, 100)}`);
-    }
-    // ────────────────────────────────────────────────────────────────────────
-
     // Extract price from page
     const pricePatterns = [
       /<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i,
