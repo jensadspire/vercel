@@ -23,3 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Environment variables — never commit
+.env
+.env.*
+!.env.example
+!.env.template
+!env.template
+
+# Private working folders (not part of the codebase)
+Backup/
+Invoice/
+email_list/
