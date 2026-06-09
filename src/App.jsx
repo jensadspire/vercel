@@ -5066,6 +5066,30 @@ STRICT rules:
                     </div>
                   );
                 })()}
+                {/* Tray nudge — only shown when preview has rendered and there are alternative images to browse */}
+                {!metaLoading && metaResult && metaResult.imageVariations && metaResult.imageVariations.length > 1 && (
+                  <button onClick={() => {
+                    const el = document.getElementById('meta-thumbnail-tray');
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      el.style.transition = 'box-shadow 0.3s ease';
+                      el.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.45)';
+                      setTimeout(() => { el.style.boxShadow = ''; }, 1500);
+                    }
+                  }} style={{
+                    marginTop: 10, width: '100%', padding: '8px 12px',
+                    fontSize: 11, fontWeight: 700,
+                    background: 'rgba(99,102,241,0.08)', color: '#a5b4fc',
+                    border: '1px solid rgba(99,102,241,0.25)', borderRadius: 8,
+                    cursor: 'pointer', transition: 'background 0.2s',
+                    textAlign: 'center',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.16)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.08)'; }}
+                  >
+                    🖼  Try a different image  ↓
+                  </button>
+                )}
               </div>
             </div>
           </>)}
@@ -5482,7 +5506,7 @@ STRICT rules:
 
                     {/* Image + Reel */}
                     {metaResult.imageUrl && (
-                      <div style={S.card}>
+                      <div id="meta-thumbnail-tray" style={S.card}>
                         <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <span style={S.sectionLabel}>Ad Creative</span>
                           <span style={{ fontSize: 10, padding: "2px 8px", background: "rgba(14,165,233,0.1)", border: "1px solid rgba(14,165,233,0.2)", borderRadius: 4, color: "#38bdf8", fontWeight: 700 }}>1:1 Feed</span>
