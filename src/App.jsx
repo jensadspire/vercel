@@ -796,6 +796,15 @@ function RSAStudio() {
   const [gadsConn, setGadsConn] = useState({ connected: false, selectionComplete: false, googleUserEmail: null, customerId: null, loginCustomerId: null });
   const [gadsConnLoading, setGadsConnLoading] = useState(false);
   const [gadsConnError, setGadsConnError] = useState('');
+  // ── Google Ads account picker state (two-step: level 1 = MCCs/standalone; level 2 = clients under MCC) ──
+  const [gadsPickerOpen, setGadsPickerOpen] = useState(false);
+  const [gadsPickerLoading, setGadsPickerLoading] = useState(false);
+  const [gadsPickerSaving, setGadsPickerSaving] = useState(false);
+  const [gadsPickerError, setGadsPickerError] = useState('');
+  const [gadsCustomers, setGadsCustomers] = useState([]);     // level 1: all accessible customers
+  const [gadsPickerLevel, setGadsPickerLevel] = useState(1);  // 1 = top-level, 2 = inside an MCC
+  const [gadsSelectedMcc, setGadsSelectedMcc] = useState(null);  // the MCC the user drilled into
+  const [gadsMccClients, setGadsMccClients] = useState([]);   // level 2: clients under selected MCC
   const [metaPickerOpen, setMetaPickerOpen] = useState(false);
   const [metaAvailableAccounts, setMetaAvailableAccounts] = useState([]);
   const [metaAvailablePages, setMetaAvailablePages] = useState([]);
@@ -1046,6 +1055,102 @@ function RSAStudio() {
       window.history.replaceState({}, '', newUrl);
     }
   }, [isSignedIn]);
+
+  // ── Google Ads account picker handlers (two-step flow) ────────────────────
+  // Opens the picker and fetches the user's top-level customers. If any are
+  // MCCs (manager accounts), users can drill into them to see their clients.
+
+  const openGadsPicker = async () => {
+    if (!isSignedIn) { setShowAuthModal(true); return; }
+    if (!gadsConn.connected) { setGadsConnError('Connect Google Ads first.'); return; }
+
+    setGadsPickerError('');
+    setGadsPickerLevel(1);
+    setGadsSelectedMcc(null);
+    setGadsMccClients([]);
+    setGadsPickerOpen(true);
+    setGadsPickerLoading(true);
+
+    try {
+      const session = await window.Clerk.session.getToken();
+      const res = await fetch('/api/google-ads-accounts', {
+        headers: { Authorization: `Bearer ${session}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load Google Ads accounts');
+      if (data.needsConnect || data.needsReconnect) {
+        setGadsPickerError('Google Ads connection expired. Please reconnect.');
+        setGadsCustomers([]);
+      } else {
+        setGadsCustomers(data.customers || []);
+        if (data.warning) setGadsPickerError(data.warning);
+      }
+    } catch (err) {
+      setGadsPickerError(err.message || 'Failed to load Google Ads accounts');
+      setGadsCustomers([]);
+    } finally {
+      setGadsPickerLoading(false);
+    }
+  };
+
+  // Drill into an MCC — fetch its client accounts (level 2)
+  const drillIntoMcc = async (mccObj) => {
+    if (!mccObj?.id) return;
+    setGadsSelectedMcc(mccObj);
+    setGadsPickerLevel(2);
+    setGadsMccClients([]);
+    setGadsPickerError('');
+    setGadsPickerLoading(true);
+
+    try {
+      const session = await window.Clerk.session.getToken();
+      const res = await fetch(`/api/google-ads-mcc-clients?mccId=${encodeURIComponent(mccObj.id)}`, {
+        headers: { Authorization: `Bearer ${session}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load client accounts');
+      setGadsMccClients(data.clients || []);
+      if (!data.clients || data.clients.length === 0) {
+        setGadsPickerError(`No client accounts found under ${mccObj.name}. You may need to select a different MCC, or this MCC may not have any clients yet.`);
+      }
+    } catch (err) {
+      setGadsPickerError(err.message || 'Failed to load client accounts');
+    } finally {
+      setGadsPickerLoading(false);
+    }
+  };
+
+  const backToLevel1 = () => {
+    setGadsPickerLevel(1);
+    setGadsSelectedMcc(null);
+    setGadsMccClients([]);
+    setGadsPickerError('');
+  };
+
+  // Save the picked selection — works for both standalone accounts (no loginCustomerId)
+  // and client accounts under an MCC (loginCustomerId = MCC's ID).
+  const saveGadsSelection = async (customerId, loginCustomerId) => {
+    if (!customerId) return;
+    setGadsPickerError('');
+    setGadsPickerSaving(true);
+    try {
+      const session = await window.Clerk.session.getToken();
+      const res = await fetch('/api/google-ads-save-selection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session}` },
+        body: JSON.stringify({ customerId, loginCustomerId: loginCustomerId || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save selection');
+      // Refresh top-level connection state so the strip updates
+      await refreshGadsStatus();
+      setGadsPickerOpen(false);
+    } catch (err) {
+      setGadsPickerError(err.message || 'Failed to save selection');
+    } finally {
+      setGadsPickerSaving(false);
+    }
+  };
 
   // Magic-link auto-generation: when an outreach email link like
   //   theaiad.studio/?url=<encoded>&autorun=true&tab=meta
@@ -2467,6 +2572,124 @@ STRICT rules:
                   </button>
                   <button onClick={saveMetaPickerSelection} disabled={metaPickerSaving || !pickedAdAccountId || !pickedPageId || metaAvailableAccounts.length === 0 || metaAvailablePages.length === 0} style={{ flex: 2, padding: '9px', fontSize: 11, fontWeight: 800, background: metaPickerSaving || !pickedAdAccountId || !pickedPageId ? 'rgba(24,119,242,0.3)' : 'linear-gradient(135deg,#1877f2,#0a5dc2)', border: 'none', borderRadius: 8, color: 'white', cursor: metaPickerSaving ? 'default' : 'pointer' }}>
                     {metaPickerSaving ? '⟳ Saving…' : '✓ Save selection'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Google Ads Account Picker Modal (two-step: top-level → MCC clients) ── */}
+      {gadsPickerOpen && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setGadsPickerOpen(false); }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'linear-gradient(135deg, #0a0e1a, #131825)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 24, maxWidth: 520, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              {gadsPickerLevel === 2 && (
+                <button onClick={backToLevel1} disabled={gadsPickerSaving} style={{ padding: '4px 8px', fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#8fa3b8', cursor: 'pointer' }}>
+                  ← Back
+                </button>
+              )}
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>
+                {gadsPickerLevel === 1
+                  ? '🔗 Choose your Google Ads account'
+                  : `📁 Accounts under ${gadsSelectedMcc?.name || 'this manager'}`}
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 16, lineHeight: 1.5 }}>
+              {gadsPickerLevel === 1
+                ? 'Pick the account AI Ad Studio should publish ads to. If you manage multiple accounts via a Manager (MCC), click into it to choose a specific client account.'
+                : 'Pick a client account under this MCC. The MCC will be used as the login context so we can publish on your behalf.'}
+            </div>
+
+            {gadsPickerError && (
+              <div style={{ padding: '8px 10px', marginBottom: 12, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 6, fontSize: 11, color: '#fbbf24' }}>
+                ⚠ {gadsPickerError}
+              </div>
+            )}
+
+            {gadsPickerLoading ? (
+              <div style={{ padding: 32, textAlign: 'center', color: '#7e92a8', fontSize: 12 }}>
+                ⟳ {gadsPickerLevel === 1 ? 'Loading your Google Ads accounts…' : 'Loading client accounts…'}
+              </div>
+            ) : (
+              <>
+                {/* Account list — level-aware */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                  {(gadsPickerLevel === 1 ? gadsCustomers : gadsMccClients).length === 0 ? (
+                    <div style={{ fontSize: 11, color: '#7e92a8', padding: 16, textAlign: 'center', fontStyle: 'italic' }}>
+                      {gadsPickerLevel === 1
+                        ? 'No accessible Google Ads accounts found for this Google account.'
+                        : 'No client accounts under this MCC.'}
+                    </div>
+                  ) : (
+                    (gadsPickerLevel === 1 ? gadsCustomers : gadsMccClients).map(c => {
+                      const isMcc = Boolean(c.manager);
+                      const isTest = Boolean(c.testAccount);
+                      // Click behavior:
+                      //   Level 1 + MCC      → drill into clients
+                      //   Level 1 + standalone → save selection directly
+                      //   Level 2            → save with current MCC as loginCustomerId
+                      const handleClick = () => {
+                        if (gadsPickerSaving) return;
+                        if (gadsPickerLevel === 1 && isMcc) {
+                          drillIntoMcc(c);
+                        } else if (gadsPickerLevel === 1) {
+                          saveGadsSelection(c.id, null);
+                        } else {
+                          saveGadsSelection(c.id, gadsSelectedMcc?.id || null);
+                        }
+                      };
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={handleClick}
+                          disabled={gadsPickerSaving}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                            padding: '10px 12px',
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: 8,
+                            color: '#e2e8f0',
+                            cursor: gadsPickerSaving ? 'default' : 'pointer',
+                            textAlign: 'left',
+                            transition: 'background 0.15s, border-color 0.15s',
+                          }}
+                          onMouseEnter={(e) => { if (!gadsPickerSaving) { e.currentTarget.style.background = 'rgba(66,133,244,0.08)'; e.currentTarget.style.borderColor = 'rgba(66,133,244,0.3)'; } }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'white', marginBottom: 2 }}>
+                              {isMcc ? '📁 ' : '📊 '}{c.name || `Customer ${c.id}`}
+                              {isTest && <span style={{ marginLeft: 6, padding: '1px 6px', fontSize: 9, fontWeight: 700, background: 'rgba(251,191,36,0.15)', color: '#fbbf24', borderRadius: 3 }}>TEST</span>}
+                              {isMcc && <span style={{ marginLeft: 6, padding: '1px 6px', fontSize: 9, fontWeight: 700, background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', borderRadius: 3 }}>MANAGER</span>}
+                            </div>
+                            <div style={{ fontSize: 10, color: '#7e92a8' }}>
+                              ID: {c.id}
+                              {c.currency && ` · ${c.currency}`}
+                              {c.timezone && ` · ${c.timezone}`}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 14, color: '#7e92a8', flexShrink: 0 }}>
+                            {gadsPickerLevel === 1 && isMcc ? '›' : '✓'}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {gadsPickerSaving && (
+                  <div style={{ fontSize: 11, color: '#7e92a8', textAlign: 'center', marginBottom: 12 }}>
+                    ⟳ Saving your selection…
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setGadsPickerOpen(false)} disabled={gadsPickerSaving} style={{ flex: 1, padding: '9px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#7e92a8', cursor: 'pointer' }}>
+                    Cancel
                   </button>
                 </div>
               </>
@@ -5280,22 +5503,45 @@ STRICT rules:
                 </button>
               </div>
 
-              {/* Google Ads connection status strip (Phase 1 — connect/status only) */}
+              {/* Google Ads connection + account-picker strip (Phase 2 — connect + pick account) */}
               {(adFormat === "rsa" || adFormat === "pmax") && isSignedIn && (
                 <div style={{ marginBottom: 8, padding: '8px 10px', background: gadsConn.connected ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.03)', border: '1px solid ' + (gadsConn.connected ? 'rgba(52,211,153,0.25)' : 'rgba(255,255,255,0.08)'), borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <div style={{ fontSize: 10, color: '#7e92a8', flex: 1, minWidth: 0 }}>
                     {gadsConnLoading ? (
                       <>⟳ Checking Google Ads connection…</>
                     ) : gadsConn.connected ? (
-                      <span style={{ color: '#34d399' }}>✅ Google Ads connected — <strong>{gadsConn.googleUserEmail || 'account linked'}</strong>{gadsConn.customerId ? ` · customer ${gadsConn.customerId}` : ' · publish-to-account coming soon'}</span>
+                      gadsConn.customerId ? (
+                        <span style={{ color: '#34d399' }}>
+                          ✅ Publishing to <strong>account {gadsConn.customerId}</strong>
+                          {gadsConn.loginCustomerId ? ` (via MCC ${gadsConn.loginCustomerId})` : ''}
+                          {' · '}<span style={{ color: '#7e92a8' }}>connected as {gadsConn.googleUserEmail || 'account linked'}</span>
+                        </span>
+                      ) : (
+                        <span style={{ color: '#34d399' }}>
+                          ✅ Google Ads connected — <strong>{gadsConn.googleUserEmail || 'account linked'}</strong>
+                          {' · '}<span style={{ color: '#fbbf24' }}>pick an account to publish to →</span>
+                        </span>
+                      )
                     ) : (
                       <>🔗 Connect your Google Ads account to publish directly (coming soon — connect now to be ready)</>
                     )}
                   </div>
                   {!gadsConnLoading && (
-                    <button onClick={gadsConn.connected ? disconnectGads : triggerGadsConnect} style={{ padding: '5px 10px', fontSize: 10, fontWeight: 700, background: gadsConn.connected ? 'rgba(239,68,68,0.1)' : 'rgba(66,133,244,0.15)', border: '1px solid ' + (gadsConn.connected ? 'rgba(239,68,68,0.3)' : 'rgba(66,133,244,0.4)'), borderRadius: 5, color: gadsConn.connected ? '#f87171' : '#7aa6ff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                      {gadsConn.connected ? 'Disconnect' : 'Connect Google Ads'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      {gadsConn.connected && !gadsConn.customerId && (
+                        <button onClick={openGadsPicker} style={{ padding: '5px 10px', fontSize: 10, fontWeight: 800, background: 'linear-gradient(135deg,#4285f4,#2962d6)', border: 'none', borderRadius: 5, color: 'white', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          Pick account
+                        </button>
+                      )}
+                      {gadsConn.connected && gadsConn.customerId && (
+                        <button onClick={openGadsPicker} style={{ padding: '5px 10px', fontSize: 10, fontWeight: 700, background: 'rgba(66,133,244,0.1)', border: '1px solid rgba(66,133,244,0.3)', borderRadius: 5, color: '#7aa6ff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          Change
+                        </button>
+                      )}
+                      <button onClick={gadsConn.connected ? disconnectGads : triggerGadsConnect} style={{ padding: '5px 10px', fontSize: 10, fontWeight: 700, background: gadsConn.connected ? 'rgba(239,68,68,0.1)' : 'rgba(66,133,244,0.15)', border: '1px solid ' + (gadsConn.connected ? 'rgba(239,68,68,0.3)' : 'rgba(66,133,244,0.4)'), borderRadius: 5, color: gadsConn.connected ? '#f87171' : '#7aa6ff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        {gadsConn.connected ? 'Disconnect' : 'Connect Google Ads'}
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
