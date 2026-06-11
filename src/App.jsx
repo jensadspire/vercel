@@ -792,6 +792,10 @@ function RSAStudio() {
   const [metaConn, setMetaConn] = useState({ connected: false, selectionComplete: false, fbUserId: null, adAccountId: null, pageId: null });
   const [metaConnLoading, setMetaConnLoading] = useState(false);
   const [metaConnError, setMetaConnError] = useState('');
+  // ── Google Ads connection state (Phase 1: connect/status only; publish in Phase 2 once Basic dev token approved) ──
+  const [gadsConn, setGadsConn] = useState({ connected: false, selectionComplete: false, googleUserEmail: null, customerId: null, loginCustomerId: null });
+  const [gadsConnLoading, setGadsConnLoading] = useState(false);
+  const [gadsConnError, setGadsConnError] = useState('');
   const [metaPickerOpen, setMetaPickerOpen] = useState(false);
   const [metaAvailableAccounts, setMetaAvailableAccounts] = useState([]);
   const [metaAvailablePages, setMetaAvailablePages] = useState([]);
@@ -939,6 +943,104 @@ function RSAStudio() {
       finaliseMetaConnect();
       // Strip the param so refreshes don't re-trigger
       params.delete('metaConnected');
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [isSignedIn]);
+
+  // ── Google Ads connection (Phase 1 — connect + status only) ───────────────
+  // Unlike Meta (which is mediated by Clerk), Google Ads OAuth is handled by our
+  // own /api/google-ads-* endpoints. Tokens land directly in Upstash after
+  // Google redirects to /api/google-ads-callback.
+
+  const refreshGadsStatus = async () => {
+    if (!isSignedIn) return;
+    try {
+      const session = await window.Clerk.session.getToken();
+      const res = await fetch('/api/google-ads-status', {
+        headers: { Authorization: `Bearer ${session}` },
+      });
+      const data = await res.json();
+      if (res.ok) setGadsConn(data);
+    } catch (_) { /* non-fatal — keep prior state */ }
+  };
+
+  const triggerGadsConnect = async () => {
+    if (!isSignedIn || !user) { setShowAuthModal(true); return; }
+    setGadsConnError('');
+    try {
+      setGadsConnLoading(true);
+      const session = await window.Clerk.session.getToken();
+      const res = await fetch('/api/google-ads-connect', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to start Google Ads OAuth');
+      if (!data.url) throw new Error('No OAuth URL returned');
+      // Redirect the whole window to Google's consent screen
+      window.location.href = data.url;
+    } catch (err) {
+      setGadsConnError(err.message || 'Failed to start Google Ads OAuth');
+      setGadsConnLoading(false);
+    }
+  };
+
+  const disconnectGads = async () => {
+    if (!isSignedIn) return;
+    if (!window.confirm('Disconnect your Google Ads account from AI Ad Studio?')) return;
+    setGadsConnError('');
+    try {
+      setGadsConnLoading(true);
+      const session = await window.Clerk.session.getToken();
+      const res = await fetch('/api/google-ads-disconnect', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session}` },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to disconnect');
+      }
+      setGadsConn({ connected: false, selectionComplete: false, googleUserEmail: null, customerId: null, loginCustomerId: null });
+    } catch (err) {
+      setGadsConnError(err.message || 'Failed to disconnect');
+    } finally {
+      setGadsConnLoading(false);
+    }
+  };
+
+  // On signing in, fetch current Google Ads connection status once
+  useEffect(() => {
+    if (isSignedIn) refreshGadsStatus();
+  }, [isSignedIn]);
+
+  // Handle return from Google Ads OAuth (callback redirects with
+  // ?googleAdsConnected=1 on success, ?googleAdsConnected=0&error=... on failure)
+  useEffect(() => {
+    if (!isSignedIn) return;
+    const params = new URLSearchParams(window.location.search);
+    const gadsResult = params.get('googleAdsConnected');
+    if (gadsResult === '1') {
+      refreshGadsStatus();
+      params.delete('googleAdsConnected');
+      params.delete('error');
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+      window.history.replaceState({}, '', newUrl);
+    } else if (gadsResult === '0') {
+      const errorCode = params.get('error') || 'unknown';
+      const msgMap = {
+        cancelled: 'You cancelled the Google Ads connection.',
+        invalid_state: 'Connection expired or was tampered with — please try again.',
+        token_exchange_failed: 'Google rejected our connection request. Please try again or contact support.',
+        no_refresh_token: 'Google did not grant offline access. Please try again and ensure you allow all requested permissions.',
+        missing_params: 'Google returned an incomplete response. Please try again.',
+        access_denied: 'You declined the requested permissions.',
+      };
+      setGadsConnError(msgMap[errorCode] || `Google Ads connection failed: ${errorCode}`);
+      params.delete('googleAdsConnected');
+      params.delete('error');
       const newSearch = params.toString();
       const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
       window.history.replaceState({}, '', newUrl);
@@ -5177,6 +5279,31 @@ STRICT rules:
                   ⬇ Download CSV
                 </button>
               </div>
+
+              {/* Google Ads connection status strip (Phase 1 — connect/status only) */}
+              {(adFormat === "rsa" || adFormat === "pmax") && isSignedIn && (
+                <div style={{ marginBottom: 8, padding: '8px 10px', background: gadsConn.connected ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.03)', border: '1px solid ' + (gadsConn.connected ? 'rgba(52,211,153,0.25)' : 'rgba(255,255,255,0.08)'), borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 10, color: '#7e92a8', flex: 1, minWidth: 0 }}>
+                    {gadsConnLoading ? (
+                      <>⟳ Checking Google Ads connection…</>
+                    ) : gadsConn.connected ? (
+                      <span style={{ color: '#34d399' }}>✅ Google Ads connected — <strong>{gadsConn.googleUserEmail || 'account linked'}</strong>{gadsConn.customerId ? ` · customer ${gadsConn.customerId}` : ' · publish-to-account coming soon'}</span>
+                    ) : (
+                      <>🔗 Connect your Google Ads account to publish directly (coming soon — connect now to be ready)</>
+                    )}
+                  </div>
+                  {!gadsConnLoading && (
+                    <button onClick={gadsConn.connected ? disconnectGads : triggerGadsConnect} style={{ padding: '5px 10px', fontSize: 10, fontWeight: 700, background: gadsConn.connected ? 'rgba(239,68,68,0.1)' : 'rgba(66,133,244,0.15)', border: '1px solid ' + (gadsConn.connected ? 'rgba(239,68,68,0.3)' : 'rgba(66,133,244,0.4)'), borderRadius: 5, color: gadsConn.connected ? '#f87171' : '#7aa6ff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      {gadsConn.connected ? 'Disconnect' : 'Connect Google Ads'}
+                    </button>
+                  )}
+                </div>
+              )}
+              {gadsConnError && (adFormat === "rsa" || adFormat === "pmax") && (
+                <div style={{ marginBottom: 8, padding: '6px 10px', fontSize: 10, color: '#f87171', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6 }}>
+                  ❌ {gadsConnError}
+                </div>
+              )}
 
               <ScoreWidget outputId={'rsa-' + rows[activeRow]?.id} format="rsa" label="Rate this RSA copy" />
               {/* TSV mini-preview */}
