@@ -2960,7 +2960,10 @@ STRICT rules:
                       issues.push('Final URL: must be a valid http(s) URL. Make sure you have a URL in the input field at the top.');
                     }
                     if (issues.length > 0) {
-                      setGadsPublishError('Cannot publish — fix these issues first:\n• ' + issues.join('\n• '));
+                      setGadsPublishError(
+                        'Cannot publish — fix these issues first:\n• ' + issues.join('\n• ') +
+                        '\n\n💡 Close this modal, edit the ad in the RSA editor above, then try publishing again.'
+                      );
                       return;
                     }
                     setGadsPublishError('');
