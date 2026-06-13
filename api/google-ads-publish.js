@@ -2,17 +2,13 @@
 // Publishes Responsive Search Ads (RSAs) to Google Ads via the Google Ads API.
 // All ads created as PAUSED — no spend until manually activated.
 //
-// PHASE 2 STATUS: Skeleton ready. Actual mutation calls are wired but the
-// endpoint is guarded by GOOGLE_ADS_PUBLISH_ENABLED env var, defaulting to
-// "false" until Basic developer token access is approved by Google. Until then,
-// the endpoint returns 503 with a friendly message.
+// FEATURE FLAG: Gated by GOOGLE_ADS_PUBLISH_ENABLED env var, defaulting to
+// "false". Flip to "true" in Vercel env to activate publishing.
 //
-// Token resolution (mirrors meta-publish.js pattern):
-//   1. If the request includes a valid Clerk session token AND the user has
-//      connected their own Google Ads account, use their per-user credentials
-//      (customer_id + encrypted refresh token in Upstash).
-//   2. No env-var fallback for Google Ads (unlike Meta) — Google Ads requires
-//      a real customer_id selection from a connected user.
+// Multi-ad publishing: Frontend calls this endpoint ONCE PER AD. To publish
+// 3 variations, frontend makes 3 sequential POST calls. This gives clean
+// partial-success semantics (one ad fails, others still succeed) and live
+// progress feedback in the UI.
 
 import { createClerkClient } from '@clerk/backend';
 import { GoogleAdsApi, enums } from 'google-ads-api';
@@ -23,12 +19,8 @@ const clerkClient = createClerkClient({
   publishableKey: process.env.VITE_CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || process.env.CLERK_PUBLISHABLE_KEY,
 });
 
-// ── Feature flag ──────────────────────────────────────────────────────────────
-// Default DISABLED. Flip GOOGLE_ADS_PUBLISH_ENABLED="true" in Vercel env once
-// Basic developer token access is approved AND testing against test MCC succeeds.
 const PUBLISH_ENABLED = process.env.GOOGLE_ADS_PUBLISH_ENABLED === 'true';
 
-// ── Auth helper (mirrors other google-ads-*.js endpoints) ─────────────────────
 async function authenticateUser(req) {
   const sessionToken = req.headers.authorization?.replace(/^Bearer /, '')
     || req.headers['x-clerk-session'];
@@ -43,81 +35,98 @@ async function authenticateUser(req) {
   return auth.userId;
 }
 
-// ── Request validation ────────────────────────────────────────────────────────
-// Expected request body shape (sent from frontend "Publish to Google Ads" button):
-//   {
-//     // Required
-//     headlines: ["Headline 1", "Headline 2", ...],   // 3-15 headlines, each ≤30 chars
-//     descriptions: ["Description 1", ...],            // 2-4 descriptions, each ≤90 chars
-//     finalUrl: "https://example.com/product/123",
-//
-//     // Optional creative fields
-//     path1: "category",                               // up to 15 chars
-//     path2: "subcategory",                            // up to 15 chars
-//
-//     // Campaign/ad-group selection — one of:
-//     campaignId: "1234567890",                        // use existing campaign
-//     adGroupId: "9876543210",                         // use existing ad group
-//     // OR create new (Phase 2.1 — won't implement yet):
-//     newCampaign: { name: "...", budgetMicros: 50000000, ... },
-//   }
+// Accepts either a plain string ("text") or an object ({ text, pin })
+function normalizeAsset(raw) {
+  if (typeof raw === 'string') return { text: raw, pin: 0 };
+  if (raw && typeof raw === 'object') {
+    const text = String(raw.text || '');
+    const pinRaw = raw.pin;
+    let pin = 0;
+    if (typeof pinRaw === 'number') pin = pinRaw;
+    else if (typeof pinRaw === 'string' && pinRaw !== '') pin = parseInt(pinRaw, 10) || 0;
+    return { text, pin };
+  }
+  return { text: '', pin: 0 };
+}
 
 function validateRequestBody(body) {
   const errors = [];
-  if (!body) errors.push('request body required');
-  else {
-    if (!Array.isArray(body.headlines) || body.headlines.length < 3) {
-      errors.push('headlines: array of at least 3 strings required');
-    } else {
-      const tooLong = body.headlines.filter(h => typeof h !== 'string' || h.length > 30);
-      if (tooLong.length) errors.push(`headlines: each must be ≤30 chars (${tooLong.length} too long)`);
-    }
-    if (!Array.isArray(body.descriptions) || body.descriptions.length < 2) {
-      errors.push('descriptions: array of at least 2 strings required');
-    } else {
-      const tooLong = body.descriptions.filter(d => typeof d !== 'string' || d.length > 90);
-      if (tooLong.length) errors.push(`descriptions: each must be ≤90 chars (${tooLong.length} too long)`);
-    }
-    if (!body.finalUrl || !/^https?:\/\//i.test(body.finalUrl)) {
-      errors.push('finalUrl: valid http(s) URL required');
-    }
-    if (body.path1 && (typeof body.path1 !== 'string' || body.path1.length > 15)) {
-      errors.push('path1: must be string ≤15 chars');
-    }
-    if (body.path2 && (typeof body.path2 !== 'string' || body.path2.length > 15)) {
-      errors.push('path2: must be string ≤15 chars');
-    }
-    if (!body.adGroupId && !body.campaignId) {
-      errors.push('adGroupId or campaignId required (existing ad group/campaign to publish into)');
-    }
+  if (!body) { errors.push('request body required'); return errors; }
+
+  if (!Array.isArray(body.headlines) || body.headlines.length < 3) {
+    errors.push('headlines: array of at least 3 items required');
+  } else {
+    const normalized = body.headlines.map(normalizeAsset).filter(a => a.text.length > 0);
+    if (normalized.length < 3) errors.push(`headlines: at least 3 non-empty headlines required (got ${normalized.length})`);
+    if (normalized.length > 15) errors.push(`headlines: max 15 (got ${normalized.length})`);
+    const tooLong = normalized.filter(h => h.text.length > 30);
+    if (tooLong.length) errors.push(`headlines: each text must be ≤30 chars (${tooLong.length} too long)`);
+    const badPin = normalized.filter(h => h.pin && (h.pin < 1 || h.pin > 3));
+    if (badPin.length) errors.push(`headlines: pin must be 1, 2, or 3 (or 0/empty for unpinned)`);
   }
+
+  if (!Array.isArray(body.descriptions) || body.descriptions.length < 2) {
+    errors.push('descriptions: array of at least 2 items required');
+  } else {
+    const normalized = body.descriptions.map(normalizeAsset).filter(a => a.text.length > 0);
+    if (normalized.length < 2) errors.push(`descriptions: at least 2 non-empty descriptions required (got ${normalized.length})`);
+    if (normalized.length > 4) errors.push(`descriptions: max 4 (got ${normalized.length})`);
+    const tooLong = normalized.filter(d => d.text.length > 90);
+    if (tooLong.length) errors.push(`descriptions: each text must be ≤90 chars (${tooLong.length} too long)`);
+    const badPin = normalized.filter(d => d.pin && (d.pin < 1 || d.pin > 2));
+    if (badPin.length) errors.push(`descriptions: pin must be 1 or 2 (or 0/empty for unpinned)`);
+  }
+
+  if (!body.finalUrl || !/^https?:\/\//i.test(body.finalUrl)) {
+    errors.push('finalUrl: valid http(s) URL required');
+  }
+
+  if (body.path1 && (typeof body.path1 !== 'string' || body.path1.length > 15)) {
+    errors.push('path1: must be string ≤15 chars');
+  }
+  if (body.path2 && (typeof body.path2 !== 'string' || body.path2.length > 15)) {
+    errors.push('path2: must be string ≤15 chars');
+  }
+
+  if (!body.adGroupId) {
+    errors.push('adGroupId required (existing ad group ID to publish into)');
+  }
+
   return errors;
 }
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+function pinToHeadlineEnum(pin) {
+  if (pin === 1) return enums.ServedAssetFieldType.HEADLINE_1;
+  if (pin === 2) return enums.ServedAssetFieldType.HEADLINE_2;
+  if (pin === 3) return enums.ServedAssetFieldType.HEADLINE_3;
+  return undefined;
+}
+
+function pinToDescriptionEnum(pin) {
+  if (pin === 1) return enums.ServedAssetFieldType.DESCRIPTION_1;
+  if (pin === 2) return enums.ServedAssetFieldType.DESCRIPTION_2;
+  return undefined;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   try {
-    // ─── 1. Auth ───────────────────────────────────────────────────────────
     const userId = await authenticateUser(req);
 
-    // ─── 2. Feature flag check ─────────────────────────────────────────────
     if (!PUBLISH_ENABLED) {
       return res.status(503).json({
         error: 'Google Ads publishing is not yet enabled',
-        reason: 'Awaiting Google Ads API Basic developer token approval. Once approved, this endpoint will be activated by setting GOOGLE_ADS_PUBLISH_ENABLED=true in Vercel env.',
+        reason: 'Set GOOGLE_ADS_PUBLISH_ENABLED=true in Vercel env to activate.',
         phase: 'phase-2-pending',
       });
     }
 
-    // ─── 3. Validate request body ──────────────────────────────────────────
     const validationErrors = validateRequestBody(req.body);
     if (validationErrors.length) {
       return res.status(400).json({ error: 'Validation failed', details: validationErrors });
     }
 
-    // ─── 4. Retrieve user's Google Ads credentials + selection ─────────────
     const creds = await getGoogleAdsCredentials(userId);
     if (!creds?.refreshToken) {
       return res.status(400).json({ error: 'Google Ads account not connected', needsConnect: true });
@@ -126,7 +135,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No Google Ads account selected', needsSelection: true });
     }
 
-    // ─── 5. Initialize Google Ads API client ───────────────────────────────
     const client = new GoogleAdsApi({
       client_id: process.env.GOOGLE_ADS_CLIENT_ID,
       client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET,
@@ -136,42 +144,47 @@ export default async function handler(req, res) {
     const customer = client.Customer({
       customer_id: creds.customerId,
       refresh_token: creds.refreshToken,
-      // login_customer_id is only needed when the selected customer is a
-      // client account under an MCC (manager). If selection includes a
-      // loginCustomerId, use it; otherwise omit (works for top-level accounts).
       ...(creds.loginCustomerId ? { login_customer_id: creds.loginCustomerId } : {}),
     });
 
-    // ─── 6. Build the RSA ad resource ──────────────────────────────────────
-    const { headlines, descriptions, finalUrl, path1, path2, adGroupId } = req.body;
+    const { headlines: rawHeadlines, descriptions: rawDescriptions, finalUrl, path1, path2, adGroupId } = req.body;
+
+    const normalizedHeadlines = rawHeadlines.map(normalizeAsset).filter(a => a.text.length > 0);
+    const normalizedDescriptions = rawDescriptions.map(normalizeAsset).filter(a => a.text.length > 0);
 
     const responsiveSearchAd = {
-      headlines: headlines.map(text => ({ text })),
-      descriptions: descriptions.map(text => ({ text })),
+      headlines: normalizedHeadlines.map(h => {
+        const asset = { text: h.text };
+        const pinned = pinToHeadlineEnum(h.pin);
+        if (pinned !== undefined) asset.pinned_field = pinned;
+        return asset;
+      }),
+      descriptions: normalizedDescriptions.map(d => {
+        const asset = { text: d.text };
+        const pinned = pinToDescriptionEnum(d.pin);
+        if (pinned !== undefined) asset.pinned_field = pinned;
+        return asset;
+      }),
       ...(path1 ? { path1 } : {}),
       ...(path2 ? { path2 } : {}),
     };
 
     const adGroupAd = {
       ad_group: `customers/${creds.customerId}/adGroups/${adGroupId}`,
-      status: enums.AdGroupAdStatus.PAUSED,  // Always paused — user activates manually
+      status: enums.AdGroupAdStatus.PAUSED,
       ad: {
         final_urls: [finalUrl],
         responsive_search_ad: responsiveSearchAd,
       },
     };
 
-    // ─── 7. Submit to Google Ads ───────────────────────────────────────────
-    // Uses the library's resource-typed mutate. Returns array of resource names
-    // (e.g., "customers/1234567890/adGroupAds/9876543210~5555555555").
     let createdAdGroupAd;
     try {
       const result = await customer.adGroupAds.create([adGroupAd]);
       createdAdGroupAd = result.results?.[0];
       if (!createdAdGroupAd) throw new Error('Google returned no created ad reference');
     } catch (err) {
-      console.error('[google-ads-publish] mutation failed:', err.message, err);
-      // GoogleAdsFailure includes structured error info — surface the first one
+      console.error('[google-ads-publish] mutation failed:', err.message);
       const firstError = err.errors?.[0];
       const friendlyMsg = firstError?.message || err.message || 'Google Ads API error';
       return res.status(500).json({
@@ -186,7 +199,7 @@ export default async function handler(req, res) {
       status: 'PAUSED',
       customerId: creds.customerId,
       adGroupId,
-      message: 'Ad created as PAUSED. Activate it in your Google Ads account when ready.',
+      message: 'Ad created as PAUSED. Activate it in Google Ads when ready.',
     });
 
   } catch (err) {
