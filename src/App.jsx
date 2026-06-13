@@ -805,6 +805,20 @@ function RSAStudio() {
   const [gadsPickerLevel, setGadsPickerLevel] = useState(1);  // 1 = top-level, 2 = inside an MCC
   const [gadsSelectedMcc, setGadsSelectedMcc] = useState(null);  // the MCC the user drilled into
   const [gadsMccClients, setGadsMccClients] = useState([]);   // level 2: clients under selected MCC
+  // ── Google Ads PUBLISH state (Phase 2.5a — publish RSAs into existing ad groups) ──
+  const [gadsPublishOpen, setGadsPublishOpen] = useState(false);
+  const [gadsPublishStep, setGadsPublishStep] = useState(1);  // 1=config, 2=confirm
+  const [gadsPublishing, setGadsPublishing] = useState(false);
+  const [gadsPublishResult, setGadsPublishResult] = useState(null);  // { total, successes, failures }
+  const [gadsPublishError, setGadsPublishError] = useState('');
+  const [gadsPublishProgress, setGadsPublishProgress] = useState('');
+  const [gadsAvailableCampaigns, setGadsAvailableCampaigns] = useState([]);
+  const [gadsAvailableAdGroups, setGadsAvailableAdGroups] = useState([]);
+  const [gadsCampaignsLoading, setGadsCampaignsLoading] = useState(false);
+  const [gadsAdGroupsLoading, setGadsAdGroupsLoading] = useState(false);
+  const [gadsSelectedCampaignId, setGadsSelectedCampaignId] = useState('');
+  const [gadsSelectedAdGroupId, setGadsSelectedAdGroupId] = useState('');
+  const [gadsPublishScope, setGadsPublishScope] = useState('current');  // 'current' | 'all'
   const [metaPickerOpen, setMetaPickerOpen] = useState(false);
   const [metaAvailableAccounts, setMetaAvailableAccounts] = useState([]);
   const [metaAvailablePages, setMetaAvailablePages] = useState([]);
@@ -1150,6 +1164,133 @@ function RSAStudio() {
     } finally {
       setGadsPickerSaving(false);
     }
+  };
+
+  // ── Google Ads PUBLISH handlers (Phase 2.5a) ──────────────────────────────
+  // Multi-ad publishing happens via frontend loop — each ad is its own POST to
+  // /api/google-ads-publish. This gives natural partial-success semantics and
+  // live progress feedback during multi-ad publishes.
+
+  const openGadsPublishModal = async () => {
+    if (!isSignedIn) { setShowAuthModal(true); return; }
+    if (!gadsConn.connected) { setGadsConnError('Connect Google Ads first.'); return; }
+    if (!gadsConn.customerId) { setGadsConnError('Pick an account first.'); return; }
+
+    setGadsPublishOpen(true);
+    setGadsPublishStep(1);
+    setGadsPublishError('');
+    setGadsPublishResult(null);
+    setGadsSelectedCampaignId('');
+    setGadsSelectedAdGroupId('');
+    setGadsPublishScope('current');
+    setGadsAvailableCampaigns([]);
+    setGadsAvailableAdGroups([]);
+    setGadsCampaignsLoading(true);
+
+    try {
+      const session = await window.Clerk.session.getToken();
+      const res = await fetch('/api/google-ads-campaigns', {
+        headers: { Authorization: `Bearer ${session}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load campaigns');
+      setGadsAvailableCampaigns(data.campaigns || []);
+      if (!data.campaigns || data.campaigns.length === 0) {
+        setGadsPublishError('No campaigns found in this account. Create a campaign in Google Ads first.');
+      }
+    } catch (err) {
+      setGadsPublishError(err.message || 'Failed to load campaigns');
+    } finally {
+      setGadsCampaignsLoading(false);
+    }
+  };
+
+  // When a campaign is picked, fetch its ad groups
+  const loadGadsAdGroups = async (campaignId) => {
+    setGadsSelectedAdGroupId('');
+    setGadsAvailableAdGroups([]);
+    if (!campaignId) return;
+    setGadsAdGroupsLoading(true);
+    setGadsPublishError('');
+    try {
+      const session = await window.Clerk.session.getToken();
+      const res = await fetch(`/api/google-ads-adgroups?campaignId=${encodeURIComponent(campaignId)}`, {
+        headers: { Authorization: `Bearer ${session}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load ad groups');
+      setGadsAvailableAdGroups(data.adGroups || []);
+      if (!data.adGroups || data.adGroups.length === 0) {
+        setGadsPublishError('No ad groups in this campaign. Create one in Google Ads first.');
+      }
+    } catch (err) {
+      setGadsPublishError(err.message || 'Failed to load ad groups');
+    } finally {
+      setGadsAdGroupsLoading(false);
+    }
+  };
+
+  // Publish a single row (one RSA ad) into the selected ad group
+  const publishOneGadsAd = async (row, adGroupId, finalUrl) => {
+    const session = await window.Clerk.session.getToken();
+    const headlines = (row.headlines || [])
+      .filter(h => h && h.text && h.text.trim().length > 0)
+      .map(h => ({ text: h.text, pin: h.pin || 0 }));
+    const descriptions = (row.descriptions || [])
+      .filter(d => d && d.text && d.text.trim().length > 0)
+      .map(d => ({ text: d.text, pin: d.pin || 0 }));
+
+    const payload = {
+      headlines,
+      descriptions,
+      finalUrl,
+      ...(row.path1 ? { path1: row.path1 } : {}),
+      ...(row.path2 ? { path2: row.path2 } : {}),
+      adGroupId,
+    };
+
+    const res = await fetch('/api/google-ads-publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session}` },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const err = new Error(data.error || 'Publish failed');
+      err.details = data.details || null;
+      throw err;
+    }
+    return data;
+  };
+
+  // Orchestrate the publish — sequential loop for partial-success + progress
+  const runGadsPublish = async () => {
+    if (gadsPublishing) return;
+    if (!gadsSelectedAdGroupId) { setGadsPublishError('Pick an ad group first.'); return; }
+
+    setGadsPublishing(true);
+    setGadsPublishError('');
+    setGadsPublishResult(null);
+
+    const rowsToPublish = gadsPublishScope === 'all' ? rows : [rows[activeRow]];
+    const finalUrl = url || '';
+    const results = { total: rowsToPublish.length, successes: [], failures: [] };
+
+    for (let i = 0; i < rowsToPublish.length; i++) {
+      const row = rowsToPublish[i];
+      setGadsPublishProgress(`Publishing ${i + 1} of ${rowsToPublish.length}…`);
+      try {
+        const r = await publishOneGadsAd(row, gadsSelectedAdGroupId, finalUrl);
+        results.successes.push({ rowId: row.id, rowIndex: i, resourceName: r.resourceName });
+      } catch (err) {
+        results.failures.push({ rowId: row.id, rowIndex: i, error: err.message, details: err.details });
+      }
+    }
+
+    setGadsPublishProgress('');
+    setGadsPublishing(false);
+    setGadsPublishResult(results);
+    setGadsPublishOpen(false);
   };
 
   // Magic-link auto-generation: when an outreach email link like
@@ -2694,6 +2835,168 @@ STRICT rules:
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Google Ads Publish Modal (Phase 2.5a — two-step: config → confirm) ── */}
+      {gadsPublishOpen && (
+        <div onClick={(e) => { if (e.target === e.currentTarget && !gadsPublishing) setGadsPublishOpen(false); }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'linear-gradient(135deg, #0a0e1a, #131825)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 24, maxWidth: 540, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            {/* Step indicator */}
+            <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+              {[1, 2].map(s => (
+                <div key={s} style={{ width: 28, height: 4, borderRadius: 2, background: gadsPublishStep >= s ? '#4285f4' : 'rgba(255,255,255,0.1)' }} />
+              ))}
+            </div>
+
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 8 }}>
+              {gadsPublishStep === 1 ? '🚀 Publish to Google Ads' : '✓ Confirm publish'}
+            </div>
+            <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 16, lineHeight: 1.5 }}>
+              {gadsPublishStep === 1
+                ? 'Pick the campaign and ad group to publish into. Ads will be created as PAUSED — no spend until you activate them in Google Ads.'
+                : 'Review the destination and ads. Confirm to publish into Google Ads.'}
+            </div>
+
+            {gadsPublishError && (
+              <div style={{ padding: '8px 10px', marginBottom: 12, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 6, fontSize: 11, color: '#fbbf24' }}>
+                ⚠ {gadsPublishError}
+              </div>
+            )}
+
+            {/* ─── STEP 1: Configuration ─── */}
+            {gadsPublishStep === 1 && (
+              <>
+                {/* Campaign */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 6, fontWeight: 700 }}>📢 Campaign</div>
+                  {gadsCampaignsLoading ? (
+                    <div style={{ fontSize: 10, color: '#7e92a8', padding: '8px 10px' }}>⟳ Loading campaigns…</div>
+                  ) : gadsAvailableCampaigns.length === 0 ? (
+                    <div style={{ fontSize: 10, color: '#fbbf24', padding: '6px 8px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 4 }}>
+                      No campaigns found. Create one in Google Ads first.
+                    </div>
+                  ) : (
+                    <select value={gadsSelectedCampaignId} onChange={(e) => { setGadsSelectedCampaignId(e.target.value); loadGadsAdGroups(e.target.value); }} style={{ width: '100%', padding: '8px 10px', fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#e2e8f0' }}>
+                      <option value="" style={{ background: '#0a0e1a' }}>— Pick a campaign —</option>
+                      {gadsAvailableCampaigns.map(c => (
+                        <option key={c.id} value={c.id} style={{ background: '#0a0e1a' }}>
+                          {c.name} [{c.channelTypeLabel}{c.status === 3 ? ' · PAUSED' : ''}]
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Ad group */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 6, fontWeight: 700 }}>🎯 Ad group</div>
+                  {!gadsSelectedCampaignId ? (
+                    <div style={{ fontSize: 10, color: '#7e92a8', padding: '8px 10px', fontStyle: 'italic' }}>Pick a campaign first</div>
+                  ) : gadsAdGroupsLoading ? (
+                    <div style={{ fontSize: 10, color: '#7e92a8', padding: '8px 10px' }}>⟳ Loading ad groups…</div>
+                  ) : gadsAvailableAdGroups.length === 0 ? (
+                    <div style={{ fontSize: 10, color: '#fbbf24', padding: '6px 8px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 4 }}>
+                      No ad groups in this campaign. Pick a different campaign or create an ad group in Google Ads first.
+                    </div>
+                  ) : (
+                    <select value={gadsSelectedAdGroupId} onChange={(e) => setGadsSelectedAdGroupId(e.target.value)} style={{ width: '100%', padding: '8px 10px', fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#e2e8f0' }}>
+                      <option value="" style={{ background: '#0a0e1a' }}>— Pick an ad group —</option>
+                      {gadsAvailableAdGroups.map(ag => (
+                        <option key={ag.id} value={ag.id} style={{ background: '#0a0e1a' }}>
+                          {ag.name}{ag.status === 3 ? ' (PAUSED)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Scope */}
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 6, fontWeight: 700 }}>📦 What to publish</div>
+                  {['current', 'all'].map(opt => (
+                    <div key={opt} onClick={() => setGadsPublishScope(opt)} style={{ padding: '10px 12px', marginBottom: 6, borderRadius: 8, border: `1px solid ${gadsPublishScope === opt ? '#4285f4' : 'rgba(255,255,255,0.1)'}`, background: gadsPublishScope === opt ? 'rgba(66,133,244,0.12)' : 'rgba(255,255,255,0.03)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${gadsPublishScope === opt ? '#4285f4' : '#4a5568'}`, background: gadsPublishScope === opt ? '#4285f4' : 'transparent', flexShrink: 0 }} />
+                      <div style={{ fontSize: 11, color: '#e2e8f0', flex: 1 }}>
+                        {opt === 'current' ? (
+                          <><strong>Publish current ad only</strong><div style={{ fontSize: 10, color: '#7e92a8', marginTop: 2 }}>One ad (the one visible in the editor)</div></>
+                        ) : (
+                          <><strong>Publish all {rows.length} variations</strong><div style={{ fontSize: 10, color: '#7e92a8', marginTop: 2 }}>Creates {rows.length} separate ads in the same ad group. Note: Google allows max 3 enabled RSAs per ad group.</div></>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setGadsPublishOpen(false)} style={{ flex: 1, padding: '9px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#7e92a8', cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                  <button onClick={() => setGadsPublishStep(2)} disabled={!gadsSelectedCampaignId || !gadsSelectedAdGroupId} style={{ flex: 2, padding: '9px', fontSize: 11, fontWeight: 800, background: (!gadsSelectedCampaignId || !gadsSelectedAdGroupId) ? 'rgba(66,133,244,0.25)' : 'linear-gradient(135deg,#4285f4,#2962d6)', border: 'none', borderRadius: 8, color: 'white', cursor: (!gadsSelectedCampaignId || !gadsSelectedAdGroupId) ? 'default' : 'pointer' }}>
+                    Next: Review →
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ─── STEP 2: Confirmation ─── */}
+            {gadsPublishStep === 2 && (() => {
+              const adsToPublish = gadsPublishScope === 'all' ? rows : [rows[activeRow]];
+              const campaign = gadsAvailableCampaigns.find(c => c.id === gadsSelectedCampaignId);
+              const adGroup = gadsAvailableAdGroups.find(ag => ag.id === gadsSelectedAdGroupId);
+              return (
+                <>
+                  {/* Destination summary */}
+                  <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(66,133,244,0.06)', border: '1px solid rgba(66,133,244,0.2)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 10, color: '#7aa6ff', fontWeight: 700, marginBottom: 6 }}>DESTINATION</div>
+                    <div style={{ fontSize: 11, color: '#e2e8f0', lineHeight: 1.6 }}>
+                      <div>Account: <strong>{gadsConn.customerId}</strong></div>
+                      <div>Campaign: <strong>{campaign?.name || '?'}</strong> <span style={{ color: '#7e92a8' }}>[{campaign?.channelTypeLabel}]</span></div>
+                      <div>Ad group: <strong>{adGroup?.name || '?'}</strong></div>
+                      <div>Publishing: <strong>{adsToPublish.length} {adsToPublish.length === 1 ? 'ad' : 'ads'}</strong></div>
+                    </div>
+                  </div>
+
+                  {/* Pause warning */}
+                  <div style={{ marginBottom: 14, padding: '8px 10px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 6, fontSize: 11, color: '#fbbf24' }}>
+                    ⚠ Ads will be created as <strong>PAUSED</strong>. Activate them in Google Ads when ready.
+                  </div>
+
+                  {/* Per-ad preview (collapsed for >1 ad) */}
+                  <div style={{ marginBottom: 14, maxHeight: 280, overflowY: 'auto' }}>
+                    {adsToPublish.map((row, i) => {
+                      const hl = (row.headlines || []).filter(h => h?.text);
+                      const desc = (row.descriptions || []).filter(d => d?.text);
+                      return (
+                        <div key={row.id} style={{ marginBottom: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#7e92a8', marginBottom: 4 }}>AD {i + 1} OF {adsToPublish.length}</div>
+                          <div style={{ fontSize: 10, color: '#e2e8f0', marginBottom: 4 }}>
+                            <strong>Headlines ({hl.length}):</strong> {hl.slice(0, 3).map(h => h.text).join(' · ')}{hl.length > 3 ? ` + ${hl.length - 3} more` : ''}
+                          </div>
+                          <div style={{ fontSize: 10, color: '#e2e8f0', marginBottom: 4 }}>
+                            <strong>Descriptions ({desc.length}):</strong> {desc.slice(0, 2).map(d => d.text.slice(0, 60) + (d.text.length > 60 ? '…' : '')).join(' · ')}
+                          </div>
+                          <div style={{ fontSize: 10, color: '#7e92a8' }}>
+                            <strong>Final URL:</strong> {url || '(no URL)'}
+                            {(row.path1 || row.path2) && <> · <strong>Paths:</strong> /{row.path1 || ''}{row.path2 ? '/' + row.path2 : ''}</>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setGadsPublishStep(1)} disabled={gadsPublishing} style={{ flex: 1, padding: '9px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#7e92a8', cursor: gadsPublishing ? 'default' : 'pointer' }}>
+                      ← Back
+                    </button>
+                    <button onClick={runGadsPublish} disabled={gadsPublishing} style={{ flex: 2, padding: '9px', fontSize: 11, fontWeight: 800, background: gadsPublishing ? 'rgba(251,191,36,0.4)' : 'linear-gradient(135deg,#4285f4,#2962d6)', border: 'none', borderRadius: 8, color: 'white', cursor: gadsPublishing ? 'default' : 'pointer' }}>
+                      {gadsPublishing ? (gadsPublishProgress || '⟳ Publishing…') : `✓ Confirm & Publish ${adsToPublish.length === 1 ? 'Ad' : adsToPublish.length + ' Ads'}`}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -5548,6 +5851,51 @@ STRICT rules:
               {gadsConnError && (adFormat === "rsa" || adFormat === "pmax") && (
                 <div style={{ marginBottom: 8, padding: '6px 10px', fontSize: 10, color: '#f87171', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6 }}>
                   ❌ {gadsConnError}
+                </div>
+              )}
+
+              {/* ── Publish to Google Ads button + result strip (Phase 2.5a) ── */}
+              {(adFormat === "rsa" || adFormat === "pmax") && isSignedIn && gadsConn.connected && gadsConn.customerId && (
+                <div style={{ marginBottom: 8 }}>
+                  <button onClick={() => { if (!gadsPublishing) openGadsPublishModal(); }} style={{
+                    width: '100%', padding: '8px', fontSize: 10, fontWeight: 700,
+                    background: gadsPublishing ? 'rgba(251,191,36,0.15)' : 'rgba(66,133,244,0.15)',
+                    border: gadsPublishing ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(66,133,244,0.4)',
+                    borderRadius: 6,
+                    color: gadsPublishing ? '#fbbf24' : '#7aa6ff',
+                    cursor: gadsPublishing ? 'default' : 'pointer',
+                    transition: 'all 0.3s',
+                    animation: gadsPublishing ? 'pulse 1.6s ease-in-out infinite' : 'none',
+                  }}>
+                    {gadsPublishing ? (gadsPublishProgress || '⟳ Publishing — please wait…') : '🚀 Publish to Google Ads'}
+                  </button>
+                  {gadsPublishResult && gadsPublishResult.failures.length === 0 && (
+                    <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6 }}>
+                      <div style={{ fontSize: 10, color: '#34d399', fontWeight: 700 }}>
+                        ✅ {gadsPublishResult.successes.length === 1 ? 'Ad created' : `${gadsPublishResult.successes.length} ads created`} as PAUSED in Google Ads
+                      </div>
+                      <a href={`https://ads.google.com/aw/adgroups/ads?campaignId=${gadsSelectedCampaignId}&adGroupId=${gadsSelectedAdGroupId}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#7aa6ff' }}>→ Review and activate in Google Ads</a>
+                    </div>
+                  )}
+                  {gadsPublishResult && gadsPublishResult.failures.length > 0 && gadsPublishResult.successes.length === 0 && (
+                    <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6 }}>
+                      <div style={{ fontSize: 10, color: '#f87171', fontWeight: 700, marginBottom: 4 }}>❌ Failed to publish</div>
+                      {gadsPublishResult.failures.map((f, i) => (
+                        <div key={i} style={{ fontSize: 10, color: '#f87171', marginLeft: 8 }}>• Ad {f.rowIndex + 1}: {f.error}</div>
+                      ))}
+                    </div>
+                  )}
+                  {gadsPublishResult && gadsPublishResult.failures.length > 0 && gadsPublishResult.successes.length > 0 && (
+                    <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 6 }}>
+                      <div style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, marginBottom: 4 }}>
+                        ⚠ Partial success: {gadsPublishResult.successes.length} of {gadsPublishResult.total} ads published
+                      </div>
+                      {gadsPublishResult.failures.map((f, i) => (
+                        <div key={i} style={{ fontSize: 10, color: '#f87171', marginLeft: 8 }}>• Ad {f.rowIndex + 1}: {f.error}</div>
+                      ))}
+                      <a href={`https://ads.google.com/aw/adgroups/ads?campaignId=${gadsSelectedCampaignId}&adGroupId=${gadsSelectedAdGroupId}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#7aa6ff' }}>→ Review what was published in Google Ads</a>
+                    </div>
+                  )}
                 </div>
               )}
 
