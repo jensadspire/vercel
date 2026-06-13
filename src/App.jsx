@@ -2860,7 +2860,7 @@ STRICT rules:
             </div>
 
             {gadsPublishError && (
-              <div style={{ padding: '8px 10px', marginBottom: 12, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 6, fontSize: 11, color: '#fbbf24' }}>
+              <div style={{ padding: '8px 10px', marginBottom: 12, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 6, fontSize: 11, color: '#fbbf24', whiteSpace: 'pre-line', lineHeight: 1.5 }}>
                 ⚠ {gadsPublishError}
               </div>
             )}
@@ -2933,7 +2933,39 @@ STRICT rules:
                   <button onClick={() => setGadsPublishOpen(false)} style={{ flex: 1, padding: '9px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#7e92a8', cursor: 'pointer' }}>
                     Cancel
                   </button>
-                  <button onClick={() => setGadsPublishStep(2)} disabled={!gadsSelectedCampaignId || !gadsSelectedAdGroupId} style={{ flex: 2, padding: '9px', fontSize: 11, fontWeight: 800, background: (!gadsSelectedCampaignId || !gadsSelectedAdGroupId) ? 'rgba(66,133,244,0.25)' : 'linear-gradient(135deg,#4285f4,#2962d6)', border: 'none', borderRadius: 8, color: 'white', cursor: (!gadsSelectedCampaignId || !gadsSelectedAdGroupId) ? 'default' : 'pointer' }}>
+                  <button onClick={() => {
+                    // ── Pre-publish validation (Fix B): block step 2 if any text is over Google's limits ──
+                    const adsToCheck = gadsPublishScope === 'all' ? rows : [rows[activeRow]];
+                    const issues = [];
+                    adsToCheck.forEach((row, rowIdx) => {
+                      const adNum = gadsPublishScope === 'all' ? `Ad ${rowIdx + 1}` : 'This ad';
+                      (row.headlines || []).forEach((h, i) => {
+                        const t = (h?.text || '').trim();
+                        if (t.length > 30) issues.push(`${adNum}, Headline ${i + 1} is ${t.length} chars — must be ≤30`);
+                      });
+                      (row.descriptions || []).forEach((d, i) => {
+                        const t = (d?.text || '').trim();
+                        if (t.length > 90) issues.push(`${adNum}, Description ${i + 1} is ${t.length} chars — must be ≤90`);
+                      });
+                      if (row.path1 && row.path1.length > 15) issues.push(`${adNum}, Path 1 is ${row.path1.length} chars — must be ≤15`);
+                      if (row.path2 && row.path2.length > 15) issues.push(`${adNum}, Path 2 is ${row.path2.length} chars — must be ≤15`);
+                      // Also check minimums — Google requires ≥3 headlines and ≥2 descriptions
+                      const nonEmptyHl = (row.headlines || []).filter(h => (h?.text || '').trim().length > 0).length;
+                      const nonEmptyDesc = (row.descriptions || []).filter(d => (d?.text || '').trim().length > 0).length;
+                      if (nonEmptyHl < 3) issues.push(`${adNum}: needs at least 3 non-empty headlines (has ${nonEmptyHl})`);
+                      if (nonEmptyDesc < 2) issues.push(`${adNum}: needs at least 2 non-empty descriptions (has ${nonEmptyDesc})`);
+                    });
+                    // Also check the final URL
+                    if (!url || !/^https?:\/\//i.test(url)) {
+                      issues.push('Final URL: must be a valid http(s) URL. Make sure you have a URL in the input field at the top.');
+                    }
+                    if (issues.length > 0) {
+                      setGadsPublishError('Cannot publish — fix these issues first:\n• ' + issues.join('\n• '));
+                      return;
+                    }
+                    setGadsPublishError('');
+                    setGadsPublishStep(2);
+                  }} disabled={!gadsSelectedCampaignId || !gadsSelectedAdGroupId} style={{ flex: 2, padding: '9px', fontSize: 11, fontWeight: 800, background: (!gadsSelectedCampaignId || !gadsSelectedAdGroupId) ? 'rgba(66,133,244,0.25)' : 'linear-gradient(135deg,#4285f4,#2962d6)', border: 'none', borderRadius: 8, color: 'white', cursor: (!gadsSelectedCampaignId || !gadsSelectedAdGroupId) ? 'default' : 'pointer' }}>
                     Next: Review →
                   </button>
                 </div>
