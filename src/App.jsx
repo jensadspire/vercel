@@ -2868,25 +2868,45 @@ STRICT rules:
             {/* ─── STEP 1: Configuration ─── */}
             {gadsPublishStep === 1 && (
               <>
-                {/* Campaign */}
+                {/* Campaign — Search only (channelType 2). PMax + others filtered out for this RSA-only publish flow */}
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 6, fontWeight: 700 }}>📢 Campaign</div>
-                  {gadsCampaignsLoading ? (
-                    <div style={{ fontSize: 10, color: '#7e92a8', padding: '8px 10px' }}>⟳ Loading campaigns…</div>
-                  ) : gadsAvailableCampaigns.length === 0 ? (
-                    <div style={{ fontSize: 10, color: '#fbbf24', padding: '6px 8px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 4 }}>
-                      No campaigns found. Create one in Google Ads first.
-                    </div>
-                  ) : (
-                    <select value={gadsSelectedCampaignId} onChange={(e) => { setGadsSelectedCampaignId(e.target.value); loadGadsAdGroups(e.target.value); }} style={{ width: '100%', padding: '8px 10px', fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#e2e8f0' }}>
-                      <option value="" style={{ background: '#0a0e1a' }}>— Pick a campaign —</option>
-                      {gadsAvailableCampaigns.map(c => (
-                        <option key={c.id} value={c.id} style={{ background: '#0a0e1a' }}>
-                          {c.name} [{c.channelTypeLabel}{c.status === 3 ? ' · PAUSED' : ''}]
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                  {(() => {
+                    const searchCampaigns = (gadsAvailableCampaigns || []).filter(c => c.channelType === 2);
+                    const hiddenCount = (gadsAvailableCampaigns || []).length - searchCampaigns.length;
+                    if (gadsCampaignsLoading) {
+                      return <div style={{ fontSize: 10, color: '#7e92a8', padding: '8px 10px' }}>⟳ Loading campaigns…</div>;
+                    }
+                    if (gadsAvailableCampaigns.length === 0) {
+                      return (
+                        <div style={{ fontSize: 10, color: '#fbbf24', padding: '6px 8px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 4 }}>
+                          No campaigns found. Create one in Google Ads first.
+                        </div>
+                      );
+                    }
+                    if (searchCampaigns.length === 0) {
+                      return (
+                        <div style={{ fontSize: 10, color: '#fbbf24', padding: '6px 8px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 4 }}>
+                          No Search campaigns found in this account. PMax publishing is coming soon.
+                        </div>
+                      );
+                    }
+                    return (
+                      <>
+                        <select value={gadsSelectedCampaignId} onChange={(e) => { setGadsSelectedCampaignId(e.target.value); loadGadsAdGroups(e.target.value); }} style={{ width: '100%', padding: '8px 10px', fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#e2e8f0' }}>
+                          <option value="" style={{ background: '#0a0e1a' }}>— Pick a campaign —</option>
+                          {searchCampaigns.map(c => (
+                            <option key={c.id} value={c.id} style={{ background: '#0a0e1a' }}>
+                              {c.name}{c.status === 3 ? ' [PAUSED]' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <div style={{ fontSize: 9, color: '#5d6b7d', marginTop: 5, fontStyle: 'italic' }}>
+                          Showing Search campaigns only{hiddenCount > 0 ? ` — ${hiddenCount} other campaign${hiddenCount > 1 ? 's' : ''} (PMax/Display) hidden` : ''}. PMax publishing is coming soon.
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Ad group */}
@@ -5909,7 +5929,7 @@ STRICT rules:
                       <div style={{ fontSize: 10, color: '#34d399', fontWeight: 700 }}>
                         ✅ {gadsPublishResult.successes.length === 1 ? 'Ad created' : `${gadsPublishResult.successes.length} ads created`} as PAUSED in Google Ads
                       </div>
-                      <a href={`https://ads.google.com/aw/adgroups/ads?campaignId=${gadsSelectedCampaignId}&adGroupId=${gadsSelectedAdGroupId}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#7aa6ff' }}>→ Review and activate in Google Ads</a>
+                      <a href={`https://ads.google.com/aw/adgroups/adsandassets?__c=${gadsConn.customerId}&campaignId=${gadsSelectedCampaignId}&adGroupId=${gadsSelectedAdGroupId}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#7aa6ff' }}>→ Review and activate in Google Ads</a>
                     </div>
                   )}
                   {gadsPublishResult && gadsPublishResult.failures.length > 0 && gadsPublishResult.successes.length === 0 && (
@@ -5928,7 +5948,7 @@ STRICT rules:
                       {gadsPublishResult.failures.map((f, i) => (
                         <div key={i} style={{ fontSize: 10, color: '#f87171', marginLeft: 8 }}>• Ad {f.rowIndex + 1}: {f.error}</div>
                       ))}
-                      <a href={`https://ads.google.com/aw/adgroups/ads?campaignId=${gadsSelectedCampaignId}&adGroupId=${gadsSelectedAdGroupId}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#7aa6ff' }}>→ Review what was published in Google Ads</a>
+                      <a href={`https://ads.google.com/aw/adgroups/adsandassets?__c=${gadsConn.customerId}&campaignId=${gadsSelectedCampaignId}&adGroupId=${gadsSelectedAdGroupId}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#7aa6ff' }}>→ Review what was published in Google Ads</a>
                     </div>
                   )}
                 </div>
