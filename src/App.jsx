@@ -621,9 +621,6 @@ export default function App() {
 function RSAStudio() {
   const [url, setUrl] = useState("");
   const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax" | "meta"
-  // ── PMax long-headlines generation (for RSA → PMax bridge) ──
-  const [generatingLongHeadlines, setGeneratingLongHeadlines] = useState(false);
-  const [longHeadlinesError, setLongHeadlinesError] = useState('');
   const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
   const [imageModel, setImageModel] = useState('imagen'); // 'dalle' | 'imagen'
   const [metaResult, setMetaResult] = useState(null);
@@ -1294,135 +1291,6 @@ function RSAStudio() {
     setGadsPublishing(false);
     setGadsPublishResult(results);
     setGadsPublishOpen(false);
-  };
-
-  // ── PMax long-headlines: on-demand generator for RSA → PMax bridge ───────
-  // Called from the PMax tab when long headlines are missing. Uses existing
-  // headlines + descriptions + URL/title context to produce 5 long headlines.
-  // Counts against the user's quota (same gating as full-ad generation).
-  const generateLongHeadlinesForActiveRow = async () => {
-    if (generatingLongHeadlines) return;
-    const row = rows[activeRow];
-    if (!row) return;
-
-    setLongHeadlinesError('');
-    setGeneratingLongHeadlines(true);
-
-    try {
-      // Extract context from the current row
-      const existingHeadlines = (row.headlines || [])
-        .map(h => (typeof h === 'string' ? h : h?.text || ''))
-        .filter(t => t && t.trim().length > 0);
-      const existingDescriptions = (row.descriptions || [])
-        .map(d => (typeof d === 'string' ? d : d?.text || ''))
-        .filter(t => t && t.trim().length > 0);
-
-      if (existingHeadlines.length < 3) {
-        setLongHeadlinesError('Need at least 3 headlines in the ad first.');
-        setGeneratingLongHeadlines(false);
-        return;
-      }
-      if (existingDescriptions.length < 2) {
-        setLongHeadlinesError('Need at least 2 descriptions in the ad first.');
-        setGeneratingLongHeadlines(false);
-        return;
-      }
-
-      // Determine output language from existing copy or default to English
-      // Use pageMeta.language if available (set during the original generation),
-      // otherwise default to English. typeof check avoids ReferenceError if
-      // pageMeta is somehow out of scope.
-      const langGuess = (typeof pageMeta !== 'undefined' && pageMeta?.language) || 'English';
-
-      const prompt = `You are a Google Ads expert. Generate exactly 5 long headlines for a Performance Max asset group.
-
-OUTPUT LANGUAGE: ${langGuess}
-CRITICAL: Write ALL long headlines in ${langGuess}. Do not use English if the language is not English.
-
-CONTEXT — this is for an existing ad that already has these assets:
-${typeof pageMeta !== 'undefined' && pageMeta?.title ? `Page Title: ${pageMeta.title}` : ''}
-${url ? `Page URL: ${url}` : ''}
-
-Existing headlines:
-${existingHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n')}
-
-Existing descriptions:
-${existingDescriptions.map((d, i) => `${i + 1}. ${d}`).join('\n')}
-
-Return ONLY valid JSON — no prose, no markdown fences:
-{
-  "longHeadlines": ["lh1","lh2","lh3","lh4","lh5"]
-}
-
-Rules:
-- longHeadlines: exactly 5 long headlines
-- longHeadlines[0] must be MAX 60 chars
-- longHeadlines[1-4] must be MAX 90 chars each
-- Each long headline is a complete value proposition — fuller and more descriptive than the short headlines above
-- Do NOT end with punctuation
-- Do NOT repeat the existing headlines verbatim — complement them
-- Tone should match the existing copy`;
-
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}),
-          ...(isSignedIn && session ? { 'x-clerk-session': await session.getToken() } : {}),
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 800,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
-
-      const data = await res.json();
-
-      if (data.gated) {
-        setUsageCount(data.count || FREE_LIMIT);
-        setShowGateModal(true);
-        setGeneratingLongHeadlines(false);
-        return;
-      }
-
-      const text = data.content?.[0]?.text || '';
-      const clean = text.replace(/```json|```/g, '').trim();
-
-      let parsed;
-      try {
-        parsed = JSON.parse(clean);
-      } catch (e) {
-        setLongHeadlinesError('Could not parse the response. Please try again.');
-        setGeneratingLongHeadlines(false);
-        return;
-      }
-
-      if (!Array.isArray(parsed.longHeadlines) || parsed.longHeadlines.length === 0) {
-        setLongHeadlinesError('No long headlines were returned. Please try again.');
-        setGeneratingLongHeadlines(false);
-        return;
-      }
-
-      // Truncate to ensure we respect Google's limits (60 for index 0, 90 for others)
-      const cleanedLongHeadlines = parsed.longHeadlines.slice(0, 5).map((lh, i) => {
-        const max = i === 0 ? 60 : 90;
-        const s = String(lh || '').trim();
-        return s.length > max ? s.slice(0, max).trim() : s;
-      });
-
-      // Merge into the active row (immutable update)
-      setRows(prev => prev.map((r, idx) =>
-        idx === activeRow ? { ...r, longHeadlines: cleanedLongHeadlines } : r
-      ));
-
-      setLongHeadlinesError('');
-    } catch (err) {
-      console.error('[generateLongHeadlinesForActiveRow] error:', err);
-      setLongHeadlinesError(err?.message || 'Failed to generate long headlines. Please try again.');
-    } finally {
-      setGeneratingLongHeadlines(false);
-    }
   };
 
   // Magic-link auto-generation: when an outreach email link like
@@ -4797,77 +4665,10 @@ STRICT rules:
                     {(p.headlines || []).map((h, i) => <AssetRow key={i} text={h} limit={30} />)}
                   </div>
 
-                  {/* Long Headlines — with on-demand generation for RSA → PMax bridge */}
+                  {/* Long Headlines */}
                   <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px" }}>
                     <SectionLabel>Long Headlines (90 chars)</SectionLabel>
-                    {(() => {
-                      const hasLongHeadlines = (p.longHeadlines || []).some(lh => {
-                        const t = typeof lh === 'string' ? lh : lh?.text || '';
-                        return t && t.trim().length > 0;
-                      });
-                      if (hasLongHeadlines) {
-                        return (
-                          <>
-                            {(p.longHeadlines || []).map((h, i) => <AssetRow key={i} text={h} limit={i === 0 ? 60 : 90} color="#34d399" />)}
-                            {longHeadlinesError && (
-                              <div style={{ marginTop: 8, padding: '6px 10px', fontSize: 10, color: '#f87171', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6 }}>
-                                ⚠ {longHeadlinesError}
-                              </div>
-                            )}
-                            <button
-                              onClick={generateLongHeadlinesForActiveRow}
-                              disabled={generatingLongHeadlines}
-                              style={{
-                                marginTop: 10, padding: '6px 10px', fontSize: 10, fontWeight: 700,
-                                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                                borderRadius: 6, color: '#8fa3b8',
-                                cursor: generatingLongHeadlines ? 'default' : 'pointer',
-                                display: 'inline-flex', alignItems: 'center', gap: 6,
-                              }}
-                            >
-                              {generatingLongHeadlines ? (
-                                <><span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> Regenerating…</>
-                              ) : (
-                                <>↻ Regenerate long headlines</>
-                              )}
-                            </button>
-                          </>
-                        );
-                      }
-                      // Empty state — prominent generate button
-                      return (
-                        <div style={{ padding: '16px 12px', textAlign: 'center' }}>
-                          <div style={{ fontSize: 11, color: '#8fa3b8', marginBottom: 12, lineHeight: 1.5 }}>
-                            Long headlines weren't generated in the original RSA. Generate 5 long headlines now to complete the PMax asset group.
-                          </div>
-                          <button
-                            onClick={generateLongHeadlinesForActiveRow}
-                            disabled={generatingLongHeadlines}
-                            style={{
-                              padding: '10px 18px', fontSize: 12, fontWeight: 700,
-                              background: generatingLongHeadlines
-                                ? 'rgba(52,211,153,0.25)'
-                                : 'linear-gradient(135deg,#34d399,#10b981)',
-                              border: 'none', borderRadius: 8, color: 'white',
-                              cursor: generatingLongHeadlines ? 'default' : 'pointer',
-                              display: 'inline-flex', alignItems: 'center', gap: 8,
-                              transition: 'all 0.2s',
-                            }}
-                          >
-                            {generatingLongHeadlines ? (
-                              <><span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> Generating long headlines…</>
-                            ) : (
-                              <>✨ Generate long headlines</>
-                            )}
-                          </button>
-                          {longHeadlinesError && (
-                            <div style={{ marginTop: 10, padding: '6px 10px', fontSize: 10, color: '#f87171', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6 }}>
-                              ⚠ {longHeadlinesError}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    {(p.longHeadlines || []).map((h, i) => <AssetRow key={i} text={h} limit={i === 0 ? 60 : 90} color="#34d399" />)}
                   </div>
 
                   {/* Descriptions */}
