@@ -1329,7 +1329,10 @@ function RSAStudio() {
       }
 
       // Determine output language from existing copy or default to English
-      const langGuess = (rsaPageMeta?.language || pageMeta?.language || 'English');
+      // Use pageMeta.language if available (set during the original generation),
+      // otherwise default to English. typeof check avoids ReferenceError if
+      // pageMeta is somehow out of scope.
+      const langGuess = (typeof pageMeta !== 'undefined' && pageMeta?.language) || 'English';
 
       const prompt = `You are a Google Ads expert. Generate exactly 5 long headlines for a Performance Max asset group.
 
@@ -1337,7 +1340,7 @@ OUTPUT LANGUAGE: ${langGuess}
 CRITICAL: Write ALL long headlines in ${langGuess}. Do not use English if the language is not English.
 
 CONTEXT — this is for an existing ad that already has these assets:
-${rsaPageMeta?.title || pageMeta?.title ? `Page Title: ${rsaPageMeta?.title || pageMeta?.title}` : ''}
+${typeof pageMeta !== 'undefined' && pageMeta?.title ? `Page Title: ${pageMeta.title}` : ''}
 ${url ? `Page URL: ${url}` : ''}
 
 Existing headlines:
