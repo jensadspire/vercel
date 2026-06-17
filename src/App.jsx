@@ -610,6 +610,20 @@ function EditableField({ label, value, limit, onChange, pinValue, onPinChange, m
 // ── Clerk-wrapped entry point ─────────────────────────────────────────────────
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
+// Format a scraped price + ISO currency into a localised currency string.
+// Returns null when either piece is missing, so callers fall back to USP copy
+// rather than show an ambiguous or wrong price in a live ad.
+function formatPrice(amount, currency) {
+  if (amount == null || !currency) return null;
+  const num = parseFloat(String(amount).replace(/[^\d.,-]/g, "").replace(",", "."));
+  if (!isFinite(num) || num <= 0) return null;
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(num);
+  } catch (_) {
+    return num + " " + currency;
+  }
+}
+
 export default function App() {
   return (
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
@@ -3080,7 +3094,7 @@ STRICT rules:
         const carouselCards = activeCarouselImgsP.map((cImg, ci) => ({
           imageUrl: cImg,
           headline: carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl,
-          description: carouselCardTexts[ci]?.desc || metaResult?.descriptions?.[ci % Math.max((metaResult?.descriptions?.length||1),1)] || desc,
+          description: (carouselPriceMode && formatPrice(pageMeta?.price, pageMeta?.priceCurrency)) || carouselCardTexts[ci]?.desc || metaResult?.descriptions?.[ci % Math.max((metaResult?.descriptions?.length||1),1)] || desc,
           url: url,
         }));
         const doPublish = async () => {
@@ -5667,12 +5681,12 @@ STRICT rules:
                           </div>
                           {/* Primary text + price toggle */}
                           <div style={{ padding: "0 12px 6px", fontSize: 11, color: "#1c1e21", lineHeight: 1.4 }}>{pt?.slice(0, 80)}{pt?.length > 80 ? '…' : ''}</div>
-                          {pageMeta?.price && (
+                          {pageMeta?.price && pageMeta?.priceCurrency && (
                             <div style={{ padding: "0 12px 8px", display: "flex", alignItems: "center", gap: 6 }}>
                               <button onClick={() => setCarouselPriceMode(v => !v)} style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer", background: carouselPriceMode ? "rgba(16,185,129,0.2)" : "rgba(255,255,255,0.1)", color: carouselPriceMode ? "#10b981" : "#65676b" }}>
                                 {carouselPriceMode ? "💰 Price mode" : "💡 USP mode"}
                               </button>
-                              {carouselPriceMode && <span style={{ fontSize: 9, color: "#65676b" }}>Showing price: {pageMeta.price}</span>}
+                              {carouselPriceMode && <span style={{ fontSize: 9, color: "#65676b" }}>Showing price: {formatPrice(pageMeta.price, pageMeta.priceCurrency)}</span>}
                             </div>
                           )}
                           {/* Carousel slides */}
@@ -5696,8 +5710,8 @@ STRICT rules:
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl || "Discover More").slice(0, 22)}</div>
                                     <div style={{ fontSize: 9, color: carouselPriceMode ? "#10b981" : "#65676b", fontWeight: carouselPriceMode ? 700 : 400 }}>
-                                      {carouselPriceMode && pageMeta?.price
-                                        ? `${pageMeta.price} kr.`
+                                      {carouselPriceMode && formatPrice(pageMeta?.price, pageMeta?.priceCurrency)
+                                        ? formatPrice(pageMeta.price, pageMeta.priceCurrency)
                                         : (carouselCardTexts[ci]?.desc || metaResult?.descriptions?.[ci % Math.max((metaResult?.descriptions?.length||1),1)] || d || "").slice(0, 30)
                                       }
                                     </div>

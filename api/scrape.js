@@ -495,23 +495,60 @@ export default async function handler(req, res) {
     // Deduplicate preserving order
     result.images = [...new Set(rawImages)].slice(0, 20);
 
-    // Extract price from page
-    const pricePatterns = [
-      /<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i,
-      /<meta[^>]+property=["']og:price:amount["'][^>]+content=["']([^"']+)["']/i,
-      /class=["'][^"']*price[^"']*["'][^>]*>[^<]*?([\d]+[.,]\d{2})/i,
-      /"price"\s*:\s*"?([\d]+[.,]\d{0,2})"?/i,
-      /"price"\s*:\s*([\d]+\.?\d*)/i,
-    ];
-    let price = null;
-    for (const pat of pricePatterns) {
-      const m = html.match(pat);
-      if (m && m[1] && parseFloat(m[1].replace(',', '.')) > 0) {
-        price = m[1].trim();
-        break;
+    // ── Price + currency ──────────────────────────────────────────────────────
+    // Prefer structured data bound to the product so the price stays tied to the
+    // hero product and carries its real currency: JSON-LD Offer first (price +
+    // priceCurrency together), then product/og price meta. A loose page scan is
+    // the last resort and yields NO currency, so the UI suppresses it (better no
+    // price than a wrong one). Category pages have 0 or many Product nodes, so
+    // they produce no price here — which is the intended behaviour.
+    let price = null, priceCurrency = null;
+    const toArr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
+
+    // 1. JSON-LD: only trust a price when there is exactly ONE Product node.
+    const ldProducts = [];
+    for (const ld of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+      try {
+        const parsed = JSON.parse(ld[1].trim());
+        const stack = Array.isArray(parsed) ? [...parsed] : [parsed];
+        while (stack.length) {
+          const node = stack.shift();
+          if (!node || typeof node !== 'object') continue;
+          if (node['@graph']) stack.push(...toArr(node['@graph']));
+          if (toArr(node['@type']).includes('Product')) ldProducts.push(node);
+        }
+      } catch (_) {}
+    }
+    if (ldProducts.length === 1) {
+      for (const off of toArr(ldProducts[0].offers)) {
+        if (off && typeof off === 'object' && off.priceCurrency && (off.price != null || off.lowPrice != null)) {
+          const amt = String(off.price != null ? off.price : off.lowPrice).trim();
+          if (parseFloat(amt.replace(',', '.')) > 0) { price = amt; priceCurrency = String(off.priceCurrency).trim().toUpperCase(); }
+          break;
+        }
       }
     }
+
+    // 2. OpenGraph / product price meta (amount + currency paired).
+    if (!price) {
+      const amt = html.match(/<meta[^>]+property=["'](?:product:price:amount|og:price:amount)["'][^>]+content=["']([^"']+)["']/i);
+      if (amt && parseFloat(amt[1].replace(',', '.')) > 0) {
+        price = amt[1].trim();
+        const cur = html.match(/<meta[^>]+property=["'](?:product:price:currency|og:price:currency)["'][^>]+content=["']([^"']+)["']/i);
+        if (cur) priceCurrency = cur[1].trim().toUpperCase();
+      }
+    }
+
+    // 3. Last resort: a loose number with NO reliable currency (UI suppresses it).
+    if (!price) {
+      for (const pat of [/class=["'][^"']*price[^"']*["'][^>]*>[^<]*?([\d]+[.,]\d{2})/i, /"price"\s*:\s*"?([\d]+[.,]\d{0,2})"?/i]) {
+        const mm = html.match(pat);
+        if (mm && mm[1] && parseFloat(mm[1].replace(',', '.')) > 0) { price = mm[1].trim(); break; }
+      }
+    }
+
     if (price) result.price = price;
+    if (priceCurrency) result.priceCurrency = priceCurrency;
 
     // ── Domain-specific gallery extraction ────────────────────────────────────
     // For sites that load galleries via JS/API, construct image URLs from patterns
