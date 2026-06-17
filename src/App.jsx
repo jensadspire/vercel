@@ -4841,8 +4841,31 @@ STRICT rules:
                                 const reader = new FileReader();
                                 reader.onload = async (ev) => {
                                   const dataUrl = ev.target.result;
-                                  const base64 = dataUrl.split(",")[1];
-                                  const mediaType = imageFile.type;
+                                  // Normalize the upload to PNG via canvas. The browser decodes whatever was
+                                  // actually uploaded (incl. webp/avif served under a .png name), and we
+                                  // re-encode to PNG so the declared media type always matches the bytes —
+                                  // Claude Vision and Imagen both reject a type that disagrees with the image.
+                                  let base64, mediaType;
+                                  try {
+                                    const decoded = await new Promise((resolve, reject) => {
+                                      const im = new Image();
+                                      im.onload = () => resolve(im);
+                                      im.onerror = () => reject(new Error("could not decode image"));
+                                      im.src = dataUrl;
+                                    });
+                                    const MAX = 1280;
+                                    let w = decoded.naturalWidth, h = decoded.naturalHeight;
+                                    if (Math.max(w, h) > MAX) { const s = MAX / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+                                    const canvas = document.createElement("canvas");
+                                    canvas.width = w; canvas.height = h;
+                                    canvas.getContext("2d").drawImage(decoded, 0, 0, w, h);
+                                    base64 = canvas.toDataURL("image/png").split(",")[1];
+                                    mediaType = "image/png";
+                                  } catch (normErr) {
+                                    alert("Couldn't read that image — please try a JPG or PNG file. (" + normErr.message + ")");
+                                    setImageLoading(false);
+                                    return;
+                                  }
                                   // Step 1: Claude Vision analysis → tailored prompt (kept)
                                   const imgRes = await fetch("/api/image-gen", {
                                     method: "POST",
