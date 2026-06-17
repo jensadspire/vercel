@@ -64,7 +64,13 @@ export default async function handler(req, res) {
   const saKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   if (!saKey) return res.status(500).json({ error: 'Google service account not configured' });
 
-  const { prompt, imageBase64, imageMimeType = 'image/jpeg', imageUrl, sceneImageUrl } = req.body || {};
+  const { prompt, imageBase64, imageMimeType = 'image/jpeg', imageUrl, sceneImageUrl, aspectRatio = '1:1' } = req.body || {};
+
+  // ── Aspect ratio: caller may request one; defaults to 1:1 (preserves Meta) ──
+  // Imagen 3 supports exactly these five ratios. Anything else degrades to 1:1
+  // rather than erroring, so a bad caller value can never break a generation.
+  const SUPPORTED_ASPECT_RATIOS = ['1:1', '9:16', '16:9', '3:4', '4:3'];
+  const safeAspectRatio = SUPPORTED_ASPECT_RATIOS.includes(aspectRatio) ? aspectRatio : '1:1';
   if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
   const projectId = JSON.parse(saKey).project_id;
@@ -154,7 +160,7 @@ export default async function handler(req, res) {
           instances: [instance],
           parameters: {
             sampleCount: 1,
-            aspectRatio: '1:1',
+            aspectRatio: safeAspectRatio,
             safetyFilterLevel: 'block_some',
             personGeneration: 'allow_adult',
           },
@@ -181,7 +187,7 @@ export default async function handler(req, res) {
             headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
               instances: [{ prompt }],
-              parameters: { sampleCount: 1, aspectRatio: '1:1', safetyFilterLevel: 'block_some' },
+              parameters: { sampleCount: 1, aspectRatio: safeAspectRatio, safetyFilterLevel: 'block_some' },
             }),
           }
         );
@@ -200,7 +206,7 @@ export default async function handler(req, res) {
 
     // ── Upload to Vercel Blob ─────────────────────────────────────────────────
     const { put } = await import('@vercel/blob');
-    const blob = await put(`imagen-${Date.now()}.png`, Buffer.from(b64, 'base64'), {
+    const blob = await put(`imagen-${safeAspectRatio.replace(':', 'x')}-${Date.now()}.png`, Buffer.from(b64, 'base64'), {
       access: 'public',
       contentType: 'image/png',
       token: process.env.BLOB_READ_WRITE_TOKEN,
