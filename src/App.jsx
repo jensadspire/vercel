@@ -1923,9 +1923,9 @@ ${audienceInstruction}
 Return ONLY valid JSON — no prose, no markdown fences:
 {
   "businessName": "max 25 chars",
-  "businessName": "max 25 chars",
   "headlines": ["h1","h2","h3","h4","h5","h6","h7","h8","h9","h10","h11","h12","h13","h14","h15"],
   "longHeadlines": ["lh1 max 60 chars","lh2","lh3","lh4","lh5"],
+  "descriptions": ["d1","d2","d3","d4","d5"],
   "callToAction": "one of: Shop Now, Learn More, Sign Up, Get Quote, Apply Now, Book Now, Contact Us, Download, Get Offer, Order Now, Subscribe, Visit Site"
 }
 
