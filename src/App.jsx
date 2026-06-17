@@ -4960,7 +4960,7 @@ STRICT rules:
                                     )}
                                   </div>
                                   {img.imageUrl ? (
-                                    <img src={img.imageUrl} alt={img.label} style={{ width: "100%", display: "block", maxHeight: 220, objectFit: "cover" }} />
+                                    <img src={img.imageUrl} alt={img.label} style={{ width: "100%", height: "auto", display: "block" }} />
                                   ) : (
                                     <div style={{ padding: 20, textAlign: "center", color: "#7e92a8", fontSize: 11 }}>
                                       ⚠ {img.error || "Generation failed for this format"}
