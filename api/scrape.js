@@ -496,16 +496,25 @@ export default async function handler(req, res) {
     result.images = [...new Set(rawImages)].slice(0, 20);
 
     // ── Price + currency ──────────────────────────────────────────────────────
-    // Prefer structured data bound to the product so the price stays tied to the
-    // hero product and carries its real currency: JSON-LD Offer first (price +
-    // priceCurrency together), then product/og price meta. A loose page scan is
-    // the last resort and yields NO currency, so the UI suppresses it (better no
-    // price than a wrong one). Category pages have 0 or many Product nodes, so
-    // they produce no price here — which is the intended behaviour.
+    // Price stays bound to the main product, and currency is resolved INDEPENDENTLY
+    // of how the price was found, so a price is never shown without its currency.
+    // Sources: JSON-LD Offer (single Product only) → product/og price meta. Meta
+    // matching is attribute-order independent (BigCommerce/Shopify vary the order).
+    // No loose page scan: category/list pages (0 or many Product nodes, no product
+    // price meta) yield nothing here, so the UI shows USP mode instead of a wrong
+    // price — better no price than a wrong one in a live ad.
     let price = null, priceCurrency = null;
     const toArr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
 
-    // 1. JSON-LD: only trust a price when there is exactly ONE Product node.
+    // Pull content="" from the first <meta> tag mentioning `prop`, any attr order.
+    const metaContent = (prop) => {
+      const tag = html.match(new RegExp('<meta[^>]*' + prop + '[^>]*>', 'i'));
+      if (!tag) return null;
+      const c = tag[0].match(/content=["']([^"']+)["']/i);
+      return c ? c[1].trim() : null;
+    };
+
+    // 1. JSON-LD: trust a price only when there is exactly ONE Product node.
     const ldProducts = [];
     for (const ld of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
       try {
@@ -521,30 +530,31 @@ export default async function handler(req, res) {
     }
     if (ldProducts.length === 1) {
       for (const off of toArr(ldProducts[0].offers)) {
-        if (off && typeof off === 'object' && off.priceCurrency && (off.price != null || off.lowPrice != null)) {
+        if (off && typeof off === 'object' && (off.price != null || off.lowPrice != null)) {
           const amt = String(off.price != null ? off.price : off.lowPrice).trim();
-          if (parseFloat(amt.replace(',', '.')) > 0) { price = amt; priceCurrency = String(off.priceCurrency).trim().toUpperCase(); }
+          if (parseFloat(amt.replace(',', '.')) > 0) {
+            price = amt;
+            if (off.priceCurrency) priceCurrency = String(off.priceCurrency).trim().toUpperCase();
+          }
           break;
         }
       }
     }
 
-    // 2. OpenGraph / product price meta (amount + currency paired).
+    // 2. OpenGraph / product price meta (page-level, bound to the main product).
     if (!price) {
-      const amt = html.match(/<meta[^>]+property=["'](?:product:price:amount|og:price:amount)["'][^>]+content=["']([^"']+)["']/i);
-      if (amt && parseFloat(amt[1].replace(',', '.')) > 0) {
-        price = amt[1].trim();
-        const cur = html.match(/<meta[^>]+property=["'](?:product:price:currency|og:price:currency)["'][^>]+content=["']([^"']+)["']/i);
-        if (cur) priceCurrency = cur[1].trim().toUpperCase();
-      }
+      const amt = metaContent('(?:product|og):price:amount');
+      if (amt && parseFloat(amt.replace(',', '.')) > 0) price = amt;
     }
 
-    // 3. Last resort: a loose number with NO reliable currency (UI suppresses it).
-    if (!price) {
-      for (const pat of [/class=["'][^"']*price[^"']*["'][^>]*>[^<]*?([\d]+[.,]\d{2})/i, /"price"\s*:\s*"?([\d]+[.,]\d{0,2})"?/i]) {
-        const mm = html.match(pat);
-        if (mm && mm[1] && parseFloat(mm[1].replace(',', '.')) > 0) { price = mm[1].trim(); break; }
-      }
+    // Currency — resolved independently of the price path above.
+    if (price && !priceCurrency) {
+      const curMeta = metaContent('(?:product|og):price:currency');
+      if (curMeta && /^[A-Za-z]{3}$/.test(curMeta)) priceCurrency = curMeta.toUpperCase();
+    }
+    if (price && !priceCurrency) {
+      const jm = html.match(/"priceCurrency"\s*:\s*"([A-Za-z]{3})"/i);
+      if (jm) priceCurrency = jm[1].toUpperCase();
     }
 
     if (price) result.price = price;
