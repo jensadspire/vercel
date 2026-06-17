@@ -4843,6 +4843,7 @@ STRICT rules:
                                   const dataUrl = ev.target.result;
                                   const base64 = dataUrl.split(",")[1];
                                   const mediaType = imageFile.type;
+                                  // Step 1: Claude Vision analysis → tailored prompt (kept)
                                   const imgRes = await fetch("/api/image-gen", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
@@ -4858,12 +4859,40 @@ STRICT rules:
                                     }),
                                   });
                                   const imgData = await imgRes.json();
-                                  if (imgData.images) {
-                                    setGeneratedImages(imgData.images);
-                                    setImageAnalysis(imgData.analysis);
-                                  } else {
+                                  if (!imgData.prompt) {
                                     alert("Image generation failed — " + (imgData.error || "unknown error"));
+                                    setImageLoading(false);
+                                    return;
                                   }
+                                  setImageAnalysis(imgData.analysis);
+                                  // Step 2: generate the 3 PMax formats via Imagen. Persists to Blob; the
+                                  // uploaded image is passed as a subject reference so the product is kept.
+                                  // Imagen uses the nearest supported ratio; exact 1.91:1 / 4:5 crop is the
+                                  // Session-2 normalization step.
+                                  const PMAX_FORMATS = [
+                                    { id: "landscape", label: "Landscape", ratio: "1.91:1", dims: "1200×628px", aspectRatio: "16:9" },
+                                    { id: "square",    label: "Square",    ratio: "1:1",    dims: "1200×1200px", aspectRatio: "1:1" },
+                                    { id: "portrait",  label: "Portrait",  ratio: "4:5",    dims: "960×1200px",  aspectRatio: "3:4" },
+                                  ];
+                                  const results = await Promise.all(PMAX_FORMATS.map(async (fmt) => {
+                                    try {
+                                      const genRes = await fetch("/api/imagen", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                          prompt: imgData.prompt + " No text, no logos, no words in the image.",
+                                          imageBase64: base64,
+                                          imageMimeType: mediaType,
+                                          aspectRatio: fmt.aspectRatio,
+                                        }),
+                                      });
+                                      const genData = await genRes.json();
+                                      return { ...fmt, imageUrl: genData.imageUrl || null, error: genData.imageUrl ? null : (genData.error || "No image returned") };
+                                    } catch (err) {
+                                      return { ...fmt, imageUrl: null, error: err.message };
+                                    }
+                                  }));
+                                  setGeneratedImages(results);
                                   setImageLoading(false);
                                 };
                                 reader.readAsDataURL(imageFile);

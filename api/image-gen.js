@@ -93,66 +93,18 @@ Return ONLY a JSON object, no prose, no markdown:
     }
     console.log("image-gen: vision analysis:", analysis.style, analysis.mood);
 
-    // ── Step 2: Generate 3 images via DALL-E 3 ────────────────────────────
-    const formats = [
-      { id: "landscape", label: "Landscape", size: "1792x1024", ratio: "1.91:1", dims: "1200×628px" },
-      { id: "square",    label: "Square",    size: "1024x1024", ratio: "1:1",    dims: "1200×1200px" },
-      { id: "portrait",  label: "Portrait",  size: "1024x1792", ratio: "4:5",    dims: "960×1200px" },
-    ];
-
+    // ── Step 2: Build the generation prompt (Imagen runs client-side) ─────
+    // DALL-E 3 was retired (May 2026). The PMax own-assets engine now
+    // generates via /api/imagen (Vertex Imagen 3) on the client, which
+    // persists to Blob and can use the uploaded image as a subject
+    // reference. This endpoint now returns the analysis + a clean prompt.
     const basePrompt = analysis.dallePrompt ||
       "Professional product advertising image, clean background, high quality commercial photography, no text overlay.";
 
-    // Generate sequentially with small delay to avoid rate limiting
-    const imageResults = [];
-    for (const fmt of formats) {
-      const attempt = async () => {
-        const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openaiKey}`,
-          },
-          body: JSON.stringify({
-            model: "dall-e-3",
-            prompt: `${basePrompt} ${fmt.label} format (${fmt.ratio} aspect ratio). No text, no logos, no words in the image.`,
-            size: fmt.size,
-            quality: "standard",
-            n: 1,
-          }),
-        });
-        const dalleData = await dalleRes.json();
-        return dalleData;
-      };
-
-      try {
-        console.log("image-gen: generating", fmt.id, "format");
-        let dalleData = await attempt();
-
-        // Retry once if failed
-        if (!dalleData.data?.[0]?.url) {
-          console.log("image-gen:", fmt.id, "first attempt failed, retrying in 2s...");
-          await new Promise(r => setTimeout(r, 2000));
-          dalleData = await attempt();
-        }
-
-        const imageUrl = dalleData.data?.[0]?.url;
-        console.log("image-gen:", fmt.id, imageUrl ? "success" : "failed", dalleData.error?.message || "");
-        imageResults.push({ ...fmt, imageUrl: imageUrl || null, error: dalleData.error?.message || (imageUrl ? null : "No image returned") });
-      } catch (e) {
-        console.log("image-gen:", fmt.id, "exception:", e.message);
-        imageResults.push({ ...fmt, imageUrl: null, error: e.message });
-      }
-
-      // Small delay between requests
-      if (fmt.id !== "portrait") await new Promise(r => setTimeout(r, 500));
-    }
-
-    const successCount = imageResults.filter(r => r.imageUrl).length;
-    console.log("image-gen: complete —", successCount, "/ 3 images generated");
+    console.log("image-gen: analysis complete, returning prompt for client-side Imagen");
 
     return res.status(200).json({
-      images: imageResults,
+      prompt: basePrompt,
       analysis: {
         style: analysis.style,
         mood: analysis.mood,
