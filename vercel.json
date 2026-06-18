@@ -1,18 +1,50 @@
 {
   "functions": {
-    "api/generate-meta.js": { "maxDuration": 60 },
-    "api/imagen.js": { "maxDuration": 60 },
-    "api/runway.js": { "maxDuration": 60 },
-    "api/kling.js": { "maxDuration": 300 },
-    "api/heygen.js": { "maxDuration": 180 },
-    "api/scrape.js": { "maxDuration": 45 },
-    "api/audience.js": { "maxDuration": 30 },
-    "api/generate.js": { "maxDuration": 30 }
+    "api/generate-meta.js": {
+      "maxDuration": 60
+    },
+    "api/imagen.js": {
+      "maxDuration": 60
+    },
+    "api/runway.js": {
+      "maxDuration": 60
+    },
+    "api/kling.js": {
+      "maxDuration": 300
+    },
+    "api/heygen.js": {
+      "maxDuration": 180
+    },
+    "api/scrape.js": {
+      "maxDuration": 45
+    },
+    "api/audience.js": {
+      "maxDuration": 30
+    },
+    "api/generate.js": {
+      "maxDuration": 30
+    },
+    "api/normalize-image.js": {
+      "maxDuration": 60,
+      "includeFiles": "node_modules/@img/**"
+    }
   },
   "rewrites": [
-    { "source": "/privacy", "destination": "/privacy.html" },
-    { "source": "/user-terms", "destination": "/user-terms.html" },
-    { "source": "/moderation-policy", "destination": "/moderation-policy.html" },
-    { "source": "/r/:token", "destination": "/api/r/:token" }
+    {
+      "source": "/privacy",
+      "destination": "/privacy.html"
+    },
+    {
+      "source": "/user-terms",
+      "destination": "/user-terms.html"
+    },
+    {
+      "source": "/moderation-policy",
+      "destination": "/moderation-policy.html"
+    },
+    {
+      "source": "/r/:token",
+      "destination": "/api/r/:token"
+    }
   ]
 }
