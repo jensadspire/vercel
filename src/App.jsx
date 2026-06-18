@@ -10,7 +10,7 @@ import {
 } from "@clerk/clerk-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const HL_LIMIT = 30, DESC_LIMIT = 90, PATH_LIMIT = 15;
+const HL_LIMIT = 30, DESC_LIMIT = 90, PATH_LIMIT = 15, LONG_HL_LIMIT = 90, LONG_HL_FIRST_LIMIT = 60;
 const NUM_HL = 15, NUM_DESC = 4;
 
 const TSV_HEADERS = [
@@ -126,6 +126,20 @@ function smartTrimDesc(text) {
   const lastPunct = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"));
   if (lastPunct > DESC_LIMIT * 0.6) return cut.slice(0, lastPunct + 1); // cut at sentence end
   // Fall back to last word boundary
+  const lastSpace = cut.lastIndexOf(" ");
+  return lastSpace > 0 ? cut.slice(0, lastSpace) : cut;
+}
+
+// ── Strict length trim (hard limit, no grace) — for API-bound PMax assets ─────
+// Same boundary logic as smartTrimDesc, but enforces an exact max length so the
+// Google Ads API never rejects an over-limit asset.
+function smartTrimTo(text, limit) {
+  if (!text) return "";
+  const clean = text.trimEnd();
+  if (clean.length <= limit) return clean;
+  const cut = clean.slice(0, limit);
+  const lastPunct = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"));
+  if (lastPunct > limit * 0.6) return cut.slice(0, lastPunct + 1);
   const lastSpace = cut.lastIndexOf(" ");
   return lastSpace > 0 ? cut.slice(0, lastSpace) : cut;
 }
@@ -1968,7 +1982,13 @@ Rules:
           const pmaxParsed = JSON.parse(pmaxClean);
           const pmaxP1 = (pmaxParsed.path1 || "").slice(0, PATH_LIMIT);
           const pmaxP2 = (pmaxParsed.path2 || "").slice(0, PATH_LIMIT);
-          updateRow(activeRow, r => ({ ...r, pmaxResult: { ...pmaxParsed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }));
+          const pmaxTrimmed = {
+            ...pmaxParsed,
+            headlines: (pmaxParsed.headlines || []).map(h => (h || "").slice(0, HL_LIMIT)),
+            longHeadlines: (pmaxParsed.longHeadlines || []).map((h, i) => smartTrimTo(h || "", i === 0 ? LONG_HL_FIRST_LIMIT : LONG_HL_LIMIT)),
+            descriptions: (pmaxParsed.descriptions || []).map(d => smartTrimTo(d || "", DESC_LIMIT)),
+          };
+          updateRow(activeRow, r => ({ ...r, pmaxResult: { ...pmaxTrimmed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }));
           setGenerated(true);
           // Track usage count
           if (pmaxData.usage_count) setUsageCount(pmaxData.usage_count);
@@ -1981,7 +2001,7 @@ Rules:
               url,
               format: "pmax",
               timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: { ...pmaxParsed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 } : r))),
+              rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: { ...pmaxTrimmed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 } : r))),
               metaResult: metaResult || null,
             };
             return [snapshot, ...prev].slice(0, 20);
