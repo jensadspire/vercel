@@ -774,6 +774,10 @@ function RSAStudio() {
   const [imageGuidance, setImageGuidance] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
   const [generatedImages, setGeneratedImages] = useState([]);
+  // PMax per-slot asset collection — exact-ratio Blob URLs ready for publish.
+  // Each entry: { srcUrl, url, fit }. Generated (cover) + scraped (contain) both land here.
+  const [pmaxImages, setPmaxImages] = useState({ landscape: [], square: [], portrait: [] });
+  const [slotBusy, setSlotBusy] = useState(null); // `${srcUrl}|${slot}` currently normalizing
   const [imageAnalysis, setImageAnalysis] = useState(null);
   const [creativeStyle, setCreativeStyle] = useState("match"); // match/studio/lifestyle/other
   const [loading, setLoading] = useState(false);
@@ -784,6 +788,41 @@ function RSAStudio() {
   const [clearKey, setClearKey] = useState(0);
   // Admin mode — detected from ?admin=KEY URL param, persisted in sessionStorage
   const { isSignedIn, user } = useUser();
+
+  // Add or remove a source image to/from a PMax ratio slot, normalizing on the way in.
+  // fit='contain' for scraped product shots (whole product, padded); fit='cover' for
+  // generated scenes (fill). Tapping a slot that already holds this image removes it.
+  const togglePmaxSlot = async (srcUrl, slot, fit) => {
+    if (!srcUrl) return;
+    const present = (pmaxImages[slot] || []).some(e => e.srcUrl === srcUrl);
+    if (present) {
+      setPmaxImages(prev => ({ ...prev, [slot]: prev[slot].filter(e => e.srcUrl !== srcUrl) }));
+      return;
+    }
+    const key = `${srcUrl}|${slot}`;
+    setSlotBusy(key);
+    try {
+      const r = await fetch('/api/normalize-image', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: srcUrl, slot, fit }),
+      });
+      const d = await r.json();
+      if (d.url) {
+        setPmaxImages(prev => ({ ...prev, [slot]: [...(prev[slot] || []), { srcUrl, url: d.url, fit }] }));
+      } else {
+        alert('Could not prepare image: ' + (d.error || 'unknown error'));
+      }
+    } catch (e) {
+      alert('Image normalization failed: ' + e.message);
+    } finally {
+      setSlotBusy(null);
+    }
+  };
+
+  // Remove a normalized image from a slot by its blob url (collection × button).
+  const removePmaxImage = (slot, url) => {
+    setPmaxImages(prev => ({ ...prev, [slot]: prev[slot].filter(e => e.url !== url) }));
+  };
   const { signOut, session } = useClerk();
   // Reverification-wrapped version of createExternalAccount. Clerk requires
   // re-authentication (password or 2FA) before adding a new external OAuth
@@ -4956,6 +4995,28 @@ STRICT rules:
                                   }));
                                   setGeneratedImages(results);
                                   setImageLoading(false);
+                                  // Imagen emits 16:9 / 3:4, not Google's exact 1.91:1 / 4:5, so each
+                                  // generated image is normalized (cover) to its slot and added to the
+                                  // collection — generated + scraped share one publish-ready pipeline.
+                                  (async () => {
+                                    const adds = await Promise.all(results.filter(r => r.imageUrl).map(async r => {
+                                      try {
+                                        const nr = await fetch('/api/normalize-image', {
+                                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ imageUrl: r.imageUrl, slot: r.id, fit: 'cover' }),
+                                        });
+                                        const nd = await nr.json();
+                                        return nd.url ? { slot: r.id, entry: { srcUrl: r.imageUrl, url: nd.url, fit: 'cover' } } : null;
+                                      } catch { return null; }
+                                    }));
+                                    setPmaxImages(prev => {
+                                      const next = { landscape: [...prev.landscape], square: [...prev.square], portrait: [...prev.portrait] };
+                                      adds.filter(Boolean).forEach(({ slot, entry }) => {
+                                        if (next[slot] && !next[slot].some(e => e.srcUrl === entry.srcUrl)) next[slot].push(entry);
+                                      });
+                                      return next;
+                                    });
+                                  })();
                                 };
                                 reader.readAsDataURL(imageFile);
                               } catch (e) {
@@ -4982,33 +5043,96 @@ STRICT rules:
                           )}
 
                           {/* Generated images */}
-                          {generatedImages.length > 0 && (
-                            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-                              {generatedImages.map(img => (
-                                <div key={img.id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, overflow: "hidden" }}>
-                                  <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                                    <div>
-                                      <span style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0" }}>{img.label}</span>
-                                      <span style={{ fontSize: 10, color: "#7e92a8", marginLeft: 8 }}>{img.ratio} · {img.dims}</span>
+                          {/* ── Source images from the page ───────────────────────────── */}
+                          {(pageMeta.images || []).length > 0 && (
+                            <div style={{ marginTop: 16 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+                                Images from the page <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#4a5568" }}>· tap L / S / P to add to a slot</span>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 8 }}>
+                                {(pageMeta.images || []).map((src, i) => {
+                                  const slots = [["landscape", "L"], ["square", "S"], ["portrait", "P"]];
+                                  return (
+                                    <div key={i} style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, overflow: "hidden", background: "rgba(255,255,255,0.02)" }}>
+                                      <div style={{ width: "100%", aspectRatio: "1", background: "#0c1118", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                                        <img src={src} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }} />
+                                      </div>
+                                      <div style={{ display: "flex", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                                        {slots.map(([slot, ltr]) => {
+                                          const on = (pmaxImages[slot] || []).some(e => e.srcUrl === src);
+                                          const busy = slotBusy === `${src}|${slot}`;
+                                          return (
+                                            <button key={slot} disabled={busy}
+                                              onClick={() => togglePmaxSlot(src, slot, "contain")}
+                                              title={`${on ? "Remove from" : "Add to"} ${slot}`}
+                                              style={{
+                                                flex: 1, padding: "5px 0", fontSize: 10, fontWeight: 700, cursor: busy ? "wait" : "pointer", border: "none",
+                                                borderRight: ltr !== "P" ? "1px solid rgba(255,255,255,0.06)" : "none",
+                                                background: on ? "rgba(52,211,153,0.18)" : "rgba(255,255,255,0.02)",
+                                                color: on ? "#34d399" : "#7e92a8",
+                                              }}>
+                                              {busy ? "…" : ltr}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
                                     </div>
-                                    {img.imageUrl && (
-                                      <a href={img.imageUrl} download={`pmax-${img.id}.jpg`} target="_blank" rel="noopener noreferrer"
-                                        style={{ fontSize: 10, fontWeight: 700, color: "#60a5fa", textDecoration: "none", padding: "4px 10px", background: "rgba(96,165,250,0.1)", borderRadius: 6, border: "1px solid rgba(96,165,250,0.2)" }}>
-                                        ⬇ Download
-                                      </a>
-                                    )}
-                                  </div>
-                                  {img.imageUrl ? (
-                                    <img src={img.imageUrl} alt={img.label} style={{ width: "100%", height: "auto", display: "block" }} />
-                                  ) : (
-                                    <div style={{ padding: 20, textAlign: "center", color: "#7e92a8", fontSize: 11 }}>
-                                      ⚠ {img.error || "Generation failed for this format"}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
+                                  );
+                                })}
+                              </div>
                             </div>
                           )}
+
+                          {/* ── Publish-ready asset set (exact ratios) ────────────────── */}
+                          {(() => {
+                            const groups = [
+                              ["landscape", "Landscape", "1.91:1", true],
+                              ["square", "Square", "1:1", true],
+                              ["portrait", "Portrait", "4:5", false],
+                            ];
+                            const total = pmaxImages.landscape.length + pmaxImages.square.length + pmaxImages.portrait.length;
+                            if (total === 0) return null;
+                            return (
+                              <div style={{ marginTop: 18 }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+                                  Asset set · publish-ready
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                  {groups.map(([slot, label, ratio, required]) => {
+                                    const items = pmaxImages[slot] || [];
+                                    const ok = !required || items.length > 0;
+                                    return (
+                                      <div key={slot}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                          <span style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0" }}>{label}</span>
+                                          <span style={{ fontSize: 10, color: "#7e92a8" }}>{ratio}</span>
+                                          <span style={{ fontSize: 10, fontWeight: 700, color: ok ? "#34d399" : "#f59e0b" }}>
+                                            {items.length} {required ? (items.length > 0 ? "✓" : "· need ≥1") : "· optional"}
+                                          </span>
+                                        </div>
+                                        {items.length > 0 ? (
+                                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
+                                            {items.map((e, i) => (
+                                              <div key={i} style={{ position: "relative", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, overflow: "hidden", background: "#0c1118" }}>
+                                                <img src={e.url} alt="" style={{ width: "100%", height: "auto", display: "block" }} />
+                                                <button onClick={() => removePmaxImage(slot, e.url)} title="Remove"
+                                                  style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", border: "none", cursor: "pointer", background: "rgba(0,0,0,0.6)", color: "white", fontSize: 12, lineHeight: "20px", padding: 0 }}>×</button>
+                                                <span style={{ position: "absolute", bottom: 4, left: 4, fontSize: 8, fontWeight: 700, color: "white", background: e.fit === "cover" ? "rgba(99,102,241,0.85)" : "rgba(52,211,153,0.85)", borderRadius: 3, padding: "1px 4px" }}>
+                                                  {e.fit === "cover" ? "GEN" : "PAGE"}
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <div style={{ fontSize: 10, color: "#4a5568", padding: "6px 0" }}>None yet</div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                         </div>
                       )}
