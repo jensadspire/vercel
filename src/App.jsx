@@ -1963,7 +1963,7 @@ Rules:
           const pmaxText = pmaxData.content?.[0]?.text || "";
           const pmaxClean = pmaxText.replace(/\`\`\`json|\`\`\`/g, "").trim();
           const pmaxParsed = JSON.parse(pmaxClean);
-          updateRow(activeRow, r => ({ ...r, pmaxResult: pmaxParsed }));
+          updateRow(activeRow, r => ({ ...r, pmaxResult: { ...pmaxParsed, finalUrl: url }, finalUrl: url }));
           setGenerated(true);
           // Track usage count
           if (pmaxData.usage_count) setUsageCount(pmaxData.usage_count);
@@ -1976,7 +1976,7 @@ Rules:
               url,
               format: "pmax",
               timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: pmaxParsed } : r))),
+              rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: { ...pmaxParsed, finalUrl: url }, finalUrl: url } : r))),
               metaResult: metaResult || null,
             };
             return [snapshot, ...prev].slice(0, 20);
