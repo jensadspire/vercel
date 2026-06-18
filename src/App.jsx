@@ -1940,7 +1940,9 @@ Return ONLY valid JSON — no prose, no markdown fences:
   "headlines": ["h1","h2","h3","h4","h5","h6","h7","h8","h9","h10","h11","h12","h13","h14","h15"],
   "longHeadlines": ["lh1 max 60 chars","lh2","lh3","lh4","lh5"],
   "descriptions": ["d1","d2","d3","d4","d5"],
-  "callToAction": "one of: Shop Now, Learn More, Sign Up, Get Quote, Apply Now, Book Now, Contact Us, Download, Get Offer, Order Now, Subscribe, Visit Site"
+  "callToAction": "one of: Shop Now, Learn More, Sign Up, Get Quote, Apply Now, Book Now, Contact Us, Download, Get Offer, Order Now, Subscribe, Visit Site",
+  "path1": "short-path",
+  "path2": "sub-path"
 }
 
 Rules:
@@ -1948,7 +1950,8 @@ Rules:
 - headlines: exactly 15, max 30 chars each — short punchy phrases
 - longHeadlines: exactly 5, max 90 chars each — complete value propositions, no punctuation at end. IMPORTANT: longHeadlines[0] must be max 60 chars. longHeadlines[1-4] max 90 chars.
 - descriptions: exactly 5, max 90 chars each — benefit-focused, include CTA
-- callToAction: pick the single most relevant option from the list above`
+- callToAction: pick the single most relevant option from the list above
+- path1, path2: ≤ ${PATH_LIMIT} chars each, no spaces, URL-safe, lowercase — short display-path segments derived from the page (optional but recommended)`
             }],
           }),
         });
@@ -1963,7 +1966,9 @@ Rules:
           const pmaxText = pmaxData.content?.[0]?.text || "";
           const pmaxClean = pmaxText.replace(/\`\`\`json|\`\`\`/g, "").trim();
           const pmaxParsed = JSON.parse(pmaxClean);
-          updateRow(activeRow, r => ({ ...r, pmaxResult: { ...pmaxParsed, finalUrl: url }, finalUrl: url }));
+          const pmaxP1 = (pmaxParsed.path1 || "").slice(0, PATH_LIMIT);
+          const pmaxP2 = (pmaxParsed.path2 || "").slice(0, PATH_LIMIT);
+          updateRow(activeRow, r => ({ ...r, pmaxResult: { ...pmaxParsed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }));
           setGenerated(true);
           // Track usage count
           if (pmaxData.usage_count) setUsageCount(pmaxData.usage_count);
@@ -1976,7 +1981,7 @@ Rules:
               url,
               format: "pmax",
               timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: { ...pmaxParsed, finalUrl: url }, finalUrl: url } : r))),
+              rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: { ...pmaxParsed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 } : r))),
               metaResult: metaResult || null,
             };
             return [snapshot, ...prev].slice(0, 20);
@@ -4705,8 +4710,8 @@ STRICT rules:
                     const lhPadded = [...(p.longHeadlines || []).slice(0,5), ...Array(Math.max(0,5-(p.longHeadlines||[]).length)).fill("")]
                     const hlPadded = [...(p.headlines || []).slice(0,15), ...Array(Math.max(0,15-(p.headlines||[]).length)).fill("")]
                     const dPadded = [...(p.descriptions || []).slice(0,5), ...Array(Math.max(0,5-(p.descriptions||[]).length)).fill("")]
-                    const hdr = ["Asset Group","Business Name",...Array.from({length:15},(_,i)=>`Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Long Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Description ${i+1}`),"Call to Action","Final URL"].join("\t");
-                    const row = [rows[activeRow]?.adGroup||"Asset Group 1", p.businessName||"", ...hlPadded, ...lhPadded, ...dPadded, p.callToAction||"", rows[activeRow]?.finalUrl||""].join("\t");
+                    const hdr = ["Asset Group","Business Name",...Array.from({length:15},(_,i)=>`Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Long Headline ${i+1}`),...Array.from({length:5},(_,i)=>`Description ${i+1}`),"Call to Action","Final URL","Path 1","Path 2"].join("\t");
+                    const row = [rows[activeRow]?.adGroup||"Asset Group 1", p.businessName||"", ...hlPadded, ...lhPadded, ...dPadded, p.callToAction||"", rows[activeRow]?.finalUrl||"", rows[activeRow]?.path1||"", rows[activeRow]?.path2||""].join("\t");
                     const txt = hdr + "\n" + row;
                     navigator.clipboard.writeText(txt);
                   }} style={{
