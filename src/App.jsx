@@ -710,6 +710,7 @@ function RSAStudio() {
   const [enhanceBrand, setEnhanceBrand] = useState(true);
   const [metaActiveVariants, setMetaActiveVariants] = useState({ pt: 0, hl: 0, d: 0 }); // active variant indices
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
+  const [pmaxLogoSource, setPmaxLogoSource] = useState('favicon'); // 'scraped' | 'uploaded' | 'favicon'
   // Imagen modal state
   const [imagenOpen, setImagenOpen] = useState(false);
   const [imagenStep, setImagenStep] = useState(1);
@@ -1832,6 +1833,7 @@ function RSAStudio() {
             const domain = new URL(url).hostname;
             const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
             setPmaxLogo(faviconUrl);
+            setPmaxLogoSource('favicon');
             // Domain-change guard: if this row's previous URL was on a different domain,
             // wipe its selected PMax images — they belonged to the old site and must not
             // leak into a new domain's asset group (matters for multi-brand/agency use).
@@ -1844,6 +1846,32 @@ function RSAStudio() {
               }
             }
           } catch (_) {}
+          // Tier 1 → conform: scrape the real brand logo, normalize it to Google's square
+          // logo spec (1:1 1200×1200, padded via normalize-image's contain fit), and upgrade
+          // pmaxLogo from the instant favicon to the publish-grade mark. Any failure along the
+          // way silently keeps the favicon already set above (Tier 3 fallback).
+          (async () => {
+            try {
+              const lr = await fetch('/api/scrape-logo', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url }),
+              });
+              if (!lr.ok) return;
+              const { candidates } = await lr.json();
+              if (!candidates?.length) return;
+              // Prefer the best non-SVG candidate (Google's AssetService rejects SVG); only
+              // fall back to an SVG if that's all the site exposes. Decode HTML-entity ampersands.
+              const pick = candidates.find(c => !/\.svg(\?|$)/i.test(c.url)) || candidates[0];
+              const cleanUrl = pick.url.replace(/&amp;/g, '&');
+              const nr = await fetch('/api/normalize-image', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageUrl: cleanUrl, slot: 'square', fit: 'contain' }),
+              });
+              if (!nr.ok) return;
+              const nd = await nr.json();
+              if (nd.url) { setPmaxLogo(nd.url); setPmaxLogoSource('scraped'); }
+            } catch (_) { /* conform failed — keep the favicon fallback */ }
+          })();
         }
         const scrapeRes = await fetch("/api/scrape", {
           method: "POST",
