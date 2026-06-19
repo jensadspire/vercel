@@ -27,6 +27,9 @@
     "api/normalize-image.js": {
       "maxDuration": 60,
       "includeFiles": "node_modules/@img/**"
+    },
+    "api/scrape-logo.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
