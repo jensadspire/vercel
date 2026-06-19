@@ -1832,6 +1832,17 @@ function RSAStudio() {
             const domain = new URL(url).hostname;
             const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
             setPmaxLogo(faviconUrl);
+            // Domain-change guard: if this row's previous URL was on a different domain,
+            // wipe its selected PMax images — they belonged to the old site and must not
+            // leak into a new domain's asset group (matters for multi-brand/agency use).
+            // Same-domain regenerations keep the selection (the expected single-brand flow).
+            const prevUrl = rows[activeRow]?.finalUrl;
+            if (prevUrl) {
+              const prevDomain = new URL(prevUrl).hostname.replace(/^www\./, '');
+              if (prevDomain !== domain.replace(/^www\./, '')) {
+                updateRow(activeRow, r => ({ ...r, pmaxImages: { landscape: [], square: [], portrait: [] } }));
+              }
+            }
           } catch (_) {}
         }
         const scrapeRes = await fetch("/api/scrape", {
