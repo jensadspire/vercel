@@ -711,6 +711,8 @@ function RSAStudio() {
   const [metaActiveVariants, setMetaActiveVariants] = useState({ pt: 0, hl: 0, d: 0 }); // active variant indices
   const [pmaxLogo, setPmaxLogo] = useState(null); // auto-fetched favicon/logo URL
   const [pmaxLogoSource, setPmaxLogoSource] = useState('favicon'); // 'scraped' | 'uploaded' | 'favicon'
+  const [pmaxLogoDomain, setPmaxLogoDomain] = useState(null); // domain the current logo belongs to (session stickiness)
+  const [pmaxLogoBusy, setPmaxLogoBusy] = useState(false); // conforming an uploaded logo
   // Imagen modal state
   const [imagenOpen, setImagenOpen] = useState(false);
   const [imagenStep, setImagenStep] = useState(1);
@@ -1829,11 +1831,21 @@ function RSAStudio() {
       try {
         // Auto-fetch favicon for PMax logo
         if (url.trim()) {
+          let logoNewDomain = null;
+          let logoIsSticky = false;
           try {
             const domain = new URL(url).hostname;
-            const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-            setPmaxLogo(faviconUrl);
-            setPmaxLogoSource('favicon');
+            logoNewDomain = domain.replace(/^www\./, '');
+            // Session stickiness: if we already hold a logo for THIS domain (scraped earlier
+            // this session, or manually uploaded), keep it — don't flash back to the favicon
+            // or re-scrape over it. A different domain (or no logo yet) falls through to the
+            // favicon + scrape pipeline below. Full cross-session persistence is a later leg.
+            logoIsSticky = !!pmaxLogo && pmaxLogoDomain === logoNewDomain;
+            if (!logoIsSticky) {
+              const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+              setPmaxLogo(faviconUrl);
+              setPmaxLogoSource('favicon');
+            }
             // Domain-change guard: if this row's previous URL was on a different domain,
             // wipe its selected PMax images — they belonged to the old site and must not
             // leak into a new domain's asset group (matters for multi-brand/agency use).
@@ -1841,16 +1853,16 @@ function RSAStudio() {
             const prevUrl = rows[activeRow]?.finalUrl;
             if (prevUrl) {
               const prevDomain = new URL(prevUrl).hostname.replace(/^www\./, '');
-              if (prevDomain !== domain.replace(/^www\./, '')) {
+              if (prevDomain !== logoNewDomain) {
                 updateRow(activeRow, r => ({ ...r, pmaxImages: { landscape: [], square: [], portrait: [] } }));
               }
             }
           } catch (_) {}
           // Tier 1 → conform: scrape the real brand logo, normalize it to Google's square
           // logo spec (1:1 1200×1200, padded via normalize-image's contain fit), and upgrade
-          // pmaxLogo from the instant favicon to the publish-grade mark. Any failure along the
-          // way silently keeps the favicon already set above (Tier 3 fallback).
-          (async () => {
+          // pmaxLogo from the instant favicon to the publish-grade mark. Skipped entirely when
+          // the logo is already sticky for this domain. Any failure keeps the favicon (Tier 3).
+          if (!logoIsSticky) (async () => {
             try {
               const lr = await fetch('/api/scrape-logo', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1869,7 +1881,7 @@ function RSAStudio() {
               });
               if (!nr.ok) return;
               const nd = await nr.json();
-              if (nd.url) { setPmaxLogo(nd.url); setPmaxLogoSource('scraped'); }
+              if (nd.url) { setPmaxLogo(nd.url); setPmaxLogoSource('scraped'); setPmaxLogoDomain(logoNewDomain); }
             } catch (_) { /* conform failed — keep the favicon fallback */ }
           })();
         }
@@ -4760,19 +4772,59 @@ STRICT rules:
                   </div>
                 );
               };
+              const handleLogoUpload = async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = ''; // allow re-selecting the same file
+                if (!file) return;
+                if (file.size > 2 * 1024 * 1024) { alert('Logo must be under 2MB'); return; }
+                const reader = new FileReader();
+                reader.onload = async ev => {
+                  setPmaxLogoBusy(true);
+                  try {
+                    // Conform the upload to Google's square logo spec via the same endpoint
+                    // (imageData path) the scraped logo uses — rasterizes SVG, pads to 1:1 1200×1200.
+                    const nr = await fetch('/api/normalize-image', {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ imageData: ev.target.result, slot: 'square', fit: 'contain' }),
+                    });
+                    const nd = await nr.json();
+                    if (nd.url) {
+                      setPmaxLogo(nd.url);
+                      setPmaxLogoSource('uploaded');
+                      // Tag the logo to the current domain so a same-domain regenerate keeps it
+                      // (stickiness) rather than re-scraping over the user's chosen logo.
+                      try { setPmaxLogoDomain(new URL(url).hostname.replace(/^www\./, '')); } catch { setPmaxLogoDomain(null); }
+                    } else {
+                      alert('Could not prepare logo: ' + (nd.error || 'unknown error'));
+                    }
+                  } catch (err) {
+                    alert('Logo upload failed: ' + err.message);
+                  } finally {
+                    setPmaxLogoBusy(false);
+                  }
+                };
+                reader.readAsDataURL(file);
+              };
               return (
                 <>
                   {/* Business Name + Logo */}
                   <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                       <SectionLabel>Business Name</SectionLabel>
-                      {pmaxLogo && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {pmaxLogo && (
                           <img src={pmaxLogo} alt="logo" style={{ width: 28, height: 28, borderRadius: 4, objectFit: "contain", background: "rgba(255,255,255,0.05)", padding: 2 }}
                             onError={() => setPmaxLogo(null)} />
-                          <span style={{ fontSize: 9, color: "#4a5568" }}>Auto-fetched logo</span>
-                        </div>
-                      )}
+                        )}
+                        <span style={{ fontSize: 9, color: "#4a5568" }}>
+                          {pmaxLogoBusy ? "Conforming…" : !pmaxLogo ? "No logo" : pmaxLogoSource === 'scraped' ? "Scraped logo" : pmaxLogoSource === 'uploaded' ? "Uploaded logo" : "Favicon"}
+                        </span>
+                        <input type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" style={{ display: "none" }} id="pmax-logo-upload" onChange={handleLogoUpload} />
+                        <button onClick={() => document.getElementById('pmax-logo-upload')?.click()} disabled={pmaxLogoBusy}
+                          style={{ fontSize: 9, color: "#7e92a8", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 5, padding: "3px 7px", cursor: pmaxLogoBusy ? "default" : "pointer" }}>
+                          {pmaxLogo ? "Replace" : "Upload"}
+                        </button>
+                      </div>
                     </div>
                     <AssetRow text={p.businessName} limit={25} color="#34d399" />
                   </div>

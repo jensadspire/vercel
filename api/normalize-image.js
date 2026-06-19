@@ -1,7 +1,10 @@
 /**
  * /api/normalize-image — crop or fit any source image to an exact Google Ads PMax ratio.
  *
- * Accepts: { imageUrl, slot, fit? }
+ * Accepts: { imageUrl | imageData, slot, fit? }
+ *   imageUrl  → a remote URL fetched server-side
+ *   imageData → a base64 string or data: URL posted directly (for user-uploaded logos,
+ *               which arrive as FileReader data URLs and can't be fetched like a remote URL)
  *   slot 'landscape' → 1200x628  (1.91:1)
  *   slot 'square'    → 1200x1200 (1:1)
  *   slot 'portrait'  → 960x1200  (4:5)
@@ -59,21 +62,29 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { imageUrl, slot } = req.body || {};
+  const { imageUrl, imageData, slot } = req.body || {};
   const fit = (req.body && req.body.fit) === 'contain' ? 'contain' : 'cover';
-  if (!imageUrl) return res.status(400).json({ error: 'imageUrl is required' });
+  if (!imageUrl && !imageData) return res.status(400).json({ error: 'imageUrl or imageData is required' });
   const target = SLOTS[slot];
   if (!target) {
     return res.status(400).json({ error: `slot must be one of: ${Object.keys(SLOTS).join(', ')}` });
   }
 
   try {
-    // Fetch source bytes server-side (no CORS constraint, unlike a browser canvas).
-    const srcRes = await fetch(imageUrl);
-    if (!srcRes.ok) {
-      return res.status(422).json({ error: `Could not fetch source image (HTTP ${srcRes.status})` });
+    // Source bytes: either a server-side fetch of a remote URL (no CORS constraint, unlike
+    // a browser canvas), or base64 bytes posted directly — the latter for user-uploaded
+    // logos, which arrive as FileReader data URLs that can't be fetched like a remote URL.
+    let srcBuf;
+    if (imageData) {
+      const base64 = imageData.includes(',') ? imageData.split(',')[1] : imageData;
+      srcBuf = Buffer.from(base64, 'base64');
+    } else {
+      const srcRes = await fetch(imageUrl);
+      if (!srcRes.ok) {
+        return res.status(422).json({ error: `Could not fetch source image (HTTP ${srcRes.status})` });
+      }
+      srcBuf = Buffer.from(await srcRes.arrayBuffer());
     }
-    const srcBuf = Buffer.from(await srcRes.arrayBuffer());
 
     const sharp = (await import('sharp')).default;
 
