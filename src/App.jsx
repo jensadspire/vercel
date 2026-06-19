@@ -54,6 +54,7 @@ function makeRow(id) {
     headlines: Array.from({ length: NUM_HL }, () => ({ text: "", pin: "" })),
     descriptions: Array.from({ length: NUM_DESC }, () => ({ text: "", pin: "" })),
     path1: "", path2: "", finalUrl: "",
+    pmaxImages: { landscape: [], square: [], portrait: [] },
   };
 }
 
@@ -774,9 +775,6 @@ function RSAStudio() {
   const [imageGuidance, setImageGuidance] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
   const [generatedImages, setGeneratedImages] = useState([]);
-  // PMax per-slot asset collection — exact-ratio Blob URLs ready for publish.
-  // Each entry: { srcUrl, url, fit }. Generated (cover) + scraped (contain) both land here.
-  const [pmaxImages, setPmaxImages] = useState({ landscape: [], square: [], portrait: [] });
   const [slotBusy, setSlotBusy] = useState(null); // `${srcUrl}|${slot}` currently normalizing
   const [imageAnalysis, setImageAnalysis] = useState(null);
   const [creativeStyle, setCreativeStyle] = useState("match"); // match/studio/lifestyle/other
@@ -784,6 +782,9 @@ function RSAStudio() {
   const [error, setError] = useState("");
   const [rows, setRows] = useState([makeRow(1)]);
   const [activeRow, setActiveRow] = useState(0);
+  // PMax per-slot asset collection now lives ON the active row (rows[activeRow].pmaxImages),
+  // so each ad carries its own publish-ready image set. Derived read; writes go via updateRow.
+  const pmaxImages = rows[activeRow]?.pmaxImages || { landscape: [], square: [], portrait: [] };
   const [generated, setGenerated] = useState(false);
   const [clearKey, setClearKey] = useState(0);
   // Admin mode — detected from ?admin=KEY URL param, persisted in sessionStorage
@@ -796,7 +797,7 @@ function RSAStudio() {
     if (!srcUrl) return;
     const present = (pmaxImages[slot] || []).some(e => e.srcUrl === srcUrl);
     if (present) {
-      setPmaxImages(prev => ({ ...prev, [slot]: prev[slot].filter(e => e.srcUrl !== srcUrl) }));
+      updateRow(activeRow, row => ({ ...row, pmaxImages: { ...(row.pmaxImages || { landscape: [], square: [], portrait: [] }), [slot]: (row.pmaxImages?.[slot] || []).filter(e => e.srcUrl !== srcUrl) } }));
       return;
     }
     const key = `${srcUrl}|${slot}`;
@@ -808,7 +809,7 @@ function RSAStudio() {
       });
       const d = await r.json();
       if (d.url) {
-        setPmaxImages(prev => ({ ...prev, [slot]: [...(prev[slot] || []), { srcUrl, url: d.url, fit }] }));
+        updateRow(activeRow, row => ({ ...row, pmaxImages: { ...(row.pmaxImages || { landscape: [], square: [], portrait: [] }), [slot]: [...(row.pmaxImages?.[slot] || []), { srcUrl, url: d.url, fit }] } }));
       } else {
         alert('Could not prepare image: ' + (d.error || 'unknown error'));
       }
@@ -821,7 +822,7 @@ function RSAStudio() {
 
   // Remove a normalized image from a slot by its blob url (collection × button).
   const removePmaxImage = (slot, url) => {
-    setPmaxImages(prev => ({ ...prev, [slot]: prev[slot].filter(e => e.url !== url) }));
+    updateRow(activeRow, row => ({ ...row, pmaxImages: { ...(row.pmaxImages || { landscape: [], square: [], portrait: [] }), [slot]: (row.pmaxImages?.[slot] || []).filter(e => e.url !== url) } }));
   };
   const { signOut, session } = useClerk();
   // Reverification-wrapped version of createExternalAccount. Clerk requires
@@ -5009,12 +5010,13 @@ STRICT rules:
                                         return nd.url ? { slot: r.id, entry: { srcUrl: r.imageUrl, url: nd.url, fit: 'cover' } } : null;
                                       } catch { return null; }
                                     }));
-                                    setPmaxImages(prev => {
-                                      const next = { landscape: [...prev.landscape], square: [...prev.square], portrait: [...prev.portrait] };
+                                    updateRow(activeRow, row => {
+                                      const base = row.pmaxImages || { landscape: [], square: [], portrait: [] };
+                                      const next = { landscape: [...base.landscape], square: [...base.square], portrait: [...base.portrait] };
                                       adds.filter(Boolean).forEach(({ slot, entry }) => {
                                         if (next[slot] && !next[slot].some(e => e.srcUrl === entry.srcUrl)) next[slot].push(entry);
                                       });
-                                      return next;
+                                      return { ...row, pmaxImages: next };
                                     });
                                   })();
                                 };
