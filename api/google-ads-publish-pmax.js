@@ -195,10 +195,17 @@ export default async function handler(req, res) {
       links.push({ entity: 'asset_group_asset', operation: 'create',
         resource: { asset_group: agRN, asset: rn, field_type: fieldType } });
     };
-    const addImage = (data, fieldType) => {
+    // Image assets REQUIRE a unique name (Google: NAME_REQUIRED_FOR_ASSET_TYPE);
+    // text assets do not. Timestamp + sequence keeps names unique across requests;
+    // Google dedupes images by content, so re-uploading identical bytes resolves to
+    // the existing asset regardless of the name supplied here.
+    const imgStamp = Date.now();
+    let imgSeq = 0;
+    const addImage = (data, fieldType, label) => {
       const rn = nextAsset();
+      const name = `${businessName || 'PMax'} ${label} ${imgStamp}${imgSeq++}`.slice(0, 120);
       ops.push({ entity: 'asset', operation: 'create',
-        resource: { resource_name: rn, type: enums.AssetType.IMAGE, image_asset: { data } } });
+        resource: { resource_name: rn, type: enums.AssetType.IMAGE, name, image_asset: { data } } });
       links.push({ entity: 'asset_group_asset', operation: 'create',
         resource: { asset_group: agRN, asset: rn, field_type: fieldType } });
     };
@@ -209,10 +216,10 @@ export default async function handler(req, res) {
     longHeadlines.forEach(h => addText(h, enums.AssetFieldType.LONG_HEADLINE));
     descriptions.forEach(d => addText(d, enums.AssetFieldType.DESCRIPTION));
     // 2. image assets
-    landBufs.forEach(b => addImage(b, enums.AssetFieldType.MARKETING_IMAGE));
-    sqBufs.forEach(b => addImage(b, enums.AssetFieldType.SQUARE_MARKETING_IMAGE));
-    portBufs.forEach(b => addImage(b, enums.AssetFieldType.PORTRAIT_MARKETING_IMAGE));
-    addImage(logoBuf, enums.AssetFieldType.LOGO);
+    landBufs.forEach((b, i) => addImage(b, enums.AssetFieldType.MARKETING_IMAGE, `Landscape ${i + 1}`));
+    sqBufs.forEach((b, i) => addImage(b, enums.AssetFieldType.SQUARE_MARKETING_IMAGE, `Square ${i + 1}`));
+    portBufs.forEach((b, i) => addImage(b, enums.AssetFieldType.PORTRAIT_MARKETING_IMAGE, `Portrait ${i + 1}`));
+    addImage(logoBuf, enums.AssetFieldType.LOGO, 'Logo');
     // 3. asset group (after its assets, before the links that reference it)
     ops.push({ entity: 'asset_group', operation: 'create', resource: {
       resource_name: agRN,
