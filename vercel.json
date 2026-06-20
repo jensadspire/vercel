@@ -30,6 +30,9 @@
     },
     "api/scrape-logo.js": {
       "maxDuration": 30
+    },
+    "api/google-ads-publish-pmax.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
