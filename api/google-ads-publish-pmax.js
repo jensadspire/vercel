@@ -157,6 +157,25 @@ export default async function handler(req, res) {
 
     const cid = creds.customerId;
     const campaignId = normalizeId(req.body.campaignId);
+
+    // Brand Guidelines is a PMax campaign setting. When ENABLED, the business name
+    // and logo live at the CAMPAIGN level (CampaignAssets, shared across all asset
+    // groups) and MUST NOT be linked at the asset-group level — doing so triggers
+    // BRAND_ASSETS_NOT_LINKED_AT_CAMPAIGN_LEVEL. When DISABLED, they are linked per
+    // asset group (below). Enabling the setting requires those campaign-level assets
+    // to already exist, so when it's on we simply omit them here and inherit them.
+    let brandGuidelinesEnabled = false;
+    try {
+      const rows = await customer.query(
+        `SELECT campaign.brand_guidelines_enabled FROM campaign WHERE campaign.id = ${campaignId}`
+      );
+      brandGuidelinesEnabled = rows?.[0]?.campaign?.brand_guidelines_enabled === true;
+    } catch (err) {
+      // If the lookup fails, fall back to linking at asset-group level (the safe
+      // default for the common case where Brand Guidelines is off).
+      brandGuidelinesEnabled = false;
+    }
+
     const assetGroupName = String(req.body.assetGroupName || '').trim() || `Asset Group ${Date.now()}`;
     const businessName = String(req.body.businessName).trim();
     const headlines = cleanTexts(req.body.headlines).slice(0, 15);
@@ -210,8 +229,9 @@ export default async function handler(req, res) {
         resource: { asset_group: agRN, asset: rn, field_type: fieldType } });
     };
 
-    // 1. text assets
-    addText(businessName, enums.AssetFieldType.BUSINESS_NAME);
+    // 1. text assets — business name lives at campaign level when Brand Guidelines
+    //    is enabled, so skip it here in that case (campaign provides it).
+    if (!brandGuidelinesEnabled) addText(businessName, enums.AssetFieldType.BUSINESS_NAME);
     headlines.forEach(h => addText(h, enums.AssetFieldType.HEADLINE));
     longHeadlines.forEach(h => addText(h, enums.AssetFieldType.LONG_HEADLINE));
     descriptions.forEach(d => addText(d, enums.AssetFieldType.DESCRIPTION));
@@ -219,7 +239,8 @@ export default async function handler(req, res) {
     landBufs.forEach((b, i) => addImage(b, enums.AssetFieldType.MARKETING_IMAGE, `Landscape ${i + 1}`));
     sqBufs.forEach((b, i) => addImage(b, enums.AssetFieldType.SQUARE_MARKETING_IMAGE, `Square ${i + 1}`));
     portBufs.forEach((b, i) => addImage(b, enums.AssetFieldType.PORTRAIT_MARKETING_IMAGE, `Portrait ${i + 1}`));
-    addImage(logoBuf, enums.AssetFieldType.LOGO, 'Logo');
+    // logo also lives at campaign level under Brand Guidelines — skip it then.
+    if (!brandGuidelinesEnabled) addImage(logoBuf, enums.AssetFieldType.LOGO, 'Logo');
     // 3. asset group (after its assets, before the links that reference it)
     ops.push({ entity: 'asset_group', operation: 'create', resource: {
       resource_name: agRN,
@@ -268,8 +289,9 @@ export default async function handler(req, res) {
         landscape: landBufs.length,
         square: sqBufs.length,
         portrait: portBufs.length,
-        logo: 1,
+        logo: brandGuidelinesEnabled ? 0 : 1,
       },
+      brandGuidelinesEnabled,
       message: validateOnly
         ? 'Dry run passed — the asset group assembles and validates. Nothing was created.'
         : 'Asset group created as PAUSED. Review and activate it in Google Ads when ready.',
