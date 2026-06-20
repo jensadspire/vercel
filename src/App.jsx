@@ -890,6 +890,20 @@ function RSAStudio() {
   const [gadsSelectedCampaignId, setGadsSelectedCampaignId] = useState('');
   const [gadsSelectedAdGroupId, setGadsSelectedAdGroupId] = useState('');
   const [gadsPublishScope, setGadsPublishScope] = useState('current');  // 'current' | 'all'
+  // ── PMax PUBLISH state (Phase 2.5b — publish an asset group into an existing PMax campaign) ──
+  // PMax publishes one asset group at a time (active row's pmaxResult + pmaxImages + global
+  // pmaxLogo). No ad-group layer. Dry-run-first: validate must pass before the real publish
+  // button unlocks, protecting the live account's change history.
+  const [pmaxPublishOpen, setPmaxPublishOpen] = useState(false);
+  const [pmaxPublishStep, setPmaxPublishStep] = useState(1);  // 1=pick campaign, 2=confirm
+  const [pmaxPublishing, setPmaxPublishing] = useState(false);
+  const [pmaxPublishResult, setPmaxPublishResult] = useState(null);  // { resourceName, brandGuidelinesEnabled, counts }
+  const [pmaxPublishError, setPmaxPublishError] = useState('');
+  const [pmaxPublishProgress, setPmaxPublishProgress] = useState('');
+  const [pmaxAvailableCampaigns, setPmaxAvailableCampaigns] = useState([]);
+  const [pmaxCampaignsLoading, setPmaxCampaignsLoading] = useState(false);
+  const [pmaxSelectedCampaignId, setPmaxSelectedCampaignId] = useState('');
+  const [pmaxValidatedOk, setPmaxValidatedOk] = useState(false);  // dry-run passed → unlock real publish
   const [metaPickerOpen, setMetaPickerOpen] = useState(false);
   const [metaAvailableAccounts, setMetaAvailableAccounts] = useState([]);
   const [metaAvailablePages, setMetaAvailablePages] = useState([]);
@@ -1362,6 +1376,149 @@ function RSAStudio() {
     setGadsPublishing(false);
     setGadsPublishResult(results);
     setGadsPublishOpen(false);
+  };
+
+  // ── PMax PUBLISH handlers (Phase 2.5b) ────────────────────────────────────
+  // Publishes the active row's asset group into an existing PMax campaign via
+  // /api/google-ads-publish-pmax. Dry-run-first: a passing validate unlocks the
+  // real (paused) publish. Brand Guidelines linking is decided server-side, so the
+  // payload always sends logo + business name and lets the backend route them.
+
+  // Client-side pre-flight: ensure the active row can form a valid asset group
+  // before we bother Google. Returns an error string, or '' when ready.
+  const pmaxPreflight = () => {
+    const row = rows[activeRow];
+    const p = row?.pmaxResult;
+    if (!p) return 'Generate a PMax asset group first.';
+    const hl = (p.headlines || []).filter(h => h && h.trim());
+    const lh = (p.longHeadlines || []).filter(h => h && h.trim());
+    const de = (p.descriptions || []).filter(d => d && d.trim());
+    const imgs = row.pmaxImages || { landscape: [], square: [], portrait: [] };
+    if (!p.businessName || !p.businessName.trim()) return 'Business name is required.';
+    if (hl.length < 3) return `Need at least 3 headlines (have ${hl.length}).`;
+    if (lh.length < 1) return 'Need at least 1 long headline.';
+    if (de.length < 2) return `Need at least 2 descriptions (have ${de.length}).`;
+    if ((imgs.landscape || []).length < 1) return 'Need at least 1 landscape (1.91:1) image.';
+    if ((imgs.square || []).length < 1) return 'Need at least 1 square (1:1) image.';
+    if (!(p.finalUrl || row.finalUrl || url)) return 'A final URL is required.';
+    if (!pmaxLogo) return 'A logo is required — scrape or upload one first.';
+    return '';
+  };
+
+  const openPmaxPublishModal = async () => {
+    if (!isSignedIn) { setShowAuthModal(true); return; }
+    if (!gadsConn.connected) { setGadsConnError('Connect Google Ads first.'); return; }
+    if (!gadsConn.customerId) { setGadsConnError('Pick an account first.'); return; }
+
+    const preflight = pmaxPreflight();
+
+    setPmaxPublishOpen(true);
+    setPmaxPublishStep(1);
+    setPmaxPublishError(preflight);   // surface any missing-asset issue immediately
+    setPmaxPublishResult(null);
+    setPmaxValidatedOk(false);
+    setPmaxSelectedCampaignId('');
+    setPmaxAvailableCampaigns([]);
+    setPmaxCampaignsLoading(true);
+
+    try {
+      const session = await window.Clerk.session.getToken();
+      const res = await fetch('/api/google-ads-campaigns', {
+        headers: { Authorization: `Bearer ${session}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load campaigns');
+      setPmaxAvailableCampaigns(data.campaigns || []);
+    } catch (err) {
+      setPmaxPublishError(err.message || 'Failed to load campaigns');
+    } finally {
+      setPmaxCampaignsLoading(false);
+    }
+  };
+
+  // Assemble the payload from the active row and POST to the publish endpoint.
+  // validateOnly:true is a dry run (creates nothing); false performs the real
+  // paused create. Returns the parsed response (with .error/.details on failure).
+  const submitPmaxAssetGroup = async ({ validateOnly }) => {
+    const session = await window.Clerk.session.getToken();
+    const row = rows[activeRow];
+    const p = row.pmaxResult;
+    const imgs = row.pmaxImages || { landscape: [], square: [], portrait: [] };
+    const pickUrls = (slot) => (imgs[slot] || []).map(e => e.url).filter(Boolean);
+
+    const payload = {
+      validateOnly,
+      campaignId: pmaxSelectedCampaignId,
+      assetGroupName: (row.adGroup && row.adGroup.trim()) || `${p.businessName || 'PMax'} — ${new Date().toLocaleDateString()}`,
+      businessName: p.businessName,
+      headlines: (p.headlines || []).filter(h => h && h.trim()),
+      longHeadlines: (p.longHeadlines || []).filter(h => h && h.trim()),
+      descriptions: (p.descriptions || []).filter(d => d && d.trim()),
+      finalUrl: p.finalUrl || row.finalUrl || url,
+      ...(p.path1 ? { path1: p.path1 } : {}),
+      ...(p.path2 ? { path2: p.path2 } : {}),
+      images: { landscape: pickUrls('landscape'), square: pickUrls('square'), portrait: pickUrls('portrait') },
+      logoUrl: pmaxLogo,
+    };
+
+    const res = await fetch('/api/google-ads-publish-pmax', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session}` },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const err = new Error(data.error || 'Publish failed');
+      err.details = data.details || null;
+      throw err;
+    }
+    return data;
+  };
+
+  // Dry run — validate the assembly server-side. On success, unlock real publish.
+  const runPmaxValidate = async () => {
+    if (pmaxPublishing) return;
+    if (!pmaxSelectedCampaignId) { setPmaxPublishError('Pick a PMax campaign first.'); return; }
+    const preflight = pmaxPreflight();
+    if (preflight) { setPmaxPublishError(preflight); return; }
+
+    setPmaxPublishing(true);
+    setPmaxPublishError('');
+    setPmaxValidatedOk(false);
+    setPmaxPublishProgress('Validating asset group…');
+    try {
+      await submitPmaxAssetGroup({ validateOnly: true });
+      setPmaxValidatedOk(true);
+      setPmaxPublishProgress('');
+    } catch (err) {
+      const detail = (err.details && err.details[0]?.message) ? ` — ${err.details[0].message}` : '';
+      setPmaxPublishError((err.message || 'Validation failed') + detail);
+      setPmaxPublishProgress('');
+    } finally {
+      setPmaxPublishing(false);
+    }
+  };
+
+  // Real publish — only callable after a passing validate. Creates a PAUSED asset group.
+  const runPmaxPublish = async () => {
+    if (pmaxPublishing) return;
+    if (!pmaxValidatedOk) { setPmaxPublishError('Validate first, then publish.'); return; }
+
+    setPmaxPublishing(true);
+    setPmaxPublishError('');
+    setPmaxPublishProgress('Publishing asset group (paused)…');
+    try {
+      const data = await submitPmaxAssetGroup({ validateOnly: false });
+      setPmaxPublishResult(data);
+      setPmaxPublishProgress('');
+      setPmaxPublishing(false);
+      setPmaxPublishOpen(false);
+    } catch (err) {
+      const detail = (err.details && err.details[0]?.message) ? ` — ${err.details[0].message}` : '';
+      setPmaxPublishError((err.message || 'Publish failed') + detail);
+      setPmaxPublishProgress('');
+      setPmaxPublishing(false);
+    }
   };
 
   // Magic-link auto-generation: when an outreach email link like
@@ -3180,6 +3337,123 @@ STRICT rules:
                     </button>
                   </div>
                 </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* ── PMax Publish Modal (Phase 2.5b) ── dry-run-first into an existing PMax campaign ── */}
+      {pmaxPublishOpen && (
+        <div onClick={(e) => { if (e.target === e.currentTarget && !pmaxPublishing) setPmaxPublishOpen(false); }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#1a1f2e', borderRadius: 14, padding: 24, maxWidth: 460, width: '100%', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }}>
+            {/* Step indicator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>◈ Publish PMax Asset Group</div>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                {[1, 2].map(s => (
+                  <div key={s} style={{ width: 28, height: 4, borderRadius: 2, background: pmaxPublishStep >= s ? '#4285f4' : 'rgba(255,255,255,0.1)' }} />
+                ))}
+              </div>
+            </div>
+
+            <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 14 }}>
+              {pmaxPublishStep === 1
+                ? 'Pick the Performance Max campaign to publish this asset group into.'
+                : 'Validate the asset group, then publish it as paused.'}
+            </div>
+
+            {pmaxPublishError && (
+              <div style={{ marginBottom: 12, padding: '8px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, fontSize: 11, color: '#f87171' }}>
+                ⚠ {pmaxPublishError}
+              </div>
+            )}
+
+            {/* Step 1 — campaign picker (PMax only, channelType 10) */}
+            {pmaxPublishStep === 1 && (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#7e92a8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Performance Max campaign</div>
+                {pmaxCampaignsLoading ? (
+                  <div style={{ fontSize: 11, color: '#7e92a8', padding: '10px 0' }}>Loading campaigns…</div>
+                ) : (() => {
+                  const pmaxCampaigns = (pmaxAvailableCampaigns || []).filter(c => c.channelType === 10);
+                  if (pmaxCampaigns.length === 0) {
+                    return (
+                      <div style={{ fontSize: 11, color: '#fbbf24', padding: '10px 12px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 6 }}>
+                        No Performance Max campaigns found in this account. Create a PMax campaign in Google Ads first, then publish the asset group into it.
+                      </div>
+                    );
+                  }
+                  return (
+                    <>
+                      <select value={pmaxSelectedCampaignId} onChange={(e) => { setPmaxSelectedCampaignId(e.target.value); setPmaxValidatedOk(false); setPmaxPublishError(''); }} style={{ width: '100%', padding: '8px 10px', fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#e2e8f0' }}>
+                        <option value="">Select a campaign…</option>
+                        {pmaxCampaigns.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}{c.status ? ` (${c.status})` : ''}</option>
+                        ))}
+                      </select>
+                      <div style={{ fontSize: 10, color: '#4a5568', marginTop: 6 }}>Showing Performance Max campaigns only.</div>
+                    </>
+                  );
+                })()}
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+                  <button onClick={() => setPmaxPublishOpen(false)} style={{ flex: 1, padding: '9px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#7e92a8', cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={() => { setPmaxPublishError(''); setPmaxPublishStep(2); }} disabled={!pmaxSelectedCampaignId} style={{ flex: 2, padding: '9px', fontSize: 11, fontWeight: 800, background: !pmaxSelectedCampaignId ? 'rgba(66,133,244,0.25)' : 'linear-gradient(135deg,#4285f4,#2962d6)', border: 'none', borderRadius: 8, color: 'white', cursor: !pmaxSelectedCampaignId ? 'default' : 'pointer' }}>Continue →</button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2 — confirm: validate (dry run), then publish */}
+            {pmaxPublishStep === 2 && (() => {
+              const row = rows[activeRow];
+              const p = row?.pmaxResult || {};
+              const imgs = row?.pmaxImages || { landscape: [], square: [], portrait: [] };
+              const campaign = (pmaxAvailableCampaigns || []).find(c => c.id === pmaxSelectedCampaignId);
+              const hl = (p.headlines || []).filter(h => h && h.trim());
+              const lh = (p.longHeadlines || []).filter(h => h && h.trim());
+              const de = (p.descriptions || []).filter(d => d && d.trim());
+              const Stat = ({ label, val }) => (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <span style={{ color: '#7e92a8' }}>{label}</span>
+                  <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{val}</span>
+                </div>
+              );
+              return (
+                <div>
+                  <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }}>
+                    <Stat label="Campaign" val={campaign?.name || pmaxSelectedCampaignId} />
+                    <Stat label="Business name" val={p.businessName || '—'} />
+                    <Stat label="Headlines" val={hl.length} />
+                    <Stat label="Long headlines" val={lh.length} />
+                    <Stat label="Descriptions" val={de.length} />
+                    <Stat label="Landscape / Square / Portrait" val={`${imgs.landscape.length} / ${imgs.square.length} / ${imgs.portrait.length}`} />
+                    <Stat label="Logo" val={pmaxLogo ? '✓' : '—'} />
+                  </div>
+
+                  <div style={{ marginBottom: 14, padding: '8px 10px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 6, fontSize: 11, color: '#fbbf24' }}>
+                    ⚠ The asset group is created as <strong>PAUSED</strong>. Assign an audience signal and activate it in Google Ads when ready.
+                  </div>
+
+                  {pmaxValidatedOk && (
+                    <div style={{ marginBottom: 12, padding: '8px 10px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6, fontSize: 11, color: '#34d399' }}>
+                      ✓ Validated — the asset group assembles correctly. Ready to publish.
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => { setPmaxPublishStep(1); setPmaxValidatedOk(false); setPmaxPublishError(''); }} disabled={pmaxPublishing} style={{ flex: 1, padding: '9px', fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#7e92a8', cursor: pmaxPublishing ? 'default' : 'pointer' }}>← Back</button>
+                    {!pmaxValidatedOk ? (
+                      <button onClick={runPmaxValidate} disabled={pmaxPublishing} style={{ flex: 2, padding: '9px', fontSize: 11, fontWeight: 800, background: pmaxPublishing ? 'rgba(251,191,36,0.4)' : 'linear-gradient(135deg,#4285f4,#2962d6)', border: 'none', borderRadius: 8, color: 'white', cursor: pmaxPublishing ? 'default' : 'pointer' }}>
+                        {pmaxPublishing ? (pmaxPublishProgress || '⟳ Validating…') : '🔍 Validate (dry run)'}
+                      </button>
+                    ) : (
+                      <button onClick={runPmaxPublish} disabled={pmaxPublishing} style={{ flex: 2, padding: '9px', fontSize: 11, fontWeight: 800, background: pmaxPublishing ? 'rgba(52,211,153,0.4)' : 'linear-gradient(135deg,#10b981,#059669)', border: 'none', borderRadius: 8, color: 'white', cursor: pmaxPublishing ? 'default' : 'pointer' }}>
+                        {pmaxPublishing ? (pmaxPublishProgress || '⟳ Publishing…') : '✓ Publish (paused)'}
+                      </button>
+                    )}
+                  </div>
+                </div>
               );
             })()}
           </div>
@@ -5234,6 +5508,29 @@ STRICT rules:
                 </>
               );
             })()}
+
+            {/* PMax publish bar — appears once an asset group is generated */}
+            {rows[activeRow]?.pmaxResult && (
+              <div style={{ marginTop: 16 }}>
+                {pmaxPublishResult?.success && (
+                  <div style={{ marginBottom: 10, padding: "10px 12px", background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: 8, fontSize: 11, color: "#34d399" }}>
+                    ✓ Asset group published (paused) to your PMax campaign.{" "}
+                    <a href={`https://ads.google.com/aw/campaigns?campaignId=${pmaxSelectedCampaignId}&authuser=${encodeURIComponent(gadsConn.googleUserEmail || "")}`} target="_blank" rel="noopener noreferrer" style={{ color: "#7aa6ff" }}>→ Review &amp; activate in Google Ads</a>
+                    <div style={{ marginTop: 4, color: "#7e92a8", fontWeight: 400 }}>Next: assign an audience signal and (optionally) search themes in Google Ads.</div>
+                  </div>
+                )}
+                <button onClick={() => { if (!pmaxPublishing) openPmaxPublishModal(); }} style={{
+                  width: "100%", padding: "11px", fontSize: 12, fontWeight: 800, borderRadius: 8,
+                  background: pmaxPublishing ? "rgba(251,191,36,0.15)" : "rgba(66,133,244,0.15)",
+                  border: pmaxPublishing ? "1px solid rgba(251,191,36,0.5)" : "1px solid rgba(66,133,244,0.4)",
+                  color: pmaxPublishing ? "#fbbf24" : "#7aa6ff",
+                  cursor: pmaxPublishing ? "default" : "pointer",
+                  animation: pmaxPublishing ? "pulse 1.6s ease-in-out infinite" : "none",
+                }}>
+                  {pmaxPublishing ? (pmaxPublishProgress || "⟳ Working…") : "🚀 Publish Asset Group to Google Ads"}
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           /* ── RSA Output (existing) ── */
