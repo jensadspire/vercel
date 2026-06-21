@@ -116,7 +116,11 @@ function smartTrimDesc(text) {
   if (!text) return "";
   // Remove trailing incomplete fragments — anything after last sentence-ending punctuation
   const clean = text.trimEnd();
-  if (clean.length <= DESC_LIMIT + DESC_GRACE) {
+  // Hard-clamp to DESC_LIMIT: AI-generated descriptions never exceed the limit.
+  // (The DESC_GRACE band is retained for the char-counter UI and validation, where
+  // it gives a friendly "tolerated" zone for manual user edits — see DESC_GRACE.
+  // A post-approval toggle may reintroduce optional over-length drafts; default off.)
+  if (clean.length <= DESC_LIMIT) {
     // Within limit — but check for clean ending
     const lastPunct = Math.max(clean.lastIndexOf("."), clean.lastIndexOf("!"), clean.lastIndexOf("?"));
     // If text doesn't end with punct and last sentence is far back, keep as-is
