@@ -5572,6 +5572,14 @@ STRICT rules:
                   {pmaxPublishing ? (pmaxPublishProgress || "⟳ Working…") : "🚀 Publish Asset Group to Google Ads"}
                 </button>
 
+                {/* Inline connection error — co-located so "Connect Google Ads first"
+                    is visible right here on the PMax tab (mirrors the RSA alert). */}
+                {gadsConnError && (
+                  <div style={{ marginTop: 8, padding: "6px 10px", fontSize: 10, color: "#f87171", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6 }}>
+                    ❌ {gadsConnError}
+                  </div>
+                )}
+
                 {/* Connect-state strip — co-located with the publish button so users
                     see Google Ads connection status right here (mirrors the RSA strip
                     logic; uses the same gadsConn state + handlers, no duplication). */}
