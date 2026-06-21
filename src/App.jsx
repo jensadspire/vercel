@@ -1107,6 +1107,8 @@ function RSAStudio() {
           pmaxLogo,
           pmaxLogoSource,
           pmaxLogoDomain,
+          pageMeta,
+          imageAnalysis,
         };
         localStorage.setItem('aiad_preconnect_snapshot', JSON.stringify(snapshot));
       } catch (_) { /* localStorage unavailable — non-fatal, flow still works */ }
@@ -1171,6 +1173,8 @@ function RSAStudio() {
             if (snap.pmaxLogo !== undefined) setPmaxLogo(snap.pmaxLogo);
             if (typeof snap.pmaxLogoSource === 'string') setPmaxLogoSource(snap.pmaxLogoSource);
             if (snap.pmaxLogoDomain !== undefined) setPmaxLogoDomain(snap.pmaxLogoDomain);
+            if (snap.pageMeta && typeof snap.pageMeta === 'object') setPageMeta(snap.pageMeta);
+            if (snap.imageAnalysis !== undefined) setImageAnalysis(snap.imageAnalysis);
           }
         }
       } catch (_) { /* corrupt/absent snapshot — non-fatal, app loads normally */ }
