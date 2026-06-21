@@ -40,7 +40,7 @@
   <a href="/" class="return-link">← Back to AI Ad Studio</a>
 
   <h1>Privacy Policy</h1>
-  <p class="subtitle">Last updated: March 5, 2026</p>
+  <p class="subtitle">Last updated: June 21, 2026</p>
 
   <p>This Privacy Notice for <strong>Adspire Deutschland GmbH</strong> ("we," "us," or "our") describes how and why we might access, collect, store, use, and/or share ("process") your personal information when you use our services ("Services"), including when you:</p>
   <ul>
@@ -129,8 +129,13 @@
     <li><em>IP Address.</em> When you visit our website, our servers automatically collect certain technical information that your browser transmits to us, including your IP address, browser type, operating system, referrer URL, and the time of your request. The basis for processing is Art. 6 (1) (f) GDPR.</li>
   </ul>
 
-  <h3>Google API</h3>
-  <p>Our use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Limited Use requirements</a>.</p>
+  <h3>Google Ads API</h3>
+  <p>When you connect your Google Ads account to AI Ad Studio, you authorize us &mdash; through Google's OAuth consent screen &mdash; to access your Google Ads account on your behalf using the <code>https://www.googleapis.com/auth/adwords</code> scope. We use this access solely to enable the advertising features you explicitly request: reading the Google Ads accounts, campaigns, and asset groups you have access to so you can select a publishing destination, and creating ad assets (such as Responsive Search Ads and Performance Max asset groups) in the account and campaign you choose. All ad assets we create are published in a <strong>paused</strong> state for your review; we do not activate, modify spend on, or manage your live campaigns.</p>
+  <p><strong>Token storage.</strong> When you connect, we receive an OAuth access token and refresh token from Google. These are encrypted at rest using AES-256-GCM (authenticated encryption) and isolated to your individual user account. We do not share these tokens with any third party.</p>
+  <p><strong>Direction of data flow.</strong> Information flows only from AI Ad Studio to the Google Ads API for the purpose of reading your campaign structure and publishing the assets you request. We do not use data obtained through the Google Ads API for any purpose other than providing these publishing features to you.</p>
+  <p><strong>Revocation.</strong> You can revoke our app's access to your Google Ads account at any time from your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Account permissions page</a>. You may also disconnect Google Ads directly within AI Ad Studio, which deletes your stored Google credentials from our systems. When you revoke access, your stored Google tokens are no longer usable and are removed from our active storage.</p>
+  <p>Your use of the publishing features is also governed by our <a href="https://www.theaiad.studio/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</a>, including your responsibilities for ensuring that content you publish through the Service complies with Google Ads policies.</p>
+  <p>Our use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Limited Use requirements</a>. In particular, we do <strong>not</strong> use Google user data to train, fine-tune, or improve any generalized or AI/ML models, and we do not sell or transfer Google user data.</p>
 
   <h3>Meta (Facebook) API</h3>
   <p>When you connect your Meta account to AI Ad Studio, we receive an access token from Meta that we use to publish ads to your selected ad account on your behalf. The token is stored encrypted (AES-256-GCM) in our database. We process Meta-provided information solely to enable the advertising features you have explicitly requested. You can revoke our app's access at any time from your Facebook settings; doing so will trigger an automatic deletion of your stored Meta credentials on our side.</p>
@@ -200,6 +205,7 @@
 
   <h3>How We Process Your Data Using AI</h3>
   <p>All personal information processed using our AI Products is handled in line with this Privacy Notice and our agreements with third parties. This ensures high security and safeguards your personal information throughout the process.</p>
+  <p>Data obtained through the Google Ads API and Meta API &mdash; such as account identifiers, campaign structure, and access tokens &mdash; is used solely to publish the advertisements you request and is never shared with, or processed by, our AI Service Providers.</p>
 
   <h2 id="social-logins">7. How do we handle your social logins?</h2>
   <div class="summary"><em><strong>In short:</strong> If you choose to connect a social media account (like Facebook), we may have access to certain information about you.</em></div>
