@@ -5571,6 +5571,40 @@ STRICT rules:
                 }}>
                   {pmaxPublishing ? (pmaxPublishProgress || "⟳ Working…") : "🚀 Publish Asset Group to Google Ads"}
                 </button>
+
+                {/* Connect-state strip — co-located with the publish button so users
+                    see Google Ads connection status right here (mirrors the RSA strip
+                    logic; uses the same gadsConn state + handlers, no duplication). */}
+                {isSignedIn && (
+                  <div style={{ marginTop: 8, padding: "8px 10px", background: gadsConn.connected ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.03)", border: "1px solid " + (gadsConn.connected ? "rgba(52,211,153,0.25)" : "rgba(255,255,255,0.08)"), borderRadius: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 10, color: "#7e92a8", flex: 1, minWidth: 0 }}>
+                      {gadsConnLoading ? (
+                        <>⟳ Checking Google Ads connection…</>
+                      ) : gadsConn.connected ? (
+                        gadsConn.customerId ? (
+                          <span style={{ color: "#34d399" }}>✅ Publishing to <strong>account {gadsConn.customerId}</strong>{gadsConn.loginCustomerId ? ` (via MCC ${gadsConn.loginCustomerId})` : ""}</span>
+                        ) : (
+                          <span style={{ color: "#34d399" }}>✅ Connected — <span style={{ color: "#fbbf24" }}>pick an account to publish to →</span></span>
+                        )
+                      ) : (
+                        <>🔗 Connect your Google Ads account to publish this asset group</>
+                      )}
+                    </div>
+                    {!gadsConnLoading && (
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        {gadsConn.connected && !gadsConn.customerId && (
+                          <button onClick={openGadsPicker} style={{ padding: "5px 10px", fontSize: 10, fontWeight: 800, background: "linear-gradient(135deg,#4285f4,#2962d6)", border: "none", borderRadius: 5, color: "white", cursor: "pointer", whiteSpace: "nowrap" }}>Pick account</button>
+                        )}
+                        {gadsConn.connected && gadsConn.customerId && (
+                          <button onClick={openGadsPicker} style={{ padding: "5px 10px", fontSize: 10, fontWeight: 700, background: "rgba(66,133,244,0.1)", border: "1px solid rgba(66,133,244,0.3)", borderRadius: 5, color: "#7aa6ff", cursor: "pointer", whiteSpace: "nowrap" }}>Change</button>
+                        )}
+                        <button onClick={gadsConn.connected ? disconnectGads : triggerGadsConnect} style={{ padding: "5px 10px", fontSize: 10, fontWeight: 700, background: gadsConn.connected ? "rgba(239,68,68,0.1)" : "rgba(66,133,244,0.15)", border: "1px solid " + (gadsConn.connected ? "rgba(239,68,68,0.3)" : "rgba(66,133,244,0.4)"), borderRadius: 5, color: gadsConn.connected ? "#f87171" : "#7aa6ff", cursor: "pointer", whiteSpace: "nowrap" }}>
+                          {gadsConn.connected ? "Disconnect" : "Connect Google Ads"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
