@@ -1087,6 +1087,25 @@ function RSAStudio() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to start Google Ads OAuth');
       if (!data.url) throw new Error('No OAuth URL returned');
+      // Snapshot the ad-builder state before leaving the page, so the user lands
+      // back exactly where they were after the OAuth round-trip (instead of a
+      // blank app that forces them to regenerate). Rehydrated on return below.
+      try {
+        const snapshot = {
+          v: 1,
+          ts: Date.now(),
+          rows,
+          activeRow,
+          url,
+          adFormat,
+          activeTab,
+          generated,
+          pmaxLogo,
+          pmaxLogoSource,
+          pmaxLogoDomain,
+        };
+        localStorage.setItem('aiad_preconnect_snapshot', JSON.stringify(snapshot));
+      } catch (_) { /* localStorage unavailable — non-fatal, flow still works */ }
       // Redirect the whole window to Google's consent screen
       window.location.href = data.url;
     } catch (err) {
@@ -1130,6 +1149,28 @@ function RSAStudio() {
     const params = new URLSearchParams(window.location.search);
     const gadsResult = params.get('googleAdsConnected');
     if (gadsResult === '1') {
+      // Restore the ad-builder state captured before the OAuth redirect, so the
+      // user resumes exactly where they left off and can publish straight away.
+      try {
+        const raw = localStorage.getItem('aiad_preconnect_snapshot');
+        if (raw) {
+          const snap = JSON.parse(raw);
+          // Only restore a fresh snapshot (guard against stale data from an
+          // abandoned earlier attempt) — 30 min window.
+          if (snap && snap.v === 1 && snap.ts && (Date.now() - snap.ts) < 30 * 60 * 1000) {
+            if (Array.isArray(snap.rows)) setRows(snap.rows);
+            if (typeof snap.activeRow === 'number') setActiveRow(snap.activeRow);
+            if (typeof snap.url === 'string') setUrl(snap.url);
+            if (typeof snap.adFormat === 'string') setAdFormat(snap.adFormat);
+            if (typeof snap.activeTab === 'string') setActiveTab(snap.activeTab);
+            if (typeof snap.generated === 'boolean') setGenerated(snap.generated);
+            if (snap.pmaxLogo !== undefined) setPmaxLogo(snap.pmaxLogo);
+            if (typeof snap.pmaxLogoSource === 'string') setPmaxLogoSource(snap.pmaxLogoSource);
+            if (snap.pmaxLogoDomain !== undefined) setPmaxLogoDomain(snap.pmaxLogoDomain);
+          }
+        }
+      } catch (_) { /* corrupt/absent snapshot — non-fatal, app loads normally */ }
+      localStorage.removeItem('aiad_preconnect_snapshot');
       refreshGadsStatus();
       params.delete('googleAdsConnected');
       params.delete('error');
@@ -1147,6 +1188,7 @@ function RSAStudio() {
         access_denied: 'You declined the requested permissions.',
       };
       setGadsConnError(msgMap[errorCode] || `Google Ads connection failed: ${errorCode}`);
+      try { localStorage.removeItem('aiad_preconnect_snapshot'); } catch (_) {}
       params.delete('googleAdsConnected');
       params.delete('error');
       const newSearch = params.toString();
