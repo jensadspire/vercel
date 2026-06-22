@@ -722,6 +722,12 @@ function RSAStudio() {
   const [pmaxLogoSource, setPmaxLogoSource] = useState('favicon'); // 'scraped' | 'uploaded' | 'favicon'
   const [pmaxLogoDomain, setPmaxLogoDomain] = useState(null); // domain the current logo belongs to (session stickiness)
   const [pmaxLogoBusy, setPmaxLogoBusy] = useState(false); // conforming an uploaded logo
+  // YouTube Link Scanner (scrape-only) — discovers the brand's own YouTube channel/
+  // videos linked on their site, suggested for the PMax video slot. No YouTube API.
+  const [ytScan, setYtScan] = useState(null); // { channels:[], videos:[] } | null
+  const [ytScanBusy, setYtScanBusy] = useState(false);
+  const [ytScanDomain, setYtScanDomain] = useState(null); // domain the scan belongs to
+  const [ytCopied, setYtCopied] = useState(null); // url just copied (for feedback)
   // Imagen modal state
   const [imagenOpen, setImagenOpen] = useState(false);
   const [imagenStep, setImagenStep] = useState(1);
@@ -853,6 +859,38 @@ function RSAStudio() {
       const missing = SLOT_KEYS.filter(s => !(pmaxImages[s] || []).some(e => e.srcUrl === src));
       for (const s of missing) await togglePmaxSlot(src, s, 'contain');
     }
+  };
+
+  // Scrape the current URL's site for a linked YouTube channel/videos (scrape-only,
+  // no YouTube API). Suggestions only — the user confirms ownership and pastes the
+  // link into Google Ads (PMax requires videos on the advertiser's own channel).
+  const runYtScan = async (scanUrl) => {
+    const target = (scanUrl || url || '').trim();
+    if (!target) return;
+    let domain = null;
+    try { domain = new URL(target).hostname.replace(/^www\./, ''); } catch (_) {}
+    setYtScanBusy(true);
+    try {
+      const r = await fetch('/api/scrape-youtube', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: target }),
+      });
+      const d = await r.json();
+      setYtScan({ channels: d.channels || [], videos: d.videos || [] });
+      setYtScanDomain(domain);
+    } catch (e) {
+      setYtScan({ channels: [], videos: [], error: e.message });
+    } finally {
+      setYtScanBusy(false);
+    }
+  };
+
+  const copyYtLink = async (link) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setYtCopied(link);
+      setTimeout(() => setYtCopied(c => (c === link ? null : c)), 1500);
+    } catch (_) { /* clipboard blocked — non-fatal */ }
   };
   const { signOut, session } = useClerk();
   // Reverification-wrapped version of createExternalAccount. Clerk requires
@@ -5619,6 +5657,56 @@ STRICT rules:
                 </>
               );
             })()}
+
+            {/* YouTube video suggestions (scrape-only) — PMax benefits from a video
+                asset; this surfaces the brand's own channel/videos found on their site.
+                Suggest-and-assist: user confirms ownership + pastes into Google Ads. */}
+            {rows[activeRow]?.pmaxResult && (
+              <div style={{ marginTop: 16, padding: "12px 14px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#7e92a8" }}>▶ Video for Performance Max</div>
+                    <div style={{ fontSize: 10, color: "#4a5568", marginTop: 2, lineHeight: 1.4 }}>Adding a YouTube video lifts Ad Strength. Scan the site for a linked channel.</div>
+                  </div>
+                  <button onClick={() => runYtScan()} disabled={ytScanBusy} style={{
+                    flexShrink: 0, padding: "7px 12px", fontSize: 11, fontWeight: 800, borderRadius: 7,
+                    background: ytScanBusy ? "rgba(251,191,36,0.15)" : "rgba(99,102,241,0.15)",
+                    border: ytScanBusy ? "1px solid rgba(251,191,36,0.4)" : "1px solid rgba(99,102,241,0.4)",
+                    color: ytScanBusy ? "#fbbf24" : "#a5b4fc", cursor: ytScanBusy ? "default" : "pointer",
+                  }}>{ytScanBusy ? "⟳ Scanning…" : (ytScan ? "↻ Re-scan" : "🔍 Scan for YouTube")}</button>
+                </div>
+
+                {ytScan && !ytScanBusy && (
+                  <div style={{ marginTop: 10 }}>
+                    {(ytScan.channels.length === 0 && ytScan.videos.length === 0) ? (
+                      <div style={{ fontSize: 11, color: "#7e92a8", padding: "6px 0" }}>
+                        No YouTube channel or videos found linked on this site. You can still add a video manually in Google Ads (it must be on your own channel).
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {ytScan.channels.map((c, i) => (
+                          <div key={"ch" + i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 6 }}>
+                            <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.2)", color: "#a5b4fc", flexShrink: 0 }}>CHANNEL</span>
+                            <a href={c.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#7aa6ff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{c.handle || c.url}</a>
+                            <button onClick={() => copyYtLink(c.url)} style={{ flexShrink: 0, padding: "3px 8px", fontSize: 10, fontWeight: 700, borderRadius: 5, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: ytCopied === c.url ? "#34d399" : "#adbccb", cursor: "pointer" }}>{ytCopied === c.url ? "✓ Copied" : "Copy"}</button>
+                          </div>
+                        ))}
+                        {ytScan.videos.map((v, i) => (
+                          <div key={"vid" + i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6 }}>
+                            <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 4, background: "rgba(52,211,153,0.18)", color: "#34d399", flexShrink: 0 }}>VIDEO</span>
+                            <a href={v.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#7aa6ff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{v.url}</a>
+                            <button onClick={() => copyYtLink(v.url)} style={{ flexShrink: 0, padding: "3px 8px", fontSize: 10, fontWeight: 700, borderRadius: 5, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: ytCopied === v.url ? "#34d399" : "#adbccb", cursor: "pointer" }}>{ytCopied === v.url ? "✓ Copied" : "Copy"}</button>
+                          </div>
+                        ))}
+                        <div style={{ fontSize: 9, color: "#4a5568", marginTop: 2, lineHeight: 1.4 }}>
+                          ⓘ Suggestions found on your site. Confirm the channel is yours before using — Google Ads only accepts videos hosted on your own linked YouTube channel.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* PMax publish bar — appears once an asset group is generated */}
             {rows[activeRow]?.pmaxResult && (
