@@ -112,21 +112,21 @@ function charInfo(text, limit, isDesc = false) {
 }
 
 // Smart description trimmer: keep text if <=93 chars, else trim to last complete word
-function smartTrimDesc(text) {
+function smartTrimDesc(text, allowGrace = false) {
   if (!text) return "";
   // Remove trailing incomplete fragments — anything after last sentence-ending punctuation
   const clean = text.trimEnd();
-  // Hard-clamp to DESC_LIMIT: AI-generated descriptions never exceed the limit.
-  // (The DESC_GRACE band is retained for the char-counter UI and validation, where
-  // it gives a friendly "tolerated" zone for manual user edits — see DESC_GRACE.
-  // A post-approval toggle may reintroduce optional over-length drafts; default off.)
-  if (clean.length <= DESC_LIMIT) {
-    // Within limit — but check for clean ending
-    const lastPunct = Math.max(clean.lastIndexOf("."), clean.lastIndexOf("!"), clean.lastIndexOf("?"));
-    // If text doesn't end with punct and last sentence is far back, keep as-is
+  // Default (allowGrace=false): hard-clamp to DESC_LIMIT — AI-generated descriptions
+  // never exceed the limit. When allowGrace=true (the user's "flexible output" toggle),
+  // descriptions up to DESC_LIMIT + DESC_GRACE pass through untrimmed, letting the user
+  // see the AI's fuller phrasing; the char-counter "tolerated" band and the publish-flow
+  // validation then prompt them to trim any >DESC_LIMIT line before publishing.
+  const passThrough = allowGrace ? DESC_LIMIT + DESC_GRACE : DESC_LIMIT;
+  if (clean.length <= passThrough) {
+    // Within (allowed) limit — keep as-is
     return clean;
   }
-  // Over limit — first try to cut at sentence boundary within limit
+  // Over limit — first try to cut at sentence boundary within the hard limit
   const cut = clean.slice(0, DESC_LIMIT);
   const lastPunct = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"));
   if (lastPunct > DESC_LIMIT * 0.6) return cut.slice(0, lastPunct + 1); // cut at sentence end
@@ -654,6 +654,11 @@ export default function App() {
 function RSAStudio() {
   const [url, setUrl] = useState("");
   const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax" | "meta"
+  // "Flexible ad output" toggle (default OFF = hard-clamp). When ON, generated
+  // descriptions may keep the AI's slightly-longer phrasing (up to DESC_LIMIT +
+  // DESC_GRACE); the user trims any >DESC_LIMIT line before publishing, caught by
+  // the publish-flow validation. Neither setting lets >DESC_LIMIT reach Google.
+  const [flexibleDescriptions, setFlexibleDescriptions] = useState(false);
   const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
   const [imageModel, setImageModel] = useState('imagen'); // 'dalle' | 'imagen'
   const [metaResult, setMetaResult] = useState(null);
@@ -1904,7 +1909,7 @@ function RSAStudio() {
         newRow.campaign = p.campaign || "";
         newRow.adGroup = p.adGroup || "";
         newRow.headlines = Array.from({ length: NUM_HL }, (_, j) => ({ text: (p.headlines?.[j] || "").slice(0, HL_LIMIT), pin: "" }));
-        newRow.descriptions = Array.from({ length: NUM_DESC }, (_, j) => ({ text: smartTrimDesc(p.descriptions?.[j] || ""), pin: "" }));
+        newRow.descriptions = Array.from({ length: NUM_DESC }, (_, j) => ({ text: smartTrimDesc(p.descriptions?.[j] || "", flexibleDescriptions), pin: "" }));
         newRow.path1 = (p.path1 || "").slice(0, PATH_LIMIT);
         newRow.path2 = (p.path2 || "").slice(0, PATH_LIMIT);
         newRows.push({ row: newRow, url: selected[i].url });
@@ -2427,7 +2432,7 @@ STRICT rules:
           text: (p.headlines?.[i] || "").slice(0, HL_LIMIT), pin: ""
         })),
         descriptions: Array.from({ length: NUM_DESC }, (_, i) => ({
-          text: smartTrimDesc(p.descriptions?.[i] || ""), pin: ""
+          text: smartTrimDesc(p.descriptions?.[i] || "", flexibleDescriptions), pin: ""
         })),
         path1: (p.path1 || "").slice(0, PATH_LIMIT),
         path2: (p.path2 || "").slice(0, PATH_LIMIT),
@@ -2448,7 +2453,7 @@ STRICT rules:
             campaign: p.campaign || "",
             adGroup: p.adGroup || "",
             headlines: Array.from({ length: NUM_HL }, (_, j) => ({ text: (p.headlines?.[j] || "").slice(0, HL_LIMIT), pin: "" })),
-            descriptions: Array.from({ length: NUM_DESC }, (_, j) => ({ text: smartTrimDesc(p.descriptions?.[j] || ""), pin: "" })),
+            descriptions: Array.from({ length: NUM_DESC }, (_, j) => ({ text: smartTrimDesc(p.descriptions?.[j] || "", flexibleDescriptions), pin: "" })),
             path1: (p.path1 || "").slice(0, PATH_LIMIT),
             path2: (p.path2 || "").slice(0, PATH_LIMIT),
             finalUrl: url,
@@ -4812,6 +4817,33 @@ STRICT rules:
 
               </div>
             )}
+          </div>
+
+          {/* Flexible ad output toggle — descriptions trim mode (default: hard-clamp) */}
+          <div style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "9px 12px" }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#7e92a8" }}>Flexible Ad Output</div>
+              <div style={{ fontSize: 10, color: "#4a5568", marginTop: 2, lineHeight: 1.4 }}>
+                {flexibleDescriptions
+                  ? `On — keeps the AI's fuller phrasing (up to ${DESC_LIMIT + DESC_GRACE} chars); trim any over-limit line before publishing.`
+                  : `Off — descriptions auto-trimmed to ${DESC_LIMIT} chars for a clean, ready-to-publish result.`}
+              </div>
+            </div>
+            <button
+              onClick={() => setFlexibleDescriptions(v => !v)}
+              role="switch"
+              aria-checked={flexibleDescriptions}
+              title="Toggle flexible ad output"
+              style={{
+                flexShrink: 0, width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer", position: "relative",
+                background: flexibleDescriptions ? "rgba(99,102,241,0.8)" : "rgba(255,255,255,0.12)",
+                transition: "background 0.2s",
+              }}>
+              <span style={{
+                position: "absolute", top: 2, left: flexibleDescriptions ? 20 : 2, width: 18, height: 18, borderRadius: "50%",
+                background: "#fff", transition: "left 0.2s",
+              }} />
+            </button>
           </div>
 
           {/* Audience Modifiers Panel */}
