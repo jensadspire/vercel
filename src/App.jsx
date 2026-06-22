@@ -5565,7 +5565,7 @@ STRICT rules:
                 {pmaxPublishResult?.success && (
                   <div style={{ marginBottom: 10, padding: "10px 12px", background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: 8, fontSize: 11, color: "#34d399" }}>
                     ✓ Asset group published (paused) to your PMax campaign.{" "}
-                    <a href={`https://ads.google.com/aw/campaigns?campaignId=${pmaxSelectedCampaignId}&authuser=${encodeURIComponent(gadsConn.googleUserEmail || "")}`} target="_blank" rel="noopener noreferrer" style={{ color: "#7aa6ff" }}>→ Review &amp; activate in Google Ads</a>
+                    <a href={`https://ads.google.com/aw/campaigns?campaignId=${pmaxSelectedCampaignId}&authuser=${encodeURIComponent(gadsConn.googleUserEmail || "")}`} style={{ color: "#7aa6ff" }}>→ Review &amp; activate in Google Ads</a>
                     <div style={{ marginTop: 4, color: "#7e92a8", fontWeight: 400 }}>Next: assign an audience signal and (optionally) search themes in Google Ads.</div>
                   </div>
                 )}
@@ -6626,7 +6626,7 @@ STRICT rules:
                       <div style={{ fontSize: 10, color: '#34d399', fontWeight: 700 }}>
                         ✅ {gadsPublishResult.successes.length === 1 ? 'Ad created' : `${gadsPublishResult.successes.length} ads created`} as PAUSED in Google Ads
                       </div>
-                      <a href={`https://ads.google.com/aw/ads?campaignId=${gadsSelectedCampaignId}&adGroupId=${gadsSelectedAdGroupId}&authuser=${encodeURIComponent(gadsConn.googleUserEmail || '')}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#7aa6ff' }}>→ Review and activate in Google Ads</a>
+                      <a href={`https://ads.google.com/aw/ads?campaignId=${gadsSelectedCampaignId}&adGroupId=${gadsSelectedAdGroupId}&authuser=${encodeURIComponent(gadsConn.googleUserEmail || '')}`} style={{ fontSize: 10, color: '#7aa6ff' }}>→ Review and activate in Google Ads</a>
                     </div>
                   )}
                   {gadsPublishResult && gadsPublishResult.failures.length > 0 && gadsPublishResult.successes.length === 0 && (
@@ -6645,7 +6645,7 @@ STRICT rules:
                       {gadsPublishResult.failures.map((f, i) => (
                         <div key={i} style={{ fontSize: 10, color: '#f87171', marginLeft: 8 }}>• Ad {f.rowIndex + 1}: {f.error}</div>
                       ))}
-                      <a href={`https://ads.google.com/aw/ads?campaignId=${gadsSelectedCampaignId}&adGroupId=${gadsSelectedAdGroupId}&authuser=${encodeURIComponent(gadsConn.googleUserEmail || '')}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#7aa6ff' }}>→ Review what was published in Google Ads</a>
+                      <a href={`https://ads.google.com/aw/ads?campaignId=${gadsSelectedCampaignId}&adGroupId=${gadsSelectedAdGroupId}&authuser=${encodeURIComponent(gadsConn.googleUserEmail || '')}`} style={{ fontSize: 10, color: '#7aa6ff' }}>→ Review what was published in Google Ads</a>
                     </div>
                   )}
                 </div>
