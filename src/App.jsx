@@ -831,6 +831,24 @@ function RSAStudio() {
   const removePmaxImage = (slot, url) => {
     updateRow(activeRow, row => ({ ...row, pmaxImages: { ...(row.pmaxImages || { landscape: [], square: [], portrait: [] }), [slot]: (row.pmaxImages?.[slot] || []).filter(e => e.url !== url) } }));
   };
+
+  // One-click all-formats toggle (image-tap shortcut). All-or-nothing rule:
+  // if all three slots already hold this src → remove from all three;
+  // otherwise → add it to whichever of the three are missing (bumping partials
+  // up to full). Reuses togglePmaxSlot so normalize/remove logic stays in one place.
+  const SLOT_KEYS = ['landscape', 'square', 'portrait'];
+  const allThreeSelected = (src) => SLOT_KEYS.every(s => (pmaxImages[s] || []).some(e => e.srcUrl === src));
+  const toggleAllSlots = async (src) => {
+    if (!src) return;
+    if (allThreeSelected(src)) {
+      // deselect all three
+      for (const s of SLOT_KEYS) await togglePmaxSlot(src, s, 'contain');
+    } else {
+      // add only the missing slots (leave already-selected ones in place)
+      const missing = SLOT_KEYS.filter(s => !(pmaxImages[s] || []).some(e => e.srcUrl === src));
+      for (const s of missing) await togglePmaxSlot(src, s, 'contain');
+    }
+  };
   const { signOut, session } = useClerk();
   // Reverification-wrapped version of createExternalAccount. Clerk requires
   // re-authentication (password or 2FA) before adding a new external OAuth
@@ -5464,15 +5482,26 @@ STRICT rules:
                           {(pageMeta.images || []).length > 0 && (
                             <div style={{ marginTop: 16 }}>
                               <div style={{ fontSize: 10, fontWeight: 700, color: "#7e92a8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
-                                Images from the page <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#4a5568" }}>· tap L / S / P to add to a slot</span>
+                                Images from the page <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#4a5568" }}>· tap image for all 3, or L / S / P for one</span>
                               </div>
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 8 }}>
                                 {(pageMeta.images || []).map((src, i) => {
                                   const slots = [["landscape", "L"], ["square", "S"], ["portrait", "P"]];
+                                  const allThree = slots.every(([slot]) => (pmaxImages[slot] || []).some(e => e.srcUrl === src));
+                                  const imgBusy = slots.some(([slot]) => slotBusy === `${src}|${slot}`);
                                   return (
-                                    <div key={i} style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, overflow: "hidden", background: "rgba(255,255,255,0.02)" }}>
-                                      <div style={{ width: "100%", aspectRatio: "1", background: "#0c1118", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                                        <img src={src} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }} />
+                                    <div key={i} style={{ border: allThree ? "1px solid rgba(52,211,153,0.5)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 8, overflow: "hidden", background: "rgba(255,255,255,0.02)", boxShadow: allThree ? "0 0 0 1px rgba(52,211,153,0.25)" : "none" }}>
+                                      <div
+                                        onClick={() => { if (!imgBusy) toggleAllSlots(src); }}
+                                        title={allThree ? "Remove from all 3 slots" : "Add to all 3 slots (L, S, P)"}
+                                        style={{ width: "100%", aspectRatio: "1", background: "#0c1118", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", cursor: imgBusy ? "wait" : "pointer", position: "relative" }}>
+                                        <img src={src} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block", opacity: imgBusy ? 0.5 : 1 }} />
+                                        {imgBusy && (
+                                          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#34d399", fontWeight: 700 }}>⟳</div>
+                                        )}
+                                        {allThree && !imgBusy && (
+                                          <div style={{ position: "absolute", top: 4, right: 4, width: 16, height: 16, borderRadius: "50%", background: "rgba(52,211,153,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#0c1118", fontWeight: 800 }}>✓</div>
+                                        )}
                                       </div>
                                       <div style={{ display: "flex", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                                         {slots.map(([slot, ltr]) => {
