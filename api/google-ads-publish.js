@@ -88,8 +88,16 @@ function validateRequestBody(body) {
     errors.push('path2: must be string ≤15 chars');
   }
 
-  if (!body.adGroupId) {
-    errors.push('adGroupId required (existing ad group ID to publish into)');
+  // Target: either an existing ad group (adGroupId) OR a new one (newAdGroupName).
+  if (!body.adGroupId && !(body.newAdGroupName && String(body.newAdGroupName).trim())) {
+    errors.push('adGroupId (existing) or newAdGroupName (to create) required');
+  }
+  if (body.newAdGroupName && String(body.newAdGroupName).trim().length > 255) {
+    errors.push('newAdGroupName: must be ≤255 chars');
+  }
+  if (body.cpcBidMicros != null) {
+    const n = Number(body.cpcBidMicros);
+    if (!Number.isFinite(n) || n < 0) errors.push('cpcBidMicros: must be a non-negative number');
   }
 
   return errors;
@@ -147,7 +155,7 @@ export default async function handler(req, res) {
       ...(creds.loginCustomerId ? { login_customer_id: creds.loginCustomerId } : {}),
     });
 
-    const { headlines: rawHeadlines, descriptions: rawDescriptions, finalUrl, path1, path2, adGroupId } = req.body;
+    const { headlines: rawHeadlines, descriptions: rawDescriptions, finalUrl, path1, path2, adGroupId, newAdGroupName, cpcBidMicros, campaignId } = req.body;
 
     const normalizedHeadlines = rawHeadlines.map(normalizeAsset).filter(a => a.text.length > 0);
     const normalizedDescriptions = rawDescriptions.map(normalizeAsset).filter(a => a.text.length > 0);
@@ -169,6 +177,74 @@ export default async function handler(req, res) {
       ...(path2 ? { path2 } : {}),
     };
 
+    const wantNewAdGroup = !!(newAdGroupName && String(newAdGroupName).trim());
+
+    // ── Path A: create a NEW ad group + the ad atomically ────────────────────
+    // One mutateResources call: ad_group (temp resource name, PAUSED) then the
+    // ad_group_ad referencing it. All-or-nothing — if the ad fails validation,
+    // the ad group is not created either (no orphaned empty ad group).
+    if (wantNewAdGroup) {
+      if (!campaignId) {
+        return res.status(400).json({ error: 'campaignId required when creating a new ad group' });
+      }
+      const cid = creds.customerId;
+      const tempAdGroupRN = `customers/${cid}/adGroups/-1`;
+      const adGroupResource = {
+        resource_name: tempAdGroupRN,
+        name: String(newAdGroupName).trim(),
+        campaign: `customers/${cid}/campaigns/${campaignId}`,
+        status: enums.AdGroupStatus.PAUSED,
+        type: enums.AdGroupType.SEARCH_STANDARD,
+      };
+      // Only set a manual CPC bid when one was provided (campaign is MANUAL_CPC).
+      // Automated-bidding campaigns manage the bid; omitting it lets the ad group inherit.
+      const bid = cpcBidMicros != null ? Math.round(Number(cpcBidMicros)) : null;
+      if (bid != null && bid >= 0) adGroupResource.cpc_bid_micros = bid;
+
+      const operations = [
+        { entity: 'ad_group', operation: 'create', resource: adGroupResource },
+        {
+          entity: 'ad_group_ad', operation: 'create',
+          resource: {
+            ad_group: tempAdGroupRN,
+            status: enums.AdGroupAdStatus.PAUSED,
+            ad: { final_urls: [finalUrl], responsive_search_ad: responsiveSearchAd },
+          },
+        },
+      ];
+
+      let result;
+      try {
+        result = await customer.mutateResources(operations);
+      } catch (err) {
+        console.error('[google-ads-publish] new-ad-group mutation failed:', err.message);
+        const firstError = err.errors?.[0];
+        const friendlyMsg = firstError?.message || err.message || 'Google Ads API error';
+        return res.status(500).json({
+          error: 'Google Ads rejected the new ad group / ad: ' + friendlyMsg,
+          details: err.errors || null,
+        });
+      }
+
+      const responses = result?.mutate_operation_responses || [];
+      const newAdGroupRN = responses[0]?.ad_group_result?.resource_name || null;
+      const newAdRN = responses[1]?.ad_group_ad_result?.resource_name || null;
+      const createdAdGroupId = newAdGroupRN ? newAdGroupRN.split('/').pop() : null;
+
+      return res.status(200).json({
+        success: true,
+        resourceName: newAdRN,
+        status: 'PAUSED',
+        customerId: cid,
+        campaignId,
+        adGroupId: createdAdGroupId,
+        adGroupResourceName: newAdGroupRN,
+        createdAdGroup: { id: createdAdGroupId, name: String(newAdGroupName).trim() },
+        message: 'New ad group + ad created as PAUSED. Activate them in Google Ads when ready.',
+      });
+    }
+
+    // ── Path B: publish into an EXISTING ad group (original behavior) ─────────
     const adGroupAd = {
       ad_group: `customers/${creds.customerId}/adGroups/${adGroupId}`,
       status: enums.AdGroupAdStatus.PAUSED,

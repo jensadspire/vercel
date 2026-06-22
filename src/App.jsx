@@ -954,6 +954,10 @@ function RSAStudio() {
   const [gadsAdGroupsLoading, setGadsAdGroupsLoading] = useState(false);
   const [gadsSelectedCampaignId, setGadsSelectedCampaignId] = useState('');
   const [gadsSelectedAdGroupId, setGadsSelectedAdGroupId] = useState('');
+  // New-ad-group mode: 'existing' = pick from list, 'new' = create one.
+  const [gadsAdGroupMode, setGadsAdGroupMode] = useState('existing'); // 'existing' | 'new'
+  const [gadsNewAdGroupName, setGadsNewAdGroupName] = useState('');
+  const [gadsNewAdGroupBid, setGadsNewAdGroupBid] = useState(''); // currency string e.g. "2.50"
   const [gadsPublishScope, setGadsPublishScope] = useState('current');  // 'current' | 'all'
   // ── PMax PUBLISH state (Phase 2.5b — publish an asset group into an existing PMax campaign) ──
   // PMax publishes one asset group at a time (active row's pmaxResult + pmaxImages + global
@@ -1426,8 +1430,9 @@ function RSAStudio() {
     }
   };
 
-  // Publish a single row (one RSA ad) into the selected ad group
-  const publishOneGadsAd = async (row, adGroupId, finalUrl) => {
+  // Publish a single row (one RSA ad). Targets either an existing ad group
+  // (adGroupId) or creates a new one (newAdGroup: {name, campaignId, bidMicros}).
+  const publishOneGadsAd = async (row, adGroupId, finalUrl, newAdGroup) => {
     const session = await window.Clerk.session.getToken();
     const headlines = (row.headlines || [])
       .filter(h => h && h.text && h.text.trim().length > 0)
@@ -1442,7 +1447,9 @@ function RSAStudio() {
       finalUrl,
       ...(row.path1 ? { path1: row.path1 } : {}),
       ...(row.path2 ? { path2: row.path2 } : {}),
-      adGroupId,
+      ...(newAdGroup
+        ? { newAdGroupName: newAdGroup.name, campaignId: newAdGroup.campaignId, ...(newAdGroup.bidMicros != null ? { cpcBidMicros: newAdGroup.bidMicros } : {}) }
+        : { adGroupId }),
     };
 
     const res = await fetch('/api/google-ads-publish', {
@@ -1462,7 +1469,13 @@ function RSAStudio() {
   // Orchestrate the publish — sequential loop for partial-success + progress
   const runGadsPublish = async () => {
     if (gadsPublishing) return;
-    if (!gadsSelectedAdGroupId) { setGadsPublishError('Pick an ad group first.'); return; }
+    const creatingNew = gadsAdGroupMode === 'new';
+    if (creatingNew) {
+      if (!gadsNewAdGroupName.trim()) { setGadsPublishError('Enter a name for the new ad group.'); return; }
+      if (!gadsSelectedCampaignId) { setGadsPublishError('Pick a campaign first.'); return; }
+    } else {
+      if (!gadsSelectedAdGroupId) { setGadsPublishError('Pick an ad group first.'); return; }
+    }
 
     setGadsPublishing(true);
     setGadsPublishError('');
@@ -1472,14 +1485,40 @@ function RSAStudio() {
     const finalUrl = url || '';
     const results = { total: rowsToPublish.length, successes: [], failures: [] };
 
+    // For new-ad-group + multi-row: only the FIRST publish creates the ad group;
+    // subsequent rows publish into the newly-created ad group (no duplicates).
+    const bidMicros = creatingNew && gadsNewAdGroupBid.trim()
+      ? Math.round(parseFloat(gadsNewAdGroupBid) * 1_000_000)
+      : null;
+    let createdAdGroupId = null;
+
     for (let i = 0; i < rowsToPublish.length; i++) {
       const row = rowsToPublish[i];
       setGadsPublishProgress(`Publishing ${i + 1} of ${rowsToPublish.length}…`);
       try {
-        const r = await publishOneGadsAd(row, gadsSelectedAdGroupId, finalUrl);
+        let r;
+        if (creatingNew && createdAdGroupId == null) {
+          // First row: create the ad group + ad atomically
+          r = await publishOneGadsAd(row, null, finalUrl, {
+            name: gadsNewAdGroupName.trim(),
+            campaignId: gadsSelectedCampaignId,
+            ...(bidMicros != null && bidMicros >= 0 ? { bidMicros } : {}),
+          });
+          createdAdGroupId = r.adGroupId || (r.createdAdGroup && r.createdAdGroup.id) || null;
+        } else {
+          // Existing ad group, OR subsequent rows into the just-created ad group
+          const targetAdGroupId = creatingNew ? createdAdGroupId : gadsSelectedAdGroupId;
+          r = await publishOneGadsAd(row, targetAdGroupId, finalUrl);
+        }
         results.successes.push({ rowId: row.id, rowIndex: i, resourceName: r.resourceName });
       } catch (err) {
         results.failures.push({ rowId: row.id, rowIndex: i, error: err.message, details: err.details });
+        // If the new ad group creation (first row) failed, abort the rest —
+        // there's no ad group to publish the remaining rows into.
+        if (creatingNew && createdAdGroupId == null) {
+          setGadsPublishProgress('');
+          break;
+        }
       }
     }
 
@@ -3307,26 +3346,88 @@ STRICT rules:
                   })()}
                 </div>
 
-                {/* Ad group */}
+                {/* Ad group — existing picker OR create new */}
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 6, fontWeight: 700 }}>🎯 Ad group</div>
                   {!gadsSelectedCampaignId ? (
                     <div style={{ fontSize: 10, color: '#7e92a8', padding: '8px 10px', fontStyle: 'italic' }}>Pick a campaign first</div>
-                  ) : gadsAdGroupsLoading ? (
-                    <div style={{ fontSize: 10, color: '#7e92a8', padding: '8px 10px' }}>⟳ Loading ad groups…</div>
-                  ) : gadsAvailableAdGroups.length === 0 ? (
-                    <div style={{ fontSize: 10, color: '#fbbf24', padding: '6px 8px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 4 }}>
-                      No ad groups in this campaign. Pick a different campaign or create an ad group in Google Ads first.
-                    </div>
                   ) : (
-                    <select value={gadsSelectedAdGroupId} onChange={(e) => setGadsSelectedAdGroupId(e.target.value)} style={{ width: '100%', padding: '8px 10px', fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#e2e8f0' }}>
-                      <option value="" style={{ background: '#0a0e1a' }}>— Pick an ad group —</option>
-                      {gadsAvailableAdGroups.map(ag => (
-                        <option key={ag.id} value={ag.id} style={{ background: '#0a0e1a' }}>
-                          {ag.name}{ag.status === 3 ? ' (PAUSED)' : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <>
+                      {/* Mode toggle: use existing ad group vs create a new one */}
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                        {[['existing', 'Use existing'], ['new', '+ New ad group']].map(([mode, label]) => (
+                          <button key={mode} onClick={() => { setGadsAdGroupMode(mode); setGadsPublishError(''); }}
+                            style={{ flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6, cursor: 'pointer',
+                              background: gadsAdGroupMode === mode ? 'rgba(66,133,244,0.18)' : 'rgba(255,255,255,0.03)',
+                              border: `1px solid ${gadsAdGroupMode === mode ? 'rgba(66,133,244,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                              color: gadsAdGroupMode === mode ? '#7aa6ff' : '#7e92a8' }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {gadsAdGroupMode === 'existing' ? (
+                        gadsAdGroupsLoading ? (
+                          <div style={{ fontSize: 10, color: '#7e92a8', padding: '8px 10px' }}>⟳ Loading ad groups…</div>
+                        ) : gadsAvailableAdGroups.length === 0 ? (
+                          <div style={{ fontSize: 10, color: '#fbbf24', padding: '6px 8px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 4 }}>
+                            No ad groups in this campaign. Switch to “+ New ad group” to create one.
+                          </div>
+                        ) : (
+                          <select value={gadsSelectedAdGroupId} onChange={(e) => setGadsSelectedAdGroupId(e.target.value)} style={{ width: '100%', padding: '8px 10px', fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#e2e8f0' }}>
+                            <option value="" style={{ background: '#0a0e1a' }}>— Pick an ad group —</option>
+                            {gadsAvailableAdGroups.map(ag => (
+                              <option key={ag.id} value={ag.id} style={{ background: '#0a0e1a' }}>
+                                {ag.name}{ag.status === 3 ? ' (PAUSED)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        )
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            value={gadsNewAdGroupName}
+                            onChange={(e) => setGadsNewAdGroupName(e.target.value.slice(0, 255))}
+                            placeholder="New ad group name"
+                            style={{ width: '100%', padding: '8px 10px', fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#e2e8f0', marginBottom: 6 }}
+                          />
+                          {(() => {
+                            // Show a default-CPC bid field only when the selected campaign
+                            // uses MANUAL_CPC (automated strategies manage bids themselves).
+                            const camp = (gadsAvailableCampaigns || []).find(c => c.id === gadsSelectedCampaignId);
+                            if (!camp?.isManualCpc) {
+                              return (
+                                <div style={{ fontSize: 9, color: '#5d6b7d', fontStyle: 'italic' }}>
+                                  Bid is managed by the campaign's bidding strategy{camp?.biddingStrategyType ? ` (${camp.biddingStrategyType})` : ''} — the new ad group will inherit it.
+                                </div>
+                              );
+                            }
+                            return (
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span style={{ fontSize: 11, color: '#7e92a8' }}>Default CPC bid</span>
+                                  <input
+                                    type="number" min="0" step="0.01"
+                                    value={gadsNewAdGroupBid}
+                                    onChange={(e) => setGadsNewAdGroupBid(e.target.value)}
+                                    placeholder="e.g. 2.50"
+                                    style={{ width: 90, padding: '6px 8px', fontSize: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#e2e8f0' }}
+                                  />
+                                  <span style={{ fontSize: 9, color: '#5d6b7d' }}>(optional)</span>
+                                </div>
+                                <div style={{ fontSize: 9, color: '#5d6b7d', marginTop: 4, fontStyle: 'italic' }}>
+                                  This campaign uses Manual CPC. Leave blank to use the campaign default.
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          <div style={{ fontSize: 9, color: '#5d6b7d', marginTop: 6 }}>
+                            The new ad group is created PAUSED, inheriting geo, budget, network &amp; schedule from the campaign.
+                          </div>
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -3386,7 +3487,7 @@ STRICT rules:
                     }
                     setGadsPublishError('');
                     setGadsPublishStep(2);
-                  }} disabled={!gadsSelectedCampaignId || !gadsSelectedAdGroupId} style={{ flex: 2, padding: '9px', fontSize: 11, fontWeight: 800, background: (!gadsSelectedCampaignId || !gadsSelectedAdGroupId) ? 'rgba(66,133,244,0.25)' : 'linear-gradient(135deg,#4285f4,#2962d6)', border: 'none', borderRadius: 8, color: 'white', cursor: (!gadsSelectedCampaignId || !gadsSelectedAdGroupId) ? 'default' : 'pointer' }}>
+                  }} disabled={!gadsSelectedCampaignId || (gadsAdGroupMode === 'new' ? !gadsNewAdGroupName.trim() : !gadsSelectedAdGroupId)} style={{ flex: 2, padding: '9px', fontSize: 11, fontWeight: 800, background: (!gadsSelectedCampaignId || (gadsAdGroupMode === 'new' ? !gadsNewAdGroupName.trim() : !gadsSelectedAdGroupId)) ? 'rgba(66,133,244,0.25)' : 'linear-gradient(135deg,#4285f4,#2962d6)', border: 'none', borderRadius: 8, color: 'white', cursor: (!gadsSelectedCampaignId || (gadsAdGroupMode === 'new' ? !gadsNewAdGroupName.trim() : !gadsSelectedAdGroupId)) ? 'default' : 'pointer' }}>
                     Next: Review →
                   </button>
                 </div>
@@ -3406,7 +3507,7 @@ STRICT rules:
                     <div style={{ fontSize: 11, color: '#e2e8f0', lineHeight: 1.6 }}>
                       <div>Account: <strong>{gadsConn.customerId}</strong></div>
                       <div>Campaign: <strong>{campaign?.name || '?'}</strong> <span style={{ color: '#7e92a8' }}>[{campaign?.channelTypeLabel}]</span></div>
-                      <div>Ad group: <strong>{adGroup?.name || '?'}</strong></div>
+                      <div>Ad group: <strong>{gadsAdGroupMode === 'new' ? `${gadsNewAdGroupName.trim() || '?'} (new)` : (adGroup?.name || '?')}</strong></div>
                       <div>Publishing: <strong>{adsToPublish.length} {adsToPublish.length === 1 ? 'ad' : 'ads'}</strong></div>
                     </div>
                   </div>

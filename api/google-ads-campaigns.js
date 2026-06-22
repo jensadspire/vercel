@@ -83,7 +83,8 @@ export default async function handler(req, res) {
           campaign.name,
           campaign.status,
           campaign.advertising_channel_type,
-          campaign.advertising_channel_sub_type
+          campaign.advertising_channel_sub_type,
+          campaign.bidding_strategy_type
         FROM campaign
         WHERE campaign.status != 'REMOVED'
         ORDER BY campaign.name
@@ -111,12 +112,20 @@ export default async function handler(req, res) {
       const channelType = typeof c.advertising_channel_type === 'number'
         ? c.advertising_channel_type
         : null;
+      // bidding_strategy_type comes back as a string enum name (e.g. "MANUAL_CPC",
+      // "MAXIMIZE_CLICKS", "TARGET_CPA"). The UI shows a default-CPC bid field only
+      // when this is MANUAL_CPC; automated strategies manage bids themselves.
+      const biddingStrategyType = c.bidding_strategy_type != null
+        ? String(c.bidding_strategy_type)
+        : null;
       return {
         id,
         name: c.name || `Campaign ${id}`,
         status: c.status || null,  // ENABLED / PAUSED / etc.
         channelType: channelType,
         channelTypeLabel: channelType != null ? (CHANNEL_TYPE_LABELS[channelType] || 'Unknown') : 'Unknown',
+        biddingStrategyType,
+        isManualCpc: biddingStrategyType === 'MANUAL_CPC',
       };
     }).filter(Boolean);
 
