@@ -51,10 +51,14 @@ import requests
 RECENT_WINDOW_DAYS = 7
 TRAILING_WINDOW_DAYS = 28
 
-# A sub-category whose recent 7-day average is below this won't trigger
-# events even if its percentage change is high — interest scores near 0
-# can produce huge percentage swings from noise.
-MIN_RECENT_AVG_THRESHOLD = 5.0
+# Volume floors — with dense US-English data these can be modest, but they still
+# guard against residual noise. A flagged sub-category must clear BOTH:
+#   • recent_avg ≥ MIN_RECENT_AVG_THRESHOLD  (meaningful current interest)
+#   • trailing_avg ≥ MIN_TRAILING_AVG_THRESHOLD  (a real baseline to grow FROM —
+#     this is what kills "0 → spike = 999%" and "3.5 → 14 = huge%" artifacts at
+#     the root, rather than capping them at 999 and letting them top the list)
+MIN_RECENT_AVG_THRESHOLD = 10.0
+MIN_TRAILING_AVG_THRESHOLD = 8.0
 
 # Max trending sub-categories embedded in a single trend event.
 MAX_TRENDING_SUBCATS_PER_EVENT = 5
@@ -185,13 +189,13 @@ def compute_trend_signal(data_points: list) -> dict:
     recent_avg = statistics.mean(recent_values)
     trailing_avg = statistics.mean(trailing_values)
 
-    # Percentage change. Guard against division by zero.
+    # Percentage change. A near-zero baseline can't produce a meaningful
+    # percentage — "0 → something" isn't a trend, it's noise on a query with no
+    # real history. Flag those as insufficient_baseline so the caller can skip
+    # them, rather than capping at 999 (which falsely puts them at the TOP).
+    insufficient_baseline = trailing_avg < MIN_TRAILING_AVG_THRESHOLD
     if trailing_avg == 0:
-        if recent_avg == 0:
-            wow_change_pct = 0
-        else:
-            # Trailing was zero, recent isn't — infinite change. Cap at 999.
-            wow_change_pct = 999
+        wow_change_pct = 0 if recent_avg == 0 else 999  # retained for display only
     else:
         wow_change_pct = ((recent_avg - trailing_avg) / trailing_avg) * 100
 
@@ -199,6 +203,7 @@ def compute_trend_signal(data_points: list) -> dict:
         "recent_avg": round(recent_avg, 2),
         "trailing_avg": round(trailing_avg, 2),
         "wow_change_pct": round(wow_change_pct, 1),
+        "insufficient_baseline": insufficient_baseline,
     }
 
 
@@ -281,18 +286,27 @@ def analyze(industries_data: dict, upstash: UpstashClient, industry_filter: str 
 
         summary["queries_analyzed"] += 1
 
-        # Capture full record for CLI/reporting
+        # Capture full record for CLI/reporting. Include the local (Danish)
+        # outreach keyword alongside the English analysis term.
+        translations = data.get("translations", {}) or {}
         record = {
             "industry": industry_slug,
             "country": country,
             "sub_category": sub_cat_key,
-            "query_text_used": data.get("query_text_used", sub_cat_key),
+            "query_text_used": data.get("query_text_used", sub_cat_key),  # English (queried)
             "query_language": data.get("query_language"),
+            "da_keyword": data.get("da_keyword") or translations.get("da", ""),  # outreach output
             **signal,
         }
         summary["all_signals"].append(record)
 
-        # Filter low-volume queries (high % change on near-zero base is noise)
+        # Skip queries with no meaningful baseline to grow FROM (kills the
+        # 0→spike=999% and tiny-base artifacts at the root).
+        if signal.get("insufficient_baseline"):
+            summary["queries_skipped_low_volume"] += 1
+            continue
+
+        # Filter low recent-volume queries (high % change on near-zero base is noise)
         if signal["recent_avg"] < MIN_RECENT_AVG_THRESHOLD:
             summary["queries_skipped_low_volume"] += 1
             continue
@@ -439,40 +453,42 @@ def write_csv_report(all_signals: list, industries_data: dict, out_dir: str | No
     rows = sorted(all_signals, key=lambda s: s["wow_change_pct"], reverse=True)
 
     fieldnames = [
-        "industry", "country", "sub_category", "query_text_used", "query_language",
+        "industry", "country", "sub_category",
+        "query_en", "query_da",
         "recent_avg", "trailing_avg", "wow_change_pct", "threshold_pct",
-        "meets_volume_floor", "flagged",
+        "meets_volume_floor", "meets_baseline_floor", "flagged",
     ]
+
+    def is_flagged(s, thr):
+        meets_volume = s["recent_avg"] >= MIN_RECENT_AVG_THRESHOLD
+        meets_baseline = s["trailing_avg"] >= MIN_TRAILING_AVG_THRESHOLD
+        return (
+            meets_volume and meets_baseline
+            and thr is not None and s["wow_change_pct"] >= thr
+        ), meets_volume, meets_baseline
 
     with open(out_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for s in rows:
             thr = thresholds.get(s["industry"])
-            meets_volume = s["recent_avg"] >= MIN_RECENT_AVG_THRESHOLD
-            flagged = bool(
-                meets_volume and thr is not None and s["wow_change_pct"] >= thr
-            )
+            flagged, meets_volume, meets_baseline = is_flagged(s, thr)
             writer.writerow({
                 "industry": s["industry"],
                 "country": s["country"],
                 "sub_category": s["sub_category"],
-                "query_text_used": s.get("query_text_used", ""),
-                "query_language": s.get("query_language", ""),
+                "query_en": s.get("query_text_used", ""),   # English term (analyzed)
+                "query_da": s.get("da_keyword", ""),          # Danish keyword (outreach output)
                 "recent_avg": s["recent_avg"],
                 "trailing_avg": s["trailing_avg"],
                 "wow_change_pct": s["wow_change_pct"],
                 "threshold_pct": thr if thr is not None else "",
                 "meets_volume_floor": meets_volume,
+                "meets_baseline_floor": meets_baseline,
                 "flagged": flagged,
             })
 
-    flagged_count = sum(
-        1 for s in rows
-        if s["recent_avg"] >= MIN_RECENT_AVG_THRESHOLD
-        and thresholds.get(s["industry"]) is not None
-        and s["wow_change_pct"] >= thresholds[s["industry"]]
-    )
+    flagged_count = sum(1 for s in rows if is_flagged(s, thresholds.get(s["industry"]))[0])
     log.info(f"CSV report written: {out_path} ({len(rows)} rows, {flagged_count} flagged)")
     return str(out_path)
 

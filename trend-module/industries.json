@@ -4891,6 +4891,157 @@
       "notes": "Nordic markets value lighting heavily (long winters). Smart lighting trend ongoing."
     },
     {
+      "slug": "home_appliances",
+      "name": "Home Appliances",
+      "description": "Major and small household appliances with seasonal demand swings (cooling in summer, baking/heating in winter, post-holiday gadget surges).",
+      "sub_categories": [
+        {
+          "en": "air conditioner",
+          "translations": {
+            "da": "aircondition"
+          }
+        },
+        {
+          "en": "air cooler",
+          "translations": {
+            "da": "aircooler"
+          }
+        },
+        {
+          "en": "air fryer",
+          "translations": {
+            "da": "airfryer"
+          }
+        },
+        {
+          "en": "dehumidifier",
+          "translations": {
+            "da": "affugter"
+          }
+        },
+        {
+          "en": "space heater",
+          "translations": {
+            "da": "el-radiator"
+          }
+        },
+        {
+          "en": "fan",
+          "translations": {
+            "da": "ventilator"
+          }
+        },
+        {
+          "en": "dishwasher",
+          "translations": {
+            "da": "opvaskemaskine"
+          }
+        },
+        {
+          "en": "washing machine",
+          "translations": {
+            "da": "vaskemaskine"
+          }
+        },
+        {
+          "en": "tumble dryer",
+          "translations": {
+            "da": "tørretumbler"
+          }
+        },
+        {
+          "en": "refrigerator",
+          "translations": {
+            "da": "køleskab"
+          }
+        },
+        {
+          "en": "freezer",
+          "translations": {
+            "da": "fryser"
+          }
+        },
+        {
+          "en": "microwave",
+          "translations": {
+            "da": "mikroovn"
+          }
+        },
+        {
+          "en": "bread maker",
+          "translations": {
+            "da": "bagemaskine"
+          }
+        },
+        {
+          "en": "stand mixer",
+          "translations": {
+            "da": "røremaskine"
+          }
+        },
+        {
+          "en": "food processor",
+          "translations": {
+            "da": "foodprocessor"
+          }
+        },
+        {
+          "en": "blender",
+          "translations": {
+            "da": "blender"
+          }
+        },
+        {
+          "en": "coffee machine",
+          "translations": {
+            "da": "kaffemaskine"
+          }
+        },
+        {
+          "en": "kettle",
+          "translations": {
+            "da": "elkedel"
+          }
+        },
+        {
+          "en": "vacuum cleaner",
+          "translations": {
+            "da": "støvsuger"
+          }
+        },
+        {
+          "en": "robot vacuum",
+          "translations": {
+            "da": "robotstøvsuger"
+          }
+        }
+      ],
+      "trend_threshold_pct": 30,
+      "prospect_cap_per_quarter": 2,
+      "seasonal_active_months": [
+        1,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        12
+      ],
+      "primary_countries": [
+        "DK",
+        "SE",
+        "NO",
+        "DE",
+        "NL",
+        "UK",
+        "FI"
+      ],
+      "enabled": true,
+      "notes": "Added 2026-06. EN + DK translations only for now; other languages to be added and spot-checked before multi-market expansion. Strong seasonal candidates: air conditioner/cooler/fan (summer), space heater/dehumidifier (winter), air fryer + baking (Q4/post-holiday)."
+    },
+    {
       "slug": "b2b_saas",
       "name": "B2B SaaS / professional services",
       "description": "Software, professional tools, business services",

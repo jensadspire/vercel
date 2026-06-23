@@ -39,10 +39,29 @@ from pytrends.request import TrendReq
 
 # ── Configuration ───────────────────────────────────────────────────────────
 
-# v1 country scope: DK only. Expand by adding country codes here once
-# v1 is validated. Note: only countries listed in industry.primary_countries
-# AND in this set will be queried.
-V1_COUNTRIES = {"DK"}
+# ── Analysis geo (data-density proxy) ───────────────────────────────────────
+# We query Google Trends in ENGLISH at a high-volume geo, NOT in each prospect's
+# local language/country. Rationale: small language areas (e.g. DK ~6M speakers)
+# return sparse, spiky time-series full of zeros, producing noise artifacts
+# (0→spike = 999%, single-day blips = fake trends). Querying the English term at
+# a large market gives dense, smooth, statistically meaningful curves. Seasonal
+# demand is hemispheric (sunscreen rises in summer in US and DK alike), so a
+# Northern-Hemisphere English market is a sound proxy for "what's heating up".
+#
+# This is DECOUPLED from industry.primary_countries (which describes where the
+# PROSPECTS are, for outreach targeting — a different concern). Every enabled
+# industry is analyzed at ANALYSIS_GEO regardless of its primary_countries.
+#
+# v1: US only (densest single English market). To expand to a basket later
+# (e.g. ["US", "GB"]), make this a list and average the series — note that
+# doubles the rate-limited request count, so adjust the workflow timeout.
+ANALYSIS_GEO = "US"
+ANALYSIS_LANG = "en"  # query the English term; local keyword is the OUTPUT, not the query
+
+# The Upstash key uses this as the geo segment. Kept distinct from the prospect
+# country so US-analysis keys (trend:query:{ind}:US:{sub}) coexist with any
+# legacy per-country keys, which expire via TTL.
+GEO_KEY_SEGMENT = ANALYSIS_GEO
 
 # Country → language mapping for taxonomy localization. The script looks up
 # the sub-category's translation for this language before querying pytrends.
@@ -215,15 +234,9 @@ def ingest(industries_data: dict, upstash: UpstashClient, industry_filter: str |
         if industry_filter and industry["slug"] != industry_filter:
             continue
 
-        # v1 country filter: only query if country is BOTH in industry's
-        # primary_countries AND in V1_COUNTRIES.
-        countries_to_query = [
-            c for c in industry.get("primary_countries", []) if c in V1_COUNTRIES
-        ]
-        if not countries_to_query:
-            log.info(f"Skipping {industry['slug']} — no v1 countries match")
-            continue
-
+        # Analysis geo is decoupled from primary_countries — we query EVERY
+        # enabled industry at ANALYSIS_GEO in English. primary_countries is left
+        # intact for the outreach-targeting side.
         sub_categories = industry.get("sub_categories", [])
         if not sub_categories:
             log.info(f"Skipping {industry['slug']} — no sub-categories defined")
@@ -231,7 +244,7 @@ def ingest(industries_data: dict, upstash: UpstashClient, industry_filter: str |
 
         log.info(
             f"━━━ Industry: {industry['slug']} "
-            f"({len(sub_categories)} queries × {len(countries_to_query)} countries) ━━━"
+            f"({len(sub_categories)} queries @ geo={ANALYSIS_GEO}, {ANALYSIS_LANG}) ━━━"
         )
 
         industry_summary = {
@@ -240,46 +253,49 @@ def ingest(industries_data: dict, upstash: UpstashClient, industry_filter: str |
             "queries_failed": 0,
         }
 
-        for country in countries_to_query:
-            # Look up the language for this country
-            lang = COUNTRY_TO_LANGUAGE.get(country, "en")
+        # Single analysis geo (English). Loop kept as a list for easy basket
+        # expansion later (e.g. for geo in ["US", "GB"]).
+        for country in [ANALYSIS_GEO]:
+            lang = ANALYSIS_LANG
 
             for sub_cat in sub_categories:
-                # Resolve the actual query string. Sub-category may be:
-                #   - a dict like {"en": "patio set", "translations": {"da": "havemøbelsæt", ...}}
-                #   - a plain string (legacy / disabled industries)
+                # Resolve query string. We query the ENGLISH term (dense data);
+                # the local translation is stored for the outreach OUTPUT, not
+                # used as the query.
                 if isinstance(sub_cat, dict):
                     en_term = sub_cat.get("en", "")
-                    query_text = sub_cat.get("translations", {}).get(lang) or en_term
-                    # The Upstash key always uses the English term as identifier
-                    # so keys are stable across language changes.
+                    query_text = en_term  # always query English
                     key_sub = en_term
+                    # Keep the Danish (and any) translations on the payload so the
+                    # analyzer can surface the local outreach keyword side-by-side.
+                    translations = sub_cat.get("translations", {}) or {}
                 else:
                     query_text = sub_cat
                     key_sub = sub_cat
+                    translations = {}
 
                 if not query_text:
                     log.warning(f"  Skipping sub-category with no query text in {industry['slug']}")
                     continue
 
                 summary["total_queries_attempted"] += 1
-                log.info(f"  Fetching '{query_text}' ({lang}) in {country}...")
+                log.info(f"  Fetching '{query_text}' (en) @ {country}...")
 
                 result = fetch_query_interest(pytrends, query_text, country)
 
                 if result == "EMPTY":
-                    # No data from Google Trends — not an error, just low volume
                     summary["total_queries_empty"] = summary.get("total_queries_empty", 0) + 1
                     industry_summary["queries_empty"] = industry_summary.get("queries_empty", 0) + 1
                 elif result is not None:
-                    # Build Upstash key. Use English term as identifier so keys
-                    # stay stable when translations are refined.
                     safe_sub = key_sub.replace(" ", "_").lower()
-                    key = f"trend:query:{industry['slug']}:{country}:{safe_sub}"
-                    # Store the actual queried language in the payload for debug
+                    key = f"trend:query:{industry['slug']}:{GEO_KEY_SEGMENT}:{safe_sub}"
                     if isinstance(result, dict):
                         result["query_language"] = lang
                         result["query_text_used"] = query_text
+                        result["analysis_geo"] = country
+                        # Store local translations for the outreach output side.
+                        result["translations"] = translations
+                        result["da_keyword"] = translations.get("da", "")
                     if upstash.set_json(key, result, UPSTASH_TTL_SECONDS):
                         summary["total_queries_succeeded"] += 1
                         industry_summary["queries_succeeded"] += 1
@@ -349,7 +365,7 @@ def main():
 
     log.info(
         f"Mode: {'DRY-RUN' if args.dry_run else 'LIVE'} | "
-        f"v1 countries: {sorted(V1_COUNTRIES)} | "
+        f"Analysis geo: {ANALYSIS_GEO} ({ANALYSIS_LANG}) | "
         f"Industry filter: {args.industry or 'all enabled'}"
     )
 
