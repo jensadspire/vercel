@@ -32,6 +32,9 @@ on:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    # Needed so the "Commit CSV report" step can push trend-reports/ back to the repo.
+    permissions:
+      contents: write
     timeout-minutes: 30
 
     steps:
@@ -71,6 +74,23 @@ jobs:
           fi
           if [ "$CLI_INPUT" = "true" ]; then
             ARGS="$ARGS --cli"
+          else
+            # Scheduled / non-CLI runs also export the weekly CSV report.
+            ARGS="$ARGS --csv"
           fi
           echo "Running with args: $ARGS"
           python analyze_trends.py $ARGS
+
+      - name: Commit CSV report
+        # Skip on manual CLI-only inspection runs (no CSV is produced then).
+        if: ${{ github.event.inputs.cli_mode != 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain trend-reports/)" ]; then
+            git add trend-reports/
+            git commit -m "Trend report: $(date -u +%Y-%m-%d) weekly CSV [skip ci]"
+            git push
+          else
+            echo "No new CSV changes to commit."
+          fi

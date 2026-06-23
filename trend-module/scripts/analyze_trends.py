@@ -34,6 +34,7 @@ Usage:
 """
 
 import argparse
+import csv
 import json
 import logging
 import os
@@ -401,6 +402,81 @@ def print_cli_table(all_signals: list, industry_filter: str | None):
     print(f"Total signals shown: {len(signals)}")
 
 
+# ── CSV report output ───────────────────────────────────────────────────────
+
+def write_csv_report(all_signals: list, industries_data: dict, out_dir: str | None) -> str | None:
+    """
+    Write the full ranked signal list to a dated CSV for weekly validation/eyeball.
+    Includes a `flagged` column: True when the sub-category cleared BOTH the
+    low-volume floor (MIN_RECENT_AVG_THRESHOLD) and its industry threshold
+    (trend_threshold_pct from industries.json). Returns the file path, or None.
+
+    The CSV is the *full* distribution (not just risers) so thresholds can be
+    calibrated from evidence; filter on the `flagged` column to see only risers.
+    """
+    if not all_signals:
+        log.info("No signals to write to CSV")
+        return None
+
+    # Per-industry threshold lookup (Knob 1). Missing threshold → never flagged.
+    thresholds = {
+        ind["slug"]: ind.get("trend_threshold_pct")
+        for ind in industries_data["industries"]
+    }
+
+    # Resolve output directory: default to ../../trend-reports relative to script
+    if out_dir:
+        reports_dir = Path(out_dir)
+    else:
+        script_dir = Path(__file__).resolve().parent
+        reports_dir = script_dir.parent.parent / "trend-reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    out_path = reports_dir / f"trends-{today}.csv"
+
+    # Sort by wow_change_pct descending so the CSV opens with the biggest risers
+    rows = sorted(all_signals, key=lambda s: s["wow_change_pct"], reverse=True)
+
+    fieldnames = [
+        "industry", "country", "sub_category", "query_text_used", "query_language",
+        "recent_avg", "trailing_avg", "wow_change_pct", "threshold_pct",
+        "meets_volume_floor", "flagged",
+    ]
+
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for s in rows:
+            thr = thresholds.get(s["industry"])
+            meets_volume = s["recent_avg"] >= MIN_RECENT_AVG_THRESHOLD
+            flagged = bool(
+                meets_volume and thr is not None and s["wow_change_pct"] >= thr
+            )
+            writer.writerow({
+                "industry": s["industry"],
+                "country": s["country"],
+                "sub_category": s["sub_category"],
+                "query_text_used": s.get("query_text_used", ""),
+                "query_language": s.get("query_language", ""),
+                "recent_avg": s["recent_avg"],
+                "trailing_avg": s["trailing_avg"],
+                "wow_change_pct": s["wow_change_pct"],
+                "threshold_pct": thr if thr is not None else "",
+                "meets_volume_floor": meets_volume,
+                "flagged": flagged,
+            })
+
+    flagged_count = sum(
+        1 for s in rows
+        if s["recent_avg"] >= MIN_RECENT_AVG_THRESHOLD
+        and thresholds.get(s["industry"]) is not None
+        and s["wow_change_pct"] >= thresholds[s["industry"]]
+    )
+    log.info(f"CSV report written: {out_path} ({len(rows)} rows, {flagged_count} flagged)")
+    return str(out_path)
+
+
 # ── Entry point ─────────────────────────────────────────────────────────────
 
 def main():
@@ -409,6 +485,10 @@ def main():
                         help="Compute but don't write events to Upstash")
     parser.add_argument("--cli", action="store_true",
                         help="Print sorted table of all signals (calibration mode)")
+    parser.add_argument("--csv", action="store_true",
+                        help="Write a dated CSV report of all signals to trend-reports/")
+    parser.add_argument("--csv-dir", type=str, default=None,
+                        help="Output directory for the CSV (default: ../../trend-reports)")
     parser.add_argument("--industry", type=str, default=None,
                         help="Limit analysis to one industry slug")
     parser.add_argument("--country", type=str, default=None,
@@ -474,6 +554,9 @@ def main():
 
     if args.cli:
         print_cli_table(summary["all_signals"], args.industry)
+
+    if args.csv:
+        write_csv_report(summary["all_signals"], industries_data, args.csv_dir)
 
 
 if __name__ == "__main__":
