@@ -51,6 +51,13 @@ import requests
 RECENT_WINDOW_DAYS = 7
 TRAILING_WINDOW_DAYS = 28
 
+# Analysis geo — must match ingest_trends.py's ANALYSIS_GEO. The analyzer scans
+# ONLY keys for this geo by default (trend:query:{industry}:{geo}:{sub}), so old
+# keys from other geos (e.g. a prior DK batch) lingering in Upstash until their
+# TTL don't pollute the analysis. Override at runtime with --country (e.g.
+# --country DK to analyze an old DK batch).
+ANALYSIS_GEO = "US"
+
 # Volume floors — with dense US-English data these can be modest, but they still
 # guard against residual noise. A flagged sub-category must clear BOTH:
 #   • recent_avg ≥ MIN_RECENT_AVG_THRESHOLD  (meaningful current interest)
@@ -266,7 +273,9 @@ def analyze(industries_data: dict, upstash: UpstashClient, industry_filter: str 
         # Apply filters
         if industry_filter and industry_slug != industry_filter:
             continue
-        if country_filter and country != country_filter:
+        # country_filter defaults to ANALYSIS_GEO (US); "ALL" disables the filter
+        # to scan every geo present in Upstash.
+        if country_filter and country_filter != "ALL" and country != country_filter:
             continue
 
         # Look up the industry config
@@ -507,8 +516,10 @@ def main():
                         help="Output directory for the CSV (default: ../../trend-reports)")
     parser.add_argument("--industry", type=str, default=None,
                         help="Limit analysis to one industry slug")
-    parser.add_argument("--country", type=str, default=None,
-                        help="Limit analysis to one country code")
+    parser.add_argument("--country", type=str, default=ANALYSIS_GEO,
+                        help=f"Country/geo code to analyze (default: {ANALYSIS_GEO}, "
+                             f"matching the ingest geo). Use e.g. --country DK to "
+                             f"analyze an old DK batch, or --country ALL for everything.")
     parser.add_argument("--taxonomy-path", type=str, default=None,
                         help="Path to industries.json (default: ../industries.json)")
     args = parser.parse_args()

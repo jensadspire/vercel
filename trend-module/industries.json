@@ -160,7 +160,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 25,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [
         3,
@@ -338,7 +338,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 40,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 4,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -511,7 +511,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 35,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 3,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -684,7 +684,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 35,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 3,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -858,7 +858,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 40,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 3,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -1032,7 +1032,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -1203,7 +1203,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 1,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -1373,7 +1373,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 35,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 3,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -1544,7 +1544,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 25,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [
         3,
@@ -1724,7 +1724,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -1894,7 +1894,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -2065,7 +2065,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -2237,7 +2237,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 35,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 3,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -2408,7 +2408,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 35,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -2579,7 +2579,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 35,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -2751,7 +2751,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 35,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 3,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -2924,7 +2924,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 35,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 3,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -3096,7 +3096,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 1,
       "seasonal_active_months": [
         1,
@@ -3273,7 +3273,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -3445,7 +3445,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -3616,7 +3616,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 35,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -3648,7 +3648,7 @@
         "history books",
         "biography"
       ],
-      "trend_threshold_pct": 35,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 1,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -3818,7 +3818,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [
         3,
@@ -3994,7 +3994,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 25,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [
         2,
@@ -4174,7 +4174,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [
         3,
@@ -4356,7 +4356,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 1,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -4526,7 +4526,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 35,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 3,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -4698,7 +4698,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 1,
       "seasonal_active_months": [
         3,
@@ -4876,7 +4876,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [],
       "primary_countries": [
@@ -5016,7 +5016,7 @@
           }
         }
       ],
-      "trend_threshold_pct": 30,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 2,
       "seasonal_active_months": [
         1,
@@ -5046,7 +5046,7 @@
       "name": "B2B SaaS / professional services",
       "description": "Software, professional tools, business services",
       "sub_categories": [],
-      "trend_threshold_pct": null,
+      "trend_threshold_pct": 8,
       "prospect_cap_per_quarter": 0,
       "seasonal_active_months": [],
       "primary_countries": [],
