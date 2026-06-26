@@ -5035,54 +5035,12 @@ STRICT rules:
 
         {/* RIGHT: Preview Panel */}
         <div id="right-panel" style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: adFormat === "tiktok" ? "none" : "flex", flexDirection: "column", gap: 20 }}>
-        {/* GOOGLE-ABOUT-PANEL — explainer shown in the empty state (before first generation).
-            Renders on initial load without login; satisfies Google OAuth homepage-purpose review. */}
+        {/* GOOGLE-ABOUT-LINK — small empty-state pointer down to the About section in the footer. */}
         {!generated && (
-          <div style={{ ...S.card, padding: "22px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <span style={S.sectionLabel}>What is AI Ad Studio</span>
-              <p style={{ fontSize: 13, lineHeight: 1.65, color: "#cbd5e1", margin: 0 }}>
-                AI Ad Studio is an AI-powered advertising platform that turns a single product or website
-                URL into ready-to-publish ad creative. The app has four tabs, each one generating a
-                ready-to-publish ad for a specific platform:
-              </p>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {[
-                { t: "Google Responsive Search Ads", d: "Search Ads" },
-                { t: "Google Performance Max", d: "Asset group" },
-                { t: "Meta Ads", d: "Image, video & carousel" },
-                { t: "TikTok", d: "Video ads" },
-              ].map((p) => (
-                <div key={p.t} style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 12.5 }}>
-                  <span style={{ color: "#6366f1", fontWeight: 800 }}>›</span>
-                  <span style={{ color: "#e2e8f0", fontWeight: 700 }}>{p.t}</span>
-                  <span style={{ color: "#7e92a8" }}>— {p.d}</span>
-                </div>
-              ))}
-            </div>
-            <p style={{ fontSize: 13, lineHeight: 1.65, color: "#cbd5e1", margin: 0 }}>
-              Paste a link and AI Ad Studio generates the headlines, descriptions and image creative —
-              validated against each platform's character limits and policies — then publishes the ads you
-              approve directly into your connected Google Ads and Meta accounts.
-            </p>
-            <div>
-              <span style={S.sectionLabel}>How AI Ad Studio uses your Google account data</span>
-              <p style={{ fontSize: 12.5, lineHeight: 1.65, color: "#9fb0c3", margin: 0 }}>
-                When you connect your Google Ads account, AI Ad Studio uses Google's Ads API (the adwords
-                scope) solely to read your existing campaigns, ad groups and account structure so generated
-                ads match your setup, and to create new ad assets and campaigns in your account at your
-                direction. All campaigns and assets AI Ad Studio creates are added in a paused state for
-                your review — nothing goes live without your explicit action. AI Ad Studio does not use your
-                Google Ads data to train AI or machine-learning models, and does not share it with third
-                parties. Our use of Google user data adheres to the Google API Services User Data Policy,
-                including the Limited Use requirements.
-              </p>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", paddingTop: 2 }}>
-              <a href="/privacy" style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc", textDecoration: "none" }}>Privacy Policy →</a>
-              <a href="https://accounts.theaiad.studio/sign-up" style={{ fontSize: 12, fontWeight: 700, color: "#7e92a8", textDecoration: "none" }}>Sign in / Get started →</a>
-            </div>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <a href="#about-aiads" style={{ fontSize: 11, fontWeight: 700, color: "#7e92a8", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 12 }}>ⓘ</span> About this app
+            </a>
           </div>
         )}
 
@@ -8514,12 +8472,36 @@ STRICT rules:
           )}
         </div>
       )}
-      {/* GOOGLE-DISCLOSURE-FOOTER — persistent across all states; carries the privacy link for OAuth-review robustness. */}
-      <div style={{ marginTop: "auto", padding: "12px 24px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(6,13,26,0.6)", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", fontSize: 11, color: "#7e92a8" }}>
-        <span>AI Ad Studio — generate &amp; publish Google, Meta and TikTok ads from a single URL.</span>
-        <span style={{ flex: 1 }} />
-        <a href="/privacy" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Privacy Policy</a>
-        <a href="/terms" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Terms</a>
+      {/* GOOGLE-DISCLOSURE-FOOTER — full app explanation + Google data-usage + privacy link.
+          Persistent across all states, always rendered (not collapsed) so it satisfies the
+          Google OAuth homepage-purpose requirement. The empty-state "About this app" link jumps here. */}
+      <div id="about-aiads" style={{ marginTop: "auto", padding: "22px 24px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(6,13,26,0.6)", fontSize: 11, lineHeight: 1.6, color: "#7e92a8" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "#cbd5e1", letterSpacing: "0.02em" }}>About AI Ad Studio</div>
+          <p style={{ margin: 0 }}>
+            AI Ad Studio is an AI-powered advertising platform that turns a single product or website URL into
+            ready-to-publish ad creative. The app has four tabs, each generating a ready-to-publish ad for a specific
+            platform: Google Responsive Search Ads, Google Performance Max asset groups, Meta Ads (image, video and
+            carousel), and TikTok video ads. Paste a link and AI Ad Studio generates the headlines, descriptions and
+            image creative — validated against each platform's character limits and policies — then publishes the ads
+            you approve directly into your connected Google Ads and Meta accounts.
+          </p>
+          <p style={{ margin: 0 }}>
+            <strong style={{ color: "#9fb0c3", fontWeight: 700 }}>How AI Ad Studio uses your Google account data:</strong>{" "}
+            When you connect your Google Ads account, AI Ad Studio uses Google's Ads API (the adwords scope) solely to
+            read your existing campaigns, ad groups and account structure so generated ads match your setup, and to
+            create new ad assets and campaigns in your account at your direction. All campaigns and assets are added in
+            a paused state for your review — nothing goes live without your explicit action. AI Ad Studio does not use
+            your Google Ads data to train AI or machine-learning models, and does not share it with third parties. Our
+            use of Google user data adheres to the Google API Services User Data Policy, including the Limited Use
+            requirements.
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", paddingTop: 2 }}>
+            <a href="/privacy" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Privacy Policy</a>
+            <a href="/terms" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Terms</a>
+            <span style={{ color: "#4a5568" }}>© {new Date().getFullYear()} Adspire Deutschland GmbH</span>
+          </div>
+        </div>
       </div>
     </div>
   );
