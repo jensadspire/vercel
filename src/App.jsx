@@ -5038,7 +5038,7 @@ STRICT rules:
         {/* GOOGLE-ABOUT-LINK — small empty-state pointer down to the About section in the footer. */}
         {!generated && (
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <a href="#about-aiads" style={{ fontSize: 11, fontWeight: 700, color: "#7e92a8", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <a href="#about-theaiad.studio" style={{ fontSize: 11, fontWeight: 700, color: "#7e92a8", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}>
               <span style={{ fontSize: 12 }}>ⓘ</span> About this app
             </a>
           </div>
@@ -8475,7 +8475,7 @@ STRICT rules:
       {/* GOOGLE-DISCLOSURE-FOOTER — full app explanation + Google data-usage + privacy link.
           Persistent across all states, always rendered (not collapsed) so it satisfies the
           Google OAuth homepage-purpose requirement. The empty-state "About this app" link jumps here. */}
-      <div id="about-aiads" style={{ marginTop: "auto", padding: "22px 24px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(6,13,26,0.6)", fontSize: 11, lineHeight: 1.6, color: "#7e92a8" }}>
+      <div id="about-theaiad.studio" style={{ marginTop: "auto", padding: "22px 24px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(6,13,26,0.6)", fontSize: 11, lineHeight: 1.6, color: "#7e92a8" }}>
         <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: "#cbd5e1", letterSpacing: "0.02em" }}>About AI Ad Studio</div>
           <p style={{ margin: 0 }}>
@@ -8498,7 +8498,7 @@ STRICT rules:
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", paddingTop: 2 }}>
             <a href="/privacy" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Privacy Policy</a>
-            <a href="/terms" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Terms</a>
+            <a href="/user-terms" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Terms</a>
             <span style={{ color: "#4a5568" }}>© {new Date().getFullYear()} Adspire Deutschland GmbH</span>
           </div>
         </div>
