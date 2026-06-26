@@ -4529,6 +4529,8 @@ STRICT rules:
         borderBottom: "1px solid rgba(255,255,255,0.06)",
         background: "rgba(6,13,26,0.7)",
       }}>
+        {/* GOOGLE-TAB-RIM — white rim around the 4-tab group; circling highlight in the empty state to flag the starting point, calm static rim once working */}
+        <div className={!generated ? "tab-rim tab-rim-anim" : "tab-rim"} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
         {[
           { id: "rsa", label: "RSA", sublabel: "Search Ads", icon: "⚡" },
           { id: "pmax", label: "PMax", sublabel: "Performance Max", icon: "◈" },
@@ -4549,6 +4551,7 @@ STRICT rules:
             <span style={{ fontSize: 10, color: adFormat === fmt.id ? "#7e92a8" : "#4a5568", letterSpacing: "0.03em" }}>{fmt.sublabel}</span>
           </button>
         ))}
+        </div>
       </div>
 
       {/* ── Main 2-Col Layout ── */}
@@ -7227,6 +7230,21 @@ STRICT rules:
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+        @property --tabRimAngle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+        @keyframes tabRimSpin { to { --tabRimAngle: 360deg; } }
+        .tab-rim { position: relative; border-radius: 12px; padding: 4px; background: rgba(255,255,255,0.02); }
+        .tab-rim::before {
+          content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+          background: rgba(255,255,255,0.16);
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          -webkit-mask-composite: xor; mask-composite: exclude;
+          pointer-events: none;
+        }
+        .tab-rim-anim::before {
+          background: conic-gradient(from var(--tabRimAngle), rgba(255,255,255,0.13) 0deg, rgba(255,255,255,0.13) 250deg, rgba(165,180,252,0.9) 312deg, #818cf8 340deg, rgba(255,255,255,0.13) 360deg);
+          animation: tabRimSpin 5s linear infinite;
+        }
+        @media (prefers-reduced-motion: reduce) { .tab-rim-anim::before { animation: none; } }
       `}</style>
       {/* ── Upgrade Modal ─────────────────────────────────────────── */}
       {showUpgradeModal && (
