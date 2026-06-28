@@ -702,6 +702,9 @@ function RSAStudio() {
   const [videoEngine, setVideoEngine] = useState('kling'); // 'kling' | 'runway'
   // Keep ref in sync so async handlers always get current value
   useEffect(() => { videoEngineRef.current = videoEngine; }, [videoEngine]);
+  // ── Runway Recipe state (premium engine) ──
+  const [recipeMode, setRecipeMode] = useState('ad'); // 'ad' | 'ugc'
+  const [recipeCharacterImage, setRecipeCharacterImage] = useState(''); // UGC creator image URL
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
@@ -8310,10 +8313,13 @@ STRICT rules:
                         const imageUrl = selectedImg;
                         if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
                         // Submit to Kling via fal.ai — pass full storyboard for multi-scene video
-                        // Route to Runway or Kling — use ref to avoid stale closure
+                        // Route to Recipe, Runway, or Kling — use ref to avoid stale closure
                         const currentEngine = videoEngineRef.current;
-                        const videoApi = currentEngine === 'runway' ? '/api/runway' : '/api/kling';
-                        const videoPayload = currentEngine === 'runway'
+                        const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe'
+                          : currentEngine === 'runway' ? '/api/runway' : '/api/kling';
+                        const videoPayload = currentEngine === 'recipe'
+                          ? { mode: recipeMode, imageUrl, characterImage: recipeMode === 'ugc' ? recipeCharacterImage : undefined, productInfo: (tiktokResult.brand || pageMeta?.brand || ''), userConcept: tiktokResult.videoPrompt }
+                          : currentEngine === 'runway'
                           ? { imageUrl, prompt: tiktokResult.videoPrompt, duration: 10, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
                           : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
                         const r = await fetch(videoApi, {
@@ -8380,11 +8386,13 @@ STRICT rules:
                       🎬 Video engine
                       {videoEngine === 'runway' && <span style={{ color: '#fbbf24', fontWeight: 700 }}>★ Runway recommended</span>}
                       {videoEngine === 'kling' && <span style={{ color: '#34d399', fontWeight: 700 }}>★ Kling AI recommended</span>}
+                      {videoEngine === 'recipe' && <span style={{ color: '#a5b4fc', fontWeight: 700 }}>✦ Premium · ~2× credits</span>}
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       {[
                         { id: 'kling', label: '⚡ Kling V3', desc: 'Products & food', color: '#34d399' },
                         { id: 'runway', label: '🎞 Runway', desc: 'Fashion & models', color: '#fbbf24' },
+                        { id: 'recipe', label: '✦ Recipe', desc: 'Premium commercial', color: '#a5b4fc' },
                       ].map(e => (
                         <button key={e.id} onClick={() => setVideoEngine(e.id)} style={{
                           flex: 1, padding: '7px 10px', fontSize: 10, fontWeight: 700, borderRadius: 7,
@@ -8398,6 +8406,40 @@ STRICT rules:
                         </button>
                       ))}
                     </div>
+                    {videoEngine === 'recipe' && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        {/* Ad | UGC toggle */}
+                        <div style={{ display: 'flex', gap: 6, marginBottom: recipeMode === 'ugc' ? 10 : 0 }}>
+                          {[
+                            { id: 'ad', label: 'Product Ad', desc: 'Product only' },
+                            { id: 'ugc', label: 'Product UGC', desc: 'With a creator' },
+                          ].map(m => (
+                            <button key={m.id} onClick={() => setRecipeMode(m.id)} style={{
+                              flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6,
+                              background: recipeMode === m.id ? 'rgba(165,180,252,0.14)' : 'rgba(255,255,255,0.04)',
+                              color: recipeMode === m.id ? '#a5b4fc' : '#7e92a8',
+                              border: recipeMode === m.id ? '1px solid rgba(165,180,252,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                              cursor: 'pointer', transition: 'all 0.15s',
+                            }}>
+                              <div>{m.label}</div>
+                              <div style={{ fontSize: 9, opacity: 0.7, fontWeight: 400, marginTop: 2 }}>{m.desc}</div>
+                            </button>
+                          ))}
+                        </div>
+                        {/* Character image input — UGC only */}
+                        {recipeMode === 'ugc' && (
+                          <div>
+                            <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 4 }}>Creator image URL <span style={{ color: '#7e92a8' }}>(a person photo — face visible, well-lit; you must have rights to their likeness)</span></div>
+                            <input value={recipeCharacterImage} onChange={ev => setRecipeCharacterImage(ev.target.value)}
+                              placeholder="https://…/creator.jpg"
+                              style={{ width: '100%', padding: '6px 10px', fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 6, color: '#e2e8f0', outline: 'none' }} />
+                            {recipeCharacterImage ? (
+                              <img src={recipeCharacterImage} alt="creator" style={{ marginTop: 6, width: 44, height: 44, objectFit: 'cover', borderRadius: 5 }} onError={ev => { ev.target.style.display = 'none'; }} />
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
