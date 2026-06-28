@@ -8336,7 +8336,8 @@ STRICT rules:
                           let attempts = 0;
                           if (videoPollRef.current) clearInterval(videoPollRef.current);
                           videoPollRef.current = setInterval(async () => {
-                            if (attempts++ > 72) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); return; } // 6 min max
+                            const pollCap = videoEngineRef.current === 'recipe' ? 156 : 72; // recipe ~13min, others 6min
+                            if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); console.warn('Video poll timed out after', attempts, 'attempts (engine:', videoEngineRef.current + ')'); return; }
                             try {
                               const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
                               const pd = await pr.json();
@@ -8354,7 +8355,7 @@ STRICT rules:
                       display: 'flex', alignItems: 'center', gap: 6,
                       animation: tiktokVideoLoading ? 'pulse 1.5s ease-in-out infinite' : 'none',
                     }}>
-                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating with {videoEngine === 'runway' ? 'Runway' : 'Kling'}…</> : (videoEngine === 'runway' ? '🎞 Generate Video (Runway)' : '🎬 Generate Video (Kling V3)')}
+                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating with {videoEngine === 'recipe' ? 'Recipe' : videoEngine === 'runway' ? 'Runway' : 'Kling'}…</> : (videoEngine === 'recipe' ? '✦ Generate Video (Recipe)' : videoEngine === 'runway' ? '🎞 Generate Video (Runway)' : '🎬 Generate Video (Kling V3)')}
                     </button>
                   </>
                 )}
