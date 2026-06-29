@@ -107,7 +107,7 @@
     },
   ];
 
-  const BASE = 'showcase'; // asset folder: showcase/{slug}/{pdp|google|meta}.png + video.mp4
+  const BASE = '/showcase'; // absolute path — avoids doubling under /showcase/ URL. assets: /showcase/{slug}/{pdp|google|meta}.png + video.mp4
 
   function card(p){
     const dir = `${BASE}/${p.slug}`;
