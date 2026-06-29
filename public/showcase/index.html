@@ -29,7 +29,18 @@
   .phead h2{font-size:20px;margin:0;font-weight:700}
   .phead .src{font-size:12.5px;color:var(--muted);word-break:break-all}
   .flow{display:grid;grid-template-columns:1fr;gap:16px;margin-top:14px}
-  @media(min-width:760px){.flow{grid-template-columns:1fr 1fr;align-items:start}}
+  @media(min-width:760px){
+    .flow{
+      grid-template-columns:1fr 1fr;
+      grid-template-areas:"pdp pdp" "google google" "meta video";
+      align-items:start;
+    }
+    .a-pdp{grid-area:pdp} .a-google{grid-area:google}
+    .a-meta{grid-area:meta} .a-video{grid-area:video}
+    /* keep the wide, short items from ballooning in height */
+    .a-pdp img{max-height:360px;object-fit:contain;object-position:left top}
+    .a-google img{max-height:200px;object-fit:contain;object-position:left top}
+  }
   .step{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
   .step .label{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
   .step img,.step video{width:100%;border-radius:8px;display:block;background:#000;border:1px solid var(--line)}
@@ -118,19 +129,19 @@
         <span class="src">input: <a href="${p.sourceUrl}" target="_blank" rel="noopener">${p.source}</a></span>
       </div>
       <div class="flow">
-        <div class="step input">
+        <div class="step input a-pdp">
           <div class="label">${p.inputLabel} <span class="pill">input</span></div>
           <img src="${dir}/pdp.png" alt="${p.name} source page" loading="lazy">
         </div>
-        <div class="step">
+        <div class="step a-google">
           <div class="label">Google Search ad</div>
           <img src="${dir}/google.png" alt="${p.name} Google ad" loading="lazy">
         </div>
-        <div class="step">
+        <div class="step a-meta">
           <div class="label">Meta image ad</div>
           <img src="${dir}/meta.png" alt="${p.name} Meta ad" loading="lazy">
         </div>
-        <div class="step">
+        <div class="step a-video">
           <div class="label">Video ad · TikTok &amp; Meta</div>
           <video src="${dir}/video.mp4" controls playsinline preload="metadata"></video>
         </div>
