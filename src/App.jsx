@@ -2584,10 +2584,10 @@ STRICT rules:
         setTiktokError("");
         setTiktokResult(null);
         setTiktokVideoUrl(null);
-        if (!generateMeta) {
-          setAdFormat("tiktok");
-          setTimeout(() => { const rp = document.getElementById("right-panel"); const ts = document.getElementById("tiktok-section"); if (rp && ts) rp.scrollTo({ top: rp.scrollHeight, behavior: "smooth" }); }, 300);
-        }
+        // Always land on the TikTok tab when the TikTok flow ran — even if Meta
+        // was generated first (that path used to strand the user on the Meta tab).
+        setAdFormat("tiktok");
+        setTimeout(() => { const rp = document.getElementById("right-panel"); const ts = document.getElementById("tiktok-section"); if (rp && ts) rp.scrollTo({ top: rp.scrollHeight, behavior: "smooth" }); }, 300);
         try {
           const tiktokRes = await fetch("/api/generate-tiktok", {
             method: "POST",
