@@ -706,6 +706,7 @@ function RSAStudio() {
   const [recipeMode, setRecipeMode] = useState('ad'); // 'ad' | 'ugc'
   const [recipeCharacterImage, setRecipeCharacterImage] = useState(''); // UGC creator image URL
   const [recipeGated, setRecipeGated] = useState(null); // { count, limit } when monthly Recipe cap hit
+  const [storyboardOpen, setStoryboardOpen] = useState(false); // TikTok storyboard collapsed by default
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
@@ -8130,10 +8131,11 @@ STRICT rules:
 
               {/* Video Storyboard */}
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                  🎬 Video Storyboard (9:16)
+                <div onClick={() => setStoryboardOpen(o => !o)} style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: storyboardOpen ? 12 : 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
+                  <span>🎬 Video Storyboard (9:16)</span>
+                  <span style={{ fontSize: 11, transition: 'transform 0.15s', transform: storyboardOpen ? 'rotate(90deg)' : 'rotate(0deg)', opacity: 0.7 }}>▸</span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {storyboardOpen && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {(tiktokResult.storyboard || []).map((scene, i) => (
                     <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
                       <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 8, background: 'linear-gradient(135deg,#ff0050,#ff4d4d)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
@@ -8146,7 +8148,7 @@ STRICT rules:
                       </div>
                     </div>
                   ))}
-                </div>
+                </div>}
               </div>
 
               {/* Video Generation */}
