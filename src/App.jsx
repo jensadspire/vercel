@@ -705,6 +705,7 @@ function RSAStudio() {
   // ── Runway Recipe state (premium engine) ──
   const [recipeMode, setRecipeMode] = useState('ad'); // 'ad' | 'ugc'
   const [recipeCharacterImage, setRecipeCharacterImage] = useState(''); // UGC creator image URL
+  const [recipeGated, setRecipeGated] = useState(null); // { count, limit } when monthly Recipe cap hit
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
@@ -8315,6 +8316,7 @@ STRICT rules:
                         // Submit to Kling via fal.ai — pass full storyboard for multi-scene video
                         // Route to Recipe, Runway, or Kling — use ref to avoid stale closure
                         const currentEngine = videoEngineRef.current;
+                        if (currentEngine === 'recipe') setRecipeGated(null); // reset on new gen
                         const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe'
                           : currentEngine === 'runway' ? '/api/runway' : '/api/kling';
                         const videoPayload = currentEngine === 'recipe'
@@ -8324,10 +8326,15 @@ STRICT rules:
                           : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
                         const r = await fetch(videoApi, {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
+                          headers: {
+                            'Content-Type': 'application/json',
+                            ...(currentEngine === 'recipe' && isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}),
+                            ...(currentEngine === 'recipe' && isSignedIn && window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}),
+                          },
                           body: JSON.stringify(videoPayload),
                         });
                         const d = await r.json();
+                        if (d.gated) { setRecipeGated({ count: d.count, limit: d.limit }); setTiktokVideoLoading(false); return; }
                         if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }
                         else if (d.requestId || d.taskId) {
                           // Poll for completion — handle both Kling (requestId) and Runway (taskId)
@@ -8410,6 +8417,13 @@ STRICT rules:
                     {videoEngine === 'recipe' && (
                       <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                         {/* Ad | UGC toggle */}
+                        {recipeGated && (
+                          <div style={{ marginBottom: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', fontSize: 11, color: '#fca5a5', lineHeight: 1.5 }}>
+                            <strong>Monthly Recipe limit reached ({recipeGated.count}/{recipeGated.limit}).</strong><br/>
+                            Runway Recipe is limited to {recipeGated.limit} generations per month.{' '}
+                            <a href="mailto:aiadstudio@adspire.de?subject=Runway%20Recipe%20limit%20expansion" style={{ color: '#a5b4fc', fontWeight: 600 }}>Contact us for a limit expansion</a>.
+                          </div>
+                        )}
                         <div style={{ display: 'flex', gap: 6, marginBottom: recipeMode === 'ugc' ? 10 : 0 }}>
                           {[
                             { id: 'ad', label: 'Product Ad', desc: 'Product only' },
