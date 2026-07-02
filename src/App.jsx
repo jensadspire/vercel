@@ -707,6 +707,7 @@ function RSAStudio() {
   const [recipeCharacterImage, setRecipeCharacterImage] = useState(''); // UGC creator image URL
   const [recipeGated, setRecipeGated] = useState(null); // { count, limit } when monthly Recipe cap hit
   const [storyboardOpen, setStoryboardOpen] = useState(false); // TikTok storyboard collapsed by default
+  const [adCopyOpen, setAdCopyOpen] = useState(false); // TikTok ad copy panel collapsed by default
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
@@ -7200,20 +7201,6 @@ STRICT rules:
         </div>
       </div>
 
-      {/* ── Footer ───────────────────────────────────────────────────────── */}
-      <div style={{ textAlign: 'center', padding: '12px 24px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10, color: '#2d3748' }}>AI Ad Studio</span>
-        <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <a href="/privacy" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
-          onMouseOver={e => e.target.style.color='#4a5568'}
-          onMouseOut={e => e.target.style.color='#2d3748'}>Privacy Policy</a>
-        <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <a href="/user-terms" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
-          onMouseOver={e => e.target.style.color='#4a5568'}
-          onMouseOut={e => e.target.style.color='#2d3748'}>Terms of Use</a>
-        <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <span style={{ fontSize: 10, color: '#2d3748' }}>© 2026 theaiad.studio</span>
-      </div>
       {showGateModal && <GateModal />}
       {showAuthModal && <AuthModal />}
 
@@ -8044,9 +8031,11 @@ STRICT rules:
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Hook + Copy */}
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#ff4d4d', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                  ♪ TikTok In-Feed Ad Copy
+                <div onClick={() => setAdCopyOpen(o => !o)} style={{ fontSize: 10, fontWeight: 800, color: '#ff4d4d', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: adCopyOpen ? 12 : 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
+                  <span>♪ TikTok In-Feed Ad Copy</span>
+                  <span style={{ fontSize: 11, transition: 'transform 0.15s', transform: adCopyOpen ? 'rotate(90deg)' : 'rotate(0deg)', opacity: 0.7 }}>▸</span>
                 </div>
+                {adCopyOpen && <div>
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 10, color: '#4a5568', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hook Line (first 3 seconds)</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#fca5a5', lineHeight: 1.3 }}>{tiktokResult.hookLine}</div>
@@ -8101,6 +8090,7 @@ STRICT rules:
                 }} style={{ marginTop: 8, padding: '6px 14px', fontSize: 10, fontWeight: 700, background: tiktokExportCopied ? 'rgba(52,211,153,0.15)' : 'rgba(129,140,248,0.1)', border: tiktokExportCopied ? '1px solid rgba(52,211,153,0.4)' : '1px solid rgba(129,140,248,0.25)', borderRadius: 6, color: tiktokExportCopied ? '#34d399' : '#818cf8', cursor: 'pointer', width: '100%', transition: 'all 0.3s' }}>
                   {tiktokExportCopied ? '✓ Copied — ready for TikTok Ads Manager' : '📋 Copy Full TikTok Export'}
                 </button>
+                </div>}
               </div>
 
               {/* ── Branding & Overlay Panel ── */}
