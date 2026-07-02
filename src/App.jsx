@@ -8566,7 +8566,7 @@ STRICT rules:
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", paddingTop: 2 }}>
             <a href="/privacy" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Privacy Policy</a>
             <a href="/user-terms" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Terms</a>
-            <span style={{ color: "#4a5568" }}>© {new Date().getFullYear()} Adspire Deutschland GmbH</span>
+            <span style={{ color: "#4a5568" }}>© {new Date().getFullYear()} AI Ad Studio · Adspire Deutschland GmbH</span>
           </div>
         </div>
       </div>
