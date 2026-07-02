@@ -8297,7 +8297,7 @@ STRICT rules:
                 ) : tiktokVideoLoading ? (
                   <div style={{ width: '100%', maxWidth: 280, aspectRatio: '9/16', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                     <span style={{ fontSize: 32, animation: 'spin 2s linear infinite', display: 'inline-block' }}>🎬</span>
-                    <div style={{ fontSize: 11, color: '#4a5568', textAlign: 'center', padding: '0 16px' }}>Generating your TikTok video…<br/>Check back in 3–4 minutes</div>
+                    <div style={{ fontSize: 11, color: '#4a5568', textAlign: 'center', padding: '0 16px' }}>{videoEngine === 'recipe' ? <>Generating your Runway Recipe video…<br/>Check back in 8–10 minutes</> : <>Generating your TikTok video…<br/>Check back in 3–4 minutes</>}</div>
                   </div>
                 ) : (
                   <>
