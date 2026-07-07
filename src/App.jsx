@@ -702,6 +702,12 @@ function RSAStudio() {
   const [videoEngine, setVideoEngine] = useState('kling'); // 'kling' | 'runway'
   // Keep ref in sync so async handlers always get current value
   useEffect(() => { videoEngineRef.current = videoEngine; }, [videoEngine]);
+  // ── Runway Recipe state (premium engine) ──
+  const [recipeMode, setRecipeMode] = useState('ad'); // 'ad' | 'ugc'
+  const [recipeCharacterImage, setRecipeCharacterImage] = useState(''); // UGC creator image URL
+  const [recipeGated, setRecipeGated] = useState(null); // { count, limit } when monthly Recipe cap hit
+  const [storyboardOpen, setStoryboardOpen] = useState(false); // TikTok storyboard collapsed by default
+  const [adCopyOpen, setAdCopyOpen] = useState(false); // TikTok ad copy panel collapsed by default
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
@@ -2580,10 +2586,10 @@ STRICT rules:
         setTiktokError("");
         setTiktokResult(null);
         setTiktokVideoUrl(null);
-        if (!generateMeta) {
-          setAdFormat("tiktok");
-          setTimeout(() => { const rp = document.getElementById("right-panel"); const ts = document.getElementById("tiktok-section"); if (rp && ts) rp.scrollTo({ top: rp.scrollHeight, behavior: "smooth" }); }, 300);
-        }
+        // Always land on the TikTok tab when the TikTok flow ran — even if Meta
+        // was generated first (that path used to strand the user on the Meta tab).
+        setAdFormat("tiktok");
+        setTimeout(() => { const rp = document.getElementById("right-panel"); const ts = document.getElementById("tiktok-section"); if (rp && ts) rp.scrollTo({ top: rp.scrollHeight, behavior: "smooth" }); }, 300);
         try {
           const tiktokRes = await fetch("/api/generate-tiktok", {
             method: "POST",
@@ -7195,20 +7201,6 @@ STRICT rules:
         </div>
       </div>
 
-      {/* ── Footer ───────────────────────────────────────────────────────── */}
-      <div style={{ textAlign: 'center', padding: '12px 24px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10, color: '#2d3748' }}>AI Ad Studio</span>
-        <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <a href="/privacy" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
-          onMouseOver={e => e.target.style.color='#4a5568'}
-          onMouseOut={e => e.target.style.color='#2d3748'}>Privacy Policy</a>
-        <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <a href="/user-terms" style={{ fontSize: 10, color: '#2d3748', textDecoration: 'none' }}
-          onMouseOver={e => e.target.style.color='#4a5568'}
-          onMouseOut={e => e.target.style.color='#2d3748'}>Terms of Use</a>
-        <span style={{ fontSize: 10, color: '#1e293b' }}>·</span>
-        <span style={{ fontSize: 10, color: '#2d3748' }}>© 2026 theaiad.studio</span>
-      </div>
       {showGateModal && <GateModal />}
       {showAuthModal && <AuthModal />}
 
@@ -8039,9 +8031,11 @@ STRICT rules:
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Hook + Copy */}
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#ff4d4d', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                  ♪ TikTok In-Feed Ad Copy
+                <div onClick={() => setAdCopyOpen(o => !o)} style={{ fontSize: 10, fontWeight: 800, color: '#ff4d4d', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: adCopyOpen ? 12 : 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
+                  <span>♪ TikTok In-Feed Ad Copy</span>
+                  <span style={{ fontSize: 11, transition: 'transform 0.15s', transform: adCopyOpen ? 'rotate(90deg)' : 'rotate(0deg)', opacity: 0.7 }}>▸</span>
                 </div>
+                {adCopyOpen && <div>
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 10, color: '#4a5568', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hook Line (first 3 seconds)</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#fca5a5', lineHeight: 1.3 }}>{tiktokResult.hookLine}</div>
@@ -8096,6 +8090,7 @@ STRICT rules:
                 }} style={{ marginTop: 8, padding: '6px 14px', fontSize: 10, fontWeight: 700, background: tiktokExportCopied ? 'rgba(52,211,153,0.15)' : 'rgba(129,140,248,0.1)', border: tiktokExportCopied ? '1px solid rgba(52,211,153,0.4)' : '1px solid rgba(129,140,248,0.25)', borderRadius: 6, color: tiktokExportCopied ? '#34d399' : '#818cf8', cursor: 'pointer', width: '100%', transition: 'all 0.3s' }}>
                   {tiktokExportCopied ? '✓ Copied — ready for TikTok Ads Manager' : '📋 Copy Full TikTok Export'}
                 </button>
+                </div>}
               </div>
 
               {/* ── Branding & Overlay Panel ── */}
@@ -8126,10 +8121,11 @@ STRICT rules:
 
               {/* Video Storyboard */}
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                  🎬 Video Storyboard (9:16)
+                <div onClick={() => setStoryboardOpen(o => !o)} style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: storyboardOpen ? 12 : 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
+                  <span>🎬 Video Storyboard (9:16)</span>
+                  <span style={{ fontSize: 11, transition: 'transform 0.15s', transform: storyboardOpen ? 'rotate(90deg)' : 'rotate(0deg)', opacity: 0.7 }}>▸</span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {storyboardOpen && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {(tiktokResult.storyboard || []).map((scene, i) => (
                     <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
                       <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 8, background: 'linear-gradient(135deg,#ff0050,#ff4d4d)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
@@ -8142,7 +8138,7 @@ STRICT rules:
                       </div>
                     </div>
                   ))}
-                </div>
+                </div>}
               </div>
 
               {/* Video Generation */}
@@ -8294,7 +8290,7 @@ STRICT rules:
                 ) : tiktokVideoLoading ? (
                   <div style={{ width: '100%', maxWidth: 280, aspectRatio: '9/16', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                     <span style={{ fontSize: 32, animation: 'spin 2s linear infinite', display: 'inline-block' }}>🎬</span>
-                    <div style={{ fontSize: 11, color: '#4a5568', textAlign: 'center', padding: '0 16px' }}>Generating your TikTok video…<br/>Check back in 3–4 minutes</div>
+                    <div style={{ fontSize: 11, color: '#4a5568', textAlign: 'center', padding: '0 16px' }}>{videoEngine === 'recipe' ? <>Generating your Runway Recipe video…<br/>Check back in 8–10 minutes</> : <>Generating your TikTok video…<br/>Check back in 3–4 minutes</>}</div>
                   </div>
                 ) : (
                   <>
@@ -8310,18 +8306,27 @@ STRICT rules:
                         const imageUrl = selectedImg;
                         if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
                         // Submit to Kling via fal.ai — pass full storyboard for multi-scene video
-                        // Route to Runway or Kling — use ref to avoid stale closure
+                        // Route to Recipe, Runway, or Kling — use ref to avoid stale closure
                         const currentEngine = videoEngineRef.current;
-                        const videoApi = currentEngine === 'runway' ? '/api/runway' : '/api/kling';
-                        const videoPayload = currentEngine === 'runway'
+                        if (currentEngine === 'recipe') setRecipeGated(null); // reset on new gen
+                        const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe'
+                          : currentEngine === 'runway' ? '/api/runway' : '/api/kling';
+                        const videoPayload = currentEngine === 'recipe'
+                          ? { mode: recipeMode, imageUrl, characterImage: recipeMode === 'ugc' ? recipeCharacterImage : undefined, productInfo: (tiktokResult.brand || pageMeta?.brand || ''), userConcept: tiktokResult.videoPrompt }
+                          : currentEngine === 'runway'
                           ? { imageUrl, prompt: tiktokResult.videoPrompt, duration: 10, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
                           : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
                         const r = await fetch(videoApi, {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
+                          headers: {
+                            'Content-Type': 'application/json',
+                            ...(currentEngine === 'recipe' && isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}),
+                            ...(currentEngine === 'recipe' && isSignedIn && window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}),
+                          },
                           body: JSON.stringify(videoPayload),
                         });
                         const d = await r.json();
+                        if (d.gated) { setRecipeGated({ count: d.count, limit: d.limit }); setTiktokVideoLoading(false); return; }
                         if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }
                         else if (d.requestId || d.taskId) {
                           // Poll for completion — handle both Kling (requestId) and Runway (taskId)
@@ -8330,7 +8335,8 @@ STRICT rules:
                           let attempts = 0;
                           if (videoPollRef.current) clearInterval(videoPollRef.current);
                           videoPollRef.current = setInterval(async () => {
-                            if (attempts++ > 72) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); return; } // 6 min max
+                            const pollCap = videoEngineRef.current === 'recipe' ? 156 : 72; // recipe ~13min, others 6min
+                            if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); console.warn('Video poll timed out after', attempts, 'attempts (engine:', videoEngineRef.current + ')'); return; }
                             try {
                               const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
                               const pd = await pr.json();
@@ -8348,7 +8354,7 @@ STRICT rules:
                       display: 'flex', alignItems: 'center', gap: 6,
                       animation: tiktokVideoLoading ? 'pulse 1.5s ease-in-out infinite' : 'none',
                     }}>
-                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating with {videoEngine === 'runway' ? 'Runway' : 'Kling'}…</> : (videoEngine === 'runway' ? '🎞 Generate Video (Runway)' : '🎬 Generate Video (Kling V3)')}
+                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating with {videoEngine === 'recipe' ? 'Recipe' : videoEngine === 'runway' ? 'Runway' : 'Kling'}…</> : (videoEngine === 'recipe' ? '✦ Generate Video (Recipe)' : videoEngine === 'runway' ? '🎞 Generate Video (Runway)' : '🎬 Generate Video (Kling V3)')}
                     </button>
                   </>
                 )}
@@ -8380,11 +8386,13 @@ STRICT rules:
                       🎬 Video engine
                       {videoEngine === 'runway' && <span style={{ color: '#fbbf24', fontWeight: 700 }}>★ Runway recommended</span>}
                       {videoEngine === 'kling' && <span style={{ color: '#34d399', fontWeight: 700 }}>★ Kling AI recommended</span>}
+                      {videoEngine === 'recipe' && <span style={{ color: '#a5b4fc', fontWeight: 700 }}>✦ Premium · ~2× credits</span>}
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       {[
                         { id: 'kling', label: '⚡ Kling V3', desc: 'Products & food', color: '#34d399' },
                         { id: 'runway', label: '🎞 Runway', desc: 'Fashion & models', color: '#fbbf24' },
+                        { id: 'recipe', label: '✦ Recipe', desc: 'Premium commercial', color: '#a5b4fc' },
                       ].map(e => (
                         <button key={e.id} onClick={() => setVideoEngine(e.id)} style={{
                           flex: 1, padding: '7px 10px', fontSize: 10, fontWeight: 700, borderRadius: 7,
@@ -8398,6 +8406,47 @@ STRICT rules:
                         </button>
                       ))}
                     </div>
+                    {videoEngine === 'recipe' && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        {/* Ad | UGC toggle */}
+                        {recipeGated && (
+                          <div style={{ marginBottom: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', fontSize: 11, color: '#fca5a5', lineHeight: 1.5 }}>
+                            <strong>Monthly Recipe limit reached ({recipeGated.count}/{recipeGated.limit}).</strong><br/>
+                            Runway Recipe is limited to {recipeGated.limit} generations per month.{' '}
+                            <a href="mailto:aiadstudio@adspire.de?subject=Runway%20Recipe%20limit%20expansion" style={{ color: '#a5b4fc', fontWeight: 600 }}>Contact us for a limit expansion</a>.
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 6, marginBottom: recipeMode === 'ugc' ? 10 : 0 }}>
+                          {[
+                            { id: 'ad', label: 'Product Ad', desc: 'Product only' },
+                            { id: 'ugc', label: 'Product UGC', desc: 'With a creator' },
+                          ].map(m => (
+                            <button key={m.id} onClick={() => setRecipeMode(m.id)} style={{
+                              flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6,
+                              background: recipeMode === m.id ? 'rgba(165,180,252,0.14)' : 'rgba(255,255,255,0.04)',
+                              color: recipeMode === m.id ? '#a5b4fc' : '#7e92a8',
+                              border: recipeMode === m.id ? '1px solid rgba(165,180,252,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                              cursor: 'pointer', transition: 'all 0.15s',
+                            }}>
+                              <div>{m.label}</div>
+                              <div style={{ fontSize: 9, opacity: 0.7, fontWeight: 400, marginTop: 2 }}>{m.desc}</div>
+                            </button>
+                          ))}
+                        </div>
+                        {/* Character image input — UGC only */}
+                        {recipeMode === 'ugc' && (
+                          <div>
+                            <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 4 }}>Creator image URL <span style={{ color: '#7e92a8' }}>(a person photo — face visible, well-lit; you must have rights to their likeness)</span></div>
+                            <input value={recipeCharacterImage} onChange={ev => setRecipeCharacterImage(ev.target.value)}
+                              placeholder="https://…/creator.jpg"
+                              style={{ width: '100%', padding: '6px 10px', fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 6, color: '#e2e8f0', outline: 'none' }} />
+                            {recipeCharacterImage ? (
+                              <img src={recipeCharacterImage} alt="creator" style={{ marginTop: 6, width: 44, height: 44, objectFit: 'cover', borderRadius: 5 }} onError={ev => { ev.target.style.display = 'none'; }} />
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -8517,7 +8566,7 @@ STRICT rules:
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", paddingTop: 2 }}>
             <a href="/privacy" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Privacy Policy</a>
             <a href="/user-terms" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Terms</a>
-            <span style={{ color: "#4a5568" }}>© {new Date().getFullYear()} Adspire Deutschland GmbH</span>
+            <span style={{ color: "#4a5568" }}>© {new Date().getFullYear()} AI Ad Studio · Adspire Deutschland GmbH</span>
           </div>
         </div>
       </div>
