@@ -27,7 +27,7 @@ import RunwayML from '@runwayml/sdk';
 
 const RECIPE_VERSION = '2026-06';
 const RATIO = '720:1280'; // 9:16 TikTok-native
-const RECIPE_MONTHLY_LIMIT = 1;              // gens per user per calendar month
+const RECIPE_MONTHLY_LIMIT = 10;              // gens per user per calendar month
 const RECIPE_KEY_TTL_SECS = 40 * 24 * 60 * 60; // ~40d cleanup so stale month keys expire
 
 export const config = {
