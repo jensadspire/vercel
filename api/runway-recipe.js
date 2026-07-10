@@ -98,6 +98,19 @@ export default async function handler(req, res) {
       const task = await client.tasks.retrieve(taskId);
 
       if (task.status !== 'SUCCEEDED') {
+        // On failure, surface Runway's reason so the frontend + Vercel logs show WHY.
+        if (task.status === 'FAILED' || task.status === 'CANCELLED') {
+          const failure = task.failure || task.failureReason || null;
+          const failureCode = task.failureCode || null;
+          console.error('Recipe task', task.status + ':', failureCode || '(no code)', '-', failure || '(no reason provided)');
+          return res.status(200).json({
+            status: task.status,
+            videoUrl: null,
+            progress: task.progress || 0,
+            failure,
+            failureCode,
+          });
+        }
         return res.status(200).json({
           status: task.status,
           videoUrl: null,
