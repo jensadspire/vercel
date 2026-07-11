@@ -8567,6 +8567,19 @@ STRICT rules:
             <a href="/privacy" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Privacy Policy</a>
             <a href="/user-terms" style={{ color: "#a5b4fc", textDecoration: "none", fontWeight: 700 }}>Terms</a>
             <span style={{ color: "#4a5568" }}>© {new Date().getFullYear()} AI Ad Studio · Adspire Deutschland GmbH</span>
+            <a
+              href="https://theresanaiforthat.com/ai/rsa-studio/?ref=featured&v=11722855"
+              target="_blank"
+              rel="nofollow noopener noreferrer"
+              style={{ display: "inline-flex", alignItems: "center", marginLeft: "auto" }}
+            >
+              <img
+                width="300"
+                src="https://media.theresanaiforthat.com/featured-on-taaft.png?width=600"
+                alt="Featured on There's An AI For That"
+                style={{ maxWidth: 200, height: "auto", opacity: 0.9 }}
+              />
+            </a>
           </div>
         </div>
       </div>
