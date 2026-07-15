@@ -8303,7 +8303,9 @@ STRICT rules:
                       try {
                         // Use explicitly selected thumbnail (persisted through Meta regen) or fall back to active variant
                         const selectedImg = tiktokSourceImageRef.current || metaResult?.imageVariations?.[activeImageVariant] || metaResult?.imageUrl || metaResult?.heroProductImage || null;
-                        const imageUrl = selectedImg;
+                        // Runway Recipe (and other engines) require https:// image URIs — scraped
+                        // product images are sometimes http:// (e.g. some Shopify CDNs), so force https.
+                        const imageUrl = selectedImg ? selectedImg.replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://') : selectedImg;
                         if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
                         // Submit to Kling via fal.ai — pass full storyboard for multi-scene video
                         // Route to Recipe, Runway, or Kling — use ref to avoid stale closure
