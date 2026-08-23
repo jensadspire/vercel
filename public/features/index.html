@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Ad Studio — Feature Overview</title>
+<meta name="description" content="Turn a single product or website URL into ready-to-publish ad creative for Google, Meta and TikTok. A complete overview of what AI Ad Studio does.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#060d1a; --bg-2:#0a1424; --panel:rgba(255,255,255,0.025);
+    --panel-hover:rgba(129,140,248,0.06); --border:rgba(255,255,255,0.07);
+    --border-lit:rgba(129,140,248,0.35);
+    --ink:#e8edf4; --muted:#8598ad; --faint:#54637a;
+    --accent:#818cf8; --accent-lt:#a5b4fc; --green:#34d399;
+    --display:"Space Grotesk",sans-serif; --body:"Inter",sans-serif; --mono:"Space Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+  /* ambient background */
+  .glow{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(620px 380px at 78% -4%, rgba(129,140,248,0.14), transparent 70%),
+      radial-gradient(520px 420px at 10% 8%, rgba(52,211,153,0.06), transparent 70%);}
+  .content{position:relative;z-index:1}
+
+  /* eyebrow / mono labels */
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--accent);opacity:.9}
+
+  /* nav */
+  header.top{position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);
+    background:rgba(6,13,26,0.72);border-bottom:1px solid var(--border)}
+  header.top .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:-.01em}
+  .brand .mark{width:26px;height:26px;border-radius:7px;
+    background:linear-gradient(135deg,#5b6cf0,#818cf8);display:grid;place-items:center;
+    box-shadow:0 0 0 1px rgba(255,255,255,.08) inset, 0 4px 14px rgba(91,108,240,.4)}
+  .brand .mark svg{width:15px;height:15px}
+  .nav-cta{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--accent-lt);
+    border:1px solid var(--border-lit);padding:8px 16px;border-radius:8px;transition:.2s}
+  .nav-cta:hover{background:var(--panel-hover);border-color:var(--accent)}
+
+  /* hero */
+  .hero{padding:96px 0 72px;text-align:center}
+  .hero h1{font-family:var(--display);font-weight:700;letter-spacing:-.03em;line-height:1.04;
+    font-size:clamp(38px,6vw,68px);max-width:14ch;margin:22px auto 0}
+  .hero h1 .grad{background:linear-gradient(100deg,#a5b4fc,#818cf8 40%,#34d399);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.sub{font-size:clamp(16px,2vw,19px);color:var(--muted);max-width:56ch;margin:24px auto 0}
+
+  /* the URL-bar signature motif */
+  .urlbar{margin:44px auto 0;max-width:640px;display:flex;align-items:center;gap:10px;
+    background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.015));
+    border:1px solid var(--border-lit);border-radius:14px;padding:12px 12px 12px 18px;
+    box-shadow:0 12px 40px rgba(0,0,0,.4), 0 0 0 1px rgba(129,140,248,.05)}
+  .urlbar .lnk{color:var(--faint);flex:none;display:flex}
+  .urlbar .url{font-family:var(--mono);font-size:14px;color:var(--muted);text-align:left;flex:1;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .urlbar .url b{color:var(--ink);font-weight:400}
+  .urlbar .go{font-family:var(--display);font-weight:600;font-size:14px;flex:none;
+    background:linear-gradient(135deg,#5b6cf0,#818cf8);color:#fff;padding:10px 18px;border-radius:9px;
+    display:flex;align-items:center;gap:7px;box-shadow:0 6px 18px rgba(91,108,240,.45)}
+  .flowline{margin:18px auto 0;max-width:640px;display:flex;align-items:center;justify-content:center;
+    gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--faint)}
+  .flowline span.node{color:var(--muted)}
+  .flowline .arw{color:var(--accent);opacity:.6}
+
+  /* section scaffolding */
+  section.block{padding:60px 0;border-top:1px solid var(--border)}
+  .block-head{display:flex;align-items:baseline;gap:16px;margin-bottom:34px;flex-wrap:wrap}
+  .block-head h2{font-family:var(--display);font-weight:600;letter-spacing:-.02em;
+    font-size:clamp(24px,3.2vw,32px)}
+  .block-head .lead{color:var(--muted);font-size:15px;max-width:48ch}
+
+  /* card grid */
+  .grid{display:grid;gap:14px}
+  .g-2{grid-template-columns:repeat(2,1fr)}
+  .g-3{grid-template-columns:repeat(3,1fr)}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px 22px 24px;
+    transition:.22s;position:relative;overflow:hidden}
+  .card:hover{border-color:var(--border-lit);background:var(--panel-hover);transform:translateY(-2px)}
+  .card .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;margin-bottom:14px;
+    background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.2)}
+  .card .ic svg{width:18px;height:18px;stroke:var(--accent-lt)}
+  .card h3{font-family:var(--display);font-weight:600;font-size:16.5px;letter-spacing:-.01em;margin-bottom:8px}
+  .card p{font-size:14px;color:var(--muted);line-height:1.58}
+  .card .tag{margin-top:12px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);opacity:.85}
+
+  /* platform row (bigger, 3-up) */
+  .plat h3{font-size:18px}
+  .plat .ic{width:38px;height:38px}
+
+  /* flexibility callout strip */
+  .flexstrip{background:linear-gradient(180deg,rgba(129,140,248,.07),rgba(129,140,248,.02));
+    border:1px solid var(--border-lit);border-radius:16px;padding:28px 28px 30px}
+  .flexstrip .eyebrow{margin-bottom:14px;display:block}
+  .flexstrip h2{font-family:var(--display);font-weight:600;font-size:clamp(22px,3vw,28px);
+    letter-spacing:-.02em;margin-bottom:8px}
+  .flexstrip>p{color:var(--muted);font-size:15px;max-width:60ch;margin-bottom:22px}
+  .toggles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .toggle{background:rgba(6,13,26,.5);border:1px solid var(--border);border-radius:12px;padding:16px}
+  .toggle .pair{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:600;
+    font-size:14px;margin-bottom:6px}
+  .toggle .pair .vs{font-family:var(--mono);font-size:10px;color:var(--faint);
+    border:1px solid var(--border);border-radius:5px;padding:1px 5px}
+  .toggle p{font-size:12.5px;color:var(--muted);line-height:1.5}
+
+  /* publish band */
+  .publish .grid{grid-template-columns:repeat(2,1fr)}
+  .badge-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .badge{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--muted);
+    border:1px solid var(--border);border-radius:20px;padding:6px 13px;display:flex;align-items:center;gap:7px}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 8px var(--green)}
+
+  /* closing CTA */
+  .final{text-align:center;padding:84px 0 20px}
+  .final h2{font-family:var(--display);font-weight:700;letter-spacing:-.025em;
+    font-size:clamp(28px,4.5vw,46px);max-width:18ch;margin:14px auto 0}
+  .final p{color:var(--muted);font-size:16px;margin:18px auto 0;max-width:48ch}
+  .cta{display:inline-flex;align-items:center;gap:9px;margin-top:30px;
+    font-family:var(--display);font-weight:600;font-size:16px;color:#fff;
+    background:linear-gradient(135deg,#5b6cf0,#818cf8);padding:15px 30px;border-radius:12px;
+    box-shadow:0 10px 30px rgba(91,108,240,.45);transition:.2s}
+  .cta:hover{transform:translateY(-2px);box-shadow:0 14px 38px rgba(91,108,240,.55)}
+  .cta.ghost{background:transparent;border:1px solid var(--border-lit);color:var(--accent-lt);
+    box-shadow:none;margin-left:10px}
+  .cta.ghost:hover{background:var(--panel-hover)}
+
+  footer{border-top:1px solid var(--border);margin-top:70px;padding:30px 0 46px}
+  footer .wrap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}
+  footer .muted{color:var(--faint);font-size:12.5px}
+  footer .links{display:flex;gap:20px;font-size:13px;color:var(--muted)}
+  footer .links a:hover{color:var(--accent-lt)}
+
+  /* reveal on scroll */
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease, transform .6s ease}
+  .reveal.in{opacity:1;transform:none}
+
+  @media (max-width:820px){
+    .g-3{grid-template-columns:1fr 1fr}
+    .toggles{grid-template-columns:1fr}
+    .publish .grid{grid-template-columns:1fr}
+  }
+  @media (max-width:560px){
+    .g-2,.g-3{grid-template-columns:1fr}
+    .hero{padding:64px 0 52px}
+    .urlbar .go span{display:none}
+    .flowline{font-size:10px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .reveal{opacity:1;transform:none;transition:none}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="content">
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 6.3L20.5 11l-6.3 2.2L12 19.5 9.8 13.2 3.5 11l6.3-1.7L12 3z" fill="#fff"/></svg></span>
+      AI Ad Studio
+    </a>
+    <a class="nav-cta" href="#start">Try it with your URL →</a>
+  </div>
+</header>
+
+<a id="top"></a>
+<section class="hero">
+  <div class="wrap">
+    <span class="eyebrow reveal">One URL in. Campaign-ready ads out.</span>
+    <h1 class="reveal">Turn a product URL into <span class="grad">ready-to-publish ads</span> for every major platform</h1>
+    <p class="sub reveal">AI Ad Studio reads a single product or website URL and generates the copy, imagery and video for Google, Meta and TikTok — validated against each platform's rules and ready to publish into your own ad accounts.</p>
+
+    <div class="urlbar reveal" aria-hidden="true">
+      <span class="lnk"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg></span>
+      <span class="url">https://yourstore.com/products/<b>the-product</b></span>
+      <span class="go"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span>Generate</span></span>
+    </div>
+    <div class="flowline reveal" aria-hidden="true">
+      <span class="node">Google</span><span class="arw">·</span>
+      <span class="node">Meta</span><span class="arw">·</span>
+      <span class="node">TikTok</span><span class="arw">·</span>
+      <span class="node">Video</span><span class="arw">·</span>
+      <span class="node">Publish</span>
+    </div>
+  </div>
+</section>
+
+<!-- PLATFORMS -->
+<section class="block" id="platforms">
+  <div class="wrap">
+    <div class="block-head reveal">
+      <span class="eyebrow">01 / Generate</span>
+      <h2>Ads for every platform, from one input</h2>
+      <p class="lead">Each generator produces complete, policy-checked creative in the exact format the platform expects.</p>
+    </div>
+    <div class="grid g-3">
+      <div class="card plat reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a15 15 0 010 18M3 12h18"/></svg></div>
+        <h3>Google Ads</h3>
+        <p>Responsive Search Ads and Performance Max asset groups — headlines, long headlines and descriptions, all validated against Google's character limits and policies before you publish.</p>
+        <div class="tag">RSA · Performance Max</div>
+      </div>
+      <div class="card plat reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.5"/><circle cx="17" cy="7" r="1.2" fill="currentColor"/></svg></div>
+        <h3>Meta Ads</h3>
+        <p>Facebook and Instagram creative across image, carousel and video — primary text, headlines and visuals generated together so the whole ad is ready, not just the copy.</p>
+        <div class="tag">Image · Carousel · Video</div>
+      </div>
+      <div class="card plat reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M9 3v12.5a3.5 3.5 0 11-3.5-3.5H6"/><path d="M9 3c.5 3 2.5 5 5 5.2"/></svg></div>
+        <h3>TikTok Ads</h3>
+        <p>Native in-feed video ads in both product-led and UGC creator styles, with the hook, on-screen copy and hashtags written for the format.</p>
+        <div class="tag">In-feed · UGC</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VIDEO -->
+<section class="block" id="video">
+  <div class="wrap">
+    <div class="block-head reveal">
+      <span class="eyebrow">02 / Video</span>
+      <h2>A full video studio, not just a clip</h2>
+      <p class="lead">Multiple engines, a scene-by-scene storyboard, brand overlays and creator personas — so the video fits the product and the brand.</p>
+    </div>
+    <div class="grid g-2">
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9l5 3-5 3V9z" fill="currentColor" stroke="none"/></svg></div>
+        <h3>Choice of video engines</h3>
+        <p>Route each generation to the engine that suits the product — Kling and Runway for standard output, or the premium Recipe engine for commercial-grade product and creator films.</p>
+        <div class="tag">Kling · Runway · Recipe</div>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11M3 14h6"/></svg></div>
+        <h3>Scene-by-scene storyboard</h3>
+        <p>Every video is planned as a short storyboard — hook, product moment, close — so the result tells a coherent story instead of a single generic shot.</p>
+        <div class="tag">Hook → Product → CTA</div>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M5 21c0-4 3.5-6 7-6s7 2 7 6"/></svg></div>
+        <h3>UGC creator videos</h3>
+        <p>Creator-style videos with a chosen on-camera persona and voice — the authentic, native-feeling format that performs on TikTok, without booking a creator or a shoot.</p>
+        <div class="tag">Personas · Voices</div>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 7l8-4 8 4-8 4-8-4z"/><path d="M4 7v6l8 4 8-4V7"/></svg></div>
+        <h3>Brand overlays &amp; assets</h3>
+        <p>Add your brand name, intro and outro messaging and logo over the video, and adjust the brand assets on the output so every clip stays on-brand.</p>
+        <div class="tag">Logo · Intro/Outro · Editable</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FLEXIBILITY -->
+<section class="block" id="flex">
+  <div class="wrap">
+    <div class="flexstrip reveal">
+      <span class="eyebrow">03 / Control</span>
+      <h2>You choose the angle at every step</h2>
+      <p>The same product can be advertised in more than one way. AI Ad Studio gives you the choice up front, then generates to match — so the output fits the campaign you have in mind.</p>
+      <div class="toggles">
+        <div class="toggle">
+          <div class="pair">USP <span class="vs">or</span> Price</div>
+          <p>Frame carousel and image ads around what makes the product better, or around the offer and price — whichever the campaign calls for.</p>
+        </div>
+        <div class="toggle">
+          <div class="pair">Product <span class="vs">or</span> UGC</div>
+          <p>Generate the Recipe video as a clean product film or as a creator-style UGC piece with a persona — same product, two very different moods.</p>
+        </div>
+        <div class="toggle">
+          <div class="pair">Edit <span class="vs">+</span> Refine</div>
+          <p>Adjust any headline, description or brand asset inline before publishing, with AI refine on hand to rework a line without starting over.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SPEED / SCALE -->
+<section class="block" id="scale">
+  <div class="wrap">
+    <div class="block-head reveal">
+      <span class="eyebrow">04 / Scale</span>
+      <h2>Built to move at the speed of a catalogue</h2>
+      <p class="lead">Tools for producing at volume and aiming the creative before you spend.</p>
+    </div>
+    <div class="grid g-3">
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+        <h3>Batch generation</h3>
+        <p>Feed in multiple product URLs at once and generate ads for the whole set in a single run — built for catalogues and collections, not one product at a time.</p>
+        <div class="tag">Many URLs · One run</div>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg></div>
+        <h3>Audience Builder</h3>
+        <p>Define and describe the target audience for a campaign, and feed that context straight into ad creation so the copy speaks to the right buyer.</p>
+        <div class="tag">Targeting into creative</div>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 17l5-5 4 3 8-8"/><path d="M17 4h4v4"/></svg></div>
+        <h3>Trend insights</h3>
+        <p>A connected trend module surfaces which product categories are rising in interest, so you can point ad production at what's gaining demand right now.</p>
+        <div class="tag">Trending categories</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PUBLISH -->
+<section class="block publish" id="publish">
+  <div class="wrap">
+    <div class="block-head reveal">
+      <span class="eyebrow">05 / Publish</span>
+      <h2>Straight into your own ad accounts</h2>
+      <p class="lead">Connected to the platforms directly — the ads land where you'll actually run them, always paused for your review first.</p>
+    </div>
+    <div class="grid">
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a15 15 0 010 18M3 12h18"/></svg></div>
+        <h3>Google Ads connection</h3>
+        <p>Connect your Google Ads account and publish generated Search and Performance Max assets directly into it, added as paused drafts so nothing goes live without your approval.</p>
+        <div class="badge-row"><span class="badge"><span class="dot"></span>API-connected</span><span class="badge">Paused for review</span></div>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.5"/></svg></div>
+        <h3>Meta Business connection</h3>
+        <p>Connect Meta Business Manager and push image and video creative into your account through the API — ready to place, reviewed by you before it runs.</p>
+        <div class="badge-row"><span class="badge"><span class="dot"></span>API-connected</span><span class="badge">You stay in control</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSING -->
+<section class="final" id="start">
+  <div class="wrap">
+    <span class="eyebrow reveal">See it on your own product</span>
+    <h2 class="reveal">Paste a URL and watch the ads build themselves</h2>
+    <p class="reveal">The fastest way to understand AI Ad Studio is to run one of your own product pages through it.</p>
+    <div class="reveal">
+      <a class="cta" href="https://www.theaiad.studio">Open AI Ad Studio
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="cta ghost" href="https://www.theaiad.studio/showcase/">See example ads</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="muted">© <span id="yr"></span> AI Ad Studio · Adspire Deutschland GmbH</span>
+    <div class="links">
+      <a href="https://www.theaiad.studio">Home</a>
+      <a href="https://www.theaiad.studio/showcase/">Examples</a>
+      <a href="https://www.theaiad.studio">Get started</a>
+    </div>
+  </div>
+</footer>
+
+</div><!-- /content -->
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+  // scroll reveal
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+  },{threshold:0.12, rootMargin:'0px 0px -40px 0px'});
+  document.querySelectorAll('.reveal').forEach((el,i)=>{
+    el.style.transitionDelay = (Math.min(i,6)*40)+'ms';
+    io.observe(el);
+  });
+</script>
+</body>
+</html>
