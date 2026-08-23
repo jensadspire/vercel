@@ -653,6 +653,29 @@ export default function App() {
 
 function RSAStudio() {
   const [url, setUrl] = useState("");
+
+  // Deep-link support: /?url=<encoded>[&autostart=1] — lets the marketing/features
+  // page hand a product URL to the app. autostart clicks the real Generate button,
+  // so all normal auth/metering/guards apply (no un-metered path).
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const incoming = params.get('url');
+      if (!incoming) return;
+      const clean = incoming.trim();
+      if (!/^https?:\/\//i.test(clean)) return; // only accept real http(s) URLs
+      setUrl(clean);
+      if (params.get('autostart') === '1') {
+        // Wait a tick so setUrl has applied, then click the actual Generate button.
+        setTimeout(() => {
+          const btn = document.querySelector('[data-generate-btn]');
+          if (btn && !btn.disabled) btn.click();
+        }, 400);
+      }
+      // Clean the query string so a refresh doesn't re-trigger generation.
+      window.history.replaceState({}, '', window.location.pathname);
+    } catch (_) {}
+  }, []); // run once on mount
   const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax" | "meta"
   const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
   const [imageModel, setImageModel] = useState('imagen'); // 'dalle' | 'imagen'

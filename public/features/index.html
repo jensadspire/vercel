@@ -68,6 +68,13 @@
   .urlbar .go{font-family:var(--display);font-weight:600;font-size:14px;flex:none;
     background:linear-gradient(135deg,#5b6cf0,#818cf8);color:#fff;padding:10px 18px;border-radius:9px;
     display:flex;align-items:center;gap:7px;box-shadow:0 6px 18px rgba(91,108,240,.45)}
+  .urlbar input.url{font-family:var(--mono);font-size:14px;color:var(--ink);text-align:left;flex:1;
+    background:transparent;border:none;outline:none;min-width:0;padding:0}
+  .urlbar input.url::placeholder{color:var(--faint)}
+  .urlbar button.go{cursor:pointer;border:none;font-family:var(--display)}
+  .urlbar button.go:disabled{opacity:.6;cursor:default}
+  .urlhint{margin:14px auto 0;font-size:13px;color:var(--faint);max-width:52ch}
+  .urlhint.err{color:#f0a5a5}
   .flowline{margin:18px auto 0;max-width:640px;display:flex;align-items:center;justify-content:center;
     gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;
     text-transform:uppercase;color:var(--faint)}
@@ -185,11 +192,12 @@
     <h1 class="reveal">Turn a product URL into <span class="grad">ready-to-publish ads</span> for every major platform</h1>
     <p class="sub reveal">AI Ad Studio reads a single product or website URL and generates the copy, imagery and video for Google, Meta and TikTok — validated against each platform's rules and ready to publish into your own ad accounts.</p>
 
-    <div class="urlbar reveal" aria-hidden="true">
+    <form class="urlbar reveal" id="genform" autocomplete="off">
       <span class="lnk"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg></span>
-      <span class="url">https://yourstore.com/products/<b>the-product</b></span>
-      <span class="go"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span>Generate</span></span>
-    </div>
+      <input class="url" id="urlinput" type="url" inputmode="url" placeholder="https://yourstore.com/products/the-product" aria-label="Your product page URL" />
+      <button class="go" type="submit" id="genbtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span>Generate</span></button>
+    </form>
+    <p class="urlhint reveal" id="urlhint">Paste a real product URL — we'll open the app and start building ads from it.</p>
     <div class="flowline reveal" aria-hidden="true">
       <span class="node">Google</span><span class="arw">·</span>
       <span class="node">Meta</span><span class="arw">·</span>
@@ -387,6 +395,34 @@
     el.style.transitionDelay = (Math.min(i,6)*40)+'ms';
     io.observe(el);
   });
+</script>
+
+<script>
+  (function(){
+    var APP = "https://www.theaiad.studio/";
+    var form = document.getElementById('genform');
+    var input = document.getElementById('urlinput');
+    var hint = document.getElementById('urlhint');
+    if(!form) return;
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var v = (input.value || '').trim();
+      if(!v){ input.focus(); return; }
+      // be forgiving: add https:// if the user typed a bare domain
+      if(!/^https?:\/\//i.test(v)){ v = 'https://' + v; }
+      // basic sanity: must look like a domain
+      if(!/^https?:\/\/[^\s.]+\.[^\s]+/i.test(v)){
+        hint.textContent = "That doesn't look like a full URL — try https://yourstore.com/products/...";
+        hint.classList.add('err');
+        input.focus();
+        return;
+      }
+      // hand off to the app: pre-fill + auto-start (app applies its own limits)
+      window.location.href = APP + '?url=' + encodeURIComponent(v) + '&autostart=1';
+    });
+    input.addEventListener('input', function(){ hint.classList.remove('err');
+      hint.textContent = "Paste a real product URL — we'll open the app and start building ads from it."; });
+  })();
 </script>
 </body>
 </html>
