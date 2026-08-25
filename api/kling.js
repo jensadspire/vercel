@@ -5,6 +5,8 @@
  * Polling: base model ID without subpath
  */
 
+import { labelAndStore } from './_ai-label.js';
+
 const KLING_SUBMIT = 'fal-ai/kling-video/v3/pro/image-to-video';
 const KLING_BASE   = 'fal-ai/kling-video';
 
@@ -46,9 +48,21 @@ export default async function handler(req, res) {
           { method: 'GET', headers: authHeaders }
         );
         const result = await safeJson(resultRes);
-        const videoUrl = result.video?.url || result.video_url || null;
-        console.log('COMPLETED - videoUrl:', videoUrl);
-        return res.status(200).json({ status: 'COMPLETED', videoUrl });
+        const rawVideoUrl = result.video?.url || result.video_url || null;
+        console.log('COMPLETED - rawVideoUrl:', rawVideoUrl);
+
+        // ── EU AI Act: label via Rendi + store to Blob (shared stage, fail-open) ──
+        if (!rawVideoUrl) {
+          return res.status(200).json({ status: 'COMPLETED', videoUrl: null });
+        }
+        const { url: videoUrl, labelled } = await labelAndStore(rawVideoUrl, 'kling');
+        if (!labelled) console.error('[ai-label] Delivering UNLABELLED Kling video (Rendi unavailable)');
+        return res.status(200).json({
+          status: 'COMPLETED',
+          videoUrl,
+          labelled,
+          ...(labelled ? {} : { labelNote: "Your video is ready. We couldn't add the AI-content label on this one — you can re-run it, or add the label before publishing." }),
+        });
       }
 
       if (statusData.status === 'FAILED') {
