@@ -8,6 +8,7 @@
 
 const RUNWAY_API = 'https://api.dev.runwayml.com/v1';
 const MAX_BASE64_BYTES = 4 * 1024 * 1024; // 4MB encoded limit (safe under 5MB)
+import { labelAndStore } from './_ai-label.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -28,9 +29,26 @@ export default async function handler(req, res) {
         headers: { 'Authorization': `Bearer ${runwayKey}`, 'X-Runway-Version': '2024-11-06' },
       });
       const data = await r.json();
+      const rawVideoUrl = data.output?.[0] || null;
+
+      // ── EU AI Act: label via Rendi + store to Blob, ONLY on a finished video ──
+      // The poll also returns while status is RUNNING (rawVideoUrl null) — don't
+      // touch those; only label when there's an actual finished URL to process.
+      if (rawVideoUrl) {
+        const { url: labelledUrl, labelled } = await labelAndStore(rawVideoUrl, 'runway');
+        if (!labelled) console.error('[ai-label] Delivering UNLABELLED Runway video (Rendi unavailable)');
+        return res.status(200).json({
+          status: data.status,
+          videoUrl: labelledUrl,
+          progress: data.progress || 0,
+          labelled,
+          ...(labelled ? {} : { labelNote: "Your video is ready. We couldn't add the AI-content label on this one — you can re-run it, or add the label before publishing." }),
+        });
+      }
+
       return res.status(200).json({
         status: data.status,
-        videoUrl: data.output?.[0] || null,
+        videoUrl: null,
         progress: data.progress || 0,
       });
     }
