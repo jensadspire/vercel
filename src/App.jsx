@@ -654,28 +654,11 @@ export default function App() {
 function RSAStudio() {
   const [url, setUrl] = useState("");
 
-  // Deep-link support: /?url=<encoded>[&autostart=1] — lets the marketing/features
-  // page hand a product URL to the app. autostart clicks the real Generate button,
-  // so all normal auth/metering/guards apply (no un-metered path).
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const incoming = params.get('url');
-      if (!incoming) return;
-      const clean = incoming.trim();
-      if (!/^https?:\/\//i.test(clean)) return; // only accept real http(s) URLs
-      setUrl(clean);
-      if (params.get('autostart') === '1') {
-        // Wait a tick so setUrl has applied, then click the actual Generate button.
-        setTimeout(() => {
-          const btn = document.querySelector('[data-generate-btn]');
-          if (btn && !btn.disabled) btn.click();
-        }, 400);
-      }
-      // Clean the query string so a refresh doesn't re-trigger generation.
-      window.history.replaceState({}, '', window.location.pathname);
-    } catch (_) {}
-  }, []); // run once on mount
+  // Deep-link support has been CONSOLIDATED into the single magic-link handler
+  // below (search "magicLinkHandled"). This former second handler is intentionally
+  // a no-op to avoid two effects both reading ?url= and racing each other.
+  // The consolidated handler accepts both ?autostart=1 (legacy) and ?autorun=true,
+  // plus ?tab=google|meta|tiktok.
   const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax" | "meta"
   const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
   const [imageModel, setImageModel] = useState('imagen'); // 'dalle' | 'imagen'
@@ -1613,11 +1596,14 @@ function RSAStudio() {
     if (!magicUrl) return;
     magicLinkHandled.current = true;
 
-    const autorun = params.get('autorun') === 'true';
-    const magicTab = (params.get('tab') || '').toLowerCase(); // 'meta' | 'tiktok' | ''
+    // Accept BOTH trigger conventions so no existing link breaks:
+    //   ?autorun=true (magic-link)  OR  ?autostart=1 (legacy features-page link)
+    const autorun = params.get('autorun') === 'true' || params.get('autostart') === '1';
+    const magicTab = (params.get('tab') || '').toLowerCase(); // 'google' | 'meta' | 'tiktok' | ''
 
-    // Pre-fill URL input
-    setUrl(magicUrl);
+    // Pre-fill URL input (only accept real http(s) URLs, as the old handler did)
+    if (!/^https?:\/\//i.test(magicUrl.trim())) return;
+    setUrl(magicUrl.trim());
 
     // Toggle additional generation targets based on tab
     if (magicTab === 'meta') setGenerateMeta(true);
@@ -1631,6 +1617,7 @@ function RSAStudio() {
     // but preserve any unrelated params (rare, but defensive).
     params.delete('url');
     params.delete('autorun');
+    params.delete('autostart');
     params.delete('tab');
     const newSearch = params.toString();
     const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
