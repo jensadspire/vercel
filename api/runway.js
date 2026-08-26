@@ -109,11 +109,11 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gen3a_turbo',
+        model: 'gen4.5',
         promptImage,
         promptText: motionPrompt,
         duration,
-        ratio: '768:1280',
+        ratio: '720:1280',
         watermark: false,
       }),
     });
