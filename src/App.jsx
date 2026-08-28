@@ -711,6 +711,26 @@ function RSAStudio() {
   // ── Runway Recipe state (premium engine) ──
   const [recipeMode, setRecipeMode] = useState('ad'); // 'ad' | 'ugc'
   const [recipeCharacterImage, setRecipeCharacterImage] = useState(''); // UGC creator image URL
+  // ── Pexels creator-image picker (Recipe UGC) ──────────────────────────────
+  const [pexelsResults, setPexelsResults] = useState([]);
+  const [pexelsLoading, setPexelsLoading] = useState(false);
+  const [pexelsQuery, setPexelsQuery] = useState('');
+  const [pexelsError, setPexelsError] = useState('');
+  const [pexelsOpen, setPexelsOpen] = useState(false);
+  const searchPexels = async (q) => {
+    setPexelsLoading(true); setPexelsError('');
+    try {
+      const r = await fetch('/api/pexels-search', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: (q || '').trim() }),
+      });
+      const d = await r.json();
+      if (Array.isArray(d.photos)) setPexelsResults(d.photos);
+      else { setPexelsResults([]); setPexelsError(d.error || 'No results'); }
+    } catch (e) {
+      setPexelsResults([]); setPexelsError('Search failed');
+    } finally { setPexelsLoading(false); }
+  };
   const [recipeGated, setRecipeGated] = useState(null); // { count, limit } when monthly Recipe cap hit
   const [storyboardOpen, setStoryboardOpen] = useState(false); // TikTok storyboard collapsed by default
   const [adCopyOpen, setAdCopyOpen] = useState(false); // TikTok ad copy panel collapsed by default
@@ -8455,6 +8475,55 @@ STRICT rules:
                             {recipeCharacterImage ? (
                               <img src={recipeCharacterImage} alt="creator" style={{ marginTop: 6, width: 44, height: 44, objectFit: 'cover', borderRadius: 5 }} onError={ev => { ev.target.style.display = 'none'; }} />
                             ) : null}
+                            {/* Pexels creator-image picker */}
+                            <div style={{ marginTop: 10 }}>
+                              <button type="button" onClick={() => { const willOpen = !pexelsOpen; setPexelsOpen(willOpen); if (willOpen && pexelsResults.length === 0) searchPexels(''); }}
+                                style={{ width: '100%', padding: '6px 10px', fontSize: 10, fontWeight: 700, textAlign: 'left', borderRadius: 6, background: 'rgba(168,85,247,0.12)', color: '#d8b4fe', border: '1px solid rgba(168,85,247,0.3)', cursor: 'pointer' }}>
+                                {pexelsOpen ? '▾' : '▸'} Browse creator photos (Pexels)
+                              </button>
+                              {pexelsOpen && (
+                                <div style={{ marginTop: 8 }}>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+                                    {[
+                                      { q: 'woman portrait', label: 'Woman' },
+                                      { q: 'man portrait', label: 'Man' },
+                                      { q: 'fitness person', label: 'Fitness' },
+                                      { q: 'casual lifestyle person', label: 'Casual' },
+                                      { q: 'business person', label: 'Business' },
+                                      { q: 'young adult smiling', label: 'Smiling' },
+                                    ].map(c => (
+                                      <button key={c.q} type="button" onClick={() => { setPexelsQuery(c.q); searchPexels(c.q); }}
+                                        style={{ padding: '4px 9px', fontSize: 10, fontWeight: 600, borderRadius: 999, background: 'rgba(255,255,255,0.05)', color: '#7e92a8', border: '1px solid rgba(255,255,255,0.09)', cursor: 'pointer' }}>{c.label}</button>
+                                    ))}
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                                    <input value={pexelsQuery} onChange={ev => setPexelsQuery(ev.target.value)} onKeyDown={ev => { if (ev.key === 'Enter') searchPexels(pexelsQuery); }}
+                                      placeholder="Search people, e.g. smiling woman"
+                                      style={{ flex: 1, padding: '6px 10px', fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 6, color: '#e2e8f0', outline: 'none' }} />
+                                    <button type="button" onClick={() => searchPexels(pexelsQuery)}
+                                      style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, borderRadius: 6, background: 'rgba(165,180,252,0.14)', color: '#a5b4fc', border: '1px solid rgba(165,180,252,0.4)', cursor: 'pointer' }}>Search</button>
+                                  </div>
+                                  {pexelsLoading ? (
+                                    <div style={{ fontSize: 10, color: '#7e92a8', padding: '8px 0' }}>Searching…</div>
+                                  ) : pexelsError ? (
+                                    <div style={{ fontSize: 10, color: '#fca5a5', padding: '8px 0' }}>{pexelsError}</div>
+                                  ) : pexelsResults.length > 0 ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                                      {pexelsResults.map(ph => (
+                                        <button key={ph.id} type="button" onClick={() => setRecipeCharacterImage(ph.src)}
+                                          title={ph.photographer ? ('Photo by ' + ph.photographer + ' on Pexels') : 'Pexels'}
+                                          style={{ padding: 0, borderRadius: 6, overflow: 'hidden', cursor: 'pointer', background: 'none', border: recipeCharacterImage === ph.src ? '2px solid #a5b4fc' : '1px solid rgba(255,255,255,0.09)' }}>
+                                          <img src={ph.thumb} alt={ph.alt || 'creator'} style={{ width: '100%', height: 70, objectFit: 'cover', display: 'block' }} />
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                  <div style={{ fontSize: 9, color: '#4a5568', marginTop: 6, lineHeight: 1.5 }}>
+                                    Photos via <a href="https://www.pexels.com" target="_blank" rel="noreferrer" style={{ color: '#7e92a8' }}>Pexels</a> — free to use. For ads, confirm you have the rights to the person's likeness.
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
