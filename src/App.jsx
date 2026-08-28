@@ -8562,7 +8562,7 @@ STRICT rules:
                                         <button key={ph.id} type="button" onClick={() => setRecipeCharacterImage(ph.src)}
                                           title={ph.photographer ? ('Photo by ' + ph.photographer + ' on Pexels') : 'Pexels'}
                                           style={{ padding: 0, borderRadius: 6, overflow: 'hidden', cursor: 'pointer', background: 'none', border: recipeCharacterImage === ph.src ? '2px solid #a5b4fc' : '1px solid rgba(255,255,255,0.09)' }}>
-                                          <img src={ph.thumb} alt={ph.alt || 'creator'} style={{ width: '100%', height: 70, objectFit: 'cover', display: 'block' }} />
+                                          <img src={ph.thumb} alt={ph.alt || 'creator'} style={{ width: '100%', aspectRatio: '1 / 1', height: 'auto', objectFit: 'cover', display: 'block' }} />
                                         </button>
                                       ))}
                                     </div>
