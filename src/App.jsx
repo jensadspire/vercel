@@ -717,6 +717,23 @@ function RSAStudio() {
   const [pexelsQuery, setPexelsQuery] = useState('');
   const [pexelsError, setPexelsError] = useState('');
   const [pexelsOpen, setPexelsOpen] = useState(false);
+  const [pexelsCategory, setPexelsCategory] = useState('');
+  const [pexelsGender, setPexelsGender] = useState('');
+  const [pexelsBackground, setPexelsBackground] = useState('');
+  const PEXELS_CATEGORIES = [
+    { id: 'fitness',   label: 'Fitness influencer',      kw: 'fitness influencer' },
+    { id: 'business',  label: 'Business / Professional', kw: 'business professional' },
+    { id: 'outdoor',   label: 'Trekking / outdoor',      kw: 'hiking outdoor' },
+    { id: 'diy',       label: 'DIY',                     kw: 'diy home project' },
+    { id: 'craftsman', label: 'Craftsman',               kw: 'craftsman workshop' },
+    { id: 'shopper',   label: 'Shopper',                 kw: 'shopping' },
+  ];
+  const composePexelsQuery = (catId, gender, background) => {
+    const cat = PEXELS_CATEGORIES.find(c => c.id === catId);
+    const g = gender === 'male' ? 'man' : gender === 'female' ? 'woman' : '';
+    const b = background === 'white' ? 'white background' : background === 'natural' ? 'natural setting' : '';
+    return [g, cat ? cat.kw : '', b].filter(Boolean).join(' ');
+  };
   const searchPexels = async (q) => {
     setPexelsLoading(true); setPexelsError('');
     try {
@@ -730,6 +747,11 @@ function RSAStudio() {
     } catch (e) {
       setPexelsResults([]); setPexelsError('Search failed');
     } finally { setPexelsLoading(false); }
+  };
+  const runPexelsPreset = (catId, gender, background) => {
+    const q = composePexelsQuery(catId, gender, background);
+    setPexelsQuery(q);
+    if (q) searchPexels(q);
   };
   const [recipeGated, setRecipeGated] = useState(null); // { count, limit } when monthly Recipe cap hit
   const [storyboardOpen, setStoryboardOpen] = useState(false); // TikTok storyboard collapsed by default
@@ -8483,22 +8505,49 @@ STRICT rules:
                               </button>
                               {pexelsOpen && (
                                 <div style={{ marginTop: 8 }}>
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
-                                    {[
-                                      { q: 'woman portrait', label: 'Woman' },
-                                      { q: 'man portrait', label: 'Man' },
-                                      { q: 'fitness person', label: 'Fitness' },
-                                      { q: 'casual lifestyle person', label: 'Casual' },
-                                      { q: 'business person', label: 'Business' },
-                                      { q: 'young adult smiling', label: 'Smiling' },
-                                    ].map(c => (
-                                      <button key={c.q} type="button" onClick={() => { setPexelsQuery(c.q); searchPexels(c.q); }}
-                                        style={{ padding: '4px 9px', fontSize: 10, fontWeight: 600, borderRadius: 999, background: 'rgba(255,255,255,0.05)', color: '#7e92a8', border: '1px solid rgba(255,255,255,0.09)', cursor: 'pointer' }}>{c.label}</button>
+                                  {/* Category presets */}
+                                  <div style={{ fontSize: 9, color: '#4a5568', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</div>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 5, marginBottom: 8 }}>
+                                    {PEXELS_CATEGORIES.map(c => (
+                                      <button key={c.id} type="button" onClick={() => { setPexelsCategory(c.id); runPexelsPreset(c.id, pexelsGender, pexelsBackground); }}
+                                        style={{ padding: '5px 8px', fontSize: 10, fontWeight: 600, borderRadius: 6, textAlign: 'left',
+                                          background: pexelsCategory === c.id ? 'rgba(168,85,247,0.2)' : 'rgba(255,255,255,0.05)',
+                                          color: pexelsCategory === c.id ? '#d8b4fe' : '#7e92a8',
+                                          border: pexelsCategory === c.id ? '1px solid rgba(168,85,247,0.45)' : '1px solid rgba(255,255,255,0.09)', cursor: 'pointer' }}>{c.label}</button>
                                     ))}
                                   </div>
+                                  {/* Gender + background refinements */}
+                                  <div style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+                                    <div>
+                                      <div style={{ fontSize: 9, color: '#4a5568', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gender</div>
+                                      <div style={{ display: 'flex', gap: 5 }}>
+                                        {[{ id: 'male', label: 'Male' }, { id: 'female', label: 'Female' }].map(m => (
+                                          <button key={m.id} type="button" onClick={() => { const g = pexelsGender === m.id ? '' : m.id; setPexelsGender(g); if (pexelsCategory) runPexelsPreset(pexelsCategory, g, pexelsBackground); }}
+                                            style={{ padding: '4px 10px', fontSize: 10, fontWeight: 600, borderRadius: 999,
+                                              background: pexelsGender === m.id ? 'rgba(165,180,252,0.16)' : 'rgba(255,255,255,0.05)',
+                                              color: pexelsGender === m.id ? '#a5b4fc' : '#7e92a8',
+                                              border: pexelsGender === m.id ? '1px solid rgba(165,180,252,0.45)' : '1px solid rgba(255,255,255,0.09)', cursor: 'pointer' }}>{m.label}</button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: 9, color: '#4a5568', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Background</div>
+                                      <div style={{ display: 'flex', gap: 5 }}>
+                                        {[{ id: 'white', label: 'White background' }, { id: 'natural', label: 'Natural scene' }].map(b => (
+                                          <button key={b.id} type="button" onClick={() => { const bg = pexelsBackground === b.id ? '' : b.id; setPexelsBackground(bg); if (pexelsCategory) runPexelsPreset(pexelsCategory, pexelsGender, bg); }}
+                                            style={{ padding: '4px 10px', fontSize: 10, fontWeight: 600, borderRadius: 999,
+                                              background: pexelsBackground === b.id ? 'rgba(165,180,252,0.16)' : 'rgba(255,255,255,0.05)',
+                                              color: pexelsBackground === b.id ? '#a5b4fc' : '#7e92a8',
+                                              border: pexelsBackground === b.id ? '1px solid rgba(165,180,252,0.45)' : '1px solid rgba(255,255,255,0.09)', cursor: 'pointer' }}>{b.label}</button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {/* Free-form search */}
+                                  <div style={{ fontSize: 9, color: '#4a5568', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Or search your own</div>
                                   <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                                     <input value={pexelsQuery} onChange={ev => setPexelsQuery(ev.target.value)} onKeyDown={ev => { if (ev.key === 'Enter') searchPexels(pexelsQuery); }}
-                                      placeholder="Search people, e.g. smiling woman"
+                                      placeholder="e.g. smiling woman barista"
                                       style={{ flex: 1, padding: '6px 10px', fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 6, color: '#e2e8f0', outline: 'none' }} />
                                     <button type="button" onClick={() => searchPexels(pexelsQuery)}
                                       style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, borderRadius: 6, background: 'rgba(165,180,252,0.14)', color: '#a5b4fc', border: '1px solid rgba(165,180,252,0.4)', cursor: 'pointer' }}>Search</button>
