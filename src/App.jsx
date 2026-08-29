@@ -754,6 +754,7 @@ function RSAStudio() {
     if (q) searchPexels(q);
   };
   const [recipeGated, setRecipeGated] = useState(null); // { count, limit } when monthly Recipe cap hit
+  const [recipeError, setRecipeError] = useState(null); // outage/failure message for Recipe video gen
   const [storyboardOpen, setStoryboardOpen] = useState(false); // TikTok storyboard collapsed by default
   const [adCopyOpen, setAdCopyOpen] = useState(false); // TikTok ad copy panel collapsed by default
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
@@ -8362,7 +8363,7 @@ STRICT rules:
                         // Submit to Kling via fal.ai — pass full storyboard for multi-scene video
                         // Route to Recipe, Runway, or Kling — use ref to avoid stale closure
                         const currentEngine = videoEngineRef.current;
-                        if (currentEngine === 'recipe') setRecipeGated(null); // reset on new gen
+                        if (currentEngine === 'recipe') { setRecipeGated(null); setRecipeError(null); } // reset on new gen
                         const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe'
                           : currentEngine === 'runway' ? '/api/runway' : '/api/kling';
                         const videoPayload = currentEngine === 'recipe'
@@ -8396,7 +8397,7 @@ STRICT rules:
                               const pd = await pr.json();
                               console.log('Poll', attempts, 'status:', pd.status, 'videoUrl:', !!pd.videoUrl);
                               if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
-                              else if (pd.status === 'FAILED') { console.error('Video FAILED:', JSON.stringify(pd)); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
+                              else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { console.error('Video FAILED:', JSON.stringify(pd)); if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
                             } catch(pollErr) { console.error('Poll error:', pollErr.message); }
                           }, 5000);
                         } else { setTiktokVideoLoading(false); }
@@ -8468,6 +8469,11 @@ STRICT rules:
                             <strong>Monthly Recipe limit reached ({recipeGated.count}/{recipeGated.limit}).</strong><br/>
                             Runway Recipe is limited to {recipeGated.limit} generations per month.{' '}
                             <a href="mailto:aiadstudio@adspire.de?subject=Runway%20Recipe%20limit%20expansion" style={{ color: '#a5b4fc', fontWeight: 600 }}>Contact us for a limit expansion</a>.
+                          </div>
+                        )}
+                        {recipeError && (
+                          <div style={{ marginBottom: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', fontSize: 11, color: '#fca5a5', lineHeight: 1.5 }}>
+                            {recipeError}
                           </div>
                         )}
                         <div style={{ display: 'flex', gap: 6, marginBottom: recipeMode === 'ugc' ? 10 : 0 }}>

@@ -30,6 +30,7 @@ const RECIPE_VERSION = '2026-06';
 const RATIO = '720:1280'; // 9:16 TikTok-native
 const RECIPE_MONTHLY_LIMIT = 10;              // gens per user per calendar month
 const RECIPE_KEY_TTL_SECS = 40 * 24 * 60 * 60; // ~40d cleanup so stale month keys expire
+const RECIPE_REFUND_TTL_SECS = 2 * 24 * 60 * 60; // 2d: task->meter map + one-time refund marker
 
 
 export const config = {
@@ -105,12 +106,33 @@ export default async function handler(req, res) {
           const failure = task.failure || task.failureReason || null;
           const failureCode = task.failureCode || null;
           console.error('Recipe task', task.status + ':', failureCode || '(no code)', '-', failure || '(no reason provided)');
+
+          // Refund the monthly meter slot: the user got no video and Runway refunds
+          // the credit on their side, so a failed gen must not count against the cap.
+          // Idempotent — a one-time per-task marker means repeated polls refund once.
+          try {
+            const claim = await redis('SET', `recipe:refunded:${taskId}`, '1', 'NX', 'EX', RECIPE_REFUND_TTL_SECS);
+            if (claim.ok && claim.result === 'OK') {
+              const map = await redis('GET', `recipe:taskmeter:${taskId}`);
+              if (map.ok && map.result) {
+                const cur = await redis('GET', map.result);
+                if (cur.ok && parseInt(cur.result || '0', 10) > 0) {
+                  await redis('DECR', map.result);
+                  console.log('[recipe-meter] refunded 1 slot on', task.status, '-', map.result);
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Recipe meter refund failed (non-fatal):', e.message);
+          }
+
           return res.status(200).json({
             status: task.status,
             videoUrl: null,
             progress: task.progress || 0,
             failure,
             failureCode,
+            userMessage: 'Runway video service is currently unavailable. Your Recipe credit wasn\'t used — please try again shortly.',
           });
         }
         return res.status(200).json({
@@ -248,6 +270,13 @@ export default async function handler(req, res) {
         // The gen already succeeded; don't fail the user's request over a count write.
         // Worst case the user gets one uncounted gen — acceptable vs. blocking a paid task.
         console.error('Recipe meter increment failed (gen already created):', e.message);
+      }
+      // Map this task -> the meter key it charged, so a later FAILED/CANCELLED poll
+      // (which carries no session) can refund the right slot. Short TTL self-cleans.
+      try {
+        await redis('SET', `recipe:taskmeter:${task.id}`, meterKey, 'EX', RECIPE_REFUND_TTL_SECS);
+      } catch (e) {
+        console.error('Recipe taskmeter map failed (non-fatal):', e.message);
       }
     }
 
