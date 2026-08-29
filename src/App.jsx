@@ -723,16 +723,16 @@ function RSAStudio() {
   const PEXELS_CATEGORIES = [
     { id: 'fitness',   label: 'Fitness influencer',      kw: 'fitness influencer' },
     { id: 'business',  label: 'Business / Professional', kw: 'business professional' },
-    { id: 'outdoor',   label: 'Trekking / outdoor',      kw: 'hiking outdoor' },
-    { id: 'diy',       label: 'DIY',                     kw: 'diy home project' },
-    { id: 'craftsman', label: 'Craftsman',               kw: 'craftsman workshop' },
-    { id: 'shopper',   label: 'Shopper',                 kw: 'shopping' },
+    { id: 'outdoor',   label: 'Trekking / outdoor',      kw: 'hiker' },
+    { id: 'diy',       label: 'DIY',                     kw: 'diy' },
+    { id: 'craftsman', label: 'Craftsman',               kw: 'craftsman' },
+    { id: 'shopper',   label: 'Shopper',                 kw: 'shopper' },
   ];
   const composePexelsQuery = (catId, gender, background) => {
     const cat = PEXELS_CATEGORIES.find(c => c.id === catId);
     const g = gender === 'male' ? 'man' : gender === 'female' ? 'woman' : '';
-    const b = background === 'white' ? 'white background' : background === 'natural' ? 'natural setting' : '';
-    return [g, cat ? cat.kw : '', b].filter(Boolean).join(' ');
+    const b = background === 'white' ? 'white background isolated' : background === 'natural' ? 'natural setting' : '';
+    return [g, cat ? cat.kw : '', b, 'portrait'].filter(Boolean).join(' ');
   };
   const searchPexels = async (q) => {
     setPexelsLoading(true); setPexelsError('');
