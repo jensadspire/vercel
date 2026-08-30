@@ -23,13 +23,13 @@ const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const ARCHETYPES = {
   scene_reveal: {
     label: "Scene Reveal",
-    instructions: `- Video storyboard: 3 scenes — the "Scene Reveal" style (product on a clean background that opens up into a full lifestyle setting):
-  Scene 1 (0-3s): The product alone on a clean, minimal, softly-lit background. Slow push-in or gentle orbit. Product is the hero, crisp and well-lit.
-  Scene 2 (3-7s): The plain background dissolves and a relevant real-world environment builds and OPENS UP around the product (a styled room, café, outdoor setting) — an elegant reveal, the product staying in place as its world appears around it.
-  Scene 3 (7-10s): The finished lifestyle hero shot — the product naturally placed in the fully-formed scene, warm and aspirational, with a gentle camera drift.`,
+    instructions: `- Video storyboard: 3 scenes — the "Scene Reveal" style. Its SIGNATURE is a single seamless morph: the product on a plain background transforms — in one continuous unbroken shot — into the same product sitting in a full lifestyle room. This elegant slide-into-the-scene IS the whole point; it must NEVER be a hard cut between two separate shots, and must NOT cut away to a hand, a material close-up, or a person.
+  Scene 1 (0-3s): The product alone on a clean, minimal, softly-lit background. Slow, steady push-in; the camera locks onto the product and holds it centred.
+  Scene 2 (3-7s): ONE CONTINUOUS UNBROKEN SHOT, camera still locked on the product: the plain background gently melts and dissolves away while a warm, real-world environment (a styled living room, soft daylight through windows) grows and materialises into place AROUND the product in the very same frame — as if the product is smoothly sliding into a finished scene. The product never leaves the frame and never changes shape or colour. A seamless, almost dreamlike transformation from blank backdrop to full room. Do NOT cut to a new shot; do NOT insert a close-up of hands or material.
+  Scene 3 (7-10s): The transformation completes into the finished lifestyle hero shot — the product naturally at home in the fully-formed room, warm and aspirational, with a gentle camera drift.`,
     json: `"storyboard": [
     { "scene": 1, "timing": "0-3s", "title": "Clean Product", "description": "Product alone on a clean minimal background, slow push-in" },
-    { "scene": 2, "timing": "3-7s", "title": "World Opens Up", "description": "Environment builds and opens around the product — elegant reveal" },
+    { "scene": 2, "timing": "3-7s", "title": "World Opens Up", "description": "One continuous shot: background dissolves and the room materialises around the product — seamless morph, no cut, no hand close-up" },
     { "scene": 3, "timing": "7-10s", "title": "Lifestyle Hero", "description": "Product in the finished aspirational scene, gentle drift" }
   ]`,
   },
