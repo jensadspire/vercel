@@ -708,8 +708,9 @@ function RSAStudio() {
   const [videoEngine, setVideoEngine] = useState('kling'); // 'kling' | 'runway'
   const [videoArchetype, setVideoArchetype] = useState('scene_reveal'); // Kling storyboard style
   const [storyboardUpdating, setStoryboardUpdating] = useState(false);
+  const [storyboardReady, setStoryboardReady] = useState(false);
   const regenerateStoryboard = async (archetypeId) => {
-    setStoryboardUpdating(true);
+    setStoryboardUpdating(true); setStoryboardReady(false);
     try {
       const r = await fetch("/api/generate-tiktok", {
         method: "POST",
@@ -723,6 +724,7 @@ function RSAStudio() {
       const d = await r.json();
       if (Array.isArray(d.storyboard) && d.storyboard.length) {
         setTiktokResult(prev => prev ? { ...prev, storyboard: d.storyboard, videoPrompt: d.videoPrompt || prev.videoPrompt } : prev);
+        setStoryboardReady(true);
       }
     } catch (_) {}
     setStoryboardUpdating(false);
@@ -8473,7 +8475,7 @@ STRICT rules:
                           }, 5000);
                         } else { setTiktokVideoLoading(false); }
                       } catch(e) { setTiktokVideoLoading(false); }
-                    }} disabled={tiktokVideoLoading} style={{
+                    }} disabled={tiktokVideoLoading || storyboardUpdating} style={{
                       padding: '8px 16px', fontSize: 11, fontWeight: 700,
                       background: tiktokVideoLoading ? 'rgba(52,211,153,0.1)' : 'linear-gradient(135deg,#34d399,#059669)',
                       color: tiktokVideoLoading ? '#34d399' : 'white', border: 'none', borderRadius: 8, cursor: tiktokVideoLoading ? 'not-allowed' : 'pointer',
@@ -8536,7 +8538,7 @@ STRICT rules:
                       <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                           🎞 Video style
-                          {storyboardUpdating && <span style={{ color: '#7e92a8', fontWeight: 400 }}>updating storyboard…</span>}
+                          {storyboardUpdating ? <span style={{ color: '#7e92a8', fontWeight: 400 }}>updating storyboard…</span> : storyboardReady ? <span style={{ color: '#34d399', fontWeight: 700 }}>✓ storyboard ready</span> : null}
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
                           {[
