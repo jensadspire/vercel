@@ -4002,7 +4002,7 @@ STRICT rules:
           : "rgba(6,13,26,0.6)",
         transition: "background 0.6s ease",
       }}>
-        <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ maxWidth: "min(1400px, 92vw)", margin: "0 auto", display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ flex: 1, position: "relative" }}>
             <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#7e92a8", fontSize: 13 }}>🔗</span>
