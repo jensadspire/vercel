@@ -8236,6 +8236,11 @@ STRICT rules:
                 {tiktokVideoUrl ? (
                   <div>
                     <video src={tiktokVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
+                    <button onClick={() => { setTiktokVideoUrl(null); }} title="Returns to the engine + style controls so you can run another video. Your ad copy is kept — no need to regenerate the ad. Save this video first if you want to keep it." style={{
+                      marginTop: 8, width: '100%', maxWidth: 280, padding: '7px', fontSize: 11, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
+                      background: 'rgba(52,211,153,0.12)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    }}>↻ Generate another video</button>
                     {isSignedIn && (() => {
                       const vidId = 'vid:' + tiktokVideoUrl;
                       const saved = library.some(e => e.id === vidId);
