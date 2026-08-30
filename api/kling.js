@@ -75,14 +75,31 @@ export default async function handler(req, res) {
     // ── Create new video task ───────────────────────────────────────────────────
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
 
-    // Build multi-shot prompt from storyboard
+    // Build multi-shot prompt from storyboard.
+    // The storyboard is AI-written and frequently directs on-screen text — a
+    // "closing CTA button", brand name, tagline or domain — which Kling then
+    // renders as garbled letterforms (the end-card seen in QA). We strip only
+    // the TEXT-rendering cues from each scene and keep the visual direction.
+    const stripTextCues = (str) => {
+      if (!str) return '';
+      const CUE = /(text|caption|subtitle|title\s*card|end\s*-?\s*card|outro|intro\s*card|call\s*-?\s*to\s*-?\s*action|\bcta\b|button|tagline|slogan|headline|logo|watermark|overlay|brand\s*name|on\s*-?\s*screen|appears\s+on\s+screen|displayed|typography|lettering|word\s*mark)/i;
+      let out = String(str)
+        .replace(/["“”][^"“”]{0,80}["“”]/g, ' ')                                                  // quoted on-screen copy
+        .replace(/\b(?:https?:\/\/)?[a-z0-9-]+\.(?:dk|com|net|io|co|shop|store|org|de|se|no|eu)\b/gi, ' '); // domains / URLs
+      out = out.split(/(?<=[.!?;])\s+/).filter(s => s && !CUE.test(s)).join(' ');                   // drop text-directing sentences
+      return out.replace(/\s{2,}/g, ' ').trim();
+    };
+
     let scenePrompt = '';
     if (storyboard && storyboard.length > 0) {
       scenePrompt = storyboard
-        .map(s => `(${s.timing}) ${s.title}: ${s.description}`)
+        .map(s => {
+          const body = [stripTextCues(s.title), stripTextCues(s.description)].filter(Boolean).join(': ');
+          return `(${s.timing}) ${body || 'the product in an elegant lifestyle scene, smooth cinematic camera movement'}`;
+        })
         .join(' ');
     } else {
-      scenePrompt = prompt || 'Cinematic product advertisement, smooth camera movement.';
+      scenePrompt = stripTextCues(prompt) || 'Cinematic product advertisement, smooth camera movement.';
     }
 
     // Video models can't render text or logos cleanly — any brand/CTA/overlay text
