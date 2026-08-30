@@ -7670,6 +7670,9 @@ STRICT rules:
                   background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
                   display: 'flex', alignItems: 'center', gap: 12,
                 }}>
+                  {entry.type === 'video' && entry.videoUrl && (
+                    <video src={entry.videoUrl} muted playsInline preload="metadata" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover', flexShrink: 0, background: '#000' }} />
+                  )}
                   {entry.metaResult && entry.metaResult.imageUrl && (
                     <img src={entry.metaResult.imageUrl} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
                   )}
@@ -7681,19 +7684,29 @@ STRICT rules:
                       {entry.rows && entry.rows[0] && entry.rows[0].headlines && entry.rows[0].headlines[0] && entry.rows[0].headlines[0].text ? entry.rows[0].headlines[0].text.slice(0, 50) : entry.metaResult && entry.metaResult.headlines && entry.metaResult.headlines[0] ? entry.metaResult.headlines[0].slice(0, 50) : ''}
                     </div>
                     <div style={{ fontSize: 9, color: '#2d3748', marginTop: 3, display: 'flex', gap: 8 }}>
-                      <span>{entry.format === 'pmax' ? '◈ PMax' : entry.metaResult ? '◉ Meta' : '◎ RSA'}</span>
+                      <span>{entry.type === 'video' ? ('🎬 ' + (entry.engine === 'kling' ? 'Kling' : entry.engine === 'runway' ? 'Runway' : entry.engine === 'recipe' ? 'Recipe' : 'Video') + (entry.engine === 'kling' && entry.archetype ? ' · ' + String(entry.archetype).replace(/_/g, ' ') : '')) : entry.format === 'pmax' ? '◈ PMax' : entry.metaResult ? '◉ Meta' : '◎ RSA'}</span>
                       <span>{entry.savedAt ? new Date(entry.savedAt).toLocaleDateString() : entry.timestamp}</span>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                     <button onClick={() => {
-                      setRows(entry.rows);
-                      setActiveRow(0);
-                      setUrl(entry.url);
-                      setGenerated(true);
-                      if (entry.format) setAdFormat(entry.format);
-                      if (entry.metaResult) { setMetaResult(entry.metaResult); setMetaError(''); }
-                      setShowLibrary(false);
+                      if (entry.type === 'video') {
+                        setUrl(entry.url || '');
+                        setTiktokVideoUrl(entry.videoUrl);
+                        if (entry.engine) setVideoEngine(entry.engine);
+                        setTiktokResult(prev => ({ ...(prev || {}), storyboard: entry.storyboard || [], videoPrompt: entry.videoPrompt || '', brand: entry.brand || '' }));
+                        setGenerated(true);
+                        setAdFormat('tiktok');
+                        setShowLibrary(false);
+                      } else {
+                        setRows(entry.rows);
+                        setActiveRow(0);
+                        setUrl(entry.url);
+                        setGenerated(true);
+                        if (entry.format) setAdFormat(entry.format);
+                        if (entry.metaResult) { setMetaResult(entry.metaResult); setMetaError(''); }
+                        setShowLibrary(false);
+                      }
                     }} style={{
                       padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 7,
                       background: 'linear-gradient(135deg,rgba(99,102,241,0.3),rgba(14,165,233,0.3))',
@@ -8223,6 +8236,38 @@ STRICT rules:
                 {tiktokVideoUrl ? (
                   <div>
                     <video src={tiktokVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
+                    {isSignedIn && (() => {
+                      const vidId = 'vid:' + tiktokVideoUrl;
+                      const saved = library.some(e => e.id === vidId);
+                      return (
+                        <button onClick={async () => {
+                          if (saved) {
+                            await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: vidId }) });
+                            setLibrary(prev => prev.filter(e => e.id !== vidId));
+                          } else {
+                            setLibrarySaving(vidId);
+                            const entry = {
+                              id: vidId, type: 'video', url,
+                              videoUrl: tiktokVideoUrl, engine: videoEngine,
+                              archetype: videoEngine === 'kling' ? videoArchetype : videoEngine,
+                              storyboard: tiktokResult?.storyboard || [],
+                              videoPrompt: tiktokResult?.videoPrompt || '',
+                              brand: tiktokResult?.brand || '',
+                            };
+                            const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
+                            const d = await r.json();
+                            if (d.ok) setLibrary(prev => [{ ...entry, savedAt: new Date().toISOString() }, ...prev]);
+                            else if (d.limitReached) alert('Library limit reached (' + d.limit + '). Remove some saved outputs first.');
+                            setLibrarySaving(null);
+                          }
+                        }} style={{
+                          marginTop: 8, width: '100%', maxWidth: 280, padding: '7px', fontSize: 11, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
+                          background: saved ? 'rgba(245,158,11,0.18)' : 'rgba(255,255,255,0.05)',
+                          color: saved ? '#fbbf24' : '#7e92a8',
+                          border: '1px solid ' + (saved ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.09)'),
+                        }}>{librarySaving === vidId ? '…' : saved ? '★ Saved to library' : '☆ Save to library'}</button>
+                      );
+                    })()}
                     {/* ── Publish Video to Meta ── */}
                     <div style={{ marginTop: 12 }}>
                       <button onClick={() => { if (!metaPublishing) {
