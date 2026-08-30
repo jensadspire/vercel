@@ -85,14 +85,16 @@ export default async function handler(req, res) {
       scenePrompt = prompt || 'Cinematic product advertisement, smooth camera movement.';
     }
 
-    const langInstruction = language !== 'English' ? `All text overlays must be in ${language} only. ` : '';
-    const brandInstruction = brand ? `Brand: ${brand}. ` : '';
-    const logoInstruction = logoUrl ? `Show the brand logo (${brand}) subtly in the final scene. ` : '';
-    const introInstruction = overlayIntro ? `Opening text overlay: "${overlayIntro}". ` : '';
-    const outroInstruction = overlayOutro ? `Closing text overlay and CTA: "${overlayOutro}". ` : '';
-    const anchorInstruction = `This is a product advertisement video. The opening image shows the exact product — maintain 100% visual consistency with that product throughout every scene. Same product, same colors, same brand. Do not introduce different products or unrelated visuals. ${langInstruction}${brandInstruction}${logoInstruction}${introInstruction}${outroInstruction}`;
+    // Video models can't render text or logos cleanly — any brand/CTA/overlay text
+    // comes out as garbled letterforms (e.g. "now Nimara.dk" -> "now Mimarra.dk").
+    // So we deliberately do NOT inject overlay/brand/logo/CTA text into the prompt,
+    // and we actively suppress any text Kling might invent via the negative prompt.
+    // (brand/overlayIntro/overlayOutro/logoUrl are still accepted for API compatibility
+    // but intentionally unused here.) Clean footage only; brand/CTA text, if wanted,
+    // should be burned in as a post-process (like the AI label), never drawn by Kling.
+    const anchorInstruction = `This is a product advertisement video. The opening image shows the exact product — maintain 100% visual consistency with that product throughout every scene. Same product, same colors, same brand. Do not introduce different products or unrelated visuals. `;
     const videoPrompt = `${anchorInstruction}${scenePrompt}`.slice(0, 2500);
-    const negativePrompt = `different product, substitute product, unrelated objects, scene replacement, Chinese text, Korean text, Japanese text, Arabic text, foreign language overlays, blur, distort, low quality, watermark, end card, outro card`;
+    const negativePrompt = `text, letters, words, typography, captions, subtitles, title card, intro card, end card, outro card, on-screen text, text overlay, signage, labels, logo, brand name, watermark, Chinese text, Korean text, Japanese text, Arabic text, foreign language overlays, different product, substitute product, unrelated objects, scene replacement, blur, distort, low quality`;
 
     // Fetch image and convert to base64
     let imageData = imageUrl;
