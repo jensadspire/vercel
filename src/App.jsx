@@ -706,6 +706,27 @@ function RSAStudio() {
   const [ugcAvatar, setUgcAvatar] = useState('Ivy'); // selected HeyGen voice/avatar
   const [ugcScene, setUgcScene] = useState('talking'); // talking | product | friends
   const [videoEngine, setVideoEngine] = useState('kling'); // 'kling' | 'runway'
+  const [videoArchetype, setVideoArchetype] = useState('scene_reveal'); // Kling storyboard style
+  const [storyboardUpdating, setStoryboardUpdating] = useState(false);
+  const regenerateStoryboard = async (archetypeId) => {
+    setStoryboardUpdating(true);
+    try {
+      const r = await fetch("/api/generate-tiktok", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url, language: pageMeta?.language || "English", videoEngine: 'kling',
+          audienceBrief, pageContent: pageMeta?.content || "",
+          archetype: archetypeId, storyboardOnly: true,
+        }),
+      });
+      const d = await r.json();
+      if (Array.isArray(d.storyboard) && d.storyboard.length) {
+        setTiktokResult(prev => prev ? { ...prev, storyboard: d.storyboard, videoPrompt: d.videoPrompt || prev.videoPrompt } : prev);
+      }
+    } catch (_) {}
+    setStoryboardUpdating(false);
+  };
   // Keep ref in sync so async handlers always get current value
   useEffect(() => { videoEngineRef.current = videoEngine; }, [videoEngine]);
   // ── Runway Recipe state (premium engine) ──
@@ -2647,7 +2668,7 @@ STRICT rules:
           const tiktokRes = await fetch("/api/generate-tiktok", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta?.language || "English", videoEngine, audienceBrief, pageContent: pageMeta?.content || "" }),
+            body: JSON.stringify({ url, language: pageMeta?.language || "English", videoEngine, audienceBrief, pageContent: pageMeta?.content || "", archetype: videoArchetype }),
           });
           const tiktokData = await tiktokRes.json();
           if (tiktokData.error) {
@@ -8461,6 +8482,36 @@ STRICT rules:
                         </button>
                       ))}
                     </div>
+                    {videoEngine === 'kling' && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          🎞 Video style
+                          {storyboardUpdating && <span style={{ color: '#7e92a8', fontWeight: 400 }}>updating storyboard…</span>}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+                          {[
+                            { id: 'scene_reveal', label: 'Scene Reveal', desc: 'Product → scene opens up' },
+                            { id: 'studio_spin', label: 'Studio Spin', desc: 'Rotating hero, dynamic light' },
+                            { id: 'lifestyle_montage', label: 'Lifestyle Montage', desc: 'Real-world moments' },
+                            { id: 'detail_focus', label: 'Detail Focus', desc: 'Macro craftsmanship' },
+                            { id: 'no_preference', label: 'No preference', desc: 'Let the AI choose' },
+                          ].map(a => (
+                            <button key={a.id} type="button" disabled={storyboardUpdating}
+                              onClick={() => { setVideoArchetype(a.id); regenerateStoryboard(a.id); }}
+                              style={{
+                                padding: '6px 9px', fontSize: 10, fontWeight: 600, borderRadius: 6, textAlign: 'left',
+                                cursor: storyboardUpdating ? 'wait' : 'pointer',
+                                background: videoArchetype === a.id ? 'rgba(52,211,153,0.14)' : 'rgba(255,255,255,0.04)',
+                                color: videoArchetype === a.id ? '#34d399' : '#7e92a8',
+                                border: videoArchetype === a.id ? '1px solid rgba(52,211,153,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                              }}>
+                              <div>{a.label}</div>
+                              <div style={{ fontSize: 9, opacity: 0.7, fontWeight: 400, marginTop: 1 }}>{a.desc}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {videoEngine === 'recipe' && (
                       <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                         {/* Ad | UGC toggle */}
