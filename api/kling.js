@@ -82,11 +82,18 @@ export default async function handler(req, res) {
     // the TEXT-rendering cues from each scene and keep the visual direction.
     const stripTextCues = (str) => {
       if (!str) return '';
-      const CUE = /(text|caption|subtitle|title\s*card|end\s*-?\s*card|outro|intro\s*card|call\s*-?\s*to\s*-?\s*action|\bcta\b|button|tagline|slogan|headline|logo|watermark|overlay|brand\s*name|on\s*-?\s*screen|appears\s+on\s+screen|displayed|typography|lettering|word\s*mark)/i;
+      // Tight text-noun list — words that almost exclusively mean ON-SCREEN TEXT, so
+      // we never strip legit visual direction (a room that "opens up", a chair "shown").
+      const CUE = /(text|caption|subtitle|title\s*card|end\s*-?\s*card|outro|intro\s*card|call\s*-?\s*to\s*-?\s*action|\bcta\b|button|tagline|slogan|headline|logo|watermark|overlay|brand\s*name|on[\s-]?screen|typography|lettering|word\s*mark|\bwords\b)/i;
       let out = String(str)
-        .replace(/["“”][^"“”]{0,80}["“”]/g, ' ')                                                  // quoted on-screen copy
-        .replace(/\b(?:https?:\/\/)?[a-z0-9-]+\.(?:dk|com|net|io|co|shop|store|org|de|se|no|eu)\b/gi, ' '); // domains / URLs
-      out = out.split(/(?<=[.!?;])\s+/).filter(s => s && !CUE.test(s)).join(' ');                   // drop text-directing sentences
+        // strip quoted copy (hooks/CTAs are quoted) — letter-guards protect possessives
+        // like product's / chairs' from being mistaken for quote delimiters.
+        .replace(/(?<![A-Za-z])["“'‘][^"”'’]{1,120}["”'’](?![A-Za-z])/g, ' ')
+        // strip domains / URLs
+        .replace(/\b(?:https?:\/\/)?[a-z0-9-]+\.(?:dk|com|net|io|co|shop|store|org|de|se|no|eu)\b/gi, ' ');
+      // Drop sentences that (a) name a text element, or (b) are hook-style questions —
+      // a "?" in a storyboard is on-screen hook copy ("Does your chair look like this?").
+      out = out.split(/(?<=[.!?;])\s+/).filter(s => s && !CUE.test(s) && !/\?/.test(s)).join(' ');
       return out.replace(/\s{2,}/g, ' ').trim();
     };
 
