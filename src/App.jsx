@@ -1,4 +1,110 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+
+// ── BrandPanel (Step 3a) ─────────────────────────────────────────────────────
+// Self-contained Brand & Context panel. Loads the caller's brand:{userId} record
+// on open (GET /api/brand), lets them edit simple fields, and saves (POST /api/brand).
+// No scraping yet (that's Step 3b). Receives everything via props so it stays
+// decoupled and relocatable.
+function BrandPanel({ session, brandData, setBrandData, loading, setLoading, saving, setSaving, error, setError, onClose }) {
+  const [local, setLocal] = useState(null); // editable working copy
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true); setError(null);
+      try {
+        const token = await session.getToken();
+        const res = await fetch("/api/brand", { headers: { "x-clerk-session": token } });
+        const data = await res.json();
+        if (cancelled) return;
+        const b = data.brand || {};
+        setBrandData(b);
+        setLocal({
+          colors: Array.isArray(b.colors) ? b.colors.join(", ") : "",
+          font: b.font || "",
+          ctaText: b.ctaText || "",
+          logo: b.logo || "",
+        });
+      } catch (e) {
+        if (!cancelled) setError("Could not load your brand. Please try again.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []); // load once on open
+
+  const save = async () => {
+    if (!local) return;
+    setSaving(true); setError(null);
+    try {
+      const token = await session.getToken();
+      const payload = {
+        colors: local.colors.split(",").map(c => c.trim()).filter(Boolean),
+        font: local.font.trim() || null,
+        ctaText: local.ctaText.trim() || null,
+        logo: local.logo.trim() || null,
+      };
+      const res = await fetch("/api/brand", {
+        method: "POST",
+        headers: { "x-clerk-session": token, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("save failed");
+      const data = await res.json();
+      setBrandData(data.brand);
+    } catch (e) {
+      setError("Could not save — please try again shortly.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const field = { width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: "1.5px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "white", fontSize: 13, outline: "none", boxSizing: "border-box", marginTop: 6 };
+  const label = { fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#7e92a8", display: "block" };
+
+  return (
+    <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 1500, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 560, maxHeight: "85vh", overflowY: "auto", background: "#0b1424", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: 28, position: "relative" }}>
+        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "transparent", border: "none", color: "#7e92a8", fontSize: 20, cursor: "pointer" }}>×</button>
+        <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 800, color: "white" }}>Brand &amp; Context</h2>
+        <p style={{ margin: "0 0 20px", fontSize: 12, color: "#7e92a8" }}>Your brand details, applied to generated ads. (More coming — logo detection &amp; context next.)</p>
+
+        {loading ? (
+          <p style={{ color: "#7e92a8", fontSize: 13 }}>Loading…</p>
+        ) : local ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <span style={label}>Brand colours (comma-separated hex)</span>
+              <input value={local.colors} onChange={e => setLocal({ ...local, colors: e.target.value })} placeholder="#3b82f6, #06b6d4" style={field} />
+            </div>
+            <div>
+              <span style={label}>Font</span>
+              <input value={local.font} onChange={e => setLocal({ ...local, font: e.target.value })} placeholder="Inter" style={field} />
+            </div>
+            <div>
+              <span style={label}>CTA text</span>
+              <input value={local.ctaText} onChange={e => setLocal({ ...local, ctaText: e.target.value })} placeholder="Shop now" style={field} />
+            </div>
+            <div>
+              <span style={label}>Logo URL</span>
+              <input value={local.logo} onChange={e => setLocal({ ...local, logo: e.target.value })} placeholder="https://…/logo.png" style={field} />
+            </div>
+
+            {error && <p style={{ color: "#f87171", fontSize: 12, margin: 0 }}>{error}</p>}
+
+            <button onClick={save} disabled={saving} style={{ marginTop: 4, padding: "10px 16px", borderRadius: 8, border: "none", cursor: saving ? "default" : "pointer", background: saving ? "rgba(99,102,241,0.4)" : "#6366f1", color: "white", fontSize: 13, fontWeight: 800 }}>
+              {saving ? "Saving…" : "Save brand"}
+            </button>
+          </div>
+        ) : (
+          <p style={{ color: "#f87171", fontSize: 13 }}>{error || "Could not load."}</p>
+        )}
+      </div>
+    </div>
+  );
+}
 import {
   ClerkProvider,
   SignIn,
@@ -660,6 +766,12 @@ function RSAStudio() {
   // The consolidated handler accepts both ?autostart=1 (legacy) and ?autorun=true,
   // plus ?tab=google|meta|tiktok.
   const [adFormat, setAdFormat] = useState("rsa"); // "rsa" | "pmax" | "meta"
+  // ── Brand & Context (strategic layer, Step 3a) — self-contained, separate axis ──
+  const [brandPanelOpen, setBrandPanelOpen] = useState(false);
+  const [brandData, setBrandData] = useState(null);      // loaded brand:{userId} record
+  const [brandLoading, setBrandLoading] = useState(false);
+  const [brandSaving, setBrandSaving] = useState(false);
+  const [brandError, setBrandError] = useState(null);
   const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
   const [imageModel, setImageModel] = useState('imagen'); // 'dalle' | 'imagen'
   const [metaResult, setMetaResult] = useState(null);
@@ -4634,6 +4746,23 @@ STRICT rules:
           </button>
         ))}
         </div>
+
+        {/* Brand & Context entry point — right side, separate from the format tabs.
+            Relocatable later (e.g. to a sidebar) by moving just this button. */}
+        <button
+          onClick={() => { if (!isSignedIn) { setAuthMode("sign-up"); setShowAuthModal(true); return; } setBrandPanelOpen(true); }}
+          title="Brand & Context"
+          style={{
+            marginLeft: "auto", display: "flex", alignItems: "center", gap: 7,
+            padding: "6px 14px", borderRadius: 8, cursor: "pointer",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            transition: "all 0.15s",
+          }}
+        >
+          <span style={{ fontSize: 13 }}>◆</span>
+          <span style={{ fontSize: 12, fontWeight: 800, color: "#a5b4fc", letterSpacing: "0.04em" }}>Brand</span>
+        </button>
       </div>
 
       {/* ── Main 2-Col Layout ── */}
@@ -7279,6 +7408,22 @@ STRICT rules:
 
       {showGateModal && <GateModal />}
       {showAuthModal && <AuthModal />}
+
+      {/* ── Brand & Context panel (Step 3a: load/edit/save round-trip) ── */}
+      {brandPanelOpen && (
+        <BrandPanel
+          session={session}
+          brandData={brandData}
+          setBrandData={setBrandData}
+          loading={brandLoading}
+          setLoading={setBrandLoading}
+          saving={brandSaving}
+          setSaving={setBrandSaving}
+          error={brandError}
+          setError={setBrandError}
+          onClose={() => setBrandPanelOpen(false)}
+        />
+      )}
 
       <style>{`
         @keyframes tiktokPulse {
