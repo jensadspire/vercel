@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 // decoupled and relocatable.
 function BrandPanel({ session, brandData, setBrandData, loading, setLoading, saving, setSaving, error, setError, onClose }) {
   const [local, setLocal] = useState(null); // editable working copy
+  const [justSaved, setJustSaved] = useState(false); // brief "✓ Saved" confirmation
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +54,8 @@ function BrandPanel({ session, brandData, setBrandData, loading, setLoading, sav
       if (!res.ok) throw new Error("save failed");
       const data = await res.json();
       setBrandData(data.brand);
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2000);
     } catch (e) {
       setError("Could not save — please try again shortly.");
     } finally {
@@ -94,8 +97,8 @@ function BrandPanel({ session, brandData, setBrandData, loading, setLoading, sav
 
             {error && <p style={{ color: "#f87171", fontSize: 12, margin: 0 }}>{error}</p>}
 
-            <button onClick={save} disabled={saving} style={{ marginTop: 4, padding: "10px 16px", borderRadius: 8, border: "none", cursor: saving ? "default" : "pointer", background: saving ? "rgba(99,102,241,0.4)" : "#6366f1", color: "white", fontSize: 13, fontWeight: 800 }}>
-              {saving ? "Saving…" : "Save brand"}
+            <button onClick={save} disabled={saving} style={{ marginTop: 4, padding: "10px 16px", borderRadius: 8, border: "none", cursor: saving ? "default" : "pointer", background: justSaved ? "#16a34a" : (saving ? "rgba(99,102,241,0.4)" : "#6366f1"), color: "white", fontSize: 13, fontWeight: 800, transition: "background 0.2s" }}>
+              {saving ? "Saving…" : justSaved ? "✓ Saved" : "Save brand"}
             </button>
           </div>
         ) : (
