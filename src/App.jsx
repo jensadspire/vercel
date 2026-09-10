@@ -61,6 +61,7 @@ function BrandPanel({ session, brandData, setBrandData, loading, setLoading, sav
         colors: Array.isArray(sug.colors) && sug.colors.length ? sug.colors.join(", ") : (prev?.colors || ""),
         font: sug.font || prev?.font || "",
         logo: sug.logo || prev?.logo || "",
+        ctaText: "",                     // clear stale CTA — a newly detected brand starts fresh
         _detected: data.full || null,   // full structured data stashed for later variations UI
       }));
       // Honest low-confidence hint so the user knows to double-check.
@@ -146,12 +147,15 @@ function BrandPanel({ session, brandData, setBrandData, loading, setLoading, sav
               <input value={local.font} onChange={e => setLocal({ ...local, font: e.target.value })} placeholder="Inter" style={field} />
             </div>
             <div>
-              <span style={label}>CTA text</span>
-              <input value={local.ctaText} onChange={e => setLocal({ ...local, ctaText: e.target.value })} placeholder="Shop now" style={field} />
-            </div>
-            <div>
               <span style={label}>Logo URL</span>
               <input value={local.logo} onChange={e => setLocal({ ...local, logo: e.target.value })} placeholder="https://…/logo.png" style={field} />
+            </div>
+
+            {/* messaging divider — brand identity above, campaign messaging below */}
+            <div style={{ borderTop: "1px dashed rgba(255,255,255,0.12)", margin: "4px 0 0" }} />
+            <div>
+              <span style={label}>CTA text (optional)</span>
+              <input value={local.ctaText} onChange={e => setLocal({ ...local, ctaText: e.target.value })} placeholder="Shop now" style={field} />
             </div>
 
             {error && <p style={{ color: "#f87171", fontSize: 12, margin: 0 }}>{error}</p>}
