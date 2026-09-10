@@ -8,6 +8,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 function BrandPanel({ session, brandData, setBrandData, loading, setLoading, saving, setSaving, error, setError, onClose }) {
   const [local, setLocal] = useState(null); // editable working copy
   const [justSaved, setJustSaved] = useState(false); // brief "✓ Saved" confirmation
+  const [detectDomain, setDetectDomain] = useState(""); // URL/domain to auto-detect from
+  const [detecting, setDetecting] = useState(false);
+  const [detectNote, setDetectNote] = useState(null);   // low-quality / not-found note
 
   useEffect(() => {
     let cancelled = false;
@@ -34,6 +37,44 @@ function BrandPanel({ session, brandData, setBrandData, loading, setLoading, sav
     })();
     return () => { cancelled = true; };
   }, []); // load once on open
+
+  const brandDetect = async () => {
+    const d = detectDomain.trim();
+    if (!d) return;
+    setDetecting(true); setError(null); setDetectNote(null);
+    try {
+      const token = await session.getToken();
+      const res = await fetch("/api/brand-detect", {
+        method: "POST",
+        headers: { "x-clerk-session": token, "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: d }),
+      });
+      const data = await res.json();
+      const sug = data.suggestions;
+      if (!sug) {
+        setDetectNote(data.message || data.error || "No brand data found — enter details manually.");
+        return;
+      }
+      // Populate the editable fields with suggestions (user confirms/edits before saving).
+      setLocal(prev => ({
+        ...prev,
+        colors: Array.isArray(sug.colors) && sug.colors.length ? sug.colors.join(", ") : (prev?.colors || ""),
+        font: sug.font || prev?.font || "",
+        logo: sug.logo || prev?.logo || "",
+        _detected: data.full || null,   // full structured data stashed for later variations UI
+      }));
+      // Honest low-confidence hint so the user knows to double-check.
+      if (typeof data.quality === "number" && data.quality < 0.7) {
+        setDetectNote("We found some brand details, but confidence is moderate — please review and adjust below.");
+      } else {
+        setDetectNote("Brand details detected — review and adjust below, then save.");
+      }
+    } catch (e) {
+      setDetectNote("Detection failed — please enter details manually.");
+    } finally {
+      setDetecting(false);
+    }
+  };
 
   const save = async () => {
     if (!local) return;
@@ -72,7 +113,25 @@ function BrandPanel({ session, brandData, setBrandData, loading, setLoading, sav
       <div style={{ width: "100%", maxWidth: 560, maxHeight: "85vh", overflowY: "auto", background: "#0b1424", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: 28, position: "relative" }}>
         <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "transparent", border: "none", color: "#7e92a8", fontSize: 20, cursor: "pointer" }}>×</button>
         <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 800, color: "white" }}>Brand &amp; Context</h2>
-        <p style={{ margin: "0 0 20px", fontSize: 12, color: "#7e92a8" }}>Your brand details, applied to generated ads. (More coming — logo detection &amp; context next.)</p>
+        <p style={{ margin: "0 0 20px", fontSize: 12, color: "#7e92a8" }}>Your brand details, applied to generated ads.</p>
+
+        {/* Auto-detect from a URL (Brandfetch, server-side). Fills the fields below as suggestions. */}
+        <div style={{ marginBottom: 20, padding: 14, borderRadius: 10, background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)" }}>
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#a5b4fc", display: "block", marginBottom: 8 }}>Auto-detect from your website</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={detectDomain}
+              onChange={e => setDetectDomain(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") brandDetect(); }}
+              placeholder="yourbrand.com"
+              style={{ flex: 1, padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: "1.5px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "white", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+            />
+            <button onClick={brandDetect} disabled={detecting || !detectDomain.trim()} style={{ padding: "9px 16px", borderRadius: 8, border: "none", cursor: detecting || !detectDomain.trim() ? "default" : "pointer", background: detecting ? "rgba(99,102,241,0.4)" : "#6366f1", color: "white", fontSize: 13, fontWeight: 800, whiteSpace: "nowrap" }}>
+              {detecting ? "Detecting…" : "Detect"}
+            </button>
+          </div>
+          {detectNote && <p style={{ margin: "10px 0 0", fontSize: 12, color: "#a5b4fc" }}>{detectNote}</p>}
+        </div>
 
         {loading ? (
           <p style={{ color: "#7e92a8", fontSize: 13 }}>Loading…</p>
