@@ -109,11 +109,20 @@ export default async function handler(req, res) {
 
     const domain = extractDomain(productUrl);
 
+    // Primary brand colour (Brandfetch ranks accent/brand first). Falls back to a
+    // neutral if none saved, so the shapes always have a valid colour.
+    const primaryColor = (Array.isArray(brand.colors) && brand.colors[0]) ? brand.colors[0] : '#111111';
+
     const modifications = {
       'Video-5ND': adVideoUrl,
       'Logo': brand.logo || '',
       'Tagline-/-Payoff-/-CTA': brand.ctaText || '',
       'Domain': domain,
+      // 4 corner triangles → primary brand colour (fill only; Creatomate key = "<name>.fill_color")
+      'Shape-KVF.fill_color': primaryColor,
+      'Shape-M65.fill_color': primaryColor,
+      'Shape-X3B.fill_color': primaryColor,
+      'Shape-6MK.fill_color': primaryColor,
     };
 
     const createRes = await fetch(CM_BASE, {
