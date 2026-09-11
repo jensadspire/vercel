@@ -1,3 +1,7 @@
+// ── Vercel function config: allow Anthropic calls room (default 30s is too tight
+// for large ad-copy generations, which was causing FUNCTION_INVOCATION_TIMEOUT 504s).
+export const config = { maxDuration: 60 };
+
 // ── Constants ────────────────────────────────────────────────────────────────
 const FREE_LIMIT = 10;        // generations allowed before gate
 const WINDOW_DAYS = 30;       // rolling window in days
@@ -13,6 +17,25 @@ async function redis(command, ...args) {
   });
   const data = await res.json();
   return data.result;
+}
+
+
+// ── Anthropic call with an explicit timeout ──────────────────────────────────
+// Fail cleanly BEFORE Vercel's hard kill, so a slow/hung Anthropic response
+// becomes a friendly "try again" instead of a silent 504 stall.
+const ANTHROPIC_TIMEOUT_MS = 55000; // < the 60s maxDuration, leaves room to respond
+
+async function callAnthropic(apiKey, body) {
+  return fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(ANTHROPIC_TIMEOUT_MS),
+  });
 }
 
 export default async function handler(req, res) {
@@ -63,18 +86,13 @@ export default async function handler(req, res) {
   if (isAdmin || isSignedInUser) {
     // Admin request — call Anthropic directly, no counting
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify(req.body),
-      });
+      const response = await callAnthropic(apiKey, req.body);
       const data = await response.json();
       return res.status(response.status).json({ ...data, admin: isAdmin, gated: false });
     } catch (err) {
+      if (err.name === "TimeoutError" || err.name === "AbortError") {
+        return res.status(504).json({ error: "Generation is taking longer than usual — please try again.", timeout: true });
+      }
       return res.status(500).json({ error: "Proxy error: " + err.message });
     }
   }
@@ -100,15 +118,7 @@ export default async function handler(req, res) {
     }
 
     // ── Call Anthropic ────────────────────────────────────────────────────────
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify(req.body),
-    });
+    const response = await callAnthropic(apiKey, req.body);
 
     const data = await response.json();
     console.log("Anthropic status:", response.status);
@@ -147,21 +157,21 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
+    // A timeout on the Anthropic call itself should NOT fail-open-retry (it would
+    // just time out again) — return a clean message instead.
+    if (err.name === "TimeoutError" || err.name === "AbortError") {
+      return res.status(504).json({ error: "Generation is taking longer than usual — please try again.", timeout: true });
+    }
     // If Redis fails for any reason — fail open (don't block the user)
     console.log("Gate error (failing open):", err.message);
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify(req.body),
-      });
+      const response = await callAnthropic(apiKey, req.body);
       const data = await response.json();
       return res.status(response.status).json(data);
     } catch (e) {
+      if (e.name === "TimeoutError" || e.name === "AbortError") {
+        return res.status(504).json({ error: "Generation is taking longer than usual — please try again.", timeout: true });
+      }
       return res.status(500).json({ error: "Proxy error: " + e.message });
     }
   }
