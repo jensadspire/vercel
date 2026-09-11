@@ -113,14 +113,14 @@ export default async function handler(req, res) {
     // neutral if none saved, so the shapes always have a valid colour.
     const primaryColor = (Array.isArray(brand.colors) && brand.colors[0]) ? brand.colors[0] : '#111111';
 
+    // Keys use the EXACT fully-qualified property format from Creatomate's API
+    // Integration panel for this template (element name + '.' + property).
     const modifications = {
-      'Video-5ND': adVideoUrl,
-      'Logo': brand.logo || '',
-      'Tagline-/-Payoff-/-CTA': brand.ctaText || '',
-      'Domain': domain,
-      // 4 corner triangles → primary brand colour. Set BOTH fill and stroke:
-      // the shapes have a black stroke_color that would otherwise make small
-      // triangles read as dark even when the fill is applied.
+      'Video-5ND.source': adVideoUrl,
+      'Logo.source': brand.logo || '',
+      'Domain.text': domain,
+      'Tagline-/-Payoff-/-CTA.text': brand.ctaText || '',
+      // 4 corner triangles → primary brand colour (fill + stroke).
       'Shape-KVF.fill_color': primaryColor,
       'Shape-KVF.stroke_color': primaryColor,
       'Shape-M65.fill_color': primaryColor,
