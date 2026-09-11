@@ -118,11 +118,17 @@ export default async function handler(req, res) {
       'Logo': brand.logo || '',
       'Tagline-/-Payoff-/-CTA': brand.ctaText || '',
       'Domain': domain,
-      // 4 corner triangles → primary brand colour (fill only; Creatomate key = "<name>.fill_color")
+      // 4 corner triangles → primary brand colour. Set BOTH fill and stroke:
+      // the shapes have a black stroke_color that would otherwise make small
+      // triangles read as dark even when the fill is applied.
       'Shape-KVF.fill_color': primaryColor,
+      'Shape-KVF.stroke_color': primaryColor,
       'Shape-M65.fill_color': primaryColor,
+      'Shape-M65.stroke_color': primaryColor,
       'Shape-X3B.fill_color': primaryColor,
+      'Shape-X3B.stroke_color': primaryColor,
       'Shape-6MK.fill_color': primaryColor,
+      'Shape-6MK.stroke_color': primaryColor,
     };
 
     const createRes = await fetch(CM_BASE, {
