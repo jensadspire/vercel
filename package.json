@@ -14,11 +14,12 @@
     "@clerk/clerk-react": "^5.61.3",
     "@runwayml/sdk": "^4.4.0",
     "@upstash/redis": "^1.38.0",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.3.1",
     "google-ads-api": "^23.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "sharp": "^0.35.1",
+    "sharp": "^0.35.4",
     "stripe": "^20.4.1"
   },
   "devDependencies": {
