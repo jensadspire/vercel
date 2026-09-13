@@ -914,6 +914,14 @@ function RSAStudio() {
   };
   // Keep ref in sync so async handlers always get current value
   useEffect(() => { videoEngineRef.current = videoEngine; }, [videoEngine]);
+  // reset outro on video change — so the "Add branded outro" button reappears fresh
+  // for each new video (and stale outro results don't carry over between videos).
+  useEffect(() => {
+    setOutroVideoUrl(null);
+    setOutroError(null);
+    setOutroNeedsBrand(false);
+    setOutroLoading(false);
+  }, [tiktokVideoUrl]);
   // ── Runway Recipe state (premium engine) ──
   const [recipeMode, setRecipeMode] = useState('ad'); // 'ad' | 'ugc'
   const [recipeCharacterImage, setRecipeCharacterImage] = useState(''); // UGC creator image URL
@@ -8542,7 +8550,7 @@ STRICT rules:
                             <button onClick={() => { setOutroVideoUrl(null); setOutroError(null); }} style={{
                               marginTop: 6, width: '100%', maxWidth: 280, padding: '6px', fontSize: 10, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
                               background: 'transparent', color: '#7e92a8', border: '1px solid rgba(255,255,255,0.09)',
-                            }}>Rebuild outro</button>
+                            }}>↻ Rebuild with current brand</button>
                           </div>
                         )}
                       </div>
