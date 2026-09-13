@@ -84,9 +84,9 @@ function BrandPanel({ session, brandData, setBrandData, loading, setLoading, sav
       const token = await session.getToken();
       const payload = {
         colors: local.colors.split(",").map(c => c.trim()).filter(Boolean),
-        font: local.font.trim() || null,
-        ctaText: local.ctaText.trim() || null,
-        logo: local.logo.trim() || null,
+        font: local.font.trim(),
+        ctaText: local.ctaText.trim(),
+        logo: local.logo.trim(),
       };
       const res = await fetch("/api/brand", {
         method: "POST",
