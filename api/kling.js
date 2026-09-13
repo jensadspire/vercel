@@ -10,6 +10,31 @@ import { labelAndStore } from './_ai-label.js';
 const KLING_SUBMIT = 'fal-ai/kling-video/v3/pro/image-to-video';
 const KLING_BASE   = 'fal-ai/kling-video';
 
+// ── Normalize any input image to 9:16 (720x1280) before sending to Kling ──────
+// Kling V3 image-to-video IGNORES the aspect_ratio param and instead matches the
+// OUTPUT aspect ratio to the INPUT IMAGE's proportions (confirmed in fal docs).
+// So a landscape/square product photo -> landscape/square video, which then breaks
+// the 9:16 outro template. Fix: pad every input image onto a 720x1280 canvas with
+// a blurred, slightly-darkened copy of itself as the background, product centered
+// and fully visible (never cropped). Result: Kling always sees 9:16 -> outputs 9:16.
+async function padTo916(inputBuffer) {
+  const sharp = (await import('sharp')).default;
+  const W = 720, H = 1280;
+  const background = await sharp(inputBuffer)
+    .resize(W, H, { fit: 'cover' })      // fill frame for the blur bg (crop is fine — it's blurred)
+    .blur(40)
+    .modulate({ brightness: 0.7 })       // darken so the sharp product stands out
+    .toBuffer();
+  const foreground = await sharp(inputBuffer)
+    .resize(W, H, { fit: 'inside' })     // whole product visible, never cropped
+    .toBuffer();
+  return sharp(background)
+    .composite([{ input: foreground, gravity: 'center' }])
+    .jpeg({ quality: 90 })
+    .toBuffer();
+}
+
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -120,14 +145,23 @@ export default async function handler(req, res) {
     const videoPrompt = `${anchorInstruction}${scenePrompt}`.slice(0, 2500);
     const negativePrompt = `text, letters, words, typography, captions, subtitles, title card, intro card, end card, outro card, on-screen text, text overlay, signage, labels, logo, brand name, watermark, Chinese text, Korean text, Japanese text, Arabic text, foreign language overlays, different product, substitute product, unrelated objects, scene replacement, blur, distort, low quality`;
 
-    // Fetch image and convert to base64
+    // Fetch image, normalize to 9:16 (blurred-fill pad), and convert to base64.
+    // Padding to 9:16 forces Kling to output 9:16 (it matches the input image's
+    // proportions). Falls back to the original image if padding fails (fail-open).
     let imageData = imageUrl;
     try {
       const imgRes = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' } });
       if (imgRes.ok) {
-        const buf = await imgRes.arrayBuffer();
-        const b64 = Buffer.from(buf).toString('base64');
-        const ct = imgRes.headers.get('content-type') || 'image/jpeg';
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        let outBuf = buf;
+        let ct = imgRes.headers.get('content-type') || 'image/jpeg';
+        try {
+          outBuf = await padTo916(buf);   // -> 720x1280 jpeg
+          ct = 'image/jpeg';
+        } catch (padErr) {
+          console.error('[kling] 9:16 pad failed, using original image:', padErr.message);
+        }
+        const b64 = outBuf.toString('base64');
         imageData = `data:${ct};base64,${b64}`;
       }
     } catch (_) {}
