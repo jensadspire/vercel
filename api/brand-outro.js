@@ -112,6 +112,8 @@ export default async function handler(req, res) {
     // Primary brand colour (Brandfetch ranks accent/brand first). Falls back to a
     // neutral if none saved, so the shapes always have a valid colour.
     const primaryColor = (Array.isArray(brand.colors) && brand.colors[0]) ? brand.colors[0] : '#111111';
+    // Secondary colour for the diagonal scheme; falls back to primary if absent.
+    const secondaryColor = (Array.isArray(brand.colors) && brand.colors[1]) ? brand.colors[1] : primaryColor;
 
     // Keys use the EXACT fully-qualified property format from Creatomate's API
     // Integration panel for this template (element name + '.' + property).
@@ -120,15 +122,20 @@ export default async function handler(req, res) {
       'Logo.source': brand.logo || '',
       'Domain.text': domain,
       'Tagline-/-Payoff-/-CTA.text': brand.ctaText || '',
-      // 4 corner triangles → primary brand colour (fill + stroke).
-      'Shape-KVF.fill_color': primaryColor,
-      'Shape-KVF.stroke_color': primaryColor,
-      'Shape-M65.fill_color': primaryColor,
-      'Shape-M65.stroke_color': primaryColor,
-      'Shape-X3B.fill_color': primaryColor,
-      'Shape-X3B.stroke_color': primaryColor,
-      'Shape-6MK.fill_color': primaryColor,
-      'Shape-6MK.stroke_color': primaryColor,
+      // 4 corner triangles — diagonal two-colour scheme:
+      //   TR + BL = primary (colors[0]); TL + BR = secondary (colors[1]).
+      // Falls back to primary for all four if no secondary colour exists.
+      'Triangle_top_right.fill_color': primaryColor,
+      'Triangle_top_right.stroke_color': primaryColor,
+      'Triangle_bottom_left.fill_color': primaryColor,
+      'Triangle_bottom_left.stroke_color': primaryColor,
+      'Triangle_top_left.fill_color': secondaryColor,
+      'Triangle_top_left.stroke_color': secondaryColor,
+      'Triangle_bottom_right.fill_color': secondaryColor,
+      'Triangle_bottom_right.stroke_color': secondaryColor,
+      // Middle separator line → secondary colour.
+      'Separator_line.fill_color': secondaryColor,
+      'Separator_line.stroke_color': secondaryColor,
     };
 
     const createRes = await fetch(CM_BASE, {
