@@ -879,6 +879,11 @@ function RSAStudio() {
   const [tiktokError, setTiktokError] = useState('');
   const [tiktokVideoLoading, setTiktokVideoLoading] = useState(false);
   const [tiktokVideoUrl, setTiktokVideoUrl] = useState(null);
+  // Phase 4a — branded outro (post-video)
+  const [outroLoading, setOutroLoading] = useState(false);
+  const [outroVideoUrl, setOutroVideoUrl] = useState(null);
+  const [outroError, setOutroError] = useState(null);
+  const [outroNeedsBrand, setOutroNeedsBrand] = useState(false);
   const [ugcVideoUrl, setUgcVideoUrl] = useState(null);
   const [ugcLoading, setUgcLoading] = useState(false);
   const [ugcAvatar, setUgcAvatar] = useState('Ivy'); // selected HeyGen voice/avatar
@@ -8454,6 +8459,94 @@ STRICT rules:
                       background: 'rgba(52,211,153,0.12)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     }}>↻ Generate another video</button>
+
+                    {/* Phase 4a — Add branded outro */}
+                    {isSignedIn && (
+                      <div style={{ marginTop: 8, width: '100%', maxWidth: 280 }}>
+                        {!outroVideoUrl && (
+                          <button
+                            onClick={async () => {
+                              setOutroError(null); setOutroNeedsBrand(false); setOutroLoading(true);
+                              try {
+                                const token = await window.Clerk.session.getToken();
+                                // 1) check brand is set up (>=1 element)
+                                const bRes = await fetch('/api/brand', { headers: { 'x-clerk-session': token } });
+                                const bData = await bRes.json();
+                                const b = bData.brand || {};
+                                const hasBrand = !!(b.logo || (Array.isArray(b.colors) && b.colors.length) || b.font || b.ctaText);
+                                if (!hasBrand) { setOutroNeedsBrand(true); setOutroLoading(false); return; }
+                                // 2) create the outro render
+                                const cRes = await fetch('/api/brand-outro', {
+                                  method: 'POST',
+                                  headers: { 'x-clerk-session': token, 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ adVideoUrl: tiktokVideoUrl, productUrl: url }),
+                                });
+                                const cData = await cRes.json();
+                                if (cData.status === 'failed' || !cData.renderId) {
+                                  setOutroError(cData.error || 'Could not start the branded outro. Please try again.');
+                                  setOutroLoading(false); return;
+                                }
+                                // 3) poll until done
+                                const rid = cData.renderId;
+                                let tries = 0;
+                                const poll = setInterval(async () => {
+                                  if (tries++ > 40) { clearInterval(poll); setOutroError('Outro is taking longer than usual — please try again.'); setOutroLoading(false); return; }
+                                  try {
+                                    const pRes = await fetch('/api/brand-outro', {
+                                      method: 'POST',
+                                      headers: { 'x-clerk-session': token, 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ action: 'poll', renderId: rid }),
+                                    });
+                                    const pData = await pRes.json();
+                                    if (pData.status === 'succeeded' && pData.url) { clearInterval(poll); setOutroVideoUrl(pData.url); setOutroLoading(false); }
+                                    else if (pData.status === 'failed') { clearInterval(poll); setOutroError(pData.error || 'Outro render failed.'); setOutroLoading(false); }
+                                  } catch (e) { /* keep polling */ }
+                                }, 4000);
+                              } catch (e) {
+                                setOutroError('Something went wrong — please try again.');
+                                setOutroLoading(false);
+                              }
+                            }}
+                            disabled={outroLoading}
+                            style={{
+                              width: '100%', padding: '7px', fontSize: 11, fontWeight: 700, borderRadius: 8,
+                              cursor: outroLoading ? 'not-allowed' : 'pointer',
+                              background: outroLoading ? 'rgba(99,102,241,0.15)' : 'linear-gradient(135deg,#6366f1,#4f46e5)',
+                              color: outroLoading ? '#a5b4fc' : 'white', border: 'none',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            }}>
+                            {outroLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Building branded outro…</> : '◆ Add branded outro'}
+                          </button>
+                        )}
+
+                        {outroNeedsBrand && (
+                          <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', fontSize: 11, color: '#a5b4fc' }}>
+                            Set up your brand to add a branded outro.{' '}
+                            <span onClick={() => { setOutroNeedsBrand(false); setBrandPanelOpen(true); }} style={{ color: '#c7d2fe', fontWeight: 800, textDecoration: 'underline', cursor: 'pointer' }}>Set up brand</span>
+                          </div>
+                        )}
+
+                        {outroError && (
+                          <div style={{ marginTop: 8, fontSize: 11, color: '#f87171' }}>{outroError}</div>
+                        )}
+
+                        {outroVideoUrl && (
+                          <div style={{ marginTop: 10 }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#a5b4fc', marginBottom: 6 }}>Branded outro version</div>
+                            <video src={outroVideoUrl} controls style={{ width: '100%', maxWidth: 280, borderRadius: 8, aspectRatio: '9/16' }} />
+                            <a href={outroVideoUrl} download="branded-ad.mp4" target="_blank" rel="noopener noreferrer" style={{
+                              marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                              width: '100%', maxWidth: 280, padding: '7px', fontSize: 11, fontWeight: 700, borderRadius: 8,
+                              background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.35)', textDecoration: 'none',
+                            }}>↓ Download branded video</a>
+                            <button onClick={() => { setOutroVideoUrl(null); setOutroError(null); }} style={{
+                              marginTop: 6, width: '100%', maxWidth: 280, padding: '6px', fontSize: 10, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
+                              background: 'transparent', color: '#7e92a8', border: '1px solid rgba(255,255,255,0.09)',
+                            }}>Rebuild outro</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {isSignedIn && (() => {
                       const vidId = 'vid:' + tiktokVideoUrl;
                       const saved = library.some(e => e.id === vidId);
