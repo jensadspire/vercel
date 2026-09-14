@@ -184,8 +184,17 @@ function BrandPanel({ session, brandData, setBrandData, loading, setLoading, sav
                   {/* Logo */}
                   {logo ? (
                     logoOk ? (
-                      <img src={logo} alt="logo" onError={() => setLogoOk(false)} onLoad={() => setLogoOk(true)}
-                        style={{ maxHeight: 40, maxWidth: "60%", objectFit: "contain", display: "block", marginBottom: 12 }} />
+                      /* logo on two backgrounds */
+                      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                        <div title="on dark" style={{ flex: 1, minWidth: 0, height: 56, borderRadius: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", padding: 6 }}>
+                          <img src={logo} alt="logo on dark" onError={() => setLogoOk(false)} onLoad={() => setLogoOk(true)}
+                            style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain" }} />
+                        </div>
+                        <div title="on white" style={{ flex: 1, minWidth: 0, height: 56, borderRadius: 6, background: "#ffffff", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", padding: 6 }}>
+                          <img src={logo} alt="logo on white"
+                            style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain" }} />
+                        </div>
+                      </div>
                     ) : (
                       <div style={{ fontSize: 11, color: "#f59e0b", marginBottom: 12 }}>Logo couldn't load — check the URL points to an image file (.png/.svg/.jpg).</div>
                     )
