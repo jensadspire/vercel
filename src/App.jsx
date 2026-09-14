@@ -8,6 +8,19 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 function BrandPanel({ session, brandData, setBrandData, loading, setLoading, saving, setSaving, error, setError, onClose }) {
   const [local, setLocal] = useState(null); // editable working copy
   const [justSaved, setJustSaved] = useState(false); // brief "✓ Saved" confirmation
+  const [logoOk, setLogoOk] = useState(true); // logo image loads? (preview validation)
+  // Best-effort: load the named font from Google Fonts so the CTA preview can render in it.
+  useEffect(() => {
+    const f = (local?.font || '').trim();
+    if (!f) return;
+    const id = 'brandfont-' + f.replace(/[^a-z0-9]/gi, '');
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id; link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=' + encodeURIComponent(f) + '&display=swap';
+    document.head.appendChild(link);
+  }, [local?.font]);
+  useEffect(() => { setLogoOk(true); }, [local?.logo]);
   const [detectDomain, setDetectDomain] = useState(""); // URL/domain to auto-detect from
   const [detecting, setDetecting] = useState(false);
   const [detectNote, setDetectNote] = useState(null);   // low-quality / not-found note
@@ -157,6 +170,47 @@ function BrandPanel({ session, brandData, setBrandData, loading, setLoading, sav
               <span style={label}>CTA text (optional)</span>
               <input value={local.ctaText} onChange={e => setLocal({ ...local, ctaText: e.target.value })} placeholder="Shop now" style={field} />
             </div>
+
+            {/* brand preview */}
+            {local && (() => {
+              const swatches = (local.colors || '').split(',').map(c => c.trim()).filter(c => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(c));
+              const fontName = (local.font || '').trim();
+              const cta = (local.ctaText || '').trim();
+              const logo = (local.logo || '').trim();
+              return (
+                <div style={{ marginTop: 4, padding: 14, borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#7e92a8", display: "block", marginBottom: 10 }}>Preview</span>
+
+                  {/* Logo */}
+                  {logo ? (
+                    logoOk ? (
+                      <img src={logo} alt="logo" onError={() => setLogoOk(false)} onLoad={() => setLogoOk(true)}
+                        style={{ maxHeight: 40, maxWidth: "60%", objectFit: "contain", display: "block", marginBottom: 12 }} />
+                    ) : (
+                      <div style={{ fontSize: 11, color: "#f59e0b", marginBottom: 12 }}>Logo couldn't load — check the URL points to an image file (.png/.svg/.jpg).</div>
+                    )
+                  ) : null}
+
+                  {/* Colour swatches */}
+                  {swatches.length > 0 && (
+                    <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                      {swatches.map((c, i) => (
+                        <div key={i} title={c} style={{ width: 28, height: 28, borderRadius: 6, background: c, border: "1px solid rgba(255,255,255,0.15)" }} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* CTA in brand font (best-effort) */}
+                  {cta && (
+                    <div style={{ fontFamily: fontName ? '"' + fontName + '", sans-serif' : "inherit", fontSize: 15, fontWeight: 700, color: "white" }}>{cta}</div>
+                  )}
+
+                  {!logo && swatches.length === 0 && !cta && (
+                    <div style={{ fontSize: 11, color: "#7e92a8" }}>Fill in your brand details above to see a preview.</div>
+                  )}
+                </div>
+              );
+            })()}
 
             {error && <p style={{ color: "#f87171", fontSize: 12, margin: 0 }}>{error}</p>}
 
