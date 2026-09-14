@@ -8483,15 +8483,25 @@ STRICT rules:
                                 const b = bData.brand || {};
                                 const hasBrand = !!(b.logo || (Array.isArray(b.colors) && b.colors.length) || b.font || b.ctaText);
                                 if (!hasBrand) { setOutroNeedsBrand(true); setOutroLoading(false); return; }
-                                // outro aspect detection — read the displayed video's natural
-                                // dimensions; ratio >= 1.2 (tall) = portrait/9:16, else square/landscape.
+                                // outro aspect detection — load the video's metadata directly and
+                                // read its true dimensions. ratio >= 1.2 (tall) = portrait/9:16, else square.
                                 let aspect = 'portrait';
                                 try {
-                                  const vids = Array.from(document.querySelectorAll('video'));
-                                  const vid = vids.find(v => v.src === tiktokVideoUrl) || vids.find(v => v.videoWidth);
-                                  if (vid && vid.videoWidth && vid.videoHeight) {
-                                    aspect = (vid.videoHeight / vid.videoWidth) >= 1.2 ? 'portrait' : 'square';
+                                  const dims = await new Promise((resolve) => {
+                                    const v = document.createElement('video');
+                                    v.preload = 'metadata';
+                                    v.muted = true;
+                                    const done = (w, h) => resolve({ w, h });
+                                    v.onloadedmetadata = () => done(v.videoWidth, v.videoHeight);
+                                    v.onerror = () => done(0, 0);
+                                    setTimeout(() => done(0, 0), 6000); // fail-safe timeout
+                                    v.src = tiktokVideoUrl;
+                                  });
+                                  console.log('[outro] detected video dims:', dims.w, 'x', dims.h);
+                                  if (dims.w && dims.h) {
+                                    aspect = (dims.h / dims.w) >= 1.2 ? 'portrait' : 'square';
                                   }
+                                  console.log('[outro] aspect →', aspect);
                                 } catch (_) {}
                                 // 2) create the outro render
                                 const cRes = await fetch('/api/brand-outro', {
