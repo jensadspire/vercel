@@ -21,7 +21,11 @@
  * so the outro look can be tuned in their editor with no code change.
  */
 
-const TEMPLATE_ID = '80ccde4c-32b6-4246-886f-2cba557ec94e';
+// Two outro templates, picked by the ad video's aspect ratio:
+//   portrait (9:16) → the original template; anything else (square/landscape,
+//   which is what Kling produces from non-portrait product images) → square template.
+const TEMPLATE_PORTRAIT = '80ccde4c-32b6-4246-886f-2cba557ec94e'; // 9:16
+const TEMPLATE_SQUARE   = 'c715f88e-c9ba-487f-bc28-b8595a2c92b5'; // square / non-9:16
 
 // Decode Clerk session JWT → user id (same as /api/brand). Signed-in only.
 function clerkUserId(req) {
@@ -82,7 +86,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Branded outro not configured.' });
   }
 
-  const { action = 'create', adVideoUrl, productUrl, renderId } = req.body || {};
+  const { action = 'create', adVideoUrl, productUrl, renderId, aspect } = req.body || {};
 
   try {
     // ── Poll ──────────────────────────────────────────────────────────────────
@@ -142,7 +146,7 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: await cmHeaders(),
       body: JSON.stringify({
-        template_id: TEMPLATE_ID,
+        template_id: (aspect === 'square' ? TEMPLATE_SQUARE : TEMPLATE_PORTRAIT),
         modifications,
         output_format: 'mp4',
       }),

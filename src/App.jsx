@@ -8483,11 +8483,21 @@ STRICT rules:
                                 const b = bData.brand || {};
                                 const hasBrand = !!(b.logo || (Array.isArray(b.colors) && b.colors.length) || b.font || b.ctaText);
                                 if (!hasBrand) { setOutroNeedsBrand(true); setOutroLoading(false); return; }
+                                // outro aspect detection — read the displayed video's natural
+                                // dimensions; ratio >= 1.2 (tall) = portrait/9:16, else square/landscape.
+                                let aspect = 'portrait';
+                                try {
+                                  const vids = Array.from(document.querySelectorAll('video'));
+                                  const vid = vids.find(v => v.src === tiktokVideoUrl) || vids.find(v => v.videoWidth);
+                                  if (vid && vid.videoWidth && vid.videoHeight) {
+                                    aspect = (vid.videoHeight / vid.videoWidth) >= 1.2 ? 'portrait' : 'square';
+                                  }
+                                } catch (_) {}
                                 // 2) create the outro render
                                 const cRes = await fetch('/api/brand-outro', {
                                   method: 'POST',
                                   headers: { 'x-clerk-session': token, 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ adVideoUrl: tiktokVideoUrl, productUrl: url }),
+                                  body: JSON.stringify({ adVideoUrl: tiktokVideoUrl, productUrl: url, aspect }),
                                 });
                                 const cData = await cRes.json();
                                 if (cData.status === 'failed' || !cData.renderId) {
