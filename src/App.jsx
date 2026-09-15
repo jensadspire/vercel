@@ -8858,7 +8858,7 @@ STRICT rules:
                           let attempts = 0;
                           if (videoPollRef.current) clearInterval(videoPollRef.current);
                           videoPollRef.current = setInterval(async () => {
-                            const pollCap = videoEngineRef.current === 'recipe' ? 156 : 72; // recipe ~13min, others 6min
+                            const pollCap = videoEngineRef.current === 'recipe' ? 156 : 144; // recipe ~13min, others ~12min (larger/flattened inputs run slower)
                             if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); console.warn('Video poll timed out after', attempts, 'attempts (engine:', videoEngineRef.current + ')'); return; }
                             try {
                               const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
