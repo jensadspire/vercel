@@ -120,14 +120,29 @@ export default async function handler(req, res) {
     const videoPrompt = `${anchorInstruction}${scenePrompt}`.slice(0, 2500);
     const negativePrompt = `text, letters, words, typography, captions, subtitles, title card, intro card, end card, outro card, on-screen text, text overlay, signage, labels, logo, brand name, watermark, Chinese text, Korean text, Japanese text, Arabic text, foreign language overlays, different product, substitute product, unrelated objects, scene replacement, blur, distort, low quality`;
 
-    // Fetch image and convert to base64
+    // Fetch image and convert to base64. Transparent PNGs cause Kling to render
+    // dark artifacts around the product in the first frames (before the scene
+    // transition), so we flatten any alpha onto a white background first. Only
+    // flattens when the image actually has transparency; fails open to the
+    // original image if sharp/flatten errors (never blocks generation).
     let imageData = imageUrl;
     try {
       const imgRes = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' } });
       if (imgRes.ok) {
-        const buf = await imgRes.arrayBuffer();
-        const b64 = Buffer.from(buf).toString('base64');
-        const ct = imgRes.headers.get('content-type') || 'image/jpeg';
+        let buf = Buffer.from(await imgRes.arrayBuffer());
+        let ct = imgRes.headers.get('content-type') || 'image/jpeg';
+        try {
+          const sharp = (await import('sharp')).default;
+          const meta = await sharp(buf).metadata();
+          if (meta.hasAlpha) {
+            buf = await sharp(buf).flatten({ background: '#ffffff' }).png().toBuffer();
+            ct = 'image/png';
+            console.log('[kling] flattened transparent image onto white');
+          }
+        } catch (flatErr) {
+          console.error('[kling] flatten skipped (fail-open):', flatErr.message);
+        }
+        const b64 = buf.toString('base64');
         imageData = `data:${ct};base64,${b64}`;
       }
     } catch (_) {}
