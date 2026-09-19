@@ -8828,10 +8828,27 @@ STRICT rules:
                         // product images are sometimes http:// (e.g. some Shopify CDNs), so force https.
                         const imageUrl = selectedImg ? selectedImg.replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://') : selectedImg;
                         if (!imageUrl) { alert('Generate a Meta ad first to get a product image for the video'); setTiktokVideoLoading(false); return; }
+                        // Pre-validate image size — Kling requires min 300x300; too-small images
+                        // fail on fal.ai and used to leave the spinner hanging. Check + warn early.
+                        try {
+                          const dims = await new Promise((resolve) => {
+                            const im = new Image();
+                            im.onload = () => resolve({ w: im.naturalWidth, h: im.naturalHeight });
+                            im.onerror = () => resolve({ w: 0, h: 0 });
+                            setTimeout(() => resolve({ w: 0, h: 0 }), 6000);
+                            im.src = imageUrl;
+                          });
+                          if (dims.w && dims.h && (dims.w < 300 || dims.h < 300)) {
+                            setRecipeError('This image is too small for video generation (' + dims.w + '×' + dims.h + '). Video needs at least 300×300 — please pick a larger product image.');
+                            setTiktokVideoLoading(false);
+                            return;
+                          }
+                        } catch (_) { /* dimension check failed — proceed and let the engine decide */ }
                         // Submit to Kling via fal.ai — pass full storyboard for multi-scene video
                         // Route to Recipe, Runway, or Kling — use ref to avoid stale closure
                         const currentEngine = videoEngineRef.current;
-                        if (currentEngine === 'recipe') { setRecipeGated(null); setRecipeError(null); } // reset on new gen
+                        setRecipeError(null); // reset any prior video error on a new gen (all engines)
+                        if (currentEngine === 'recipe') { setRecipeGated(null); }
                         const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe'
                           : currentEngine === 'runway' ? '/api/runway' : '/api/kling';
                         const videoPayload = currentEngine === 'recipe'
@@ -8849,7 +8866,15 @@ STRICT rules:
                           body: JSON.stringify(videoPayload),
                         });
                         const d = await r.json();
+                        // video error handling patch — catch a failed create so the spinner never hangs
                         if (d.gated) { setRecipeGated({ count: d.count, limit: d.limit }); setTiktokVideoLoading(false); return; }
+                        if (d.error || (!d.videoUrl && !d.requestId && !d.taskId)) {
+                          console.error('Video create failed:', JSON.stringify(d));
+                          setRecipeError(d.error ? ('Video generation failed: ' + d.error) : 'Video generation could not start — please try again, or try a different product image.');
+                          setTiktokVideoLoading(false);
+                          if (videoPollRef.current) clearInterval(videoPollRef.current);
+                          return;
+                        }
                         if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }
                         else if (d.requestId || d.taskId) {
                           // Poll for completion — handle both Kling (requestId) and Runway (taskId)
