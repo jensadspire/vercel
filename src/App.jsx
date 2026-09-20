@@ -8815,6 +8815,12 @@ STRICT rules:
                   </div>
                 ) : (
                   <>
+                    {/* all-engine video error */}
+                    {recipeError && (
+                      <div style={{ marginBottom: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', fontSize: 11, color: '#fca5a5', lineHeight: 1.5 }}>
+                        {recipeError}
+                      </div>
+                    )}
                     <div style={{ fontSize: 11, color: '#4a5568', marginBottom: 10, lineHeight: 1.5 }}>
                       {tiktokResult.videoPrompt}
                     </div>
