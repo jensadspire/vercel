@@ -8845,7 +8845,7 @@ STRICT rules:
                             im.src = imageUrl;
                           });
                           if (dims.w && dims.h && (dims.w < 300 || dims.h < 300)) {
-                            setRecipeError('This image is too small for video generation (' + dims.w + '×' + dims.h + '). Video needs at least 300×300 — please pick a larger product image.');
+                            setRecipeError('This image is too small for video (' + dims.w + '×' + dims.h + ' — 300×300 pixels minimum is required). Please click "✎ Edit starting image" and select a larger image. If the images on this page are all too small, try a different product page.');
                             setTiktokVideoLoading(false);
                             return;
                           }
