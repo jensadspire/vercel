@@ -1,3 +1,4 @@
+import { track } from '@vercel/analytics/react';
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // ── BrandPanel (Step 3a) ─────────────────────────────────────────────────────
@@ -2254,6 +2255,7 @@ function RSAStudio() {
       });
       setUrl(newRows[newRows.length - 1].url);
       setGenerated(true);
+      try { track('google_output_completed'); } catch (_) {}
       setSwitcherPage(0);
     }
     setBatchRunning(false);
@@ -2827,6 +2829,7 @@ STRICT rules:
               imageUrl: (initialImageUrl || '').replace(/^http:/, 'https:'),
               imageVariations: initialVariations.length > 0 ? initialVariations : [],
             });
+            try { track('meta_output_completed'); } catch (_) {}
             setActiveImageVariant(0);
             // Only reset thumbnail selection when URL actually changed
             if (lastGeneratedUrlRef.current !== url) {
@@ -8881,7 +8884,7 @@ STRICT rules:
                           if (videoPollRef.current) clearInterval(videoPollRef.current);
                           return;
                         }
-                        if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); }
+                        if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
                         else if (d.requestId || d.taskId) {
                           // Poll for completion — handle both Kling (requestId) and Runway (taskId)
                           const pollId = d.requestId || d.taskId;
@@ -8895,7 +8898,7 @@ STRICT rules:
                               const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
                               const pd = await pr.json();
                               console.log('Poll', attempts, 'status:', pd.status, 'videoUrl:', !!pd.videoUrl);
-                              if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
+                              if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
                               else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { console.error('Video FAILED:', JSON.stringify(pd)); if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
                             } catch(pollErr) { console.error('Poll error:', pollErr.message); }
                           }, 5000);
