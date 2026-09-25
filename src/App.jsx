@@ -889,6 +889,7 @@ export default function App() {
 
 function RSAStudio() {
   const [url, setUrl] = useState("");
+  const [viewMode, setViewMode] = useState("overview"); // "overview" | "detailed" — NEW UI Stage 1a
 
   // Deep-link support has been CONSOLIDATED into the single magic-link handler
   // below (search "magicLinkHandled"). This former second handler is intentionally
@@ -3319,6 +3320,98 @@ STRICT rules:
     );
   };
 
+  // ── NEW UI Stage 1a: Overview front page ────────────────────────────────────
+  if (viewMode === "overview") {
+    const openDetail = (fmt) => { setAdFormat(fmt); setViewMode("detailed"); };
+    const googleReady = generated && rows && rows.length > 0;
+    const metaReady = !!metaResult;
+    const videoReady = !!tiktokVideoUrl;
+    const cardBase = {
+      flex: 1, minWidth: 240, background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 20,
+      cursor: "pointer", transition: "all 0.15s", minHeight: 200,
+      display: "flex", flexDirection: "column",
+    };
+    return (
+      <div style={{
+        minHeight: "100vh", background: "#060d1a",
+        backgroundImage: "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(30,50,120,0.35), transparent), radial-gradient(ellipse 60% 40% at 80% 100%, rgba(20,80,60,0.2), transparent)",
+        fontFamily: "'DM Sans', 'Segoe UI', sans-serif", color: "#e2e8f0",
+        display: "flex", flexDirection: "column", alignItems: "center", padding: "0 20px",
+      }}>
+        {/* Hero */}
+        <div style={{ width: "100%", maxWidth: 960, textAlign: "center", marginTop: 64 }}>
+          <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: "-0.02em", color: "white" }}>AI Ad Studio</div>
+          <div style={{ fontSize: 16, color: "#7e92a8", marginTop: 8 }}>Your next online campaign starts here.</div>
+
+          {/* URL box + format selectors */}
+          <div style={{ marginTop: 36, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, padding: 20 }}>
+            <input
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && !loading && generate()}
+              placeholder="Paste a product URL (https://...)"
+              style={{ width: "100%", boxSizing: "border-box", padding: "14px 16px", fontSize: 15, borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "white", outline: "none" }}
+            />
+            <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: "#7e92a8" }}>Generate:</span>
+              <span style={{ fontSize: 12, color: "#a5b4fc", padding: "6px 12px", background: "rgba(99,102,241,0.15)", borderRadius: 8, fontWeight: 700 }}>Google ✓</span>
+              <button onClick={() => setGenerateMeta(v => !v)} style={{ fontSize: 12, color: generateMeta ? "#93c5fd" : "#7e92a8", padding: "6px 12px", background: generateMeta ? "rgba(14,165,233,0.15)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Meta {generateMeta ? "✓" : ""}</button>
+              <button onClick={() => isSignedIn ? setGenerateTiktok(v => !v) : null} title={isSignedIn ? "" : "Sign in to generate video"} style={{ fontSize: 12, color: generateTiktok ? "#c4b5fd" : "#7e92a8", padding: "6px 12px", background: generateTiktok ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Video {generateTiktok ? "✓" : (isSignedIn ? "" : "🔒")}</button>
+            </div>
+            <button data-generate-btn onClick={generate} disabled={loading || batchRunning} style={{
+              marginTop: 16, width: "100%", padding: "14px", fontSize: 15, fontWeight: 800,
+              borderRadius: 10, border: "none", cursor: loading ? "default" : "pointer",
+              background: loading ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white",
+            }}>{loading ? "Generating…" : "Generate ads"}</button>
+          </div>
+        </div>
+
+        {/* Output cards */}
+        <div style={{ width: "100%", maxWidth: 960, marginTop: 28, display: "flex", gap: 16, flexWrap: "wrap" }}>
+          {/* Google */}
+          <div onClick={() => googleReady && openDetail("rsa")} style={{ ...cardBase, cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#a5b4fc", marginBottom: 10 }}>Google Ads</div>
+            {googleReady ? (
+              <>
+                <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, lineHeight: 1.4 }}>{rows[0]?.headlines?.[0] || rows[0]?.h?.[0] || "Ad generated"}</div>
+                <div style={{ marginTop: "auto", fontSize: 11, color: "#6366f1", fontWeight: 700, paddingTop: 12 }}>Open editor →</div>
+              </>
+            ) : <div style={{ fontSize: 12, color: "#4a5568", margin: "auto 0" }}>Your Google ad will appear here.</div>}
+          </div>
+          {/* Meta */}
+          <div onClick={() => metaReady && openDetail("meta")} style={{ ...cardBase, cursor: metaReady ? "pointer" : "default", opacity: metaReady ? 1 : 0.55 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#93c5fd", marginBottom: 10 }}>Meta Ad</div>
+            {metaReady ? (
+              <>
+                {metaResult.imageUrl && <img src={metaResult.imageUrl} alt="" style={{ width: "100%", height: 110, objectFit: "cover", borderRadius: 8 }} />}
+                <div style={{ marginTop: "auto", fontSize: 11, color: "#0ea5e9", fontWeight: 700, paddingTop: 12 }}>Open editor →</div>
+              </>
+            ) : <div style={{ fontSize: 12, color: "#4a5568", margin: "auto 0" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div>}
+          </div>
+          {/* Video */}
+          <div onClick={() => (videoReady && isSignedIn) && openDetail("tiktok")} style={{ ...cardBase, cursor: (videoReady && isSignedIn) ? "pointer" : "default", opacity: isSignedIn ? (videoReady ? 1 : 0.55) : 0.7 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#c4b5fd", marginBottom: 10 }}>Video {isSignedIn ? "" : "🔒"}</div>
+            {!isSignedIn ? (
+              <div style={{ fontSize: 12, color: "#7e92a8", margin: "auto 0", lineHeight: 1.5 }}>Sign in to turn your product into a short-form video ad.</div>
+            ) : videoReady ? (
+              <>
+                <video src={tiktokVideoUrl} style={{ width: "100%", height: 110, objectFit: "cover", borderRadius: 8 }} muted />
+                <div style={{ marginTop: "auto", fontSize: 11, color: "#8b5cf6", fontWeight: 700, paddingTop: 12 }}>Open editor →</div>
+              </>
+            ) : <div style={{ fontSize: 12, color: "#4a5568", margin: "auto 0" }}>Your video ad will appear here.</div>}
+          </div>
+        </div>
+
+        {/* Creative Studio teaser */}
+        <div style={{ width: "100%", maxWidth: 960, marginTop: 24, marginBottom: 60, padding: 16, background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.12)", borderRadius: 12, textAlign: "center" }}>
+          <span style={{ fontSize: 13, color: "#7e92a8", fontWeight: 700 }}>✦ Creative Studio — Brand Kit, Personas & Templates</span>
+          <span style={{ fontSize: 12, color: "#4a5568", marginLeft: 8 }}>coming soon</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -3330,6 +3423,14 @@ STRICT rules:
       flexDirection: "column",
       minHeight: "100vh",
     }}>
+      {/* NEW UI: back to overview */}
+      <button onClick={() => setViewMode("overview")} style={{
+        position: "fixed", top: 14, left: 14, zIndex: 300,
+        padding: "8px 14px", fontSize: 12, fontWeight: 700,
+        borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)",
+        background: "rgba(10,14,26,0.9)", color: "#a5b4fc", cursor: "pointer",
+        backdropFilter: "blur(4px)",
+      }}>← Overview</button>
       {/* ── Meta Account + Page Picker Modal (OAuth Phase 2) ── */}
       {metaPickerOpen && (
         <div onClick={(e) => { if (e.target === e.currentTarget) setMetaPickerOpen(false); }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
