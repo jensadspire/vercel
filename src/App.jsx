@@ -3538,7 +3538,7 @@ STRICT rules:
           </div>
 
           {/* Video */}
-          <div onClick={() => (videoReady && isSignedIn) && openDetail("tiktok")} style={{ ...cardShell, cursor: (videoReady && isSignedIn) ? "pointer" : "default", opacity: isSignedIn ? (videoReady ? 1 : 0.55) : 0.7, background: (videoReady && isSignedIn) ? "#000" : "rgba(255,255,255,0.03)" }}>
+          <div style={{ ...cardShell, opacity: isSignedIn ? (videoReady ? 1 : 0.55) : 0.7, background: (videoReady && isSignedIn) ? "#000" : "rgba(255,255,255,0.03)" }}>
             {!isSignedIn ? (
               <div style={{ fontSize: 12, color: "#7e92a8", padding: 24, margin: "auto 0", lineHeight: 1.5, textAlign: "center" }}>Sign in to turn your product into a short-form video ad.</div>
             ) : tiktokVideoLoading ? (
@@ -3553,7 +3553,7 @@ STRICT rules:
                   {VideoIcon}
                   <span style={{ fontSize: 11, color: "#7e92a8" }}>Video</span>
                 </div>
-                <video src={tiktokVideoUrl} style={{ width: "100%", aspectRatio: "9/16", maxHeight: 360, objectFit: "cover", display: "block" }} muted loop />
+                <video src={tiktokVideoUrl} controls playsInline style={{ width: "100%", aspectRatio: "9/16", objectFit: "contain", background: "#000", display: "block" }} />
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#0b1424" }}>
                   <span style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700 }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); openDetail("tiktok"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
