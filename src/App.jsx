@@ -576,6 +576,27 @@ function AdStrengthRing({ headlines, descriptions }) {
   );
 }
 
+function VideoProgressBars() {
+  // Time-based reassurance: fill one of 4 bars per ~minute over the 3-4 min wait.
+  const [elapsed, setElapsed] = useState(0); // seconds
+  useEffect(() => {
+    const t = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const filled = Math.min(4, Math.floor(elapsed / 60) + (elapsed > 0 ? 1 : 0)); // bar 1 lights immediately, then 1/min
+  return (
+    <div style={{ display: "flex", gap: 6, width: "70%", maxWidth: 180 }}>
+      {[0,1,2,3].map(i => (
+        <div key={i} style={{
+          flex: 1, height: 6, borderRadius: 3,
+          background: i < filled ? "#8b5cf6" : "rgba(139,92,246,0.18)",
+          transition: "background 0.4s ease",
+        }} />
+      ))}
+    </div>
+  );
+}
+
 function SerpPreview({ row, favicon }) {
   const hs = row.headlines.map(h => h.text).filter(Boolean);
   const ds = row.descriptions.map(d => d.text).filter(Boolean);
@@ -3545,6 +3566,7 @@ STRICT rules:
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 14, minHeight: 280 }}>
                 <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
                 <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Generating your video…<br/>Check back in 3–4 minutes</div>
+                <VideoProgressBars />
                 <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
               </div>
             ) : videoReady ? (
