@@ -3374,7 +3374,7 @@ STRICT rules:
             <div style={{ fontSize: 13, fontWeight: 800, color: "#a5b4fc", marginBottom: 10 }}>Google Ads</div>
             {googleReady ? (
               <>
-                <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, lineHeight: 1.4 }}>{rows[0]?.headlines?.[0] || rows[0]?.h?.[0] || "Ad generated"}</div>
+                <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, lineHeight: 1.4 }}>{(rows[0]?.headlines?.[0]?.text) || "Ad generated"}</div>
                 <div style={{ marginTop: "auto", fontSize: 11, color: "#6366f1", fontWeight: 700, paddingTop: 12 }}>Open editor →</div>
               </>
             ) : <div style={{ fontSize: 12, color: "#4a5568", margin: "auto 0" }}>Your Google ad will appear here.</div>}
