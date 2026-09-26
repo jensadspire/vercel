@@ -3433,7 +3433,7 @@ STRICT rules:
                 </div>
                 {/* image */}
                 {(metaResult.imageVariations?.[0] || metaResult.imageUrl) && (
-                  <img src={metaResult.imageVariations?.[0] || metaResult.imageUrl} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
+                  <img src={metaResult.imageVariations?.[0] || metaResult.imageUrl} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
                 )}
                 {/* headline + Meta-blue CTA */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "#f0f2f5", borderTop: "1px solid #dadde1" }}>
