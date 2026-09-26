@@ -957,6 +957,75 @@ function RSAStudio() {
   const [videoArchetype, setVideoArchetype] = useState('scene_reveal'); // Kling storyboard style
   const [storyboardUpdating, setStoryboardUpdating] = useState(false);
   const [storyboardReady, setStoryboardReady] = useState(false);
+  // NEW UI: reusable video generation trigger (mirrors the detailed-view button logic).
+  const startVideoGeneration = async () => {
+    if (!tiktokResult || !tiktokResult.videoPrompt) return;
+    setTiktokVideoLoading(true);
+    try {
+      const selectedImg = tiktokSourceImageRef.current || metaResult?.imageVariations?.[activeImageVariant] || metaResult?.imageUrl || metaResult?.heroProductImage || null;
+      const imageUrl = selectedImg ? selectedImg.replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://') : selectedImg;
+      if (!imageUrl) { setRecipeError('No product image available for the video. Generate a Meta ad first.'); setTiktokVideoLoading(false); return; }
+      try {
+        const dims = await new Promise((resolve) => {
+          const im = new Image();
+          im.onload = () => resolve({ w: im.naturalWidth, h: im.naturalHeight });
+          im.onerror = () => resolve({ w: 0, h: 0 });
+          setTimeout(() => resolve({ w: 0, h: 0 }), 6000);
+          im.src = imageUrl;
+        });
+        if (dims.w && dims.h && (dims.w < 300 || dims.h < 300)) {
+          setRecipeError('This image is too small for video (' + dims.w + '×' + dims.h + ' — 300×300 minimum). Open the editor and pick a larger image, or try a different product page.');
+          setTiktokVideoLoading(false);
+          return;
+        }
+      } catch (_) {}
+      const currentEngine = videoEngineRef.current;
+      setRecipeError(null);
+      if (currentEngine === 'recipe') { setRecipeGated(null); }
+      const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : '/api/kling';
+      const videoPayload = currentEngine === 'recipe'
+        ? { mode: recipeMode, imageUrl, characterImage: recipeMode === 'ugc' ? recipeCharacterImage : undefined, productInfo: (tiktokResult.brand || pageMeta?.brand || ''), userConcept: recipeMode === 'ugc' ? tiktokResult.videoPrompt : `Polished cinematic product advertisement for ${tiktokResult.brand || pageMeta?.brand || 'this product'}. The product is the clear hero, shown in an aspirational real-world setting with warm professional lighting and smooth, elegant camera movement. High-quality commercial style. No on-screen text, captions, logos, brand names or overlays anywhere.` }
+        : currentEngine === 'runway'
+        ? { imageUrl, prompt: tiktokResult.videoPrompt, duration: 10, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
+        : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
+      const r = await fetch(videoApi, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentEngine === 'recipe' && isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}),
+          ...(currentEngine === 'recipe' && isSignedIn && window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}),
+        },
+        body: JSON.stringify(videoPayload),
+      });
+      const d = await r.json();
+      if (d.gated) { setRecipeGated({ count: d.count, limit: d.limit }); setTiktokVideoLoading(false); return; }
+      if (d.error || (!d.videoUrl && !d.requestId && !d.taskId)) {
+        console.error('Video create failed:', JSON.stringify(d));
+        setRecipeError(d.error ? ('Video generation failed: ' + d.error) : 'Video generation could not start — please try again, or try a different product image.');
+        setTiktokVideoLoading(false);
+        if (videoPollRef.current) clearInterval(videoPollRef.current);
+        return;
+      }
+      if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
+      else if (d.requestId || d.taskId) {
+        const pollId = d.requestId || d.taskId;
+        const pollKey = d.taskId ? 'taskId' : 'requestId';
+        let attempts = 0;
+        if (videoPollRef.current) clearInterval(videoPollRef.current);
+        videoPollRef.current = setInterval(async () => {
+          const pollCap = videoEngineRef.current === 'recipe' ? 156 : 144;
+          if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); return; }
+          try {
+            const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
+            const pd = await pr.json();
+            if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
+            else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
+          } catch(pollErr) { console.error('Poll error:', pollErr.message); }
+        }, 5000);
+      } else { setTiktokVideoLoading(false); }
+    } catch(e) { setTiktokVideoLoading(false); }
+  };
+
   const regenerateStoryboard = async (archetypeId) => {
     setStoryboardUpdating(true); setStoryboardReady(false);
     try {
@@ -3455,6 +3524,12 @@ STRICT rules:
           <div onClick={() => (videoReady && isSignedIn) && openDetail("tiktok")} style={{ ...cardShell, cursor: (videoReady && isSignedIn) ? "pointer" : "default", opacity: isSignedIn ? (videoReady ? 1 : 0.55) : 0.7, background: (videoReady && isSignedIn) ? "#000" : "rgba(255,255,255,0.03)" }}>
             {!isSignedIn ? (
               <div style={{ fontSize: 12, color: "#7e92a8", padding: 24, margin: "auto 0", lineHeight: 1.5, textAlign: "center" }}>Sign in to turn your product into a short-form video ad.</div>
+            ) : tiktokVideoLoading ? (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 14, minHeight: 280 }}>
+                <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+                <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Generating your video…<br/>Check back in 3–4 minutes</div>
+                <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+              </div>
             ) : videoReady ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px 8px", background: "#0b1424" }} title="Short-form video — ready for TikTok, Meta Reels & Feed">
@@ -3467,7 +3542,19 @@ STRICT rules:
                   <span onClick={(e) => { e.stopPropagation(); openDetail("tiktok"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
-            ) : <div style={{ fontSize: 12, color: "#4a5568", padding: 24, margin: "auto 0", textAlign: "center" }}>Your video ad will appear here.</div>}
+            ) : (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 12, minHeight: 280 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }} title="Short-form video — ready for TikTok, Meta Reels & Feed">{VideoIcon}<span style={{ fontSize: 11, color: "#7e92a8" }}>Video</span></div>
+                {(tiktokResult && tiktokResult.videoPrompt) ? (
+                  <>
+                    <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Turn your product into a short-form video ad.<br/>Takes about 3–4 minutes.</div>
+                    <button onClick={(e) => { e.stopPropagation(); startVideoGeneration(); }} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Generate video</button>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 12, color: "#4a5568", textAlign: "center", lineHeight: 1.5 }}>Check the <b>Video</b> box above and generate to enable video.</div>
+                )}
+              </div>
+            )}
           </div>
         </div>
           );
