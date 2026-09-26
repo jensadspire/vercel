@@ -3368,59 +3368,92 @@ STRICT rules:
         </div>
 
         {/* Output cards — mirror production previews */}
+        {(() => {
+          // SVG platform icons
+          const GoogleG = (
+            <svg width="20" height="20" viewBox="0 0 48 48" style={{ display: "block" }}>
+              <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+              <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7A21.99 21.99 0 0 0 24 46z"/>
+              <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34A21.99 21.99 0 0 0 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"/>
+              <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.94 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+            </svg>
+          );
+          const MetaMark = (
+            <svg width="20" height="20" viewBox="0 0 36 24" style={{ display: "block" }}>
+              <path fill="#0866FF" d="M6.5 3C3 3 1 6.2 1 11.2 1 16 3 20 6.2 20c2.3 0 3.9-1.5 6-4.9l1.9-3.1c.2-.3.4-.6.6-1 .5.8 1 1.7 1.6 2.6l1.2 2c2.3 3.8 3.7 4.4 5.4 4.4 3.3 0 5.1-3.9 5.1-8.9C29 6.7 27 3 23.6 3c-2.1 0-3.7 1.4-5.6 4.6-.8-1.3-1.5-2.4-2.1-3.2C14.6 3.1 13 3 11.4 3H6.5zm.3 3.2c1 0 1.8.6 3.3 2.9l.9 1.4-1.3 2.1C8.2 16 7.5 16.8 6.6 16.8c-1.2 0-2-1.4-2-3.6 0-2.9 1-4 2.2-4zm16.5 0c1.2 0 2.2 1.5 2.2 4 0 2.2-.8 3.6-2 3.6-.9 0-1.6-.7-3.2-3.3l-1-1.6.8-1.3c1.4-2.3 2.2-2.9 3.2-2.9z"/>
+            </svg>
+          );
+          const cardShell = { flex: 1, minWidth: 300, display: "flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.10)" };
+          const iconBar = { display: "flex", alignItems: "center", gap: 8, padding: "12px 14px 8px" };
+          let brandName = pageMeta?.brand || "";
+          if (!brandName) {
+            try { brandName = new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./, "").split(".")[0]; brandName = brandName.charAt(0).toUpperCase() + brandName.slice(1); } catch { brandName = "Your brand"; }
+          }
+          return (
         <div style={{ width: "100%", maxWidth: 1100, marginTop: 28, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
-          {/* Google — real SerpPreview */}
-          <div onClick={() => googleReady && openDetail("rsa")} style={{ flex: 1, minWidth: 300, display: "flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55, background: googleReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#a5b4fc", padding: "10px 14px", background: "#0b1424", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Google Ads</div>
+          {/* Google */}
+          <div onClick={() => googleReady && openDetail("rsa")} style={{ ...cardShell, cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55, background: googleReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
             {googleReady ? (
               <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column" }}>
+                <div style={{ marginBottom: 10 }}>{GoogleG}</div>
                 <SerpPreview row={rows[0]} favicon={pmaxLogo} />
                 <div style={{ marginTop: "auto", fontSize: 11, color: "#6366f1", fontWeight: 700, paddingTop: 12 }}>Open editor →</div>
               </div>
-            ) : <div style={{ fontSize: 12, color: "#4a5568", padding: 24, margin: "auto 0", textAlign: "center" }}>Your Google ad will appear here.</div>}
+            ) : (<><div style={iconBar}>{GoogleG}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>Your Google ad will appear here.</div></>)}
           </div>
 
-          {/* Meta — FB-post style preview */}
-          <div onClick={() => metaReady && openDetail("meta")} style={{ flex: 1, minWidth: 300, display: "flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", cursor: metaReady ? "pointer" : "default", opacity: metaReady ? 1 : 0.55, background: metaReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#93c5fd", padding: "10px 14px", background: "#0b1424", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Meta Ad</div>
+          {/* Meta */}
+          <div onClick={() => metaReady && openDetail("meta")} style={{ ...cardShell, cursor: metaReady ? "pointer" : "default", opacity: metaReady ? 1 : 0.55, background: metaReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
             {metaReady ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                <div style={{ ...iconBar }}>{MetaMark}</div>
+                {/* FB advertiser row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 14px 8px" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: "#e4e6eb", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {pmaxLogo ? <img src={pmaxLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={e => { e.target.style.display = "none"; }} /> : null}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#050505", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{brandName}</div>
+                    <div style={{ fontSize: 11, color: "#65676b" }}>Sponsored</div>
+                  </div>
+                </div>
                 {/* primary text */}
-                <div style={{ padding: "12px 14px 10px", fontSize: 12.5, color: "#1c1e21", lineHeight: 1.4, whiteSpace: "pre-wrap" }}>
+                <div style={{ padding: "0 14px 10px", fontSize: 12.5, color: "#1c1e21", lineHeight: 1.4, whiteSpace: "pre-wrap" }}>
                   {(metaResult.primaryTexts?.[0] || "").slice(0, 140)}{(metaResult.primaryTexts?.[0] || "").length > 140 ? "…" : ""}
                 </div>
                 {/* image */}
                 {(metaResult.imageVariations?.[0] || metaResult.imageUrl) && (
                   <img src={metaResult.imageVariations?.[0] || metaResult.imageUrl} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
                 )}
-                {/* headline + CTA bar (FB style) */}
+                {/* headline + Meta-blue CTA */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "#f0f2f5", borderTop: "1px solid #dadde1" }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 10, color: "#606770", textTransform: "uppercase", letterSpacing: "0.02em" }}>{(new URL(url.startsWith("http") ? url : "https://" + url).hostname || "").replace(/^www\./, "")}</div>
+                    <div style={{ fontSize: 10, color: "#606770" }}>{(() => { try { return new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./, ""); } catch { return ""; } })()}</div>
                     <div style={{ fontSize: 12.5, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metaResult.headlines?.[0] || "Learn more"}</div>
                   </div>
-                  <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#1c1e21", background: "#e4e6eb", borderRadius: 6, padding: "7px 10px" }}>{metaResult.descriptions?.[0]?.length <= 18 ? metaResult.descriptions[0] : "Shop Now"}</div>
+                  <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#0866FF", borderRadius: 6, padding: "8px 12px" }}>{(metaResult.descriptions?.[0] && metaResult.descriptions[0].length <= 18) ? metaResult.descriptions[0] : "Shop Now"}</div>
                 </div>
-                <div style={{ marginTop: "auto", fontSize: 11, color: "#0ea5e9", fontWeight: 700, padding: "10px 14px", background: "#fff" }}>Open editor →</div>
+                <div style={{ marginTop: "auto", fontSize: 11, color: "#0866FF", fontWeight: 700, padding: "10px 14px", background: "#fff" }}>Open editor →</div>
               </div>
-            ) : <div style={{ fontSize: 12, color: "#4a5568", padding: 24, margin: "auto 0", textAlign: "center" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div>}
+            ) : (<><div style={iconBar}>{MetaMark}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div></>)}
           </div>
 
           {/* Video */}
-          <div onClick={() => (videoReady && isSignedIn) && openDetail("tiktok")} style={{ flex: 1, minWidth: 300, display: "flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", cursor: (videoReady && isSignedIn) ? "pointer" : "default", opacity: isSignedIn ? (videoReady ? 1 : 0.55) : 0.7, background: (videoReady && isSignedIn) ? "#000" : "rgba(255,255,255,0.03)" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#c4b5fd", padding: "10px 14px", background: "#0b1424", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Video {isSignedIn ? "" : "🔒"}</div>
+          <div onClick={() => (videoReady && isSignedIn) && openDetail("tiktok")} style={{ ...cardShell, cursor: (videoReady && isSignedIn) ? "pointer" : "default", opacity: isSignedIn ? (videoReady ? 1 : 0.55) : 0.7, background: (videoReady && isSignedIn) ? "#000" : "rgba(255,255,255,0.03)" }}>
             {!isSignedIn ? (
               <div style={{ fontSize: 12, color: "#7e92a8", padding: 24, margin: "auto 0", lineHeight: 1.5, textAlign: "center" }}>Sign in to turn your product into a short-form video ad.</div>
             ) : videoReady ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                <video src={tiktokVideoUrl} style={{ width: "100%", aspectRatio: "9/16", maxHeight: 320, objectFit: "cover", display: "block" }} muted loop />
+                <video src={tiktokVideoUrl} style={{ width: "100%", aspectRatio: "9/16", maxHeight: 360, objectFit: "cover", display: "block" }} muted loop />
                 <div style={{ marginTop: "auto", fontSize: 11, color: "#8b5cf6", fontWeight: 700, padding: "10px 14px", background: "#0b1424" }}>Open editor →</div>
               </div>
             ) : <div style={{ fontSize: 12, color: "#4a5568", padding: 24, margin: "auto 0", textAlign: "center" }}>Your video ad will appear here.</div>}
           </div>
         </div>
+          );
+        })()}
 
-        {/* Creative Studio teaser */}
+        {/* Creative Studio teaser */}        {/* Creative Studio teaser */}
         <div style={{ width: "100%", maxWidth: 960, marginTop: 24, marginBottom: 60, padding: 16, background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.12)", borderRadius: 12, textAlign: "center" }}>
           <span style={{ fontSize: 13, color: "#7e92a8", fontWeight: 700 }}>✦ Creative Studio — Brand Kit, Personas & Templates</span>
           <span style={{ fontSize: 12, color: "#4a5568", marginLeft: 8 }}>coming soon</span>
