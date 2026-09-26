@@ -3383,6 +3383,13 @@ STRICT rules:
               <path fill="#0866FF" d="M6.5 3C3 3 1 6.2 1 11.2 1 16 3 20 6.2 20c2.3 0 3.9-1.5 6-4.9l1.9-3.1c.2-.3.4-.6.6-1 .5.8 1 1.7 1.6 2.6l1.2 2c2.3 3.8 3.7 4.4 5.4 4.4 3.3 0 5.1-3.9 5.1-8.9C29 6.7 27 3 23.6 3c-2.1 0-3.7 1.4-5.6 4.6-.8-1.3-1.5-2.4-2.1-3.2C14.6 3.1 13 3 11.4 3H6.5zm.3 3.2c1 0 1.8.6 3.3 2.9l.9 1.4-1.3 2.1C8.2 16 7.5 16.8 6.6 16.8c-1.2 0-2-1.4-2-3.6 0-2.9 1-4 2.2-4zm16.5 0c1.2 0 2.2 1.5 2.2 4 0 2.2-.8 3.6-2 3.6-.9 0-1.6-.7-3.2-3.3l-1-1.6.8-1.3c1.4-2.3 2.2-2.9 3.2-2.9z"/>
             </svg>
           );
+          const VideoIcon = (
+            <svg width="20" height="20" viewBox="0 0 24 24" style={{ display: "block" }}>
+              <rect x="2" y="5" width="14" height="14" rx="3" fill="#8b5cf6"/>
+              <path d="M16 10l5-3v10l-5-3z" fill="#8b5cf6"/>
+              <path d="M8 8.5v7l6-3.5z" fill="#fff"/>
+            </svg>
+          );
           const cardShell = { flex: 1, minWidth: 300, display: "flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.10)" };
           const iconBar = { display: "flex", alignItems: "center", gap: 8, padding: "12px 14px 8px" };
           let brandName = pageMeta?.brand || "";
@@ -3397,7 +3404,10 @@ STRICT rules:
               <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ marginBottom: 10 }}>{GoogleG}</div>
                 <SerpPreview row={rows[0]} favicon={pmaxLogo} />
-                <div style={{ marginTop: "auto", fontSize: 11, color: "#6366f1", fontWeight: 700, paddingTop: 12 }}>Open editor →</div>
+                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
+                  <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); openDetail("rsa"); }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
+                </div>
               </div>
             ) : (<><div style={iconBar}>{GoogleG}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>Your Google ad will appear here.</div></>)}
           </div>
@@ -3433,7 +3443,10 @@ STRICT rules:
                   </div>
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#0866FF", borderRadius: 6, padding: "8px 12px" }}>{(metaResult.descriptions?.[0] && metaResult.descriptions[0].length <= 18) ? metaResult.descriptions[0] : "Shop Now"}</div>
                 </div>
-                <div style={{ marginTop: "auto", fontSize: 11, color: "#0866FF", fontWeight: 700, padding: "10px 14px", background: "#fff" }}>Open editor →</div>
+                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
+                  <span style={{ fontSize: 11, color: "#0866FF", fontWeight: 700 }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); openDetail("meta"); }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
+                </div>
               </div>
             ) : (<><div style={iconBar}>{MetaMark}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div></>)}
           </div>
@@ -3444,8 +3457,15 @@ STRICT rules:
               <div style={{ fontSize: 12, color: "#7e92a8", padding: 24, margin: "auto 0", lineHeight: 1.5, textAlign: "center" }}>Sign in to turn your product into a short-form video ad.</div>
             ) : videoReady ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px 8px", background: "#0b1424" }} title="Short-form video — ready for TikTok, Meta Reels & Feed">
+                  {VideoIcon}
+                  <span style={{ fontSize: 11, color: "#7e92a8" }}>Video</span>
+                </div>
                 <video src={tiktokVideoUrl} style={{ width: "100%", aspectRatio: "9/16", maxHeight: 360, objectFit: "cover", display: "block" }} muted loop />
-                <div style={{ marginTop: "auto", fontSize: 11, color: "#8b5cf6", fontWeight: 700, padding: "10px 14px", background: "#0b1424" }}>Open editor →</div>
+                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#0b1424" }}>
+                  <span style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700 }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); openDetail("tiktok"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
+                </div>
               </div>
             ) : <div style={{ fontSize: 12, color: "#4a5568", padding: 24, margin: "auto 0", textAlign: "center" }}>Your video ad will appear here.</div>}
           </div>
