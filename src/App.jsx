@@ -3408,8 +3408,25 @@ STRICT rules:
         fontFamily: "'DM Sans', 'Segoe UI', sans-serif", color: "#e2e8f0",
         display: "flex", flexDirection: "column", alignItems: "center", padding: "0 20px",
       }}>
+        {/* overview-auth-bar */}
+        {showAuthModal && <AuthModal />}
+        <div style={{ width: "100%", maxWidth: 1100, display: "flex", justifyContent: "flex-end", alignItems: "center", paddingTop: 16, minHeight: 44 }}>
+          {isSignedIn ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 11, color: "#8fa3b8" }}>{user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}</span>
+              <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
+            </div>
+          ) : (
+            <button onClick={() => { setAuthMode("sign-in"); setShowAuthModal(true); }} style={{
+              padding: "8px 16px", fontSize: 12, fontWeight: 700,
+              background: "linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.15))",
+              color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)",
+              borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap",
+            }}>Sign in</button>
+          )}
+        </div>
         {/* Hero */}
-        <div style={{ width: "100%", maxWidth: 960, textAlign: "center", marginTop: 64 }}>
+        <div style={{ width: "100%", maxWidth: 960, textAlign: "center", marginTop: 24 }}>
           <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: "-0.02em", color: "white" }}>AI Ad Studio</div>
           <div style={{ fontSize: 16, color: "#7e92a8", marginTop: 8 }}>Your next online campaign starts here.</div>
 
