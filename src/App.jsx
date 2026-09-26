@@ -3367,39 +3367,56 @@ STRICT rules:
           </div>
         </div>
 
-        {/* Output cards */}
-        <div style={{ width: "100%", maxWidth: 960, marginTop: 28, display: "flex", gap: 16, flexWrap: "wrap" }}>
-          {/* Google */}
-          <div onClick={() => googleReady && openDetail("rsa")} style={{ ...cardBase, cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#a5b4fc", marginBottom: 10 }}>Google Ads</div>
+        {/* Output cards — mirror production previews */}
+        <div style={{ width: "100%", maxWidth: 1100, marginTop: 28, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
+          {/* Google — real SerpPreview */}
+          <div onClick={() => googleReady && openDetail("rsa")} style={{ flex: 1, minWidth: 300, display: "flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55, background: googleReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#a5b4fc", padding: "10px 14px", background: "#0b1424", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Google Ads</div>
             {googleReady ? (
-              <>
-                <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, lineHeight: 1.4 }}>{(rows[0]?.headlines?.[0]?.text) || "Ad generated"}</div>
+              <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column" }}>
+                <SerpPreview row={rows[0]} favicon={pmaxLogo} />
                 <div style={{ marginTop: "auto", fontSize: 11, color: "#6366f1", fontWeight: 700, paddingTop: 12 }}>Open editor →</div>
-              </>
-            ) : <div style={{ fontSize: 12, color: "#4a5568", margin: "auto 0" }}>Your Google ad will appear here.</div>}
+              </div>
+            ) : <div style={{ fontSize: 12, color: "#4a5568", padding: 24, margin: "auto 0", textAlign: "center" }}>Your Google ad will appear here.</div>}
           </div>
-          {/* Meta */}
-          <div onClick={() => metaReady && openDetail("meta")} style={{ ...cardBase, cursor: metaReady ? "pointer" : "default", opacity: metaReady ? 1 : 0.55 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#93c5fd", marginBottom: 10 }}>Meta Ad</div>
+
+          {/* Meta — FB-post style preview */}
+          <div onClick={() => metaReady && openDetail("meta")} style={{ flex: 1, minWidth: 300, display: "flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", cursor: metaReady ? "pointer" : "default", opacity: metaReady ? 1 : 0.55, background: metaReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#93c5fd", padding: "10px 14px", background: "#0b1424", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Meta Ad</div>
             {metaReady ? (
-              <>
-                {metaResult.imageUrl && <img src={metaResult.imageUrl} alt="" style={{ width: "100%", height: 110, objectFit: "cover", borderRadius: 8 }} />}
-                <div style={{ marginTop: "auto", fontSize: 11, color: "#0ea5e9", fontWeight: 700, paddingTop: 12 }}>Open editor →</div>
-              </>
-            ) : <div style={{ fontSize: 12, color: "#4a5568", margin: "auto 0" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div>}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                {/* primary text */}
+                <div style={{ padding: "12px 14px 10px", fontSize: 12.5, color: "#1c1e21", lineHeight: 1.4, whiteSpace: "pre-wrap" }}>
+                  {(metaResult.primaryTexts?.[0] || "").slice(0, 140)}{(metaResult.primaryTexts?.[0] || "").length > 140 ? "…" : ""}
+                </div>
+                {/* image */}
+                {(metaResult.imageVariations?.[0] || metaResult.imageUrl) && (
+                  <img src={metaResult.imageVariations?.[0] || metaResult.imageUrl} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
+                )}
+                {/* headline + CTA bar (FB style) */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "#f0f2f5", borderTop: "1px solid #dadde1" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 10, color: "#606770", textTransform: "uppercase", letterSpacing: "0.02em" }}>{(new URL(url.startsWith("http") ? url : "https://" + url).hostname || "").replace(/^www\./, "")}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metaResult.headlines?.[0] || "Learn more"}</div>
+                  </div>
+                  <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#1c1e21", background: "#e4e6eb", borderRadius: 6, padding: "7px 10px" }}>{metaResult.descriptions?.[0]?.length <= 18 ? metaResult.descriptions[0] : "Shop Now"}</div>
+                </div>
+                <div style={{ marginTop: "auto", fontSize: 11, color: "#0ea5e9", fontWeight: 700, padding: "10px 14px", background: "#fff" }}>Open editor →</div>
+              </div>
+            ) : <div style={{ fontSize: 12, color: "#4a5568", padding: 24, margin: "auto 0", textAlign: "center" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div>}
           </div>
+
           {/* Video */}
-          <div onClick={() => (videoReady && isSignedIn) && openDetail("tiktok")} style={{ ...cardBase, cursor: (videoReady && isSignedIn) ? "pointer" : "default", opacity: isSignedIn ? (videoReady ? 1 : 0.55) : 0.7 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#c4b5fd", marginBottom: 10 }}>Video {isSignedIn ? "" : "🔒"}</div>
+          <div onClick={() => (videoReady && isSignedIn) && openDetail("tiktok")} style={{ flex: 1, minWidth: 300, display: "flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", cursor: (videoReady && isSignedIn) ? "pointer" : "default", opacity: isSignedIn ? (videoReady ? 1 : 0.55) : 0.7, background: (videoReady && isSignedIn) ? "#000" : "rgba(255,255,255,0.03)" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#c4b5fd", padding: "10px 14px", background: "#0b1424", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Video {isSignedIn ? "" : "🔒"}</div>
             {!isSignedIn ? (
-              <div style={{ fontSize: 12, color: "#7e92a8", margin: "auto 0", lineHeight: 1.5 }}>Sign in to turn your product into a short-form video ad.</div>
+              <div style={{ fontSize: 12, color: "#7e92a8", padding: 24, margin: "auto 0", lineHeight: 1.5, textAlign: "center" }}>Sign in to turn your product into a short-form video ad.</div>
             ) : videoReady ? (
-              <>
-                <video src={tiktokVideoUrl} style={{ width: "100%", height: 110, objectFit: "cover", borderRadius: 8 }} muted />
-                <div style={{ marginTop: "auto", fontSize: 11, color: "#8b5cf6", fontWeight: 700, paddingTop: 12 }}>Open editor →</div>
-              </>
-            ) : <div style={{ fontSize: 12, color: "#4a5568", margin: "auto 0" }}>Your video ad will appear here.</div>}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                <video src={tiktokVideoUrl} style={{ width: "100%", aspectRatio: "9/16", maxHeight: 320, objectFit: "cover", display: "block" }} muted loop />
+                <div style={{ marginTop: "auto", fontSize: 11, color: "#8b5cf6", fontWeight: 700, padding: "10px 14px", background: "#0b1424" }}>Open editor →</div>
+              </div>
+            ) : <div style={{ fontSize: 12, color: "#4a5568", padding: 24, margin: "auto 0", textAlign: "center" }}>Your video ad will appear here.</div>}
           </div>
         </div>
 
