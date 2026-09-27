@@ -1072,6 +1072,35 @@ function RSAStudio() {
     } catch(e) { setTiktokVideoLoading(false); }
   };
 
+  // Overview: save the current generation to the saved library (mirrors detailed-view ☆).
+  const saveCurrentToLibrary = async (format) => {
+    if (!isSignedIn || !user?.id) { setShowAuthModal(true); return; }
+    // Find the most recent history entry matching this format; fall back to a built entry.
+    let entry = history.find(h => (format === 'rsa' ? (h.format === 'rsa' || !h.format) : h.format === format));
+    if (!entry) {
+      // build a minimal compatible entry from current state
+      const base = { id: Date.now(), url, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+      if (format === 'rsa') entry = { ...base, format: 'rsa', rows: rows };
+      else if (format === 'meta') entry = { ...base, format: 'meta', metaResult };
+      else if (format === 'tiktok' || format === 'video') entry = { ...base, format: 'video', videoUrl: tiktokVideoUrl, tiktokResult };
+    }
+    if (!entry) return;
+    const already = library.some(e => e.id === entry.id);
+    try {
+      if (already) {
+        await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
+        setLibrary(prev => prev.filter(e => e.id !== entry.id));
+      } else {
+        setLibrarySaving(entry.id);
+        const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
+        const d = await r.json();
+        if (d.ok) setLibrary(prev => [{ ...entry, savedAt: new Date().toISOString() }, ...prev]);
+        else if (d.limitReached) alert('Library limit reached. Remove some saved outputs first.');
+        setLibrarySaving(null);
+      }
+    } catch (e) { console.error('[save-library]', e.message); setLibrarySaving(null); }
+  };
+
   const regenerateStoryboard = async (archetypeId) => {
     setStoryboardUpdating(true); setStoryboardReady(false);
     try {
@@ -3679,6 +3708,7 @@ STRICT rules:
                 <SerpPreview row={rows[0]} favicon={pmaxLogo} />
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
                   <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary("rsa"); }} title="Save to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{history.some(h => (h.format === 'rsa' || !h.format) && library.some(e => e.id === h.id)) ? "★" : "☆"}</span>
                   <span onClick={(e) => { e.stopPropagation();
                     if (!isSignedIn) { setShowAuthModal(true); return; }
                     if (!gadsConn.connected) { triggerGadsConnect(); return; }
@@ -3722,6 +3752,7 @@ STRICT rules:
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#0866FF", fontWeight: 700 }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary("meta"); }} title="Save to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{history.some(h => h.format === 'meta' && library.some(e => e.id === h.id)) ? "★" : "☆"}</span>
                   <span onClick={(e) => { e.stopPropagation();
                     if (!isSignedIn) { setShowAuthModal(true); return; }
                     if (!metaConn.connected) { triggerMetaConnect(); return; }
@@ -3772,6 +3803,7 @@ STRICT rules:
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700 }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary("video"); }} title="Save to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{history.some(h => h.format === 'video' && library.some(e => e.id === h.id)) ? "★" : "☆"}</span>
                   <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
