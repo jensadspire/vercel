@@ -2134,6 +2134,40 @@ function RSAStudio() {
     if (adminKey && key && key === adminKey) setIsAdmin(true);
   }, []);
   const [pageMeta, setPageMeta] = useState({ language: "English" });
+
+  // ── sessionStorage persistence (survive sign-in remount / redirect) ──────────
+  const RSA_OVERVIEW_STATE = 'rsa_overview_state_v1';
+  const overviewRestoredRef = useRef(false);
+  // Restore once on mount
+  useEffect(() => {
+    if (overviewRestoredRef.current) return;
+    overviewRestoredRef.current = true;
+    try {
+      const raw = sessionStorage.getItem(RSA_OVERVIEW_STATE);
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (s.url) setUrl(s.url);
+      if (Array.isArray(s.rows) && s.rows.length) setRows(s.rows);
+      if (s.metaResult) setMetaResult(s.metaResult);
+      if (s.tiktokResult) setTiktokResult(s.tiktokResult);
+      if (s.tiktokVideoUrl) setTiktokVideoUrl(s.tiktokVideoUrl);
+      if (typeof s.generated === 'boolean') setGenerated(s.generated);
+      if (typeof s.generateMeta === 'boolean') setGenerateMeta(s.generateMeta);
+      if (typeof s.generateTiktok === 'boolean') setGenerateTiktok(s.generateTiktok);
+      if (s.pageMeta) setPageMeta(s.pageMeta);
+      if (s.pmaxLogo) setPmaxLogo(s.pmaxLogo);
+      if (s.videoEngine) { setVideoEngine(s.videoEngine); videoEngineRef.current = s.videoEngine; }
+      console.log('[overview] restored session state');
+    } catch (e) { console.error('[overview] restore failed:', e.message); }
+  }, []);
+  // Save on change (only once there's something worth saving)
+  useEffect(() => {
+    try {
+      if (!generated && !metaResult && !tiktokVideoUrl && !url) return;
+      const snap = { url, rows, metaResult, tiktokResult, tiktokVideoUrl, generated, generateMeta, generateTiktok, pageMeta, pmaxLogo, videoEngine };
+      sessionStorage.setItem(RSA_OVERVIEW_STATE, JSON.stringify(snap));
+    } catch (e) { /* quota or serialization — ignore, non-critical */ }
+  }, [url, rows, metaResult, tiktokResult, tiktokVideoUrl, generated, generateMeta, generateTiktok, pageMeta, pmaxLogo, videoEngine]);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState("headlines"); // headlines | descriptions | urls
   const [showGuide, setShowGuide] = useState(false);
@@ -3539,7 +3573,7 @@ STRICT rules:
           return (
         <div style={{ width: "100%", maxWidth: 1100, marginTop: 28, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
           {/* Google */}
-          <div onClick={() => googleReady && openDetail("rsa")} style={{ ...cardShell, cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55, background: googleReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
+          <div onClick={() => googleReady && !tiktokVideoLoading && openDetail("rsa")} style={{ ...cardShell, cursor: (googleReady && !tiktokVideoLoading) ? "pointer" : "default", opacity: (googleReady ? 1 : 0.55) * (tiktokVideoLoading ? 0.6 : 1), background: googleReady ? "#fff" : "rgba(255,255,255,0.03)", pointerEvents: tiktokVideoLoading ? "none" : "auto" }}>
             {googleReady ? (
               <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ marginBottom: 10 }}>{GoogleG}</div>
@@ -3557,7 +3591,7 @@ STRICT rules:
           </div>
 
           {/* Meta */}
-          <div onClick={() => metaReady && openDetail("meta")} style={{ ...cardShell, cursor: metaReady ? "pointer" : "default", opacity: metaReady ? 1 : 0.55, background: metaReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
+          <div onClick={() => metaReady && !tiktokVideoLoading && openDetail("meta")} style={{ ...cardShell, cursor: (metaReady && !tiktokVideoLoading) ? "pointer" : "default", opacity: (metaReady ? 1 : 0.55) * (tiktokVideoLoading ? 0.6 : 1), background: metaReady ? "#fff" : "rgba(255,255,255,0.03)", pointerEvents: tiktokVideoLoading ? "none" : "auto" }}>
             {metaReady ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ ...iconBar }}>{MetaMark}</div>
