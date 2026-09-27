@@ -601,13 +601,13 @@ function VideoProgressBars() {
 // Order matters: first matching vertical wins (Home Decor → scene_reveal before lifestyle).
 const VERTICAL_RULES = [
   // Beauty & Fashion → Runway
-  { engine: 'runway', archetype: 'lifestyle_montage', kw: ['fashion','apparel','clothing','clothes','dress','kleid','kjole','shirt','blouse','bluse','skjorte','trousers','hose','bukser','jeans','jacket','jacke','jakke','coat','sweater','pullover','hoodie','strik','mode','bekleidung','damen','herren','dame','herre','beauty','cosmetic','kosmetik','skincare','makeup','make-up','perfume','parfum','lipstick','serum','pflege'] },
+  { engine: 'runway', archetype: 'lifestyle_montage', kw: ['fashion','apparel','clothing','clothes','dress','kleid','kjole','shirt','t-shirt','tshirt','tee','top','blouse','bluse','skjorte','trousers','hose','bukser','jeans','jacket','jacke','jakke','coat','sweater','pullover','hoodie','strik','mode','bekleidung','damen','herren','dame','herre','beauty','cosmetic','kosmetik','skincare','makeup','make-up','perfume','parfum','lipstick','serum','pflege'] },
   // Household appliances, DIY & Garden, Home Decor → Kling Scene Reveal
   { engine: 'kling', archetype: 'scene_reveal', kw: ['appliance','appliances','haushalt','hvidevarer','washing','dishwasher','fridge','kühlschrift','kühlschrank','oven','ofen','microwave','vacuum','staubsauger','kettle','toaster','blender','mixer','cookware','pan','pot','gryde','pande','diy','tools','werkzeug','værktøj','garden','garten','have','plant','pflanze','flower','blume','blomst','decor','decoration','deko','interior','indretning','vase','candle','kerze','lamp','lampe','cushion','pude','rug','teppich','tæppe','curtain','gardin','furniture','möbel','møbel','sofa','table','tisch','bord','shelf','regal','hylde'] },
   // Gadgets/jewelry/watches, Footwear/Athletic → Kling Studio Spin
   { engine: 'kling', archetype: 'studio_spin', kw: ['gadget','electronics','elektronik','headphone','kopfhörer','høretelefon','earbuds','speaker','lautsprecher','højttaler','charger','powerbank','jewelry','jewellery','schmuck','smykke','ring','necklace','kette','halskæde','bracelet','armband','earring','ohrring','ørering','watch','watches','uhr','ur','shoes','schuhe','sko','sneaker','sneakers','boots','stiefel','støvler','loafer','slipper','sandal','heels','trainers','footwear','athletic'] },
   // Travel, Fitness/Wellness, Personal Care, Beverages/Food, Culture, Automotive, Outdoor → Kling Lifestyle Montage
-  { engine: 'kling', archetype: 'lifestyle_montage', kw: ['travel','reise','rejse','hotel','resort','hospitality','flight','vacation','urlaub','ferie','fitness','wellness','gym','yoga','workout','training','sport','supplement','vitamin','food','beverage','drink','getränk','drikke','coffee','kaffee','kaffe','tea','tee','the','wine','wein','vin','beer','bier','øl','snack','culture','book','buch','bog','music','musik','game','automotive','car','auto','bil','vehicle','fahrzeug','motorcycle','tire','reifen','outdoor','bike','bicycle','fahrrad','cykel','trekking','hiking','wandern','camping','tent','zelt','telt','backpack','rucksack','rygsæk'] },
+  { engine: 'kling', archetype: 'lifestyle_montage', kw: ['travel','reise','rejse','hotel','resort','hospitality','flight','vacation','urlaub','ferie','fitness','wellness','gym','yoga','workout','training','sport','supplement','vitamin','food','beverage','drink','getränk','drikke','coffee','kaffee','kaffe','tea','tee','the','wine','wein','vin','beer','bier','øl','snack','culture','book','buch','bog','music','musik','game','automotive','car','auto','bil','vehicle','fahrzeug','motorcycle','tire','reifen','outdoor','bike','e-bike','ebike','elcykel','elcykler','pedelec','bicycle','fahrrad','cykel','trekking','hiking','wandern','camping','tent','zelt','telt','backpack','rucksack','rygsæk'] },
 ];
 function detectVertical(url, meta) {
   const hay = [url || '', meta?.title || '', meta?.h1 || '', meta?.siteName || '', meta?.metaDescription || ''].join(' ').toLowerCase();
@@ -1203,6 +1203,7 @@ function RSAStudio() {
   const tiktokSourceImageRef = useRef(null); // persists user-selected image through Meta regen
   const lastGeneratedUrlRef = useRef(''); // tracks URL used for last generation to detect URL changes
   const videoEngineRef = useRef('kling'); // always reflects current videoEngine (avoids stale closure)
+  const videoSelArchetypeRef = useRef('scene_reveal'); // synchronously reflects auto-selected archetype
   const videoPollRef = useRef(null); // keeps poll interval alive across re-renders
 
   const detectVideoEngine = (imgUrl) => {
@@ -2623,6 +2624,7 @@ function RSAStudio() {
             const sel = detectVertical(url, pageMeta);
             setVideoEngine(sel.engine);
             videoEngineRef.current = sel.engine;
+            videoSelArchetypeRef.current = sel.archetype; // synchronous — storyboard call reads this
             if (sel.engine === 'kling') setVideoArchetype(sel.archetype);
             console.log('[model-select] auto:', sel.engine, sel.archetype);
           } catch (e) { console.error('[model-select] failed (default kling):', e.message); }
@@ -3112,7 +3114,7 @@ STRICT rules:
           const tiktokRes = await fetch("/api/generate-tiktok", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta?.language || "English", videoEngine, audienceBrief, pageContent: pageMeta?.content || "", archetype: videoArchetype }),
+            body: JSON.stringify({ url, language: pageMeta?.language || "English", videoEngine: videoEngineRef.current, audienceBrief, pageContent: pageMeta?.content || "", archetype: videoSelArchetypeRef.current }),
           });
           const tiktokData = await tiktokRes.json();
           if (tiktokData.error) {
