@@ -3614,7 +3614,7 @@ STRICT rules:
             ) : videoReady ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ ...iconBar }} title="Short-form video — ready for TikTok, Meta Reels & Feed">{VideoIcon}</div>
-                <video src={tiktokVideoUrl} controls playsInline style={{ width: "100%", aspectRatio: "9/16", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
+                <video src={tiktokVideoUrl} controls playsInline style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700 }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
