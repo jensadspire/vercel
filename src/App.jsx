@@ -597,29 +597,25 @@ function VideoProgressBars() {
   );
 }
 
-// Level-1 video-engine selector: fashion/apparel → Runway (regular), else Kling.
-const FASHION_KEYWORDS = [
-  'fashion','apparel','clothing','clothes','wear','outfit','garment',
-  'dress','kleid','kjole','skirt','rock','nederdel',
-  'shirt','blouse','bluse','skjorte','top','tee','t-shirt','tshirt',
-  'trousers','pants','hose','bukser','jeans','leggings',
-  'shoes','schuhe','sko','sneaker','sneakers','boots','stiefel','stovler','støvler','heels',
-  'jacket','coat','jacke','mantel','jakke','frakke','blazer',
-  'sweater','pullover','hoodie','strik','knit','cardigan',
-  'mode','toj','tøj','bekleidung','damen','herren','dame','herre','damer',
-  'lingerie','underwear','socks','accessories','scarf','hat','cap',
+// Vertical → model+archetype selector (keyword-based, 5-8 terms per vertical, DE/DK/EN).
+// Order matters: first matching vertical wins (Home Decor → scene_reveal before lifestyle).
+const VERTICAL_RULES = [
+  // Beauty & Fashion → Runway
+  { engine: 'runway', archetype: 'lifestyle_montage', kw: ['fashion','apparel','clothing','clothes','dress','kleid','kjole','shirt','blouse','bluse','skjorte','trousers','hose','bukser','jeans','jacket','jacke','jakke','coat','sweater','pullover','hoodie','strik','mode','bekleidung','damen','herren','dame','herre','beauty','cosmetic','kosmetik','skincare','makeup','make-up','perfume','parfum','lipstick','serum','pflege'] },
+  // Household appliances, DIY & Garden, Home Decor → Kling Scene Reveal
+  { engine: 'kling', archetype: 'scene_reveal', kw: ['appliance','appliances','haushalt','hvidevarer','washing','dishwasher','fridge','kühlschrift','kühlschrank','oven','ofen','microwave','vacuum','staubsauger','kettle','toaster','blender','mixer','cookware','pan','pot','gryde','pande','diy','tools','werkzeug','værktøj','garden','garten','have','plant','pflanze','flower','blume','blomst','decor','decoration','deko','interior','indretning','vase','candle','kerze','lamp','lampe','cushion','pude','rug','teppich','tæppe','curtain','gardin','furniture','möbel','møbel','sofa','table','tisch','bord','shelf','regal','hylde'] },
+  // Gadgets/jewelry/watches, Footwear/Athletic → Kling Studio Spin
+  { engine: 'kling', archetype: 'studio_spin', kw: ['gadget','electronics','elektronik','headphone','kopfhörer','høretelefon','earbuds','speaker','lautsprecher','højttaler','charger','powerbank','jewelry','jewellery','schmuck','smykke','ring','necklace','kette','halskæde','bracelet','armband','earring','ohrring','ørering','watch','watches','uhr','ur','shoes','schuhe','sko','sneaker','sneakers','boots','stiefel','støvler','loafer','slipper','sandal','heels','trainers','footwear','athletic'] },
+  // Travel, Fitness/Wellness, Personal Care, Beverages/Food, Culture, Automotive, Outdoor → Kling Lifestyle Montage
+  { engine: 'kling', archetype: 'lifestyle_montage', kw: ['travel','reise','rejse','hotel','resort','hospitality','flight','vacation','urlaub','ferie','fitness','wellness','gym','yoga','workout','training','sport','supplement','vitamin','food','beverage','drink','getränk','drikke','coffee','kaffee','kaffe','tea','tee','the','wine','wein','vin','beer','bier','øl','snack','culture','book','buch','bog','music','musik','game','automotive','car','auto','bil','vehicle','fahrzeug','motorcycle','tire','reifen','outdoor','bike','bicycle','fahrrad','cykel','trekking','hiking','wandern','camping','tent','zelt','telt','backpack','rucksack','rygsæk'] },
 ];
-function detectFashionEngine(url, meta) {
-  const hay = [
-    url || '',
-    meta?.title || '', meta?.h1 || '', meta?.siteName || '', meta?.metaDescription || '',
-  ].join(' ').toLowerCase();
-  const isFashion = FASHION_KEYWORDS.some(k => {
-    // word-ish boundary to avoid matching inside unrelated words
-    const re = new RegExp('(^|[^a-z])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\function SerpPreview({ row, favicon }) {') + '([^a-z]|$)', 'i');
-    return re.test(hay);
-  });
-  return isFashion ? 'runway' : 'kling';
+function detectVertical(url, meta) {
+  const hay = [url || '', meta?.title || '', meta?.h1 || '', meta?.siteName || '', meta?.metaDescription || ''].join(' ').toLowerCase();
+  const hit = (k) => new RegExp('(^|[^a-z])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z]|$)', 'i').test(hay);
+  for (const rule of VERTICAL_RULES) {
+    if (rule.kw.some(hit)) return { engine: rule.engine, archetype: rule.archetype };
+  }
+  return { engine: 'kling', archetype: 'scene_reveal' }; // default
 }
 
 function SerpPreview({ row, favicon }) {
@@ -2622,13 +2618,13 @@ function RSAStudio() {
           const useScrapedLang = scraped.language && (scraped.language !== "English" || !clientLang);
           pageMeta = { ...pageMeta, ...scraped, language: useScrapedLang ? scraped.language : (clientLang || scraped.language || "English") };
           setPageMeta(pageMeta);
-          // Level-1 auto model select: fashion → Runway, else Kling+scene_reveal
+          // Auto model+variant select by vertical
           try {
-            const autoEngine = detectFashionEngine(url, pageMeta);
-            setVideoEngine(autoEngine);
-            videoEngineRef.current = autoEngine;
-            if (autoEngine === 'kling') setVideoArchetype('scene_reveal');
-            console.log('[model-select] auto engine:', autoEngine);
+            const sel = detectVertical(url, pageMeta);
+            setVideoEngine(sel.engine);
+            videoEngineRef.current = sel.engine;
+            if (sel.engine === 'kling') setVideoArchetype(sel.archetype);
+            console.log('[model-select] auto:', sel.engine, sel.archetype);
           } catch (e) { console.error('[model-select] failed (default kling):', e.message); }
         }
       } catch (_) {
@@ -3813,7 +3809,7 @@ STRICT rules:
                 {(tiktokResult && tiktokResult.videoPrompt) ? (
                   <>
                     <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Turn your product into a short-form video ad.<br/>Takes about 3–4 minutes.</div>
-                    <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{videoEngine === 'runway' ? 'Runway · best for fashion' : 'Kling · Scene Reveal'}</div>
+                    <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{videoEngine === 'runway' ? 'Runway · best for fashion' : ('Kling · ' + (videoArchetype === 'studio_spin' ? 'Studio Spin' : videoArchetype === 'lifestyle_montage' ? 'Lifestyle Montage' : 'Scene Reveal'))}</div>
                     <button onClick={(e) => { e.stopPropagation(); startVideoGeneration(); }} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Generate video</button>
                   </>
                 ) : (
