@@ -3629,6 +3629,14 @@ STRICT rules:
                   {(metaResult?.primaryTexts?.[0] || "").slice(0, 140)}{(metaResult?.primaryTexts?.[0] || "").length > 140 ? "…" : ""}
                 </div>
                 <video src={tiktokVideoUrl} controls playsInline style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
+                {/* headline + CTA payoff (mirrors Meta, video purple accent) */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "#f0f2f5", borderTop: "1px solid #dadde1" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 10, color: "#606770" }}>{(() => { try { return new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./, ""); } catch { return ""; } })()}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metaResult?.headlines?.[0] || tiktokResult?.cta || "Learn more"}</div>
+                  </div>
+                  <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#8b5cf6", borderRadius: 6, padding: "8px 12px" }}>{(metaResult?.descriptions?.[0] && metaResult.descriptions[0].length <= 18) ? metaResult.descriptions[0] : "Shop Now"}</div>
+                </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700 }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
