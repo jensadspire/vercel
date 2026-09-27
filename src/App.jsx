@@ -3614,6 +3614,20 @@ STRICT rules:
             ) : videoReady ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ ...iconBar }} title="Short-form video — ready for TikTok, Meta Reels & Feed">{VideoIcon}</div>
+                {/* advertiser row (mirrors Meta) */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 14px 8px" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: "#e4e6eb", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {pmaxLogo ? <img src={pmaxLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={e => { e.target.style.display = "none"; }} /> : null}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#050505", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{brandName}</div>
+                    <div style={{ fontSize: 11, color: "#65676b" }}>Sponsored</div>
+                  </div>
+                </div>
+                {/* primary text (from Meta output, if available) */}
+                <div style={{ padding: "0 14px 10px", fontSize: 12.5, color: "#1c1e21", lineHeight: 1.4, whiteSpace: "pre-wrap" }}>
+                  {(metaResult?.primaryTexts?.[0] || "").slice(0, 140)}{(metaResult?.primaryTexts?.[0] || "").length > 140 ? "…" : ""}
+                </div>
                 <video src={tiktokVideoUrl} controls playsInline style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700 }}>Open editor →</span>
