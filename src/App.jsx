@@ -597,6 +597,31 @@ function VideoProgressBars() {
   );
 }
 
+// Level-1 video-engine selector: fashion/apparel → Runway (regular), else Kling.
+const FASHION_KEYWORDS = [
+  'fashion','apparel','clothing','clothes','wear','outfit','garment',
+  'dress','kleid','kjole','skirt','rock','nederdel',
+  'shirt','blouse','bluse','skjorte','top','tee','t-shirt','tshirt',
+  'trousers','pants','hose','bukser','jeans','leggings',
+  'shoes','schuhe','sko','sneaker','sneakers','boots','stiefel','stovler','støvler','heels',
+  'jacket','coat','jacke','mantel','jakke','frakke','blazer',
+  'sweater','pullover','hoodie','strik','knit','cardigan',
+  'mode','toj','tøj','bekleidung','damen','herren','dame','herre','damer',
+  'lingerie','underwear','socks','accessories','scarf','hat','cap',
+];
+function detectFashionEngine(url, meta) {
+  const hay = [
+    url || '',
+    meta?.title || '', meta?.h1 || '', meta?.siteName || '', meta?.metaDescription || '',
+  ].join(' ').toLowerCase();
+  const isFashion = FASHION_KEYWORDS.some(k => {
+    // word-ish boundary to avoid matching inside unrelated words
+    const re = new RegExp('(^|[^a-z])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\function SerpPreview({ row, favicon }) {') + '([^a-z]|$)', 'i');
+    return re.test(hay);
+  });
+  return isFashion ? 'runway' : 'kling';
+}
+
 function SerpPreview({ row, favicon }) {
   const hs = row.headlines.map(h => h.text).filter(Boolean);
   const ds = row.descriptions.map(d => d.text).filter(Boolean);
@@ -2532,6 +2557,14 @@ function RSAStudio() {
           const useScrapedLang = scraped.language && (scraped.language !== "English" || !clientLang);
           pageMeta = { ...pageMeta, ...scraped, language: useScrapedLang ? scraped.language : (clientLang || scraped.language || "English") };
           setPageMeta(pageMeta);
+          // Level-1 auto model select: fashion → Runway, else Kling+scene_reveal
+          try {
+            const autoEngine = detectFashionEngine(url, pageMeta);
+            setVideoEngine(autoEngine);
+            videoEngineRef.current = autoEngine;
+            if (autoEngine === 'kling') setVideoArchetype('scene_reveal');
+            console.log('[model-select] auto engine:', autoEngine);
+          } catch (e) { console.error('[model-select] failed (default kling):', e.message); }
         }
       } catch (_) {
         // Scrape failed — continue with client-side language detection + empty metadata
@@ -3584,6 +3617,7 @@ STRICT rules:
                 {(tiktokResult && tiktokResult.videoPrompt) ? (
                   <>
                     <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Turn your product into a short-form video ad.<br/>Takes about 3–4 minutes.</div>
+                    <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{videoEngine === 'runway' ? 'Runway · best for fashion' : 'Kling · Scene Reveal'}</div>
                     <button onClick={(e) => { e.stopPropagation(); startVideoGeneration(); }} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Generate video</button>
                   </>
                 ) : (
