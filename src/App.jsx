@@ -2134,6 +2134,42 @@ function RSAStudio() {
     if (adminKey && key && key === adminKey) setIsAdmin(true);
   }, []);
   const [pageMeta, setPageMeta] = useState({ language: "English" });
+
+  // ── One-shot sign-in bridge (self-clearing, NOT sticky) ──────────────────────
+  const RSA_SIGNIN_BRIDGE = 'rsa_signin_bridge_v1';
+  const signinBridgeRestoredRef = useRef(false);
+  // Restore once on mount, then delete immediately so it never re-applies.
+  useEffect(() => {
+    if (signinBridgeRestoredRef.current) return;
+    signinBridgeRestoredRef.current = true;
+    let raw = null;
+    try { raw = sessionStorage.getItem(RSA_SIGNIN_BRIDGE); } catch (_) {}
+    if (!raw) return;
+    try { sessionStorage.removeItem(RSA_SIGNIN_BRIDGE); } catch (_) {} // clear FIRST — one-shot
+    try {
+      const s = JSON.parse(raw);
+      if (s.url) setUrl(s.url);
+      if (Array.isArray(s.rows) && s.rows.length) setRows(s.rows);
+      if (s.metaResult) setMetaResult(s.metaResult);
+      if (s.tiktokResult) setTiktokResult(s.tiktokResult);
+      if (s.tiktokVideoUrl) setTiktokVideoUrl(s.tiktokVideoUrl);
+      if (typeof s.generated === 'boolean') setGenerated(s.generated);
+      if (typeof s.generateMeta === 'boolean') setGenerateMeta(s.generateMeta);
+      if (typeof s.generateTiktok === 'boolean') setGenerateTiktok(s.generateTiktok);
+      if (s.pageMeta) setPageMeta(s.pageMeta);
+      if (s.pmaxLogo) setPmaxLogo(s.pmaxLogo);
+      if (s.videoEngine) { setVideoEngine(s.videoEngine); videoEngineRef.current = s.videoEngine; }
+      console.log('[signin-bridge] restored + cleared');
+    } catch (e) { console.error('[signin-bridge] restore failed:', e.message); }
+  }, []);
+  // Helper: snapshot current state into the bridge (called right before opening auth).
+  const saveSigninBridge = () => {
+    try {
+      if (!generated && !metaResult && !tiktokVideoUrl && !url) return;
+      const snap = { url, rows, metaResult, tiktokResult, tiktokVideoUrl, generated, generateMeta, generateTiktok, pageMeta, pmaxLogo, videoEngine };
+      sessionStorage.setItem(RSA_SIGNIN_BRIDGE, JSON.stringify(snap));
+    } catch (_) {}
+  };
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState("headlines"); // headlines | descriptions | urls
   const [showGuide, setShowGuide] = useState(false);
@@ -3171,8 +3207,8 @@ STRICT rules:
           ))}
         </div>
         {authMode === "sign-in"
-          ? <SignIn afterSignInUrl="/" routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
-          : <SignUp afterSignUpUrl="/" routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
+          ? <SignIn routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
+          : <SignUp routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
         }
         {/* Marketing opt-in — below Clerk form, unchecked by default (GDPR compliant) */}
         {authMode === "sign-up" && (
@@ -3471,7 +3507,7 @@ STRICT rules:
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
           ) : (
-            <button onClick={() => { setAuthMode("sign-in"); setShowAuthModal(true); }} style={{
+            <button onClick={() => { saveSigninBridge(); setAuthMode("sign-in"); setShowAuthModal(true); }} style={{
               padding: "8px 16px", fontSize: 12, fontWeight: 700,
               background: "linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.15))",
               color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)",
