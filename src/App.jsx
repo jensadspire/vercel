@@ -3500,9 +3500,106 @@ STRICT rules:
       }}>
         {/* overview-auth-bar */}
         {showAuthModal && <AuthModal />}
+      {showLibrary && (
+        <div onClick={() => setShowLibrary(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(6px)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#0f1623', border: '1px solid rgba(245,158,11,0.3)',
+            borderRadius: 16, width: '100%', maxWidth: 600, maxHeight: '85vh',
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+          }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>★ Saved Library</div>
+                <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>{library.length} saved output{library.length !== 1 ? 's' : ''} — click Replay to reload</div>
+              </div>
+              <button onClick={() => setShowLibrary(false)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '12px 16px', flex: 1 }}>
+              {library.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#4a5568' }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>☆</div>
+                  <div style={{ fontSize: 14, color: '#7e92a8' }}>No saved outputs yet</div>
+                  <div style={{ fontSize: 11, marginTop: 6 }}>Click ☆ on any history entry to save it</div>
+                </div>
+              ) : library.map(entry => (
+                <div key={entry.id} style={{
+                  padding: '12px 14px', borderRadius: 10, marginBottom: 8,
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                  {entry.type === 'video' && entry.videoUrl && (
+                    <video src={entry.videoUrl} muted playsInline preload="metadata" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover', flexShrink: 0, background: '#000' }} />
+                  )}
+                  {entry.metaResult && entry.metaResult.imageUrl && (
+                    <img src={entry.metaResult.imageUrl} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {(() => { try { return new URL(entry.url).hostname.replace('www.',''); } catch(_) { return entry.url; } })()}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#4a5568', marginTop: 2 }}>
+                      {entry.rows && entry.rows[0] && entry.rows[0].headlines && entry.rows[0].headlines[0] && entry.rows[0].headlines[0].text ? entry.rows[0].headlines[0].text.slice(0, 50) : entry.metaResult && entry.metaResult.headlines && entry.metaResult.headlines[0] ? entry.metaResult.headlines[0].slice(0, 50) : ''}
+                    </div>
+                    <div style={{ fontSize: 9, color: '#2d3748', marginTop: 3, display: 'flex', gap: 8 }}>
+                      <span>{entry.type === 'video' ? ('🎬 ' + (entry.engine === 'kling' ? 'Kling' : entry.engine === 'runway' ? 'Runway' : entry.engine === 'recipe' ? 'Recipe' : 'Video') + (entry.engine === 'kling' && entry.archetype ? ' · ' + String(entry.archetype).replace(/_/g, ' ') : '')) : entry.format === 'pmax' ? '◈ PMax' : entry.metaResult ? '◉ Meta' : '◎ RSA'}</span>
+                      <span>{entry.savedAt ? new Date(entry.savedAt).toLocaleDateString() : entry.timestamp}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => {
+                      if (entry.type === 'video') {
+                        setUrl(entry.url || '');
+                        setTiktokVideoUrl(entry.videoUrl);
+                        if (entry.engine) setVideoEngine(entry.engine);
+                        setTiktokResult(prev => ({ ...(prev || {}), storyboard: entry.storyboard || [], videoPrompt: entry.videoPrompt || '', brand: entry.brand || '' }));
+                        setGenerated(true);
+                        setAdFormat('tiktok');
+                        setShowLibrary(false);
+                      } else {
+                        setRows(entry.rows);
+                        setActiveRow(0);
+                        setUrl(entry.url);
+                        setGenerated(true);
+                        if (entry.format) setAdFormat(entry.format);
+                        if (entry.metaResult) { setMetaResult(entry.metaResult); setMetaError(''); }
+                        setShowLibrary(false);
+                      }
+                    }} style={{
+                      padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 7,
+                      background: 'linear-gradient(135deg,rgba(99,102,241,0.3),rgba(14,165,233,0.3))',
+                      color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)', cursor: 'pointer',
+                    }}>▶ Replay</button>
+                    <button onClick={async () => {
+                      await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
+                      setLibrary(prev => prev.filter(e => e.id !== entry.id));
+                    }} style={{
+                      padding: '6px 8px', fontSize: 11, borderRadius: 7,
+                      background: 'rgba(255,255,255,0.04)', color: '#4a5568',
+                      border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer',
+                    }}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
         <div style={{ width: "100%", maxWidth: 1100, display: "flex", justifyContent: "flex-end", alignItems: "center", paddingTop: 16, minHeight: 44 }}>
           {isSignedIn ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {library.length > 0 && (
+                <button data-overview-library-btn onClick={() => setShowLibrary(true)} style={{
+                  padding: "6px 12px", fontSize: 11, fontWeight: 700,
+                  background: "rgba(245,158,11,0.12)", color: "#fbbf24",
+                  border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap",
+                }}>★ Library <span style={{ background: "rgba(245,158,11,0.3)", borderRadius: 10, padding: "1px 6px", fontSize: 9 }}>{library.length}</span></button>
+              )}
               <span style={{ fontSize: 11, color: "#8fa3b8" }}>{user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}</span>
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
