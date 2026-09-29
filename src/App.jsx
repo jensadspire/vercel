@@ -945,7 +945,7 @@ function RSAStudio() {
   const [brandLoading, setBrandLoading] = useState(false);
   const [brandSaving, setBrandSaving] = useState(false);
   const [brandError, setBrandError] = useState(null);
-  const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
+  const [generateMeta, setGenerateMeta] = useState(true); // default ON (Google + Meta pre-checked on load)
   const [imageModel, setImageModel] = useState('imagen'); // 'dalle' | 'imagen'
   const [metaResult, setMetaResult] = useState(null);
   const [activeImageVariant, setActiveImageVariant] = useState(0);
@@ -3716,7 +3716,8 @@ STRICT rules:
             <button data-generate-btn onClick={generate} disabled={loading || batchRunning} style={{
               marginTop: 16, width: "100%", padding: "14px", fontSize: 15, fontWeight: 800,
               borderRadius: 10, border: "none", cursor: loading ? "default" : "pointer",
-              background: loading ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white",
+              background: (loading || batchRunning) ? "linear-gradient(135deg,#f59e0b,#f97316)" : "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white",
+              animation: (loading || batchRunning) ? "pulse 1.5s ease-in-out infinite" : "none",
             }}>{loading ? "Generating…" : "Generate ads"}</button>
           </div>
         </div>
@@ -3854,7 +3855,7 @@ STRICT rules:
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#8b5cf6", borderRadius: 6, padding: "8px 12px" }}>{(metaResult?.descriptions?.[0] && metaResult.descriptions[0].length <= 18) ? metaResult.descriptions[0] : "Shop Now"}</div>
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
-                  <span style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700 }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
                   <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
