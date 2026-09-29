@@ -1069,32 +1069,71 @@ function RSAStudio() {
   };
 
   // Overview: save the current generation to the saved library (mirrors detailed-view ☆).
-  const saveCurrentToLibrary = async (format) => {
+  // Combined library item: save ALL generated formats as ONE entry.
+  const currentCombinedId = () => 'combo_' + (lastGeneratedUrlRef.current || url || '').slice(0, 60);
+  const isCurrentSaved = () => library.some(x => x.type === 'combined' && x.comboKey === currentCombinedId());
+  const saveCurrentToLibrary = async () => {
     if (!isSignedIn || !user?.id) { setShowAuthModal(true); return; }
-    // Find the most recent history entry matching this format; fall back to a built entry.
-    let entry = history.find(h => (format === 'rsa' ? (h.format === 'rsa' || !h.format) : h.format === format));
-    if (!entry) {
-      // build a minimal compatible entry from current state
-      const base = { id: Date.now(), url, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
-      if (format === 'rsa') entry = { ...base, format: 'rsa', rows: rows };
-      else if (format === 'meta') entry = { ...base, format: 'meta', metaResult };
-      else if (format === 'tiktok' || format === 'video') entry = { ...base, format: 'video', videoUrl: tiktokVideoUrl, tiktokResult };
-    }
-    if (!entry) return;
-    const already = library.some(e => e.id === entry.id);
+    const comboKey = currentCombinedId();
+    const existing = library.find(x => x.type === 'combined' && x.comboKey === comboKey);
     try {
-      if (already) {
-        await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
-        setLibrary(prev => prev.filter(e => e.id !== entry.id));
-      } else {
-        setLibrarySaving(entry.id);
-        const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
-        const d = await r.json();
-        if (d.ok) setLibrary(prev => [{ ...entry, savedAt: new Date().toISOString() }, ...prev]);
-        else if (d.limitReached) alert('Library limit reached. Remove some saved outputs first.');
-        setLibrarySaving(null);
+      if (existing) {
+        // unsave
+        await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: existing.id }) });
+        setLibrary(prev => prev.filter(x => x.id !== existing.id));
+        return;
       }
+      // build ONE combined entry from whatever is generated
+      const entry = {
+        id: Date.now(),
+        type: 'combined',
+        comboKey,
+        url,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        pmaxLogo: pmaxLogo || null,
+        pageMeta: pageMeta || null,
+        brand: pageMeta?.brand || '',
+        // Google
+        rows: (generated && rows && rows.length) ? rows : null,
+        // Meta (store full result incl. image fields)
+        metaResult: metaResult || null,
+        // Video
+        videoUrl: tiktokVideoUrl || null,
+        tiktokResult: tiktokResult || null,
+        engine: videoEngineRef.current || 'kling',
+        archetype: videoSelArchetypeRef.current || 'scene_reveal',
+      };
+      if (!entry.rows && !entry.metaResult && !entry.videoUrl) return; // nothing to save
+      setLibrarySaving(entry.id);
+      const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
+      const d = await r.json();
+      if (d.ok) setLibrary(prev => [{ ...entry, savedAt: new Date().toISOString() }, ...prev]);
+      else if (d.limitReached) alert('Library limit reached. Remove some saved outputs first.');
+      setLibrarySaving(null);
     } catch (e) { console.error('[save-library]', e.message); setLibrarySaving(null); }
+  };
+
+  // Restore a combined entry into the OVERVIEW (all cards populate).
+  const replayCombined = (entry) => {
+    try {
+      setViewMode('overview');
+      setUrl(entry.url || '');
+      if (entry.pmaxLogo) setPmaxLogo(entry.pmaxLogo);
+      if (entry.pageMeta) setPageMeta(entry.pageMeta);
+      // Google
+      if (entry.rows && entry.rows.length) { setRows(entry.rows); setActiveRow(0); setGenerated(true); }
+      // Meta (restore full result → image shows)
+      if (entry.metaResult) { setMetaResult(entry.metaResult); setMetaError(''); setGenerateMeta(true); }
+      // Video
+      if (entry.videoUrl) {
+        setTiktokVideoUrl(entry.videoUrl);
+        setTiktokResult(entry.tiktokResult || { storyboard: [], videoPrompt: '', brand: entry.brand || '' });
+        if (entry.engine) { setVideoEngine(entry.engine); videoEngineRef.current = entry.engine; }
+        if (entry.archetype) { setVideoArchetype(entry.archetype); videoSelArchetypeRef.current = entry.archetype; }
+        setGenerateTiktok(true);
+      }
+      setShowLibrary(false);
+    } catch (e) { console.error('[replay-combined]', e.message); }
   };
 
   const regenerateStoryboard = async (archetypeId) => {
@@ -3573,12 +3612,13 @@ STRICT rules:
                       {entry.rows && entry.rows[0] && entry.rows[0].headlines && entry.rows[0].headlines[0] && entry.rows[0].headlines[0].text ? entry.rows[0].headlines[0].text.slice(0, 50) : entry.metaResult && entry.metaResult.headlines && entry.metaResult.headlines[0] ? entry.metaResult.headlines[0].slice(0, 50) : ''}
                     </div>
                     <div style={{ fontSize: 9, color: '#2d3748', marginTop: 3, display: 'flex', gap: 8 }}>
-                      <span>{entry.type === 'video' ? ('🎬 ' + (entry.engine === 'kling' ? 'Kling' : entry.engine === 'runway' ? 'Runway' : entry.engine === 'recipe' ? 'Recipe' : 'Video') + (entry.engine === 'kling' && entry.archetype ? ' · ' + String(entry.archetype).replace(/_/g, ' ') : '')) : entry.format === 'pmax' ? '◈ PMax' : entry.metaResult ? '◉ Meta' : '◎ RSA'}</span>
+                      <span>{entry.type === 'combined' ? ('📦 ' + [entry.rows ? 'Google' : null, entry.metaResult ? 'Meta' : null, entry.videoUrl ? 'Video' : null].filter(Boolean).join(' + ')) : entry.type === 'video' ? ('🎬 ' + (entry.engine === 'kling' ? 'Kling' : entry.engine === 'runway' ? 'Runway' : entry.engine === 'recipe' ? 'Recipe' : 'Video') + (entry.engine === 'kling' && entry.archetype ? ' · ' + String(entry.archetype).replace(/_/g, ' ') : '')) : entry.format === 'pmax' ? '◈ PMax' : entry.metaResult ? '◉ Meta' : '◎ RSA'}</span>
                       <span>{entry.savedAt ? new Date(entry.savedAt).toLocaleDateString() : entry.timestamp}</span>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                     <button onClick={() => {
+                      if (entry.type === 'combined') { replayCombined(entry); return; }
                       if (entry.type === 'video') {
                         setUrl(entry.url || '');
                         setTiktokVideoUrl(entry.videoUrl);
@@ -3706,7 +3746,7 @@ STRICT rules:
                 <SerpPreview row={rows[0]} favicon={pmaxLogo} />
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
                   <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary("rsa"); }} title="Save to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{history.some(h => (h.format === 'rsa' || !h.format) && library.some(e => e.id === h.id)) ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
                   <span onClick={(e) => { e.stopPropagation();
                     if (!isSignedIn) { setShowAuthModal(true); return; }
                     if (!gadsConn.connected) { triggerGadsConnect(); return; }
@@ -3750,7 +3790,7 @@ STRICT rules:
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#0866FF", fontWeight: 700 }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary("meta"); }} title="Save to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{history.some(h => h.format === 'meta' && library.some(e => e.id === h.id)) ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
                   <span onClick={(e) => { e.stopPropagation();
                     if (!isSignedIn) { setShowAuthModal(true); return; }
                     if (!metaConn.connected) { triggerMetaConnect(); return; }
@@ -3801,7 +3841,7 @@ STRICT rules:
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700 }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary("video"); }} title="Save to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{history.some(h => h.format === 'video' && library.some(e => e.id === h.id)) ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
                   <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
