@@ -1117,6 +1117,14 @@ function RSAStudio() {
   const replayCombined = (entry) => {
     try {
       setViewMode('overview');
+      // Clear ALL outputs first so formats NOT in this entry don't linger.
+      setGenerated(false);
+      setRows([makeRow(1)]);
+      setActiveRow(0);
+      setMetaResult(null);
+      setTiktokVideoUrl(null);
+      setTiktokResult(null);
+      setTiktokVideoLoading(false);
       setUrl(entry.url || '');
       if (entry.pmaxLogo) setPmaxLogo(entry.pmaxLogo);
       if (entry.pageMeta) setPageMeta(entry.pageMeta);
