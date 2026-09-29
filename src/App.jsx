@@ -576,6 +576,48 @@ function AdStrengthRing({ headlines, descriptions }) {
   );
 }
 
+function VideoProgressBars() {
+  // Time-based reassurance: fill one of 4 bars per ~minute over the 3-4 min wait.
+  const [elapsed, setElapsed] = useState(0); // seconds
+  useEffect(() => {
+    const t = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const filled = Math.min(4, Math.floor(elapsed / 60) + (elapsed > 0 ? 1 : 0)); // bar 1 lights immediately, then 1/min
+  return (
+    <div style={{ display: "flex", gap: 6, width: "70%", maxWidth: 180 }}>
+      {[0,1,2,3].map(i => (
+        <div key={i} style={{
+          flex: 1, height: 6, borderRadius: 3,
+          background: i < filled ? "#8b5cf6" : "rgba(139,92,246,0.18)",
+          transition: "background 0.4s ease",
+        }} />
+      ))}
+    </div>
+  );
+}
+
+// Vertical → model+archetype selector (keyword-based, 5-8 terms per vertical, DE/DK/EN).
+// Order matters: first matching vertical wins (Home Decor → scene_reveal before lifestyle).
+const VERTICAL_RULES = [
+  // Beauty & Fashion → Runway
+  { engine: 'runway', archetype: 'lifestyle_montage', kw: ['fashion','apparel','clothing','clothes','dress','kleid','kjole','shirt','t-shirt','tshirt','tee','top','blouse','bluse','skjorte','trousers','hose','bukser','jeans','jacket','jacke','jakke','coat','sweater','pullover','hoodie','strik','mode','bekleidung','damen','herren','dame','herre','beauty','cosmetic','kosmetik','skincare','makeup','make-up','perfume','parfum','lipstick','serum','pflege'] },
+  // Household appliances, DIY & Garden, Home Decor → Kling Scene Reveal
+  { engine: 'kling', archetype: 'scene_reveal', kw: ['appliance','appliances','haushalt','hvidevarer','washing','dishwasher','fridge','kühlschrift','kühlschrank','oven','ofen','microwave','vacuum','staubsauger','kettle','toaster','blender','mixer','cookware','pan','pot','gryde','pande','diy','tools','werkzeug','værktøj','garden','garten','have','plant','pflanze','flower','blume','blomst','decor','decoration','deko','interior','indretning','vase','candle','kerze','lamp','lampe','cushion','pude','rug','teppich','tæppe','curtain','gardin','furniture','möbel','møbel','sofa','table','tisch','bord','shelf','regal','hylde'] },
+  // Gadgets/jewelry/watches, Footwear/Athletic → Kling Studio Spin
+  { engine: 'kling', archetype: 'studio_spin', kw: ['gadget','electronics','elektronik','headphone','kopfhörer','høretelefon','earbuds','speaker','lautsprecher','højttaler','charger','powerbank','jewelry','jewellery','schmuck','smykke','ring','necklace','kette','halskæde','bracelet','armband','earring','ohrring','ørering','watch','watches','uhr','ur','shoes','schuhe','sko','sneaker','sneakers','boots','stiefel','støvler','loafer','slipper','sandal','heels','trainers','footwear','athletic'] },
+  // Travel, Fitness/Wellness, Personal Care, Beverages/Food, Culture, Automotive, Outdoor → Kling Lifestyle Montage
+  { engine: 'kling', archetype: 'lifestyle_montage', kw: ['travel','reise','rejse','hotel','resort','hospitality','flight','vacation','urlaub','ferie','fitness','wellness','gym','yoga','workout','training','sport','supplement','vitamin','food','beverage','drink','getränk','drikke','coffee','kaffee','kaffe','tea','tee','the','wine','wein','vin','beer','bier','øl','snack','culture','book','buch','bog','music','musik','game','automotive','car','auto','bil','vehicle','fahrzeug','motorcycle','tire','reifen','outdoor','bike','e-bike','ebike','elcykel','elcykler','pedelec','bicycle','fahrrad','cykel','trekking','hiking','wandern','camping','tent','zelt','telt','backpack','rucksack','rygsæk'] },
+];
+function detectVertical(url, meta) {
+  const hay = [url || '', meta?.title || '', meta?.h1 || '', meta?.siteName || '', meta?.metaDescription || ''].join(' ').toLowerCase();
+  const hit = (k) => new RegExp('(^|[^a-z])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z]|$)', 'i').test(hay);
+  for (const rule of VERTICAL_RULES) {
+    if (rule.kw.some(hit)) return { engine: rule.engine, archetype: rule.archetype };
+  }
+  return { engine: 'kling', archetype: 'scene_reveal' }; // default
+}
+
 function SerpPreview({ row, favicon }) {
   const hs = row.headlines.map(h => h.text).filter(Boolean);
   const ds = row.descriptions.map(d => d.text).filter(Boolean);
@@ -889,6 +931,7 @@ export default function App() {
 
 function RSAStudio() {
   const [url, setUrl] = useState("");
+  const [viewMode, setViewMode] = useState("overview"); // "overview" | "detailed" — NEW UI Stage 1a
 
   // Deep-link support has been CONSOLIDATED into the single magic-link handler
   // below (search "magicLinkHandled"). This former second handler is intentionally
@@ -902,7 +945,7 @@ function RSAStudio() {
   const [brandLoading, setBrandLoading] = useState(false);
   const [brandSaving, setBrandSaving] = useState(false);
   const [brandError, setBrandError] = useState(null);
-  const [generateMeta, setGenerateMeta] = useState(false); // opt-in checkbox
+  const [generateMeta, setGenerateMeta] = useState(true); // default ON (Google + Meta pre-checked on load)
   const [imageModel, setImageModel] = useState('imagen'); // 'dalle' | 'imagen'
   const [metaResult, setMetaResult] = useState(null);
   const [activeImageVariant, setActiveImageVariant] = useState(0);
@@ -956,6 +999,151 @@ function RSAStudio() {
   const [videoArchetype, setVideoArchetype] = useState('scene_reveal'); // Kling storyboard style
   const [storyboardUpdating, setStoryboardUpdating] = useState(false);
   const [storyboardReady, setStoryboardReady] = useState(false);
+  // NEW UI: reusable video generation trigger (mirrors the detailed-view button logic).
+  const startVideoGeneration = async () => {
+    if (!tiktokResult || !tiktokResult.videoPrompt) return;
+    setTiktokVideoLoading(true);
+    try {
+      const selectedImg = tiktokSourceImageRef.current || metaResult?.imageVariations?.[activeImageVariant] || metaResult?.imageUrl || metaResult?.heroProductImage || null;
+      const imageUrl = selectedImg ? selectedImg.replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://') : selectedImg;
+      if (!imageUrl) { setRecipeError('No product image available for the video. Generate a Meta ad first.'); setTiktokVideoLoading(false); return; }
+      try {
+        const dims = await new Promise((resolve) => {
+          const im = new Image();
+          im.onload = () => resolve({ w: im.naturalWidth, h: im.naturalHeight });
+          im.onerror = () => resolve({ w: 0, h: 0 });
+          setTimeout(() => resolve({ w: 0, h: 0 }), 6000);
+          im.src = imageUrl;
+        });
+        if (dims.w && dims.h && (dims.w < 300 || dims.h < 300)) {
+          setRecipeError('This image is too small for video (' + dims.w + '×' + dims.h + ' — 300×300 minimum). Open the editor and pick a larger image, or try a different product page.');
+          setTiktokVideoLoading(false);
+          return;
+        }
+      } catch (_) {}
+      const currentEngine = videoEngineRef.current;
+      setRecipeError(null);
+      if (currentEngine === 'recipe') { setRecipeGated(null); }
+      const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : '/api/kling';
+      const videoPayload = currentEngine === 'recipe'
+        ? { mode: recipeMode, imageUrl, characterImage: recipeMode === 'ugc' ? recipeCharacterImage : undefined, productInfo: (tiktokResult.brand || pageMeta?.brand || ''), userConcept: recipeMode === 'ugc' ? tiktokResult.videoPrompt : `Polished cinematic product advertisement for ${tiktokResult.brand || pageMeta?.brand || 'this product'}. The product is the clear hero, shown in an aspirational real-world setting with warm professional lighting and smooth, elegant camera movement. High-quality commercial style. No on-screen text, captions, logos, brand names or overlays anywhere.` }
+        : currentEngine === 'runway'
+        ? { imageUrl, prompt: tiktokResult.videoPrompt, duration: 10, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
+        : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
+      const r = await fetch(videoApi, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentEngine === 'recipe' && isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}),
+          ...(currentEngine === 'recipe' && isSignedIn && window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}),
+        },
+        body: JSON.stringify(videoPayload),
+      });
+      const d = await r.json();
+      if (d.gated) { setRecipeGated({ count: d.count, limit: d.limit }); setTiktokVideoLoading(false); return; }
+      if (d.error || (!d.videoUrl && !d.requestId && !d.taskId)) {
+        console.error('Video create failed:', JSON.stringify(d));
+        setRecipeError(d.error ? ('Video generation failed: ' + d.error) : 'Video generation could not start — please try again, or try a different product image.');
+        setTiktokVideoLoading(false);
+        if (videoPollRef.current) clearInterval(videoPollRef.current);
+        return;
+      }
+      if (d.videoUrl) { setTiktokVideoUrl(d.videoUrl); setTiktokVideoLoading(false); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
+      else if (d.requestId || d.taskId) {
+        const pollId = d.requestId || d.taskId;
+        const pollKey = d.taskId ? 'taskId' : 'requestId';
+        let attempts = 0;
+        if (videoPollRef.current) clearInterval(videoPollRef.current);
+        videoPollRef.current = setInterval(async () => {
+          const pollCap = videoEngineRef.current === 'recipe' ? 156 : 144;
+          if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); return; }
+          try {
+            const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
+            const pd = await pr.json();
+            if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
+            else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
+          } catch(pollErr) { console.error('Poll error:', pollErr.message); }
+        }, 5000);
+      } else { setTiktokVideoLoading(false); }
+    } catch(e) { setTiktokVideoLoading(false); }
+  };
+
+  // Overview: save the current generation to the saved library (mirrors detailed-view ☆).
+  // Combined library item: save ALL generated formats as ONE entry.
+  const currentCombinedId = () => 'combo_' + (lastGeneratedUrlRef.current || url || '').slice(0, 60);
+  const isCurrentSaved = () => library.some(x => x.type === 'combined' && x.comboKey === currentCombinedId());
+  const saveCurrentToLibrary = async () => {
+    if (!isSignedIn || !user?.id) { setShowAuthModal(true); return; }
+    const comboKey = currentCombinedId();
+    const existing = library.find(x => x.type === 'combined' && x.comboKey === comboKey);
+    try {
+      if (existing) {
+        // unsave
+        await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: existing.id }) });
+        setLibrary(prev => prev.filter(x => x.id !== existing.id));
+        return;
+      }
+      // build ONE combined entry from whatever is generated
+      const entry = {
+        id: Date.now(),
+        type: 'combined',
+        comboKey,
+        url,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        pmaxLogo: pmaxLogo || null,
+        pageMeta: pageMeta || null,
+        brand: pageMeta?.brand || '',
+        // Google
+        rows: (generated && rows && rows.length) ? rows : null,
+        // Meta (store full result incl. image fields)
+        metaResult: metaResult || null,
+        // Video
+        videoUrl: tiktokVideoUrl || null,
+        tiktokResult: tiktokResult || null,
+        engine: videoEngineRef.current || 'kling',
+        archetype: videoSelArchetypeRef.current || 'scene_reveal',
+      };
+      if (!entry.rows && !entry.metaResult && !entry.videoUrl) return; // nothing to save
+      setLibrarySaving(entry.id);
+      const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
+      const d = await r.json();
+      if (d.ok) setLibrary(prev => [{ ...entry, savedAt: new Date().toISOString() }, ...prev]);
+      else if (d.limitReached) alert('Library limit reached. Remove some saved outputs first.');
+      setLibrarySaving(null);
+    } catch (e) { console.error('[save-library]', e.message); setLibrarySaving(null); }
+  };
+
+  // Restore a combined entry into the OVERVIEW (all cards populate).
+  const replayCombined = (entry) => {
+    try {
+      setViewMode('overview');
+      // Clear ALL outputs first so formats NOT in this entry don't linger.
+      setGenerated(false);
+      setRows([makeRow(1)]);
+      setActiveRow(0);
+      setMetaResult(null);
+      setTiktokVideoUrl(null);
+      setTiktokResult(null);
+      setTiktokVideoLoading(false);
+      setUrl(entry.url || '');
+      if (entry.pmaxLogo) setPmaxLogo(entry.pmaxLogo);
+      if (entry.pageMeta) setPageMeta(entry.pageMeta);
+      // Google
+      if (entry.rows && entry.rows.length) { setRows(entry.rows); setActiveRow(0); setGenerated(true); }
+      // Meta (restore full result → image shows)
+      if (entry.metaResult) { setMetaResult(entry.metaResult); setMetaError(''); setGenerateMeta(true); }
+      // Video
+      if (entry.videoUrl) {
+        setTiktokVideoUrl(entry.videoUrl);
+        setTiktokResult(entry.tiktokResult || { storyboard: [], videoPrompt: '', brand: entry.brand || '' });
+        if (entry.engine) { setVideoEngine(entry.engine); videoEngineRef.current = entry.engine; }
+        if (entry.archetype) { setVideoArchetype(entry.archetype); videoSelArchetypeRef.current = entry.archetype; }
+        setGenerateTiktok(true);
+      }
+      setShowLibrary(false);
+    } catch (e) { console.error('[replay-combined]', e.message); }
+  };
+
   const regenerateStoryboard = async (archetypeId) => {
     setStoryboardUpdating(true); setStoryboardReady(false);
     try {
@@ -1062,6 +1250,7 @@ function RSAStudio() {
   const tiktokSourceImageRef = useRef(null); // persists user-selected image through Meta regen
   const lastGeneratedUrlRef = useRef(''); // tracks URL used for last generation to detect URL changes
   const videoEngineRef = useRef('kling'); // always reflects current videoEngine (avoids stale closure)
+  const videoSelArchetypeRef = useRef('scene_reveal'); // synchronously reflects auto-selected archetype
   const videoPollRef = useRef(null); // keeps poll interval alive across re-renders
 
   const detectVideoEngine = (imgUrl) => {
@@ -2018,6 +2207,42 @@ function RSAStudio() {
     if (adminKey && key && key === adminKey) setIsAdmin(true);
   }, []);
   const [pageMeta, setPageMeta] = useState({ language: "English" });
+
+  // ── One-shot sign-in bridge (self-clearing, NOT sticky) ──────────────────────
+  const RSA_SIGNIN_BRIDGE = 'rsa_signin_bridge_v1';
+  const signinBridgeRestoredRef = useRef(false);
+  // Restore once on mount, then delete immediately so it never re-applies.
+  useEffect(() => {
+    if (signinBridgeRestoredRef.current) return;
+    signinBridgeRestoredRef.current = true;
+    let raw = null;
+    try { raw = sessionStorage.getItem(RSA_SIGNIN_BRIDGE); } catch (_) {}
+    if (!raw) return;
+    try { sessionStorage.removeItem(RSA_SIGNIN_BRIDGE); } catch (_) {} // clear FIRST — one-shot
+    try {
+      const s = JSON.parse(raw);
+      if (s.url) setUrl(s.url);
+      if (Array.isArray(s.rows) && s.rows.length) setRows(s.rows);
+      if (s.metaResult) setMetaResult(s.metaResult);
+      if (s.tiktokResult) setTiktokResult(s.tiktokResult);
+      if (s.tiktokVideoUrl) setTiktokVideoUrl(s.tiktokVideoUrl);
+      if (typeof s.generated === 'boolean') setGenerated(s.generated);
+      if (typeof s.generateMeta === 'boolean') setGenerateMeta(s.generateMeta);
+      if (typeof s.generateTiktok === 'boolean') setGenerateTiktok(s.generateTiktok);
+      if (s.pageMeta) setPageMeta(s.pageMeta);
+      if (s.pmaxLogo) setPmaxLogo(s.pmaxLogo);
+      if (s.videoEngine) { setVideoEngine(s.videoEngine); videoEngineRef.current = s.videoEngine; }
+      console.log('[signin-bridge] restored + cleared');
+    } catch (e) { console.error('[signin-bridge] restore failed:', e.message); }
+  }, []);
+  // Helper: snapshot current state into the bridge (called right before opening auth).
+  const saveSigninBridge = () => {
+    try {
+      if (!generated && !metaResult && !tiktokVideoUrl && !url) return;
+      const snap = { url, rows, metaResult, tiktokResult, tiktokVideoUrl, generated, generateMeta, generateTiktok, pageMeta, pmaxLogo, videoEngine };
+      sessionStorage.setItem(RSA_SIGNIN_BRIDGE, JSON.stringify(snap));
+    } catch (_) {}
+  };
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState("headlines"); // headlines | descriptions | urls
   const [showGuide, setShowGuide] = useState(false);
@@ -2326,10 +2551,16 @@ function RSAStudio() {
     }
 
     setLoading(true); setError("");
-    // Clear previous meta result and cancel any in-flight image callbacks
+    // Clear ALL previous outputs up front so stale ads don't linger on the overview.
     setMetaResult(null);
     setMetaImagesLoading(false);
     metaGenId.current += 1;
+    setGenerated(false);
+    setRows([makeRow(1)]);
+    setActiveRow(0);
+    setTiktokVideoUrl(null);
+    setTiktokResult(null);
+    setTiktokVideoLoading(false);
     // Clear trends on new generation, clear audiences if not sticky
     setTrends([]);
     setSelectedTrends([]);
@@ -2441,6 +2672,15 @@ function RSAStudio() {
           const useScrapedLang = scraped.language && (scraped.language !== "English" || !clientLang);
           pageMeta = { ...pageMeta, ...scraped, language: useScrapedLang ? scraped.language : (clientLang || scraped.language || "English") };
           setPageMeta(pageMeta);
+          // Auto model+variant select by vertical
+          try {
+            const sel = detectVertical(url, pageMeta);
+            setVideoEngine(sel.engine);
+            videoEngineRef.current = sel.engine;
+            videoSelArchetypeRef.current = sel.archetype; // synchronous — storyboard call reads this
+            if (sel.engine === 'kling') setVideoArchetype(sel.archetype);
+            console.log('[model-select] auto:', sel.engine, sel.archetype);
+          } catch (e) { console.error('[model-select] failed (default kling):', e.message); }
         }
       } catch (_) {
         // Scrape failed — continue with client-side language detection + empty metadata
@@ -2927,7 +3167,7 @@ STRICT rules:
           const tiktokRes = await fetch("/api/generate-tiktok", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta?.language || "English", videoEngine, audienceBrief, pageContent: pageMeta?.content || "", archetype: videoArchetype }),
+            body: JSON.stringify({ url, language: pageMeta?.language || "English", videoEngine: videoEngineRef.current, audienceBrief, pageContent: pageMeta?.content || "", archetype: videoSelArchetypeRef.current }),
           });
           const tiktokData = await tiktokRes.json();
           if (tiktokData.error) {
@@ -3047,8 +3287,8 @@ STRICT rules:
           ))}
         </div>
         {authMode === "sign-in"
-          ? <SignIn afterSignInUrl="/" routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
-          : <SignUp afterSignUpUrl="/" routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
+          ? <SignIn routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
+          : <SignUp routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
         }
         {/* Marketing opt-in — below Clerk form, unchecked by default (GDPR compliant) */}
         {authMode === "sign-up" && (
@@ -3319,6 +3559,335 @@ STRICT rules:
     );
   };
 
+  // ── NEW UI Stage 1a: Overview front page ────────────────────────────────────
+  if (viewMode === "overview") {
+    const openDetail = (fmt) => { setAdFormat(fmt); setViewMode("detailed"); };
+    const googleReady = generated && rows && rows.length > 0;
+    const metaReady = !!metaResult;
+    const videoReady = !!tiktokVideoUrl;
+    const cardBase = {
+      flex: 1, minWidth: 240, background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 20,
+      cursor: "pointer", transition: "all 0.15s", minHeight: 200,
+      display: "flex", flexDirection: "column",
+    };
+    return (
+      <div style={{
+        minHeight: "100vh", background: "#060d1a",
+        backgroundImage: "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(30,50,120,0.35), transparent), radial-gradient(ellipse 60% 40% at 80% 100%, rgba(20,80,60,0.2), transparent)",
+        fontFamily: "'DM Sans', 'Segoe UI', sans-serif", color: "#e2e8f0",
+        display: "flex", flexDirection: "column", alignItems: "center", padding: "0 20px",
+      }}>
+        {/* overview-auth-bar */}
+        {showAuthModal && <AuthModal />}
+      {showLibrary && (
+        <div onClick={() => setShowLibrary(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(6px)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#0f1623', border: '1px solid rgba(245,158,11,0.3)',
+            borderRadius: 16, width: '100%', maxWidth: 600, maxHeight: '85vh',
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+          }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>★ Saved Library</div>
+                <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>{library.length} saved output{library.length !== 1 ? 's' : ''} — click Replay to reload</div>
+              </div>
+              <button onClick={() => setShowLibrary(false)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '12px 16px', flex: 1 }}>
+              {library.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#4a5568' }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>☆</div>
+                  <div style={{ fontSize: 14, color: '#7e92a8' }}>No saved outputs yet</div>
+                  <div style={{ fontSize: 11, marginTop: 6 }}>Click ☆ on any history entry to save it</div>
+                </div>
+              ) : library.map(entry => (
+                <div key={entry.id} style={{
+                  padding: '12px 14px', borderRadius: 10, marginBottom: 8,
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                  {entry.type === 'video' && entry.videoUrl && (
+                    <video src={entry.videoUrl} muted playsInline preload="metadata" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover', flexShrink: 0, background: '#000' }} />
+                  )}
+                  {entry.metaResult && entry.metaResult.imageUrl && (
+                    <img src={entry.metaResult.imageUrl} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {(() => { try { return new URL(entry.url).hostname.replace('www.',''); } catch(_) { return entry.url; } })()}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#4a5568', marginTop: 2 }}>
+                      {entry.rows && entry.rows[0] && entry.rows[0].headlines && entry.rows[0].headlines[0] && entry.rows[0].headlines[0].text ? entry.rows[0].headlines[0].text.slice(0, 50) : entry.metaResult && entry.metaResult.headlines && entry.metaResult.headlines[0] ? entry.metaResult.headlines[0].slice(0, 50) : ''}
+                    </div>
+                    <div style={{ fontSize: 9, color: '#2d3748', marginTop: 3, display: 'flex', gap: 8 }}>
+                      <span>{entry.type === 'combined' ? ('📦 ' + [entry.rows ? 'Google' : null, entry.metaResult ? 'Meta' : null, entry.videoUrl ? 'Video' : null].filter(Boolean).join(' + ')) : entry.type === 'video' ? ('🎬 ' + (entry.engine === 'kling' ? 'Kling' : entry.engine === 'runway' ? 'Runway' : entry.engine === 'recipe' ? 'Recipe' : 'Video') + (entry.engine === 'kling' && entry.archetype ? ' · ' + String(entry.archetype).replace(/_/g, ' ') : '')) : entry.format === 'pmax' ? '◈ PMax' : entry.metaResult ? '◉ Meta' : '◎ RSA'}</span>
+                      <span>{entry.savedAt ? new Date(entry.savedAt).toLocaleDateString() : entry.timestamp}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => {
+                      if (entry.type === 'combined') { replayCombined(entry); return; }
+                      if (entry.type === 'video') {
+                        setUrl(entry.url || '');
+                        setTiktokVideoUrl(entry.videoUrl);
+                        if (entry.engine) setVideoEngine(entry.engine);
+                        setTiktokResult(prev => ({ ...(prev || {}), storyboard: entry.storyboard || [], videoPrompt: entry.videoPrompt || '', brand: entry.brand || '' }));
+                        setGenerated(true);
+                        setAdFormat('tiktok');
+                        setShowLibrary(false);
+                      } else {
+                        setRows(entry.rows);
+                        setActiveRow(0);
+                        setUrl(entry.url);
+                        setGenerated(true);
+                        if (entry.format) setAdFormat(entry.format);
+                        if (entry.metaResult) { setMetaResult(entry.metaResult); setMetaError(''); }
+                        setShowLibrary(false);
+                      }
+                    }} style={{
+                      padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 7,
+                      background: 'linear-gradient(135deg,rgba(99,102,241,0.3),rgba(14,165,233,0.3))',
+                      color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)', cursor: 'pointer',
+                    }}>▶ Replay</button>
+                    <button onClick={async () => {
+                      await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
+                      setLibrary(prev => prev.filter(e => e.id !== entry.id));
+                    }} style={{
+                      padding: '6px 8px', fontSize: 11, borderRadius: 7,
+                      background: 'rgba(255,255,255,0.04)', color: '#4a5568',
+                      border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer',
+                    }}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+        <div style={{ width: "100%", maxWidth: 1100, display: "flex", justifyContent: "flex-end", alignItems: "center", paddingTop: 16, minHeight: 44 }}>
+          {isSignedIn ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {library.length > 0 && (
+                <button data-overview-library-btn onClick={() => setShowLibrary(true)} style={{
+                  padding: "6px 12px", fontSize: 11, fontWeight: 700,
+                  background: "rgba(245,158,11,0.12)", color: "#fbbf24",
+                  border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap",
+                }}>★ Library <span style={{ background: "rgba(245,158,11,0.3)", borderRadius: 10, padding: "1px 6px", fontSize: 9 }}>{library.length}</span></button>
+              )}
+              <span style={{ fontSize: 11, color: "#8fa3b8" }}>{user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}</span>
+              <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
+            </div>
+          ) : (
+            <button onClick={() => { saveSigninBridge(); setAuthMode("sign-in"); setShowAuthModal(true); }} style={{
+              padding: "8px 16px", fontSize: 12, fontWeight: 700,
+              background: "linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.15))",
+              color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)",
+              borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap",
+            }}>Sign in</button>
+          )}
+        </div>
+        {/* Hero */}
+        <div style={{ width: "100%", maxWidth: 960, textAlign: "center", marginTop: 24 }}>
+          <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: "-0.02em", color: "white" }}>AI Ad Studio</div>
+          <div style={{ fontSize: 16, color: "#7e92a8", marginTop: 8 }}>Your next online campaign starts here.</div>
+
+          {/* URL box + format selectors */}
+          <div style={{ marginTop: 36, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, padding: 20 }}>
+            <input
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && !loading && generate()}
+              placeholder="Paste a product URL (https://...)"
+              style={{ width: "100%", boxSizing: "border-box", padding: "14px 16px", fontSize: 15, borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "white", outline: "none" }}
+            />
+            <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: "#7e92a8" }}>Generate:</span>
+              <span style={{ fontSize: 12, color: "#a5b4fc", padding: "6px 12px", background: "rgba(99,102,241,0.15)", borderRadius: 8, fontWeight: 700 }}>Google ✓</span>
+              <button onClick={() => setGenerateMeta(v => !v)} style={{ fontSize: 12, color: generateMeta ? "#93c5fd" : "#7e92a8", padding: "6px 12px", background: generateMeta ? "rgba(14,165,233,0.15)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Meta {generateMeta ? "✓" : ""}</button>
+              <button onClick={() => isSignedIn ? setGenerateTiktok(v => !v) : null} title={isSignedIn ? "" : "Sign in to generate video"} style={{ fontSize: 12, color: generateTiktok ? "#c4b5fd" : "#7e92a8", padding: "6px 12px", background: generateTiktok ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Video {generateTiktok ? "✓" : (isSignedIn ? "" : "🔒")}</button>
+            </div>
+            <button data-generate-btn onClick={generate} disabled={loading || batchRunning} style={{
+              marginTop: 16, width: "100%", padding: "14px", fontSize: 15, fontWeight: 800,
+              borderRadius: 10, border: "none", cursor: loading ? "default" : "pointer",
+              background: (loading || batchRunning) ? "linear-gradient(135deg,#f59e0b,#f97316)" : "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white",
+              animation: (loading || batchRunning) ? "pulse 1.5s ease-in-out infinite" : "none",
+            }}>{loading ? "Generating…" : "Generate ads"}</button>
+          </div>
+        </div>
+
+        {/* Output cards — mirror production previews */}
+        {(() => {
+          // SVG platform icons
+          const GoogleG = (
+            <svg width="20" height="20" viewBox="0 0 48 48" style={{ display: "block" }}>
+              <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+              <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7A21.99 21.99 0 0 0 24 46z"/>
+              <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34A21.99 21.99 0 0 0 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"/>
+              <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.94 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+            </svg>
+          );
+          const MetaMark = (
+            <svg width="20" height="20" viewBox="0 0 36 24" style={{ display: "block" }}>
+              <path fill="#0866FF" d="M6.5 3C3 3 1 6.2 1 11.2 1 16 3 20 6.2 20c2.3 0 3.9-1.5 6-4.9l1.9-3.1c.2-.3.4-.6.6-1 .5.8 1 1.7 1.6 2.6l1.2 2c2.3 3.8 3.7 4.4 5.4 4.4 3.3 0 5.1-3.9 5.1-8.9C29 6.7 27 3 23.6 3c-2.1 0-3.7 1.4-5.6 4.6-.8-1.3-1.5-2.4-2.1-3.2C14.6 3.1 13 3 11.4 3H6.5zm.3 3.2c1 0 1.8.6 3.3 2.9l.9 1.4-1.3 2.1C8.2 16 7.5 16.8 6.6 16.8c-1.2 0-2-1.4-2-3.6 0-2.9 1-4 2.2-4zm16.5 0c1.2 0 2.2 1.5 2.2 4 0 2.2-.8 3.6-2 3.6-.9 0-1.6-.7-3.2-3.3l-1-1.6.8-1.3c1.4-2.3 2.2-2.9 3.2-2.9z"/>
+            </svg>
+          );
+          const VideoIcon = (
+            <svg width="20" height="20" viewBox="0 0 24 24" style={{ display: "block" }}>
+              <rect x="2" y="5" width="14" height="14" rx="3" fill="#8b5cf6"/>
+              <path d="M16 10l5-3v10l-5-3z" fill="#8b5cf6"/>
+              <path d="M8 8.5v7l6-3.5z" fill="#fff"/>
+            </svg>
+          );
+          const cardShell = { flex: 1, minWidth: 300, display: "flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.10)" };
+          const iconBar = { display: "flex", alignItems: "center", gap: 8, padding: "12px 14px 8px" };
+          let brandName = pageMeta?.brand || "";
+          if (!brandName) {
+            try { brandName = new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./, "").split(".")[0]; brandName = brandName.charAt(0).toUpperCase() + brandName.slice(1); } catch { brandName = "Your brand"; }
+          }
+          return (
+        <div style={{ width: "100%", maxWidth: 1100, marginTop: 28, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
+          {/* Google */}
+          <div onClick={() => googleReady && openDetail("rsa")} style={{ ...cardShell, cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55, background: googleReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
+            {googleReady ? (
+              <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column" }}>
+                <div style={{ marginBottom: 10 }}>{GoogleG}</div>
+                <SerpPreview row={rows[0]} favicon={pmaxLogo} />
+                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
+                  <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation();
+                    if (!isSignedIn) { setShowAuthModal(true); return; }
+                    if (!gadsConn.connected) { triggerGadsConnect(); return; }
+                    setAdFormat("rsa"); setViewMode("detailed"); setTimeout(() => { try { openGadsPublishModal(); } catch(_){} }, 80);
+                  }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
+                </div>
+              </div>
+            ) : (<><div style={iconBar}>{GoogleG}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>Your Google ad will appear here.</div></>)}
+          </div>
+
+          {/* Meta */}
+          <div onClick={() => metaReady && openDetail("meta")} style={{ ...cardShell, cursor: metaReady ? "pointer" : "default", opacity: metaReady ? 1 : 0.55, background: metaReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
+            {metaReady ? (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                <div style={{ ...iconBar }}>{MetaMark}</div>
+                {/* FB advertiser row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 14px 8px" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: "#e4e6eb", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {pmaxLogo ? <img src={pmaxLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={e => { e.target.style.display = "none"; }} /> : null}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#050505", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{brandName}</div>
+                    <div style={{ fontSize: 11, color: "#65676b" }}>Sponsored</div>
+                  </div>
+                </div>
+                {/* primary text */}
+                <div style={{ padding: "0 14px 10px", fontSize: 12.5, color: "#1c1e21", lineHeight: 1.4, whiteSpace: "pre-wrap" }}>
+                  {(metaResult.primaryTexts?.[0] || "").slice(0, 140)}{(metaResult.primaryTexts?.[0] || "").length > 140 ? "…" : ""}
+                </div>
+                {/* image */}
+                {(metaResult.imageVariations?.[0] || metaResult.imageUrl) && (
+                  <img src={metaResult.imageVariations?.[0] || metaResult.imageUrl} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
+                )}
+                {/* headline + Meta-blue CTA */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "#f0f2f5", borderTop: "1px solid #dadde1" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 10, color: "#606770" }}>{(() => { try { return new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./, ""); } catch { return ""; } })()}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metaResult.headlines?.[0] || "Learn more"}</div>
+                  </div>
+                  <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#0866FF", borderRadius: 6, padding: "8px 12px" }}>{(metaResult.descriptions?.[0] && metaResult.descriptions[0].length <= 18) ? metaResult.descriptions[0] : "Shop Now"}</div>
+                </div>
+                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
+                  <span style={{ fontSize: 11, color: "#0866FF", fontWeight: 700 }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation();
+                    if (!isSignedIn) { setShowAuthModal(true); return; }
+                    if (!metaConn.connected) { triggerMetaConnect(); return; }
+                    if (!metaConn.selectionComplete) { try { openMetaPicker(); } catch(_){} return; }
+                    setAdFormat("meta"); setViewMode("detailed"); setTimeout(() => { try { setMetaPublishFormat('image'); setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new'); } catch(_){} }, 80);
+                  }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
+                </div>
+              </div>
+            ) : (<><div style={iconBar}>{MetaMark}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div></>)}
+          </div>
+
+          {/* Video */}
+          <div style={{ ...cardShell, opacity: isSignedIn ? (videoReady ? 1 : 0.55) : 0.7, background: (videoReady && isSignedIn) ? "#fff" : "rgba(255,255,255,0.03)" }}>
+            {!isSignedIn ? (
+              <div style={{ fontSize: 12, color: "#7e92a8", padding: 24, margin: "auto 0", lineHeight: 1.5, textAlign: "center" }}>Sign in to turn your product into a short-form video ad.</div>
+            ) : tiktokVideoLoading ? (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 14, minHeight: 280 }}>
+                <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+                <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Generating your video…<br/>Check back in 3–4 minutes</div>
+                <VideoProgressBars />
+                <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+              </div>
+            ) : videoReady ? (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                <div style={{ ...iconBar }} title="Short-form video — ready for TikTok, Meta Reels & Feed">{VideoIcon}</div>
+                {/* advertiser row (mirrors Meta) */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 14px 8px" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: "#e4e6eb", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {pmaxLogo ? <img src={pmaxLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={e => { e.target.style.display = "none"; }} /> : null}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#050505", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{brandName}</div>
+                    <div style={{ fontSize: 11, color: "#65676b" }}>Sponsored</div>
+                  </div>
+                </div>
+                {/* primary text (from Meta output, if available) */}
+                <div style={{ padding: "0 14px 10px", fontSize: 12.5, color: "#1c1e21", lineHeight: 1.4, whiteSpace: "pre-wrap" }}>
+                  {(metaResult?.primaryTexts?.[0] || "").slice(0, 140)}{(metaResult?.primaryTexts?.[0] || "").length > 140 ? "…" : ""}
+                </div>
+                <video src={tiktokVideoUrl} controls playsInline style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
+                {/* headline + CTA payoff (mirrors Meta, video purple accent) */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "#f0f2f5", borderTop: "1px solid #dadde1" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 10, color: "#606770" }}>{(() => { try { return new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./, ""); } catch { return ""; } })()}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metaResult?.headlines?.[0] || tiktokResult?.cta || "Learn more"}</div>
+                  </div>
+                  <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#8b5cf6", borderRadius: 6, padding: "8px 12px" }}>{(metaResult?.descriptions?.[0] && metaResult.descriptions[0].length <= 18) ? metaResult.descriptions[0] : "Shop Now"}</div>
+                </div>
+                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
+                  <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 12, minHeight: 280 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }} title="Short-form video — ready for TikTok, Meta Reels & Feed">{VideoIcon}<span style={{ fontSize: 11, color: "#7e92a8" }}>Video</span></div>
+                {(tiktokResult && tiktokResult.videoPrompt) ? (
+                  <>
+                    <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Turn your product into a short-form video ad.<br/>Takes about 3–4 minutes.</div>
+                    <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{videoEngine === 'runway' ? 'Runway · best for fashion' : ('Kling · ' + (videoArchetype === 'studio_spin' ? 'Studio Spin' : videoArchetype === 'lifestyle_montage' ? 'Lifestyle Montage' : 'Scene Reveal'))}</div>
+                    <button onClick={(e) => { e.stopPropagation(); startVideoGeneration(); }} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Generate video</button>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 12, color: "#4a5568", textAlign: "center", lineHeight: 1.5 }}>Check the <b>Video</b> box above and generate to enable video.</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+          );
+        })()}
+
+        {/* Creative Studio teaser */}        {/* Creative Studio teaser */}
+        <div style={{ width: "100%", maxWidth: 960, marginTop: 24, marginBottom: 60, padding: 16, background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.12)", borderRadius: 12, textAlign: "center" }}>
+          <span style={{ fontSize: 13, color: "#7e92a8", fontWeight: 700 }}>✦ Creative Studio — Brand Kit, Personas & Templates</span>
+          <span style={{ fontSize: 12, color: "#4a5568", marginLeft: 8 }}>coming soon</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -3330,6 +3899,14 @@ STRICT rules:
       flexDirection: "column",
       minHeight: "100vh",
     }}>
+      {/* NEW UI: back to overview */}
+      <button onClick={() => setViewMode("overview")} style={{
+        position: "fixed", top: 14, left: 14, zIndex: 300,
+        padding: "8px 14px", fontSize: 12, fontWeight: 700,
+        borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)",
+        background: "rgba(10,14,26,0.9)", color: "#a5b4fc", cursor: "pointer",
+        backdropFilter: "blur(4px)",
+      }}>← Overview</button>
       {/* ── Meta Account + Page Picker Modal (OAuth Phase 2) ── */}
       {metaPickerOpen && (
         <div onClick={(e) => { if (e.target === e.currentTarget) setMetaPickerOpen(false); }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
