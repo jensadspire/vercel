@@ -2543,10 +2543,16 @@ function RSAStudio() {
     }
 
     setLoading(true); setError("");
-    // Clear previous meta result and cancel any in-flight image callbacks
+    // Clear ALL previous outputs up front so stale ads don't linger on the overview.
     setMetaResult(null);
     setMetaImagesLoading(false);
     metaGenId.current += 1;
+    setGenerated(false);
+    setRows([makeRow(1)]);
+    setActiveRow(0);
+    setTiktokVideoUrl(null);
+    setTiktokResult(null);
+    setTiktokVideoLoading(false);
     // Clear trends on new generation, clear audiences if not sticky
     setTrends([]);
     setSelectedTrends([]);
