@@ -146,6 +146,86 @@ const ARCHETYPES = {
     { "scene": 4, "timing": "8-10s", "title": "Positive Result", "description": "Visibly better result, person confident and happy, product featured" }
   ]`,
   },
+
+  // ── Creative Studio TEMPLATES — Fashion & Apparel ──
+  fashion_flatlay_model: {
+    label: "Flat Lay → Model",
+    instructions: `- Video storyboard: 4 scenes — "Flat Lay → Model". A styled flat-lay of the garment, the environment forms around it, the garment appears worn on a model, and the model moves.
+  Scene 1 (0-2s): Elegant flat-lay of the garment on a clean styled surface, soft overhead light, slow push-in.
+  Scene 2 (2-4s): The environment forms around it — a studio or lifestyle backdrop materialises.
+  Scene 3 (4-7s): The garment appears worn on a model, natural pose, flattering light.
+  Scene 4 (7-10s): The model moves — a turn, a walk, fabric in motion — confident editorial close.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Flat Lay", "description": "Styled flat-lay of the garment, soft overhead light, push-in" },
+    { "scene": 2, "timing": "2-4s", "title": "Environment Forms", "description": "A studio/lifestyle backdrop materialises around it" },
+    { "scene": 3, "timing": "4-7s", "title": "On Model", "description": "Garment appears worn on a model, natural pose, flattering light" },
+    { "scene": 4, "timing": "7-10s", "title": "In Motion", "description": "Model moves, fabric in motion, editorial close" }
+  ]`,
+  },
+  fashion_outfit_transformation: {
+    label: "Outfit Transformation",
+    instructions: `- Video storyboard: 3 scenes — "Outfit Transformation". The hero item stays constant while the outfit around it changes, ending on a final complete look.
+  Scene 1 (0-3s): Person wearing the hero item, clean neutral setting, the item clearly featured.
+  Scene 2 (3-7s): The rest of the outfit visually changes/styles around the constant hero item — accessories, layers shifting.
+  Scene 3 (7-10s): The final complete look, confident and polished, hero item central.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Hero Item", "description": "Person wearing the hero item, clean setting, item featured" },
+    { "scene": 2, "timing": "3-7s", "title": "Styling Shift", "description": "Outfit changes around the constant hero item" },
+    { "scene": 3, "timing": "7-10s", "title": "Final Look", "description": "Complete polished look, hero item central" }
+  ]`,
+  },
+  fashion_wardrobe_lifestyle: {
+    label: "Wardrobe → Lifestyle",
+    instructions: `- Video storyboard: 4 scenes — "Wardrobe → Lifestyle". Garment in a wardrobe/bedroom, person gets dressed, leaves, into a lifestyle scene.
+  Scene 1 (0-2s): The garment in a stylish wardrobe or on a bedroom rail, soft morning light.
+  Scene 2 (2-5s): A person selects and puts on the garment, natural getting-dressed moment.
+  Scene 3 (5-8s): Dressed and ready, a confident mirror or doorway beat.
+  Scene 4 (8-10s): Out into a lifestyle scene — street, café, city — wearing the look.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "In the Wardrobe", "description": "Garment in a stylish wardrobe/bedroom, soft light" },
+    { "scene": 2, "timing": "2-5s", "title": "Getting Dressed", "description": "Person selects and puts on the garment" },
+    { "scene": 3, "timing": "5-8s", "title": "Ready", "description": "Dressed, confident mirror/doorway beat" },
+    { "scene": 4, "timing": "8-10s", "title": "Lifestyle", "description": "Out into a lifestyle scene wearing the look" }
+  ]`,
+  },
+  fashion_street_style: {
+    label: "Street Style",
+    instructions: `- Video storyboard: 3 scenes — "Street Style". Product to a city environment, a model appears, walking/editorial shots.
+  Scene 1 (0-3s): The garment featured, then a city environment builds around it — urban textures, daylight.
+  Scene 2 (3-7s): A model appears wearing it, walking through the street, dynamic and editorial.
+  Scene 3 (7-10s): Confident editorial close — a pause, a look, the garment the focus.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "City Builds", "description": "Garment featured, urban environment forms around it" },
+    { "scene": 2, "timing": "3-7s", "title": "Walking", "description": "Model walks through the street, dynamic editorial" },
+    { "scene": 3, "timing": "7-10s", "title": "Editorial Close", "description": "Confident pause, garment the focus" }
+  ]`,
+  },
+  fashion_day_to_night: {
+    label: "Day → Night",
+    instructions: `- Video storyboard: 3 scenes — "Day → Night". The same piece styled for day, then the environment/time shifts to an evening version.
+  Scene 1 (0-3s): Daytime look with the garment, bright natural setting, casual confidence.
+  Scene 2 (3-6s): The environment and light transition from day to dusk to night.
+  Scene 3 (6-10s): The evening version of the look, elevated styling, glamorous night setting.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Day Look", "description": "Daytime styling, bright natural setting" },
+    { "scene": 2, "timing": "3-6s", "title": "Transition", "description": "Environment/light shifts day to dusk to night" },
+    { "scene": 3, "timing": "6-10s", "title": "Night Look", "description": "Evening version, elevated styling, glamorous setting" }
+  ]`,
+  },
+  fashion_one_piece_three_looks: {
+    label: "One Piece / Three Looks",
+    instructions: `- Video storyboard: 4 scenes — "One Piece / Three Looks". One hero piece shown three ways with quick transitions.
+  Scene 1 (0-2s): The hero piece introduced clearly on a model.
+  Scene 2 (2-5s): Look 1 — styled one way; quick stylish transition.
+  Scene 3 (5-8s): Look 2 — styled a second way; quick transition.
+  Scene 4 (8-10s): Look 3 — styled a third way, confident final beat, same piece throughout.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "The Piece", "description": "Hero piece introduced on a model" },
+    { "scene": 2, "timing": "2-5s", "title": "Look 1", "description": "Styled one way, quick transition" },
+    { "scene": 3, "timing": "5-8s", "title": "Look 2", "description": "Styled a second way, quick transition" },
+    { "scene": 4, "timing": "8-10s", "title": "Look 3", "description": "Styled a third way, confident final beat" }
+  ]`,
+  },
 };
 
 // The source-level overlay rule (Option B) — appended to every storyboard prompt.

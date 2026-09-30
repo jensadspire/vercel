@@ -932,6 +932,17 @@ const CS_VERTICALS = {
       { id: 'beauty_problem_solution', label: 'Problem → Solution', desc: 'Concern → product enters → usage → positive result' },
     ],
   },
+  fashion: {
+    label: 'Fashion & Apparel',
+    templates: [
+      { id: 'fashion_flatlay_model', label: 'Flat Lay → Model', desc: 'Flat-lay → environment forms → worn on model → model moves' },
+      { id: 'fashion_outfit_transformation', label: 'Outfit Transformation', desc: 'Hero item constant → outfit changes around it → final look' },
+      { id: 'fashion_wardrobe_lifestyle', label: 'Wardrobe → Lifestyle', desc: 'Wardrobe → gets dressed → leaves → lifestyle scene' },
+      { id: 'fashion_street_style', label: 'Street Style', desc: 'City environment → model appears → walking/editorial' },
+      { id: 'fashion_day_to_night', label: 'Day → Night', desc: 'Daytime look → time shifts → evening version' },
+      { id: 'fashion_one_piece_three_looks', label: 'One Piece / Three Looks', desc: 'One hero piece → Look 1 → Look 2 → Look 3' },
+    ],
+  },
 };
 
 export default function App() {
