@@ -226,6 +226,84 @@ const ARCHETYPES = {
     { "scene": 4, "timing": "8-10s", "title": "Look 3", "description": "Styled a third way, confident final beat" }
   ]`,
   },
+
+  // ── Creative Studio TEMPLATES — Home Decor & Interior Design ──
+  homedecor_product_room: {
+    label: "Product → Room",
+    instructions: `- Video storyboard: 3 scenes — "Product → Room". Product on white, a room materialises around it, the product settles naturally into place.
+  Scene 1 (0-3s): The product alone on clean white, soft even light, slow push-in.
+  Scene 2 (3-7s): A stylish room materialises softly around the product — walls, light, complementary furnishings forming.
+  Scene 3 (7-10s): The product settles naturally into its place in the finished room, warm and inviting.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Clean White", "description": "Product alone on white, soft light, push-in" },
+    { "scene": 2, "timing": "3-7s", "title": "Room Forms", "description": "A stylish room materialises softly around the product" },
+    { "scene": 3, "timing": "7-10s", "title": "In Place", "description": "Product settles naturally into the finished room" }
+  ]`,
+  },
+  homedecor_empty_designed: {
+    label: "Empty → Designed",
+    instructions: `- Video storyboard: 4 scenes — "Empty → Designed". An empty room, the hero product appears, additional furniture/decor accumulates, ending on a finished interior.
+  Scene 1 (0-2s): An empty, bare room with good natural light and potential.
+  Scene 2 (2-4s): The hero product appears as the anchor of the space.
+  Scene 3 (4-8s): Additional furniture and decor appear around it, the room filling in tastefully.
+  Scene 4 (8-10s): The finished, fully-designed interior, the hero product central.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Empty Room", "description": "Bare room, good natural light, potential" },
+    { "scene": 2, "timing": "2-4s", "title": "Hero Appears", "description": "The hero product appears as the anchor" },
+    { "scene": 3, "timing": "4-8s", "title": "Filling In", "description": "Furniture and decor accumulate tastefully" },
+    { "scene": 4, "timing": "8-10s", "title": "Designed", "description": "Finished interior, hero product central" }
+  ]`,
+  },
+  homedecor_before_after: {
+    label: "Before → After",
+    instructions: `- Video storyboard: 3 scenes — "Before → After". A plain interior, the hero product is introduced, a complete transformation follows.
+  Scene 1 (0-3s): A plain, uninspiring interior — flat, ordinary.
+  Scene 2 (3-6s): The hero product is introduced into the space, a turning point.
+  Scene 3 (6-10s): The complete transformation — the same space now beautiful and elevated, product central.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Before", "description": "Plain, ordinary interior" },
+    { "scene": 2, "timing": "3-6s", "title": "Product Enters", "description": "Hero product introduced, a turning point" },
+    { "scene": 3, "timing": "6-10s", "title": "After", "description": "Space transformed, beautiful and elevated, product central" }
+  ]`,
+  },
+  homedecor_room_tour: {
+    label: "Room Tour",
+    instructions: `- Video storyboard: 3 scenes — "Room Tour". Start on the product, the camera pulls back to reveal the whole room, then detail shots.
+  Scene 1 (0-3s): Close on the product, beautifully lit in its setting.
+  Scene 2 (3-7s): The camera pulls back smoothly to reveal the entire styled room around it.
+  Scene 3 (7-10s): A few elegant detail shots — textures, the product's role in the space.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Close Up", "description": "Close on the product, beautifully lit" },
+    { "scene": 2, "timing": "3-7s", "title": "Pull Back", "description": "Camera pulls back to reveal the whole styled room" },
+    { "scene": 3, "timing": "7-10s", "title": "Details", "description": "Elegant detail shots, textures, product's role" }
+  ]`,
+  },
+  homedecor_mood_transformation: {
+    label: "Mood Transformation",
+    instructions: `- Video storyboard: 3 scenes — "Mood Transformation". The product anchors a room as the mood shifts from minimal to a richer style (cozy/luxury/modern).
+  Scene 1 (0-3s): The product in a minimal, pared-back version of the room.
+  Scene 2 (3-6s): The mood transforms — lighting, textures and styling shift toward cozy/luxury/modern.
+  Scene 3 (6-10s): The fully realised richer mood, the product perfectly at home in it.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Minimal", "description": "Product in a pared-back version of the room" },
+    { "scene": 2, "timing": "3-6s", "title": "Mood Shifts", "description": "Lighting, textures, styling shift richer" },
+    { "scene": 3, "timing": "6-10s", "title": "Realised", "description": "Fully realised mood, product at home in it" }
+  ]`,
+  },
+  homedecor_product_in_context: {
+    label: "Product in Context",
+    instructions: `- Video storyboard: 4 scenes — "Product in Context". The product shown across several different rooms to demonstrate versatility.
+  Scene 1 (0-2s): The product introduced cleanly.
+  Scene 2 (2-5s): The product in a first room/style setting.
+  Scene 3 (5-8s): A smooth transition to the product in a second, different room/style.
+  Scene 4 (8-10s): A third setting, reinforcing versatility, confident close.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Introduced", "description": "Product introduced cleanly" },
+    { "scene": 2, "timing": "2-5s", "title": "Setting 1", "description": "Product in a first room/style" },
+    { "scene": 3, "timing": "5-8s", "title": "Setting 2", "description": "Transition to a second, different room/style" },
+    { "scene": 4, "timing": "8-10s", "title": "Setting 3", "description": "A third setting, versatility, confident close" }
+  ]`,
+  },
 };
 
 // The source-level overlay rule (Option B) — appended to every storyboard prompt.

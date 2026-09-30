@@ -943,6 +943,17 @@ const CS_VERTICALS = {
       { id: 'fashion_one_piece_three_looks', label: 'One Piece / Three Looks', desc: 'One hero piece → Look 1 → Look 2 → Look 3' },
     ],
   },
+  homedecor: {
+    label: 'Home Decor & Interior Design',
+    templates: [
+      { id: 'homedecor_product_room', label: 'Product → Room', desc: 'Product on white → room materialises → placed naturally' },
+      { id: 'homedecor_empty_designed', label: 'Empty → Designed', desc: 'Empty room → product → furniture appears → finished interior' },
+      { id: 'homedecor_before_after', label: 'Before → After', desc: 'Plain interior → hero product → complete transformation' },
+      { id: 'homedecor_room_tour', label: 'Room Tour', desc: 'Product → camera pulls back → room revealed → detail shots' },
+      { id: 'homedecor_mood_transformation', label: 'Mood Transformation', desc: 'Product → room shifts minimal → cozy/luxury/modern' },
+      { id: 'homedecor_product_in_context', label: 'Product in Context', desc: 'Product → several rooms → demonstrate versatility' },
+    ],
+  },
 };
 
 export default function App() {
