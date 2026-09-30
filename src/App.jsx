@@ -954,6 +954,16 @@ const CS_VERTICALS = {
       { id: 'homedecor_product_in_context', label: 'Product in Context', desc: 'Product → several rooms → demonstrate versatility' },
     ],
   },
+  fitness: {
+    label: 'Fitness & Wellness',
+    templates: [
+      { id: 'fitness_workout_activation', label: 'Workout Activation', desc: 'Product → gym/home environment → use → workout begins → hero' },
+      { id: 'fitness_morning_wellness', label: 'Morning Wellness Routine', desc: 'Product → morning prep → consumption → active day → hero' },
+      { id: 'fitness_performance_transformation', label: 'Performance Transformation', desc: 'Product → athlete appears → use → intensity → performance → hero' },
+      { id: 'fitness_activity_recovery', label: 'Activity → Recovery', desc: 'Product → activity/effort → recovery moment → hero' },
+      { id: 'fitness_lifestyle_transformation', label: 'Lifestyle Transformation', desc: 'Product → everyday → enters routine → activity → healthy life → hero' },
+    ],
+  },
 };
 
 export default function App() {

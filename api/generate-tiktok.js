@@ -304,6 +304,78 @@ const ARCHETYPES = {
     { "scene": 4, "timing": "8-10s", "title": "Setting 3", "description": "A third setting, versatility, confident close" }
   ]`,
   },
+
+  // ── Creative Studio TEMPLATES — Fitness & Wellness ──
+  fitness_workout_activation: {
+    label: "Product → Workout Activation",
+    instructions: `- Video storyboard: 4 scenes — "Workout Activation". Product on white, a gym/home workout environment materialises, a person picks up/uses the product, the workout begins with energetic action, product hero close.
+  Scene 1 (0-2s): Product on clean white, crisp light, slow push-in.
+  Scene 2 (2-4s): A gym or home-workout environment materialises around it.
+  Scene 3 (4-7s): A person picks up/uses the product and the workout begins — energetic, dynamic action.
+  Scene 4 (7-10s): Peak energetic moment, then a strong product hero close.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Clean White", "description": "Product on white, crisp light, push-in" },
+    { "scene": 2, "timing": "2-4s", "title": "Environment", "description": "Gym/home-workout environment materialises" },
+    { "scene": 3, "timing": "4-7s", "title": "Activation", "description": "Person uses product, workout begins, dynamic action" },
+    { "scene": 4, "timing": "7-10s", "title": "Hero Close", "description": "Peak energy, strong product hero close" }
+  ]`,
+  },
+  fitness_morning_wellness: {
+    label: "Product → Morning Wellness Routine",
+    instructions: `- Video storyboard: 4 scenes — "Morning Wellness Routine". Product in a morning environment, preparation, consumption/use, an active day begins, product hero.
+  Scene 1 (0-2s): Product in a bright, calm morning environment.
+  Scene 2 (2-5s): Preparation — the product readied or mixed, natural and healthy.
+  Scene 3 (5-8s): Consumption/use, then the person stepping into an active, energised day.
+  Scene 4 (8-10s): Product hero close, fresh and wellness-focused.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Morning", "description": "Product in a bright calm morning environment" },
+    { "scene": 2, "timing": "2-5s", "title": "Preparation", "description": "Product readied/mixed, natural and healthy" },
+    { "scene": 3, "timing": "5-8s", "title": "Active Day", "description": "Consumption/use, stepping into an energised day" },
+    { "scene": 4, "timing": "8-10s", "title": "Hero Close", "description": "Fresh, wellness-focused product hero close" }
+  ]`,
+  },
+  fitness_performance_transformation: {
+    label: "Product → Performance Transformation",
+    instructions: `- Video storyboard: 4 scenes — "Performance Transformation". Product on white, a person/environment appears, product used, physical activity intensifies to a performance moment, product hero.
+  Scene 1 (0-2s): Product on white, powerful clean light.
+  Scene 2 (2-4s): A person and an athletic environment appear.
+  Scene 3 (4-7s): The product is used and physical activity intensifies — building effort and power.
+  Scene 4 (7-10s): A peak performance moment, then product hero close.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Clean White", "description": "Product on white, powerful clean light" },
+    { "scene": 2, "timing": "2-4s", "title": "Athlete Appears", "description": "A person and athletic environment appear" },
+    { "scene": 3, "timing": "4-7s", "title": "Intensifies", "description": "Product used, activity intensifies, building power" },
+    { "scene": 4, "timing": "7-10s", "title": "Peak + Hero", "description": "Peak performance moment, product hero close" }
+  ]`,
+  },
+  fitness_activity_recovery: {
+    label: "Product → Activity → Recovery",
+    instructions: `- Video storyboard: 4 scenes — "Activity → Recovery". Best for equipment, protein, recovery and functional products. Product, into activity/effort, then a restorative recovery moment, product hero.
+  Scene 1 (0-2s): Product introduced cleanly, energetic tone.
+  Scene 2 (2-5s): Into activity/effort — the product used during exertion, dynamic.
+  Scene 3 (5-8s): The shift to recovery — a calm, restorative moment (stretch, rest, replenish).
+  Scene 4 (8-10s): Restored and refreshed, product hero close.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Introduced", "description": "Product introduced cleanly, energetic tone" },
+    { "scene": 2, "timing": "2-5s", "title": "Activity", "description": "Product used during exertion, dynamic" },
+    { "scene": 3, "timing": "5-8s", "title": "Recovery", "description": "Shift to a calm restorative moment" },
+    { "scene": 4, "timing": "8-10s", "title": "Hero Close", "description": "Restored and refreshed, product hero close" }
+  ]`,
+  },
+  fitness_lifestyle_transformation: {
+    label: "Product → Lifestyle Transformation",
+    instructions: `- Video storyboard: 4 scenes — "Lifestyle Transformation". Product on white, an ordinary environment, the product enters the routine, activity, a healthy/social lifestyle, product hero.
+  Scene 1 (0-2s): Product on clean white.
+  Scene 2 (2-4s): An ordinary everyday environment.
+  Scene 3 (4-7s): The product enters the routine and activity follows — movement, energy.
+  Scene 4 (7-10s): A healthy, social lifestyle beat, then product hero close.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Clean White", "description": "Product on clean white" },
+    { "scene": 2, "timing": "2-4s", "title": "Everyday", "description": "An ordinary everyday environment" },
+    { "scene": 3, "timing": "4-7s", "title": "Enters Routine", "description": "Product enters the routine, activity follows" },
+    { "scene": 4, "timing": "7-10s", "title": "Healthy Life", "description": "Healthy social lifestyle beat, product hero close" }
+  ]`,
+  },
 };
 
 // The source-level overlay rule (Option B) — appended to every storyboard prompt.
