@@ -2364,6 +2364,9 @@ function RSAStudio() {
   const [csVertical, setCsVertical] = useState('beauty');
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
   const csRotationRef = useRef(0); // advances each generation to rotate through csTemplates
+  const [activeTemplate, setActiveTemplate] = useState(null); // id of the CS template driving the current video (rotation)
+  // Look up a template's display label across all verticals.
+  const templateLabel = (id) => { for (const v of Object.values(CS_VERTICALS)) { const t = (v.templates || []).find(x => x.id === id); if (t) return t.label; } return null; };
   useEffect(() => {
     const cs = brandData?.creativeStudio;
     if (cs && Array.isArray(cs.templates)) { setCsTemplates(cs.templates); if (cs.vertical) setCsVertical(cs.vertical); }
@@ -2764,12 +2767,14 @@ function RSAStudio() {
             setVideoEngine(sel.engine);
             videoEngineRef.current = sel.engine;
             videoSelArchetypeRef.current = sel.archetype; // synchronous — storyboard call reads this
+            setActiveTemplate(null); // default: not a CS template unless the override below sets it
             // Creative Studio (Pro): if templates are selected, rotate through them, overriding auto-detect.
             if (isPro && csTemplates.length > 0) {
               const pick = csTemplates[csRotationRef.current % csTemplates.length];
               csRotationRef.current += 1;
               videoSelArchetypeRef.current = pick;
               setVideoArchetype(pick);
+              setActiveTemplate(pick);
               console.log('[creative-studio] template rotation →', pick);
             }
             if (sel.engine === 'kling') setVideoArchetype(sel.archetype);
@@ -3973,7 +3978,7 @@ STRICT rules:
                 {(tiktokResult && tiktokResult.videoPrompt) ? (
                   <>
                     <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Turn your product into a short-form video ad.<br/>Takes about 3–4 minutes.</div>
-                    <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{videoEngine === 'runway' ? 'Runway · best for fashion' : ('Kling · ' + (videoArchetype === 'studio_spin' ? 'Studio Spin' : videoArchetype === 'lifestyle_montage' ? 'Lifestyle Montage' : 'Scene Reveal'))}</div>
+                    <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{(activeTemplate && templateLabel(activeTemplate)) ? ('✦ ' + templateLabel(activeTemplate)) : (videoEngine === 'runway' ? 'Runway · best for fashion' : ('Kling · ' + (videoArchetype === 'studio_spin' ? 'Studio Spin' : videoArchetype === 'lifestyle_montage' ? 'Lifestyle Montage' : 'Scene Reveal')))}</div>
                     <button onClick={(e) => { e.stopPropagation(); startVideoGeneration(); }} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Generate video</button>
                   </>
                 ) : (
