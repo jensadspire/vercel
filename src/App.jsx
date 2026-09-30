@@ -986,6 +986,7 @@ function RSAStudio() {
   const [tiktokError, setTiktokError] = useState('');
   const [tiktokVideoLoading, setTiktokVideoLoading] = useState(false);
   const [tiktokVideoUrl, setTiktokVideoUrl] = useState(null);
+  const [videoUseMetaCopy, setVideoUseMetaCopy] = useState(false); // false = variation[1] (default), true = match Meta[0]
   // Phase 4a — branded outro (post-video)
   const [outroLoading, setOutroLoading] = useState(false);
   const [outroVideoUrl, setOutroVideoUrl] = useState(null);
@@ -3843,16 +3844,29 @@ STRICT rules:
                 </div>
                 {/* primary text (from Meta output, if available) */}
                 <div style={{ padding: "0 14px 10px", fontSize: 12.5, color: "#1c1e21", lineHeight: 1.4, whiteSpace: "pre-wrap" }}>
-                  {(metaResult?.primaryTexts?.[0] || "").slice(0, 140)}{(metaResult?.primaryTexts?.[0] || "").length > 140 ? "…" : ""}
+                  {(() => { const a = metaResult?.primaryTexts || []; const t = videoUseMetaCopy ? (a[0] || "") : (a[1] || a[0] || ""); return t.slice(0, 140) + (t.length > 140 ? "…" : ""); })()}
                 </div>
-                <video src={tiktokVideoUrl} controls playsInline style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
+                <div style={{ position: "relative" }}>
+                  <video src={tiktokVideoUrl} controls playsInline style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
+                  {(metaResult?.primaryTexts?.length > 1 || metaResult?.headlines?.length > 1) && (
+                    <button onClick={(e) => { e.stopPropagation(); setVideoUseMetaCopy(v => !v); }}
+                      title={videoUseMetaCopy ? "Showing Meta copy — click for the video variation" : "Showing video variation — click to use the Meta copy"}
+                      style={{ position: "absolute", top: 8, right: 8, zIndex: 5, display: "flex", alignItems: "center", gap: 5,
+                        padding: "5px 9px", borderRadius: 8, border: "none", cursor: "pointer",
+                        background: videoUseMetaCopy ? "#0866FF" : "rgba(8,102,255,0.12)",
+                        color: videoUseMetaCopy ? "#fff" : "#0866FF", fontSize: 10, fontWeight: 800, backdropFilter: "blur(4px)" }}>
+                      <svg width="12" height="12" viewBox="0 0 36 24" style={{ display: "block" }}><path fill={videoUseMetaCopy ? "#fff" : "#0866FF"} d="M6.5 3C3 3 1 6.2 1 11.2 1 16 3 20 6.2 20c2.3 0 3.9-1.5 6-4.9l1.9-3.1c.2-.3.4-.6.6-1 .5.8 1 1.7 1.6 2.6l1.2 2c2.3 3.8 3.7 4.4 5.4 4.4 3.3 0 5.1-3.9 5.1-8.9C29 6.7 27 3 23.6 3c-2.1 0-3.7 1.4-5.6 4.6-.8-1.3-1.5-2.4-2.1-3.2C14.6 3.1 13 3 11.4 3H6.5zm.3 3.2c1 0 1.8.6 3.3 2.9l.9 1.4-1.3 2.1C8.2 16 7.5 16.8 6.6 16.8c-1.2 0-2-1.4-2-3.6 0-2.9 1-4 2.2-4zm16.5 0c1.2 0 2.2 1.5 2.2 4 0 2.2-.8 3.6-2 3.6-.9 0-1.6-.7-3.2-3.3l-1-1.6.8-1.3c1.4-2.3 2.2-2.9 3.2-2.9z"/></svg>
+                      {videoUseMetaCopy ? "Meta copy" : "Use Meta copy"}
+                    </button>
+                  )}
+                </div>
                 {/* headline + CTA payoff (mirrors Meta, video purple accent) */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "#f0f2f5", borderTop: "1px solid #dadde1" }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 10, color: "#606770" }}>{(() => { try { return new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./, ""); } catch { return ""; } })()}</div>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metaResult?.headlines?.[0] || tiktokResult?.cta || "Learn more"}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(() => { const a = metaResult?.headlines || []; return (videoUseMetaCopy ? a[0] : (a[1] || a[0])) || tiktokResult?.cta || "Learn more"; })()}</div>
                   </div>
-                  <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#8b5cf6", borderRadius: 6, padding: "8px 12px" }}>{(metaResult?.descriptions?.[0] && metaResult.descriptions[0].length <= 18) ? metaResult.descriptions[0] : "Shop Now"}</div>
+                  <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#8b5cf6", borderRadius: 6, padding: "8px 12px" }}>{(() => { const a = metaResult?.descriptions || []; const d = videoUseMetaCopy ? a[0] : (a[1] || a[0]); return (d && d.length <= 18) ? d : "Shop Now"; })()}</div>
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
