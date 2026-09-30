@@ -921,6 +921,19 @@ function formatPrice(amount, currency) {
   }
 }
 
+const CS_VERTICALS = {
+  beauty: {
+    label: 'Beauty & Personal Care',
+    templates: [
+      { id: 'beauty_morning_ritual', label: 'White → Morning Ritual', desc: 'Product on white → space materialises → applied → confident lifestyle' },
+      { id: 'beauty_ingredient_transformation', label: 'Ingredient → Transformation', desc: 'Ingredients appear → merge → result-focused scene' },
+      { id: 'beauty_luxury_reveal', label: 'Luxury Reveal', desc: 'Cinematic packshot → elegant vanity → hero object' },
+      { id: 'beauty_before_the_day', label: 'Before the Day Starts', desc: 'Morning environment → gets ready → leaves confident' },
+      { id: 'beauty_problem_solution', label: 'Problem → Solution', desc: 'Concern → product enters → usage → positive result' },
+    ],
+  },
+};
+
 export default function App() {
   return (
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
@@ -2293,6 +2306,25 @@ function RSAStudio() {
   const [feedbackDashData, setFeedbackDashData] = useState([]);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
+  // Creative Studio (C1)
+  const [showCreativeStudio, setShowCreativeStudio] = useState(false);
+  const [csVertical, setCsVertical] = useState('beauty');
+  const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
+  const csRotationRef = useRef(0); // advances each generation to rotate through csTemplates
+  useEffect(() => {
+    const cs = brandData?.creativeStudio;
+    if (cs && Array.isArray(cs.templates)) { setCsTemplates(cs.templates); if (cs.vertical) setCsVertical(cs.vertical); }
+  }, [brandData]);
+  const saveCreativeStudio = async (nextTemplates, nextVertical) => {
+    setCsTemplates(nextTemplates);
+    if (nextVertical) setCsVertical(nextVertical);
+    try {
+      if (!isSignedIn || !window.Clerk?.session) return;
+      const token = await window.Clerk.session.getToken();
+      await fetch('/api/brand', { method: 'POST', headers: { 'x-clerk-session': token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...(brandData || {}), creativeStudio: { vertical: nextVertical || csVertical, templates: nextTemplates } }) });
+    } catch (e) { console.error('[creative-studio] save failed:', e.message); }
+  };
   const [librarySaving, setLibrarySaving] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedForExport, setSelectedForExport] = useState(new Set()); // history ids selected
@@ -2679,6 +2711,14 @@ function RSAStudio() {
             setVideoEngine(sel.engine);
             videoEngineRef.current = sel.engine;
             videoSelArchetypeRef.current = sel.archetype; // synchronous — storyboard call reads this
+            // Creative Studio (Pro): if templates are selected, rotate through them, overriding auto-detect.
+            if (isPro && csTemplates.length > 0) {
+              const pick = csTemplates[csRotationRef.current % csTemplates.length];
+              csRotationRef.current += 1;
+              videoSelArchetypeRef.current = pick;
+              setVideoArchetype(pick);
+              console.log('[creative-studio] template rotation →', pick);
+            }
             if (sel.engine === 'kling') setVideoArchetype(sel.archetype);
             console.log('[model-select] auto:', sel.engine, sel.archetype);
           } catch (e) { console.error('[model-select] failed (default kling):', e.message); }
@@ -3893,11 +3933,81 @@ STRICT rules:
           );
         })()}
 
-        {/* Creative Studio teaser */}        {/* Creative Studio teaser */}
-        <div style={{ width: "100%", maxWidth: 960, marginTop: 24, marginBottom: 60, padding: 16, background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.12)", borderRadius: 12, textAlign: "center" }}>
-          <span style={{ fontSize: 13, color: "#7e92a8", fontWeight: 700 }}>✦ Creative Studio — Brand Kit, Personas & Templates</span>
-          <span style={{ fontSize: 12, color: "#4a5568", marginLeft: 8 }}>coming soon</span>
+        {/* Next-level layer: Creative Studio + Sequential Ad Builder */}
+        <div style={{ width: "100%", maxWidth: 1100, marginTop: 40, marginBottom: 60 }}>
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.10)", paddingTop: 28 }}>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              {/* Creative Studio */}
+              <div onClick={() => { if (isPro) setShowCreativeStudio(true); }} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(139,92,246,0.3)", background: "linear-gradient(135deg,rgba(139,92,246,0.10),rgba(99,102,241,0.06))", cursor: isPro ? "pointer" : "default", position: "relative" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#c4b5fd" }}>✦ Creative Studio</span>
+                  {!isPro && <span style={{ fontSize: 10, fontWeight: 800, color: "#fbbf24", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", borderRadius: 6, padding: "2px 8px" }}>🔒 PRO</span>}
+                </div>
+                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Shape how your video ads look and feel. Pick a vertical and the storyline templates that fit your brand — your ads follow a consistent, intentional creative direction.</div>
+                {isPro ? (
+                  <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#8b5cf6" }}>{csTemplates.length > 0 ? `${csTemplates.length} template${csTemplates.length > 1 ? 's' : ''} active →` : 'Set up your templates →'}</div>
+                ) : (
+                  <div onClick={(e) => { e.stopPropagation(); setShowCreativeStudio(true); }} style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#fbbf24", cursor: "pointer" }}>Upgrade to Pro to unlock →</div>
+                )}
+              </div>
+              {/* Sequential Ad Builder — coming soon */}
+              <div style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px dashed rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.02)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#7e92a8" }}>⚡ Sequential Ad Builder</span>
+                  <span style={{ fontSize: 10, color: "#4a5568" }}>coming soon</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: "#5a6b80", lineHeight: 1.5 }}>Generate coordinated multi-ad campaigns — a uniform set of creatives that share your brand's story arc across formats and moments.</div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Creative Studio panel */}
+        {showCreativeStudio && (() => {
+          const vert = CS_VERTICALS[csVertical] || CS_VERTICALS.beauty;
+          const toggleTpl = (id) => { const next = csTemplates.includes(id) ? csTemplates.filter(t => t !== id) : [...csTemplates, id]; saveCreativeStudio(next, csVertical); };
+          return (
+            <div onClick={() => setShowCreativeStudio(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
+              <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 560, maxHeight: "85vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 16, padding: 26 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>✦ Creative Studio</span>
+                  <button onClick={() => setShowCreativeStudio(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                </div>
+                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.6, marginBottom: 20 }}>This is where the magic happens that shapes and designs your future campaigns. Choose your vertical and the storyline templates that fit your brand — your video ads will follow these directions, rotating through your selected styles for variety.</div>
+
+                {/* 1. Vertical + templates */}
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#c4b5fd", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>1 · Vertical & Templates</div>
+                <select value={csVertical} onChange={e => saveCreativeStudio(csTemplates, e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13, marginBottom: 12 }}>
+                  {Object.entries(CS_VERTICALS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+                  {vert.templates.map(t => {
+                    const on = csTemplates.includes(t.id);
+                    return (
+                      <div key={t.id} onClick={() => toggleTpl(t.id)} style={{ display: "flex", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: "pointer", background: on ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.03)", border: on ? "1px solid rgba(139,92,246,0.4)" : "1px solid rgba(255,255,255,0.08)" }}>
+                        <div style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, marginTop: 1, border: on ? "none" : "1.5px solid rgba(255,255,255,0.25)", background: on ? "#8b5cf6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "white", fontWeight: 800 }}>{on ? "✓" : ""}</div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: on ? "#e2e8f0" : "#c7d2e0" }}>{t.label}</div>
+                          <div style={{ fontSize: 11, color: "#7e92a8", marginTop: 2, lineHeight: 1.4 }}>{t.desc}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 2. Personas — reserved for C2 */}
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#5a6b80", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Personas</div>
+                <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.02)", fontSize: 12, color: "#5a6b80", marginBottom: 20 }}>Persona builder — coming next. Define who your ads speak to.</div>
+
+                {/* 3. Shop scenery — reserved (later) */}
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#5a6b80", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>3 · Shop Scenery</div>
+                <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.02)", fontSize: 12, color: "#5a6b80" }}>Pull scenery, hero imagery and seasonal elements from your shop — coming later.</div>
+
+                <div style={{ marginTop: 22, fontSize: 11, color: "#4a5568", textAlign: "center" }}>Selections save automatically to your brand.</div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }

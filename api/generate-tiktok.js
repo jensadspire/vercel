@@ -78,6 +78,74 @@ const ARCHETYPES = {
     { "scene": 3, "timing": "6-10s", "title": "Hero Close", "description": "Aspirational closing product shot" }
   ]`,
   },
+
+  // ── Creative Studio TEMPLATES — Beauty & Personal Care (narrative scaffolds) ──
+  beauty_morning_ritual: {
+    label: "White → Morning Ritual",
+    instructions: `- Video storyboard: 4 scenes — the "White → Morning Ritual" beauty template. A calm morning-ritual arc: the product begins on clean white, a soft bathroom/bedroom materialises, a person picks it up and applies/uses it, ending on a confident lifestyle beat.
+  Scene 1 (0-2s): Product alone on a bright clean white background, soft even light, slow push-in.
+  Scene 2 (2-5s): The white gently gives way as a serene bathroom or sunlit bedroom vanity materialises softly around the product.
+  Scene 3 (5-8s): A person's hands pick up the product and apply/use it naturally — gentle, real, close and warm.
+  Scene 4 (8-10s): Confident lifestyle beat — the person looking fresh and self-assured, product resting nearby.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Clean White", "description": "Product on bright white, soft light, slow push-in" },
+    { "scene": 2, "timing": "2-5s", "title": "Morning Space", "description": "A serene bathroom/bedroom vanity materialises softly around the product" },
+    { "scene": 3, "timing": "5-8s", "title": "The Ritual", "description": "Hands pick up and apply/use the product, warm and natural" },
+    { "scene": 4, "timing": "8-10s", "title": "Confident Close", "description": "Fresh, self-assured lifestyle beat, product nearby" }
+  ]`,
+  },
+  beauty_ingredient_transformation: {
+    label: "Ingredient → Transformation",
+    instructions: `- Video storyboard: 3 scenes — the "Ingredient → Transformation" beauty template. Natural ingredients visually appear and flow into the product, transitioning into use and a skin/hair result-focused lifestyle scene.
+  Scene 1 (0-3s): Product with its key natural ingredients drifting/appearing around it — botanicals, droplets, textures — elegant and fresh.
+  Scene 2 (3-7s): The ingredients visually flow into or merge with the product, then transition into a moment of use on skin or hair.
+  Scene 3 (7-10s): Result-focused lifestyle close — glowing skin or healthy hair, the person radiant, product featured.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Ingredients Appear", "description": "Key natural ingredients drift and appear around the product" },
+    { "scene": 2, "timing": "3-7s", "title": "Transformation", "description": "Ingredients merge into the product, transition into use on skin/hair" },
+    { "scene": 3, "timing": "7-10s", "title": "The Result", "description": "Glowing skin/healthy hair, radiant lifestyle close, product featured" }
+  ]`,
+  },
+  beauty_luxury_reveal: {
+    label: "Luxury Reveal",
+    instructions: `- Video storyboard: 3 scenes — the "Luxury Reveal" beauty template. A cinematic packshot in an elegant bathroom/vanity, with refined camera movement, the product becoming a hero object.
+  Scene 1 (0-3s): Elegant packshot of the product, premium lighting, dark or marble luxurious backdrop, slow reveal.
+  Scene 2 (3-7s): Cinematic camera movement through an elegant bathroom or vanity setting, the product presented like a jewel.
+  Scene 3 (7-10s): The product settles as the hero object, gleaming, aspirational and premium, gentle pull-back.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Elegant Packshot", "description": "Premium packshot, luxurious backdrop, slow reveal" },
+    { "scene": 2, "timing": "3-7s", "title": "Cinematic Vanity", "description": "Refined camera movement through an elegant bathroom/vanity" },
+    { "scene": 3, "timing": "7-10s", "title": "Hero Object", "description": "Product settles gleaming as the premium hero, gentle pull-back" }
+  ]`,
+  },
+  beauty_before_the_day: {
+    label: "Before the Day Starts",
+    instructions: `- Video storyboard: 4 scenes — the "Before the Day Starts" beauty template. A morning-getting-ready arc: product in a morning environment, a person uses it, gets ready, and leaves home confident.
+  Scene 1 (0-2s): Product in a bright morning environment — a sunlit bathroom shelf or bedroom, calm and fresh.
+  Scene 2 (2-5s): A person reaches for and uses the product as part of getting ready, natural and unhurried.
+  Scene 3 (5-8s): The person finishing their morning routine, looking polished and ready.
+  Scene 4 (8-10s): Confident departure — stepping out into the day, self-assured.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Morning Light", "description": "Product in a bright, calm morning environment" },
+    { "scene": 2, "timing": "2-5s", "title": "Getting Ready", "description": "Person uses the product while getting ready, natural" },
+    { "scene": 3, "timing": "5-8s", "title": "Polished", "description": "Finishing the routine, looking ready" },
+    { "scene": 4, "timing": "8-10s", "title": "Into the Day", "description": "Confident departure, stepping out self-assured" }
+  ]`,
+  },
+  beauty_problem_solution: {
+    label: "Problem → Solution",
+    instructions: `- Video storyboard: 4 scenes — the "Problem → Solution" beauty template. A visual representation of a concern, the product entering the scene, usage, and a positive result. Keep the "problem" tasteful and visual (never clinical or negative text).
+  Scene 1 (0-2s): A gentle, tasteful visual suggestion of the concern the product addresses (e.g. dull skin in soft light) — subtle, not harsh.
+  Scene 2 (2-4s): The product enters the scene cleanly, presented as the answer.
+  Scene 3 (4-8s): The product is applied/used, a soft transition suggesting improvement.
+  Scene 4 (8-10s): Positive result — visibly better skin/hair, the person confident and happy, product featured.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "The Concern", "description": "Tasteful visual suggestion of the concern, subtle and soft" },
+    { "scene": 2, "timing": "2-4s", "title": "Product Enters", "description": "Product enters the scene cleanly as the answer" },
+    { "scene": 3, "timing": "4-8s", "title": "In Use", "description": "Product applied/used, soft transition suggesting improvement" },
+    { "scene": 4, "timing": "8-10s", "title": "Positive Result", "description": "Visibly better result, person confident and happy, product featured" }
+  ]`,
+  },
 };
 
 // The source-level overlay rule (Option B) — appended to every storyboard prompt.
