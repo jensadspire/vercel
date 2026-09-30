@@ -376,6 +376,156 @@ const ARCHETYPES = {
     { "scene": 4, "timing": "7-10s", "title": "Healthy Life", "description": "Healthy social lifestyle beat, product hero close" }
   ]`,
   },
+
+  // ── Creative Studio TEMPLATES — Garden & Flowers ──
+  garden_white_interior: {
+    label: "White → Interior",
+    instructions: `- Video storyboard: 3 scenes — "White → Interior". Plant/product on white, a room materialises, the plant is placed naturally into the finished interior.
+  Scene 1 (0-3s): The plant/product on clean white, soft daylight, slow push-in.
+  Scene 2 (3-7s): A bright stylish room materialises softly around it.
+  Scene 3 (7-10s): The plant placed naturally in the finished interior, fresh and inviting.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Clean White", "description": "Plant/product on white, soft daylight" },
+    { "scene": 2, "timing": "3-7s", "title": "Room Forms", "description": "A bright stylish room materialises around it" },
+    { "scene": 3, "timing": "7-10s", "title": "Placed", "description": "Plant placed naturally in the finished interior" }
+  ]`,
+  },
+  garden_growth_story: {
+    label: "Growth Story",
+    instructions: `- Video storyboard: 3 scenes — "Growth Story". A small plant grows via time-lapse into a mature plant, ending in a beautiful interior.
+  Scene 1 (0-3s): A small young plant, hopeful, soft light.
+  Scene 2 (3-7s): Time-lapse growth — the plant flourishes and matures, leaves unfurling.
+  Scene 3 (7-10s): The mature, lush plant in a beautiful interior setting.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Small Plant", "description": "A small young plant, soft light" },
+    { "scene": 2, "timing": "3-7s", "title": "Growth", "description": "Time-lapse growth, plant matures and flourishes" },
+    { "scene": 3, "timing": "7-10s", "title": "Mature", "description": "Lush mature plant in a beautiful interior" }
+  ]`,
+  },
+  garden_transformation: {
+    label: "Garden Transformation",
+    instructions: `- Video storyboard: 4 scenes — "Garden Transformation". Plant/product, an empty garden, plants appear and fill it in, ending in a finished garden.
+  Scene 1 (0-2s): The plant/product featured.
+  Scene 2 (2-4s): An empty, bare garden with potential.
+  Scene 3 (4-8s): Plants and greenery appear and fill the garden in, coming to life.
+  Scene 4 (8-10s): The finished, lush garden, product/plant central.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Featured", "description": "The plant/product featured" },
+    { "scene": 2, "timing": "2-4s", "title": "Empty Garden", "description": "An empty, bare garden with potential" },
+    { "scene": 3, "timing": "4-8s", "title": "Filling In", "description": "Plants and greenery appear, garden comes to life" },
+    { "scene": 4, "timing": "8-10s", "title": "Finished", "description": "Lush finished garden, product/plant central" }
+  ]`,
+  },
+  garden_bouquet_occasion: {
+    label: "Bouquet → Occasion",
+    instructions: `- Video storyboard: 3 scenes — "Bouquet → Occasion". Flowers, a table/room setting, the bouquet arranged, ending in a celebration/occasion.
+  Scene 1 (0-3s): The flowers presented beautifully, fresh and vivid.
+  Scene 2 (3-6s): A table or room setting forms, the bouquet arranged into it.
+  Scene 3 (6-10s): A warm celebration/occasion moment, the bouquet the centrepiece.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Flowers", "description": "Flowers presented beautifully, fresh and vivid" },
+    { "scene": 2, "timing": "3-6s", "title": "Arranged", "description": "Table/room setting forms, bouquet arranged" },
+    { "scene": 3, "timing": "6-10s", "title": "Occasion", "description": "Warm celebration moment, bouquet the centrepiece" }
+  ]`,
+  },
+  garden_nature_home: {
+    label: "Nature → Home",
+    instructions: `- Video storyboard: 3 scenes — "Nature → Home". A natural environment, the plant, a transition into the home, a lifestyle beat.
+  Scene 1 (0-3s): A lush natural environment — the plant in its natural context.
+  Scene 2 (3-6s): A smooth transition carrying the plant from nature into a home interior.
+  Scene 3 (6-10s): The plant thriving in a warm home lifestyle scene.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "In Nature", "description": "Lush natural environment, plant in context" },
+    { "scene": 2, "timing": "3-6s", "title": "Transition", "description": "Smooth transition from nature into the home" },
+    { "scene": 3, "timing": "6-10s", "title": "At Home", "description": "Plant thriving in a warm home lifestyle scene" }
+  ]`,
+  },
+  garden_seasonal: {
+    label: "Seasonal",
+    instructions: `- Video storyboard: 4 scenes — "Seasonal". The plant/product shown as the environment transitions through the seasons around it (a season-changing montage — do NOT require a single season; flow through them).
+  Scene 1 (0-3s): The plant in a fresh spring setting, blossoms and new green.
+  Scene 2 (3-5s): Transition to lush summer, full and vibrant.
+  Scene 3 (5-8s): Transition to golden autumn tones around the plant.
+  Scene 4 (8-10s): Transition to a crisp winter setting, the plant enduring, product hero close.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Spring", "description": "Plant in a fresh spring setting, blossoms" },
+    { "scene": 2, "timing": "3-5s", "title": "Summer", "description": "Lush vibrant summer" },
+    { "scene": 3, "timing": "5-8s", "title": "Autumn", "description": "Golden autumn tones around the plant" },
+    { "scene": 4, "timing": "8-10s", "title": "Winter", "description": "Crisp winter setting, product hero close" }
+  ]`,
+  },
+
+  // ── Creative Studio TEMPLATES — Home Improvement & DIY ──
+  diy_before_during_after: {
+    label: "Before → During → After",
+    instructions: `- Video storyboard: 4 scenes — "Before → During → After". Product on white, an unfinished/empty space, the product is used, transformation, finished project, product hero.
+  Scene 1 (0-2s): Product on clean white, then an unfinished or empty space revealed.
+  Scene 2 (2-5s): The product is put to use — work in progress, hands-on.
+  Scene 3 (5-8s): The transformation takes shape, the project coming together.
+  Scene 4 (8-10s): The finished project, satisfying and complete, product hero close.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Before", "description": "Product on white, unfinished/empty space" },
+    { "scene": 2, "timing": "2-5s", "title": "During", "description": "Product used, work in progress, hands-on" },
+    { "scene": 3, "timing": "5-8s", "title": "Transformation", "description": "Project takes shape and comes together" },
+    { "scene": 4, "timing": "8-10s", "title": "After", "description": "Finished project, product hero close" }
+  ]`,
+  },
+  diy_how_its_done: {
+    label: "How It's Done",
+    instructions: `- Video storyboard: 4 scenes — "How It's Done". Product, a workspace, preparation, the product in use, a close-up, the result.
+  Scene 1 (0-2s): The product presented, then a tidy workspace forms.
+  Scene 2 (2-5s): Preparation — materials and tools readied.
+  Scene 3 (5-8s): The product in use, with a satisfying close-up of the action.
+  Scene 4 (8-10s): The finished result, clean and accomplished.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Workspace", "description": "Product presented, tidy workspace forms" },
+    { "scene": 2, "timing": "2-5s", "title": "Preparation", "description": "Materials and tools readied" },
+    { "scene": 3, "timing": "5-8s", "title": "In Use", "description": "Product in use, satisfying close-up" },
+    { "scene": 4, "timing": "8-10s", "title": "Result", "description": "Finished result, clean and accomplished" }
+  ]`,
+  },
+  diy_fix_it: {
+    label: "Fix-It",
+    instructions: `- Video storyboard: 4 scenes — "Fix-It". A damaged surface, the product appears, the product applied, the repaired surface, finished result.
+  Scene 1 (0-2s): A damaged or worn surface, the problem clear and visual.
+  Scene 2 (2-4s): The product appears as the solution.
+  Scene 3 (4-8s): The product applied to the surface, the repair happening.
+  Scene 4 (8-10s): The repaired, restored surface, finished result, product hero.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Damaged", "description": "A damaged/worn surface, problem clear" },
+    { "scene": 2, "timing": "2-4s", "title": "Solution", "description": "The product appears as the solution" },
+    { "scene": 3, "timing": "4-8s", "title": "Applied", "description": "Product applied, the repair happening" },
+    { "scene": 4, "timing": "8-10s", "title": "Repaired", "description": "Restored surface, finished result, product hero" }
+  ]`,
+  },
+  diy_creation: {
+    label: "Creation",
+    instructions: `- Video storyboard: 4 scenes — "Creation". Product/material, components, construction with intermediate stages, finished object, lifestyle. Adapt the construction steps to the actual product (e.g. woodworking: cut → assemble → sand → finished furniture; garden project: plant/build → develops → finished space; shelving: assemble → mount → styled).
+  Scene 1 (0-2s): The product/material and components laid out ready.
+  Scene 2 (2-5s): Construction begins — assembly/building, hands-on intermediate stages.
+  Scene 3 (5-8s): The object takes its finished form.
+  Scene 4 (8-10s): The finished creation in a lifestyle setting, product hero.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Materials", "description": "Product/material and components laid out ready" },
+    { "scene": 2, "timing": "2-5s", "title": "Construction", "description": "Assembly/building, hands-on intermediate stages" },
+    { "scene": 3, "timing": "5-8s", "title": "Takes Form", "description": "The object takes its finished form" },
+    { "scene": 4, "timing": "8-10s", "title": "Finished", "description": "Finished creation in a lifestyle setting, product hero" }
+  ]`,
+  },
+  diy_dream_space: {
+    label: "Create Your Dream Space",
+    instructions: `- Video storyboard: 4 scenes — "Create Your Dream Space". Product on white, an empty/ordinary space, the product enters, the environment progressively transforms, a finished lifestyle scene. Adapt to the product (e.g. outdoor lighting: dark patio → installed → lights on → evening terrace; kitchen product: basic kitchen → installed → modern kitchen → family using it; garden furniture: empty terrace → placed → accessories appear → finished setting).
+  Scene 1 (0-2s): Product on white, then an empty or ordinary space.
+  Scene 2 (2-5s): The product enters the space.
+  Scene 3 (5-8s): The environment progressively transforms around it.
+  Scene 4 (8-10s): The finished, aspirational lifestyle scene, product hero.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-2s", "title": "Ordinary Space", "description": "Product on white, then an empty/ordinary space" },
+    { "scene": 2, "timing": "2-5s", "title": "Product Enters", "description": "The product enters the space" },
+    { "scene": 3, "timing": "5-8s", "title": "Transforms", "description": "Environment progressively transforms around it" },
+    { "scene": 4, "timing": "8-10s", "title": "Dream Space", "description": "Finished aspirational lifestyle scene, product hero" }
+  ]`,
+  },
 };
 
 // The source-level overlay rule (Option B) — appended to every storyboard prompt.

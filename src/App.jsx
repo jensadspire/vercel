@@ -964,6 +964,27 @@ const CS_VERTICALS = {
       { id: 'fitness_lifestyle_transformation', label: 'Lifestyle Transformation', desc: 'Product → everyday → enters routine → activity → healthy life → hero' },
     ],
   },
+  garden: {
+    label: 'Garden & Flowers',
+    templates: [
+      { id: 'garden_white_interior', label: 'White → Interior', desc: 'Plant → room materialises → placed in finished interior' },
+      { id: 'garden_growth_story', label: 'Growth Story', desc: 'Small plant → time-lapse growth → mature plant → interior' },
+      { id: 'garden_transformation', label: 'Garden Transformation', desc: 'Plant → empty garden → plants fill in → finished garden' },
+      { id: 'garden_bouquet_occasion', label: 'Bouquet → Occasion', desc: 'Flowers → setting → arranged → celebration/occasion' },
+      { id: 'garden_nature_home', label: 'Nature → Home', desc: 'Natural environment → plant → into the home → lifestyle' },
+      { id: 'garden_seasonal', label: 'Seasonal', desc: 'Plant through spring → summer → autumn → winter' },
+    ],
+  },
+  diy: {
+    label: 'Home Improvement & DIY',
+    templates: [
+      { id: 'diy_before_during_after', label: 'Before → During → After', desc: 'Empty space → product used → transformation → finished project' },
+      { id: 'diy_how_its_done', label: "How It's Done", desc: 'Workspace → preparation → product in use → close-up → result' },
+      { id: 'diy_fix_it', label: 'Fix-It', desc: 'Damaged surface → product applied → repaired → finished' },
+      { id: 'diy_creation', label: 'Creation', desc: 'Materials → construction → stages → finished object → lifestyle' },
+      { id: 'diy_dream_space', label: 'Create Your Dream Space', desc: 'Ordinary space → product enters → transforms → finished scene' },
+    ],
+  },
 };
 
 export default function App() {
