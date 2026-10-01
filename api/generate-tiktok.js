@@ -531,6 +531,14 @@ const ARCHETYPES = {
 // The source-level overlay rule (Option B) — appended to every storyboard prompt.
 const NO_TEXT_RULE = `- CRITICAL — VISUALS ONLY: every storyboard scene and the video prompt describe ONLY what the camera sees (composition, lighting, setting, motion, the product). NEVER specify on-screen text, captions, titles, subtitles, hooks, questions, taglines, CTAs, buttons, logos, brand names, or domain/URL overlays in any scene. The finished video must contain NO rendered text of any kind. (The ad's hook and CTA are delivered separately as copy, not inside the video.)`;
 
+// MUST-KEEP constraints — kept explicit/separate so they survive a model's own prompt-enhancer
+// rewrite. The TEMPLATE beats stay authoritative; product rules prevent accidental drop only.
+const MUST_KEEP_RULE = `- MUST-KEEP (do not drop these, even when elaborating):
+  1. The scene BEATS below are AUTHORITATIVE — follow them in order, each visibly represented; do not collapse or skip beats. If a beat is intentionally about the person/outcome/lifestyle (e.g. "leaves confident"), that beat is correct WITHOUT the product — do not force the product into it.
+  2. The product is the HERO of the ad overall and must be prominently featured across the video. In any beat that shows the product, it must be clearly visible and must NOT accidentally drop out of frame.
+  3. Maintain 100% visual consistency of the product (same product, colours, shape, branding) wherever it appears. Never substitute or invent a different product.
+  4. 9:16 vertical, cinematic and aspirational, smooth camera movement.`;
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -599,6 +607,7 @@ Brand: ${brand}
 Page content: ${content.slice(0, 800)}
 Language: ${language}
 ${storyboardInstructions}
+${MUST_KEEP_RULE}
 ${NO_TEXT_RULE}
 
 Return ONLY valid JSON (no markdown, no preamble):
@@ -649,6 +658,7 @@ TikTok ad rules:
 - CTA: Short action phrase. Max 4 words. (e.g. "Shop now", "Try it today", "Link in bio")
 - Hashtags: 4-6 relevant hashtags. Mix broad (#fashion) and niche (#danishdesign). No spaces.
 ${storyboardInstructions}
+${MUST_KEEP_RULE}
 ${NO_TEXT_RULE}
 - Write in ${language}
 - Never start with the brand name
