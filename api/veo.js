@@ -124,8 +124,6 @@ export default async function handler(req, res) {
         }],
         parameters: {
           aspectRatio: '9:16',
-          // auto_fix: validation/safety rewrite (NOT creative enhancement — testing).
-          ...((process.env.VEO_ENHANCE || 'on') !== 'off' ? { auto_fix: true } : {}),
           // durationSeconds / personGeneration / sampleCount etc. — add per current API as needed
         },
       }),
