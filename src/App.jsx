@@ -1122,6 +1122,7 @@ function RSAStudio() {
       setRecipeError(null);
       if (currentEngine === 'recipe') { setRecipeGated(null); }
       const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
+      console.log('[VIDEO DISPATCH] activeTemplate=', activeTemplate, '| TEMPLATE_ENGINE=', activeTemplate ? TEMPLATE_ENGINE[activeTemplate] : null, '| ref=', videoEngineRef.current, '| currentEngine=', currentEngine, '| → videoApi=', videoApi);
       const videoPayload = currentEngine === 'recipe'
         ? { mode: recipeMode, imageUrl, characterImage: recipeMode === 'ugc' ? recipeCharacterImage : undefined, productInfo: (tiktokResult.brand || pageMeta?.brand || ''), userConcept: recipeMode === 'ugc' ? tiktokResult.videoPrompt : `Polished cinematic product advertisement for ${tiktokResult.brand || pageMeta?.brand || 'this product'}. The product is the clear hero, shown in an aspirational real-world setting with warm professional lighting and smooth, elegant camera movement. High-quality commercial style. No on-screen text, captions, logos, brand names or overlays anywhere.` }
         : currentEngine === 'runway'
