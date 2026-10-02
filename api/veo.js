@@ -124,10 +124,8 @@ export default async function handler(req, res) {
         }],
         parameters: {
           aspectRatio: '9:16',
-          // VEO native prompt enhancement — expands our brief into VEO's cinematic dialect.
-          // Toggle via env VEO_ENHANCE ('off' to disable for A/B). If this exact key is
-          // wrong for the direct Gemini endpoint, adjust the name/location here.
-          enhancePrompt: (process.env.VEO_ENHANCE || 'on') !== 'off',
+          // auto_fix: validation/safety rewrite (NOT creative enhancement — testing).
+          ...((process.env.VEO_ENHANCE || 'on') !== 'off' ? { auto_fix: true } : {}),
           // durationSeconds / personGeneration / sampleCount etc. — add per current API as needed
         },
       }),
