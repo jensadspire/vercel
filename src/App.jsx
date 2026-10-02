@@ -921,6 +921,32 @@ function formatPrice(amount, currency) {
   }
 }
 
+// Template → preferred video engine (lifestyle/person-in-scene templates route to VEO,
+// which is strongest at human-product integration). Refine freely — this IS the routing
+// matrix in data form. Templates not listed default to the auto-detected engine (Kling/Runway).
+const TEMPLATE_ENGINE = {
+  // Jens's selected lifestyle/person-in-scene templates → VEO. Everything else → auto (Kling/Runway).
+  // Beauty
+  beauty_morning_ritual: 'veo',
+  beauty_before_the_day: 'veo',
+  // Fashion
+  fashion_wardrobe_lifestyle: 'veo',
+  fashion_street_style: 'veo',
+  // Home Decor
+  homedecor_empty_designed: 'veo',
+  homedecor_product_in_context: 'veo',
+  // Fitness
+  fitness_workout_activation: 'veo',
+  fitness_morning_wellness: 'veo',
+  fitness_activity_recovery: 'veo',
+  fitness_lifestyle_transformation: 'veo',
+  // Home Improvement & DIY
+  diy_before_during_after: 'veo',
+  diy_fix_it: 'veo',
+  diy_creation: 'veo',
+  diy_dream_space: 'veo',
+};
+
 const CS_VERTICALS = {
   beauty: {
     label: 'Beauty & Personal Care',
@@ -1091,7 +1117,7 @@ function RSAStudio() {
       const currentEngine = videoEngineRef.current;
       setRecipeError(null);
       if (currentEngine === 'recipe') { setRecipeGated(null); }
-      const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : '/api/kling';
+      const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
       const videoPayload = currentEngine === 'recipe'
         ? { mode: recipeMode, imageUrl, characterImage: recipeMode === 'ugc' ? recipeCharacterImage : undefined, productInfo: (tiktokResult.brand || pageMeta?.brand || ''), userConcept: recipeMode === 'ugc' ? tiktokResult.videoPrompt : `Polished cinematic product advertisement for ${tiktokResult.brand || pageMeta?.brand || 'this product'}. The product is the clear hero, shown in an aspirational real-world setting with warm professional lighting and smooth, elegant camera movement. High-quality commercial style. No on-screen text, captions, logos, brand names or overlays anywhere.` }
         : currentEngine === 'runway'
@@ -2775,6 +2801,9 @@ function RSAStudio() {
               videoSelArchetypeRef.current = pick;
               setVideoArchetype(pick);
               setActiveTemplate(pick);
+              // Template-driven engine routing: lifestyle templates → VEO, else keep detected engine.
+              const tplEngine = TEMPLATE_ENGINE[pick];
+              if (tplEngine) { setVideoEngine(tplEngine); videoEngineRef.current = tplEngine; console.log('[route] template', pick, '→ engine', tplEngine); }
               console.log('[creative-studio] template rotation →', pick);
             }
             if (sel.engine === 'kling') setVideoArchetype(sel.archetype);
