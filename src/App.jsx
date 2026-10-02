@@ -3969,7 +3969,12 @@ STRICT rules:
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
-                  <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
+                  <span onClick={(e) => { e.stopPropagation();
+                    if (!isSignedIn) { setShowAuthModal(true); return; }
+                    if (!metaConn.connected) { triggerMetaConnect(); return; }
+                    if (!metaConn.selectionComplete) { try { openMetaPicker(); } catch(_){} return; }
+                    setAdFormat("tiktok"); setViewMode("detailed"); setTimeout(() => { try { setMetaPublishFormat('video'); setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new'); setSelectedCampaignId(''); setSelectedAdSetId(''); } catch(_){} }, 80);
+                  }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
             ) : (
