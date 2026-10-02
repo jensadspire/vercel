@@ -173,7 +173,7 @@ export default async function handler(req, res) {
         }],
         parameters: {
           sampleCount: 1,
-          durationSeconds: 8,
+          durationSeconds: parseInt(process.env.VEO_DURATION || '12', 10),
           aspectRatio: '9:16',
           enhancePrompt: true,
         },
