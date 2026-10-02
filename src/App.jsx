@@ -1114,7 +1114,11 @@ function RSAStudio() {
           return;
         }
       } catch (_) {}
-      const currentEngine = videoEngineRef.current;
+      // Authoritative engine: if a Creative Studio template is active and routes an engine,
+      // that wins — recomputed here so a stale ref (reset across async phases) can't misroute.
+      const authoritativeEngine = (activeTemplate && TEMPLATE_ENGINE[activeTemplate]) ? TEMPLATE_ENGINE[activeTemplate] : videoEngineRef.current;
+      const currentEngine = authoritativeEngine;
+      if (currentEngine !== videoEngineRef.current) { videoEngineRef.current = currentEngine; setVideoEngine(currentEngine); }
       setRecipeError(null);
       if (currentEngine === 'recipe') { setRecipeGated(null); }
       const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
