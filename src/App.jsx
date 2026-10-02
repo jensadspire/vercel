@@ -3204,7 +3204,14 @@ STRICT rules:
               tiktokSourceImageRef.current = null;
               lastGeneratedUrlRef.current = url;
             }
-            setVideoEngine(detectVideoEngine(tiktokSourceImageRef.current || initialImageUrl));
+            // Respect a Creative Studio template's engine choice (e.g. VEO); only fall back to
+            // image-based detection when no CS template has routed the engine.
+            {
+              const _csPick = (isPro && csTemplates.length > 0) ? csTemplates[(csRotationRef.current - 1 + csTemplates.length) % csTemplates.length] : null;
+              const _tplEngine = _csPick ? TEMPLATE_ENGINE[_csPick] : null;
+              if (_tplEngine) { setVideoEngine(_tplEngine); videoEngineRef.current = _tplEngine; }
+              else { setVideoEngine(detectVideoEngine(tiktokSourceImageRef.current || initialImageUrl)); }
+            }
             setVideoTask(null);
             setMetaEdits({});
             setMetaEditingField(null);
