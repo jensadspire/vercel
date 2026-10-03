@@ -183,7 +183,7 @@ export default async function handler(req, res) {
           sampleCount: 1,
           durationSeconds: parseInt(process.env.VEO_DURATION || '8', 10),
           aspectRatio: '9:16',
-          enhancePrompt: true,
+          enhancePrompt: (process.env.VEO_ENHANCE || 'on') !== 'off',
         },
       }),
     });
