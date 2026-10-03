@@ -165,6 +165,7 @@ export default async function handler(req, res) {
         try {
           const sharp = (await import('sharp')).default;
           const meta = await sharp(buf).metadata();
+          console.log('[veo] SOURCE image dims:', meta.width + 'x' + meta.height, '| aspect:', (meta.width/meta.height).toFixed(3), '| hasAlpha:', meta.hasAlpha);
           if (meta.hasAlpha) { const flat = await sharp(buf).flatten({ background: '#ffffff' }).jpeg().toBuffer(); imageB64 = flat.toString('base64'); imageMime = 'image/jpeg'; }
           else { imageB64 = buf.toString('base64'); imageMime = ct || 'image/jpeg'; }
         } catch (_) { imageB64 = buf.toString('base64'); imageMime = ct || 'image/jpeg'; }
