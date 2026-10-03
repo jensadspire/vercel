@@ -166,9 +166,15 @@ export default async function handler(req, res) {
           const sharp = (await import('sharp')).default;
           const meta = await sharp(buf).metadata();
           console.log('[veo] SOURCE image dims:', meta.width + 'x' + meta.height, '| aspect:', (meta.width/meta.height).toFixed(3), '| hasAlpha:', meta.hasAlpha);
-          if (meta.hasAlpha) { const flat = await sharp(buf).flatten({ background: '#ffffff' }).jpeg().toBuffer(); imageB64 = flat.toString('base64'); imageMime = 'image/jpeg'; }
-          else { imageB64 = buf.toString('base64'); imageMime = ct || 'image/jpeg'; }
-        } catch (_) { imageB64 = buf.toString('base64'); imageMime = ct || 'image/jpeg'; }
+          // Crop/fit to 9:16 (720x1280) so VEO outputs full-frame 9:16 (no black bars from square/other sources).
+          const fitted = await sharp(buf)
+            .flatten({ background: '#ffffff' })
+            .resize(720, 1280, { fit: 'cover', position: 'centre' })
+            .jpeg({ quality: 90 })
+            .toBuffer();
+          imageB64 = fitted.toString('base64'); imageMime = 'image/jpeg';
+          console.log('[veo] fitted source to 720x1280 (cover)');
+        } catch (e) { console.error('[veo] fit-to-916 failed (fail-open to original):', e.message); imageB64 = buf.toString('base64'); imageMime = ct || 'image/jpeg'; }
       }
     } catch (e) { console.error('[veo] image fetch failed:', e.message); }
     if (!imageB64) return res.status(400).json({ error: 'Could not fetch product image for VEO' });
