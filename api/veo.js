@@ -111,6 +111,13 @@ export default async function handler(req, res) {
       const sample = r.videos?.[0] || r.predictions?.[0] || r.generatedSamples?.[0] || null;
       const b64 = sample?.bytesBase64Encoded || sample?.video?.bytesBase64Encoded || sample?.bytes || null;
       const gcsUri = sample?.gcsUri || sample?.video?.uri || null;
+      // Capture VEO's enhanced/rewritten prompt if the response exposes it (fields vary by API version).
+      const enhancedPrompt = sample?.enhancedPrompt || sample?.rewrittenPrompt || sample?.prompt
+        || r.enhancedPrompt || r.rewrittenPrompt
+        || (Array.isArray(r.predictions) ? (r.predictions[0]?.enhancedPrompt || r.predictions[0]?.prompt) : null)
+        || null;
+      if (enhancedPrompt) console.log('[veo] ENHANCED prompt:', String(enhancedPrompt).slice(0, 1500));
+      else console.log('[veo] no enhanced prompt field in response (keys:', Object.keys(r).join(',') + (sample ? ' | sample:' + Object.keys(sample).join(',') : '') + ')');
 
       if (!b64 && !gcsUri) {
         console.error('[veo] done but no video bytes/uri:', JSON.stringify(op).slice(0, 400));
@@ -138,7 +145,7 @@ export default async function handler(req, res) {
       const { url: videoUrl, labelled } = await labelAndStore(rawUrl, 'veo');
       if (!labelled) console.error('[ai-label] Delivering UNLABELLED VEO video (Rendi unavailable)');
       return res.status(200).json({
-        status: 'COMPLETED', videoUrl, labelled,
+        status: 'COMPLETED', videoUrl, labelled, enhancedPrompt,
         ...(labelled ? {} : { labelNote: "Your video is ready. We couldn't add the AI-content label on this one — you can re-run it, or add the label before publishing." }),
       });
     }
@@ -146,6 +153,7 @@ export default async function handler(req, res) {
     // ── Create new video operation ──────────────────────────────────────────────
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
     const motionPrompt = (prompt || 'Cinematic product advertisement, smooth camera movement, aspirational lighting.').slice(0, 2000);
+    console.log('[veo] SENT prompt:', motionPrompt);
 
     // Fetch product image → base64 (flatten alpha → white, like kling.js).
     let imageB64 = null, imageMime = 'image/jpeg';
