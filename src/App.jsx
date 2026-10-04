@@ -2449,6 +2449,7 @@ function RSAStudio() {
     const cs = brandData?.creativeStudio;
     if (cs && Array.isArray(cs.templates)) { setCsTemplates(cs.templates); if (cs.vertical) setCsVertical(cs.vertical); }
   }, [brandData]);
+  const [csSavedFlash, setCsSavedFlash] = useState(false);
   const saveCreativeStudio = async (nextTemplates, nextVertical) => {
     setCsTemplates(nextTemplates);
     if (nextVertical) setCsVertical(nextVertical);
@@ -4127,7 +4128,14 @@ STRICT rules:
               <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 560, maxHeight: "85vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 16, padding: 26 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                   <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>✦ Creative Studio</span>
-                  <button onClick={() => setShowCreativeStudio(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <button onClick={async () => { await saveCreativeStudio(csTemplates, csVertical); setCsSavedFlash(true); setTimeout(() => setCsSavedFlash(false), 1800); }}
+                      style={{ padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 800,
+                        background: csSavedFlash ? "rgba(52,211,153,0.15)" : "linear-gradient(135deg,#6366f1,#0ea5e9)", color: csSavedFlash ? "#34d399" : "white", transition: "background 0.2s" }}>
+                      {csSavedFlash ? "✓ Saved" : "Save"}
+                    </button>
+                    <button onClick={() => setShowCreativeStudio(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                  </div>
                 </div>
                 <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.6, marginBottom: 20 }}>This is where the magic happens that shapes and designs your future campaigns. Choose your vertical and the storyline templates that fit your brand — your video ads will follow these directions, rotating through your selected styles for variety.</div>
 
