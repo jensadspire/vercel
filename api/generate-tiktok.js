@@ -551,7 +551,7 @@ export default async function handler(req, res) {
 
   const {
     url, language = "English", audienceBrief = null, pageContent = "", pageMeta = {},
-    videoEngine = "kling", archetype = "scene_reveal", storyboardOnly = false,
+    videoEngine = "kling", archetype = "scene_reveal", storyboardOnly = false, extended = false,
   } = req.body;
   if (!url) return res.status(400).json({ error: "url is required" });
 
@@ -613,7 +613,9 @@ ${NO_TEXT_RULE}
 Return ONLY valid JSON (no markdown, no preamble):
 {
   ${storyboardJson},
-  "videoPrompt": "${videoPromptGuide}"
+  "videoPrompt": "${videoPromptGuide}"${extended ? `,
+  "basePrompt": "A single cinematic 9:16 video prompt covering ONLY the FIRST HALF of the storyboard (the opening scenes, ~first 8 seconds) — product introduction and first action. Self-contained and visually rich. Visuals only, no text/logos.",
+  "continuationPrompt": "A single cinematic 9:16 video prompt for the SECOND HALF of the storyboard (the remaining scenes). It MUST begin by continuing directly and seamlessly from the final frame/state of the first half — preserve the same subject/person, product, wardrobe, environment, lighting and camera style; do not restart or re-introduce the product. Then deliver the closing scenes. Visuals only, no text/logos."` : ''}
 }`;
     try {
       const r = await fetch(ANTHROPIC_API, {
@@ -628,6 +630,7 @@ Return ONLY valid JSON (no markdown, no preamble):
       return res.status(200).json({
         storyboard: parsed.storyboard || [],
         videoPrompt: parsed.videoPrompt || "",
+        ...(extended ? { basePrompt: parsed.basePrompt || "", continuationPrompt: parsed.continuationPrompt || "" } : {}),
         archetype: isRunway ? "runway-2scene" : archetype,
         storyboardFormat: isRunway ? "2-scene" : arch.label,
       });
