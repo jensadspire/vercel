@@ -4015,7 +4015,7 @@ STRICT rules:
                 <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{extStage ? <>Crafting your extended video…<br/>Check back in 4–5 minutes</> : <>Generating your video…<br/>Check back in 3–4 minutes</>}</div>
                 {extStage && (
                   <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 700 }}>
-                    <span style={{ padding: "3px 10px", borderRadius: 6, background: "rgba(139,92,246,0.15)", color: "#8b5cf6" }}>{extStage === 'base' ? "Part 1 of 2 · building the scene" : "✓ Part 1 · Part 2 of 2 · extending"}</span>
+                    <span style={{ padding: "3px 10px", borderRadius: 6, background: "rgba(139,92,246,0.15)", color: "#8b5cf6" }}>{extStage === 'base' ? "1/2 · Building the scene" : "2/2 · Finalizing"}</span>
                   </div>
                 )}
                 <VideoProgressBars />
