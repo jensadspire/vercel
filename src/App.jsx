@@ -927,11 +927,11 @@ function formatPrice(amount, currency) {
 const TEMPLATE_ENGINE = {
   // Jens's selected lifestyle/person-in-scene templates → VEO. Everything else → auto (Kling/Runway).
   // Beauty
-  beauty_morning_ritual: 'veo',
-  beauty_before_the_day: 'veo',
+  beauty_morning_ritual: 'veo-extended',
+  beauty_before_the_day: 'veo-extended',
   // Fashion
-  fashion_wardrobe_lifestyle: 'veo',
-  fashion_street_style: 'veo',
+  fashion_wardrobe_lifestyle: 'veo-extended',
+  fashion_street_style: 'veo-extended',
   // Home Decor
   homedecor_empty_designed: 'veo',
   homedecor_product_in_context: 'veo',
@@ -941,10 +941,10 @@ const TEMPLATE_ENGINE = {
   fitness_activity_recovery: 'veo',
   fitness_lifestyle_transformation: 'veo',
   // Home Improvement & DIY
-  diy_before_during_after: 'veo',
-  diy_fix_it: 'veo',
-  diy_creation: 'veo',
-  diy_dream_space: 'veo',
+  diy_before_during_after: 'veo-extended',
+  diy_fix_it: 'veo-extended',
+  diy_creation: 'veo-extended',
+  diy_dream_space: 'veo-extended',
 };
 
 const CS_VERTICALS = {
@@ -1077,6 +1077,7 @@ function RSAStudio() {
   const [tiktokLoading, setTiktokLoading] = useState(false);
   const [tiktokError, setTiktokError] = useState('');
   const [tiktokVideoLoading, setTiktokVideoLoading] = useState(false);
+  const [extStage, setExtStage] = useState(null); // null | 'base' | 'extend' — VEO-extended progress stage
   const [tiktokVideoUrl, setTiktokVideoUrl] = useState(null);
   const [videoUseMetaCopy, setVideoUseMetaCopy] = useState(false); // false = variation[1] (default), true = match Meta[0]
   // Phase 4a — branded outro (post-video)
@@ -1122,6 +1123,52 @@ function RSAStudio() {
       setRecipeError(null);
       if (currentEngine === 'recipe') { setRecipeGated(null); }
       const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
+      // ── VEO-EXTENDED: orchestrate the base→extend chain (15s). Separate path; leaves all other engines untouched. ──
+      if (currentEngine === 'veo-extended') {
+        try {
+          // 1) get split prompts (base scenes 1-2 + continuation scenes 3-4)
+          let basePrompt = '', continuationPrompt = '';
+          try {
+            const sr = await fetch('/api/generate-tiktok', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: lastGeneratedUrlRef.current || url, storyboardOnly: true, extended: true, videoEngine: 'veo', archetype: activeTemplate, language: pageMeta?.language || 'English' }) });
+            const sd = await sr.json();
+            basePrompt = sd.basePrompt || ''; continuationPrompt = sd.continuationPrompt || '';
+          } catch (e) { console.error('[veo-ext] split-prompt fetch failed:', e.message); }
+          if (!basePrompt) basePrompt = tiktokResult.videoPrompt || '';
+          if (!continuationPrompt) continuationPrompt = 'Continue directly and seamlessly from the final frame; preserve subject, product, wardrobe, environment, lighting and camera style; deliver the closing scenes. No text, no logos.';
+
+          const EXT = '/api/veo-extended';
+          const jpost = async (body) => { const r = await fetch(EXT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.json(); };
+          const pollUntil = async (action, idKey, idVal, outKey) => new Promise((resolve) => {
+            let n = 0; if (videoPollRef.current) clearInterval(videoPollRef.current);
+            videoPollRef.current = setInterval(async () => {
+              if (n++ > 144) { clearInterval(videoPollRef.current); resolve(null); return; }
+              try { const pd = await jpost({ action, [idKey]: idVal });
+                if (pd[outKey]) { clearInterval(videoPollRef.current); resolve(pd); }
+                else if (pd.status === 'FAILED') { clearInterval(videoPollRef.current); resolve(null); }
+              } catch (_) {}
+            }, 5000);
+          });
+
+          // 2) create base (scenes 1-2)
+          setExtStage('base');
+          const cb = await jpost({ action: 'create-base', imageUrl, prompt: basePrompt });
+          if (!cb.baseOp) { setRecipeError('Extended video could not start — ' + (cb.error || 'base create failed')); setTiktokVideoLoading(false); setExtStage(null); return; }
+          const basePoll = await pollUntil('poll-base', 'baseOp', cb.baseOp, 'baseGcsUri');
+          if (!basePoll?.baseGcsUri) { setRecipeError('Extended video failed during the first segment.'); setTiktokVideoLoading(false); setExtStage(null); return; }
+
+          // 3) extend (scenes 3-4)
+          setExtStage('extend');
+          const ce = await jpost({ action: 'extend', baseGcsUri: basePoll.baseGcsUri, prompt: continuationPrompt });
+          if (!ce.extendOp) { setRecipeError('Extended video could not continue — ' + (ce.error || 'extend create failed')); setTiktokVideoLoading(false); setExtStage(null); return; }
+          const extPoll = await pollUntil('poll-extend', 'extendOp', ce.extendOp, 'videoUrl');
+          if (!extPoll?.videoUrl) { setRecipeError('Extended video failed during the second segment.'); setTiktokVideoLoading(false); setExtStage(null); return; }
+
+          setTiktokVideoUrl(extPoll.videoUrl); setTiktokVideoLoading(false); setExtStage(null);
+          try { track('tiktok_output_completed', { engine: 'veo-extended' }); } catch (_) {}
+        } catch (e) { console.error('[veo-ext] orchestration error:', e.message); setRecipeError('Extended video generation failed.'); setTiktokVideoLoading(false); setExtStage(null); }
+        return; // extended path done — do not fall through to the standard single-call flow
+      }
       console.log('[VIDEO DISPATCH] activeTemplate=', activeTemplate, '| TEMPLATE_ENGINE=', activeTemplate ? TEMPLATE_ENGINE[activeTemplate] : null, '| ref=', videoEngineRef.current, '| currentEngine=', currentEngine, '| → videoApi=', videoApi);
       const videoPayload = currentEngine === 'recipe'
         ? { mode: recipeMode, imageUrl, characterImage: recipeMode === 'ugc' ? recipeCharacterImage : undefined, productInfo: (tiktokResult.brand || pageMeta?.brand || ''), userConcept: recipeMode === 'ugc' ? tiktokResult.videoPrompt : `Polished cinematic product advertisement for ${tiktokResult.brand || pageMeta?.brand || 'this product'}. The product is the clear hero, shown in an aspirational real-world setting with warm professional lighting and smooth, elegant camera movement. High-quality commercial style. No on-screen text, captions, logos, brand names or overlays anywhere.` }
