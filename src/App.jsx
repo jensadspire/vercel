@@ -4011,7 +4011,12 @@ STRICT rules:
             ) : tiktokVideoLoading ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 14, minHeight: 280 }}>
                 <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
-                <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Generating your video…<br/>Check back in 3–4 minutes</div>
+                <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{extStage ? <>Crafting your extended video…<br/>Check back in 4–5 minutes</> : <>Generating your video…<br/>Check back in 3–4 minutes</>}</div>
+                {extStage && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 700 }}>
+                    <span style={{ padding: "3px 10px", borderRadius: 6, background: "rgba(139,92,246,0.15)", color: "#8b5cf6" }}>{extStage === 'base' ? "Part 1 of 2 · building the scene" : "✓ Part 1 · Part 2 of 2 · extending"}</span>
+                  </div>
+                )}
                 <VideoProgressBars />
                 <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
               </div>
