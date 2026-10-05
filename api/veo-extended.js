@@ -48,7 +48,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { action, imageUrl, prompt, baseOp, baseGcsUri, extendOp } = req.body || {};
+  const { action, imageUrl, referenceImages, prompt, baseOp, baseGcsUri, extendOp } = req.body || {};
   const safeJson = async (r) => { try { const t = await r.text(); return t && t.trim() ? JSON.parse(t) : {}; } catch { return {}; } };
   const project = projectId();
   if (!project) return res.status(500).json({ error: 'GCP_SA_KEY missing/invalid' });
@@ -61,23 +61,34 @@ export default async function handler(req, res) {
 
     // ── 1. CREATE BASE (scenes 1-2) → GCS ───────────────────────────────────────
     if (action === 'create-base') {
-      if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
-      // fetch + fit image to 9:16 (same as veo.js)
-      let imageB64 = null, imageMime = 'image/jpeg';
-      try {
-        const ir = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' }, signal: AbortSignal.timeout(10000) });
-        if (ir.ok) {
+      // Accept EITHER referenceImages[] (1-3, multi-ref) OR a single imageUrl (back-compat).
+      const urls = (Array.isArray(referenceImages) && referenceImages.length) ? referenceImages.slice(0, 3) : (imageUrl ? [imageUrl] : []);
+      if (!urls.length) return res.status(400).json({ error: 'imageUrl or referenceImages required' });
+
+      // fetch + fit each image to 9:16
+      const fitOne = async (u) => {
+        try {
+          const ir = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' }, signal: AbortSignal.timeout(10000) });
+          if (!ir.ok) return null;
           const buf = Buffer.from(await ir.arrayBuffer());
           const sharp = (await import('sharp')).default;
           const fitted = await sharp(buf).flatten({ background: '#ffffff' }).resize(720, 1280, { fit: 'cover', position: 'centre' }).jpeg({ quality: 90 }).toBuffer();
-          imageB64 = fitted.toString('base64');
-        }
-      } catch (e) { console.error('[veo-ext] image prep failed:', e.message); }
-      if (!imageB64) return res.status(400).json({ error: 'Could not fetch/prep product image' });
+          return fitted.toString('base64');
+        } catch (e) { console.error('[veo-ext] image prep failed:', e.message); return null; }
+      };
+      const b64s = [];
+      for (const u of urls) { const b = await fitOne(u); if (b) b64s.push(b); }
+      if (!b64s.length) return res.status(400).json({ error: 'Could not fetch/prep product image(s)' });
+      console.log('[veo-ext] base images:', b64s.length, '(multi-ref:', b64s.length > 1, ')');
+
+      // Single image → image field (proven). Multiple → referenceImages array (proven in spike).
+      const instance = (b64s.length === 1)
+        ? { prompt: (prompt || '').slice(0, 2000), image: { bytesBase64Encoded: b64s[0], mimeType: 'image/jpeg' } }
+        : { prompt: (prompt || '').slice(0, 2000), referenceImages: b64s.map(b => ({ image: { bytesBase64Encoded: b, mimeType: 'image/jpeg' }, referenceType: 'asset' })) };
 
       const outPrefix = `gs://${BUCKET}/input/${stamp}/`;
       const r = await fetch(`${BASE}:predictLongRunning`, { method: 'POST', headers: H, body: JSON.stringify({
-        instances: [{ prompt: (prompt || '').slice(0, 2000), image: { bytesBase64Encoded: imageB64, mimeType: imageMime } }],
+        instances: [instance],
         parameters: { sampleCount: 1, durationSeconds: 8, aspectRatio: '9:16', storageUri: outPrefix },
       }) });
       const d = await safeJson(r);
