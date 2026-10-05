@@ -1147,26 +1147,39 @@ function RSAStudio() {
               if (n++ > 144) { clearInterval(videoPollRef.current); resolve(null); return; }
               try { const pd = await jpost({ action, [idKey]: idVal });
                 if (pd[outKey]) { clearInterval(videoPollRef.current); resolve(pd); }
+                else if (pd.status === 'FILTERED') { clearInterval(videoPollRef.current); resolve(pd); }
                 else if (pd.status === 'FAILED') { clearInterval(videoPollRef.current); resolve(null); }
               } catch (_) {}
             }, 5000);
           });
 
-          // 2) create base (scenes 1-2)
-          setExtStage('base');
-          const cb = await jpost({ action: 'create-base', imageUrl, prompt: basePrompt });
-          if (!cb.baseOp) { setRecipeError('Extended video could not start — ' + (cb.error || 'base create failed')); setTiktokVideoLoading(false); setExtStage(null); return; }
-          const basePoll = await pollUntil('poll-base', 'baseOp', cb.baseOp, 'baseGcsUri');
-          if (!basePoll?.baseGcsUri) { setRecipeError('Extended video failed during the first segment.'); setTiktokVideoLoading(false); setExtStage(null); return; }
-
-          // 3) extend (scenes 3-4)
-          setExtStage('extend');
-          const ce = await jpost({ action: 'extend', baseGcsUri: basePoll.baseGcsUri, prompt: continuationPrompt });
-          if (!ce.extendOp) { setRecipeError('Extended video could not continue — ' + (ce.error || 'extend create failed')); setTiktokVideoLoading(false); setExtStage(null); return; }
-          const extPoll = await pollUntil('poll-extend', 'extendOp', ce.extendOp, 'videoUrl');
-          if (!extPoll?.videoUrl) { setRecipeError('Extended video failed during the second segment.'); setTiktokVideoLoading(false); setExtStage(null); return; }
-
-          setTiktokVideoUrl(extPoll.videoUrl); setTiktokVideoLoading(false); setExtStage(null);
+          // 2+3) base→extend with one retry on RAI filter (ext-rai-retry). Filter is non-deterministic.
+          let finalUrl = null, filteredOut = false;
+          for (let attempt = 0; attempt < 2 && !finalUrl; attempt++) {
+            if (attempt > 0) console.log('[veo-ext] RAI-filtered — retrying the chain (attempt ' + (attempt + 1) + ')');
+            filteredOut = false;
+            // base
+            setExtStage('base');
+            const cb = await jpost({ action: 'create-base', imageUrl, prompt: basePrompt });
+            if (!cb.baseOp) { setRecipeError('Extended video could not start — ' + (cb.error || 'base create failed')); setTiktokVideoLoading(false); setExtStage(null); return; }
+            const basePoll = await pollUntil('poll-base', 'baseOp', cb.baseOp, 'baseGcsUri');
+            if (basePoll?.status === 'FILTERED') { filteredOut = true; continue; }
+            if (!basePoll?.baseGcsUri) { setRecipeError('Extended video failed during the first segment.'); setTiktokVideoLoading(false); setExtStage(null); return; }
+            // extend
+            setExtStage('extend');
+            const ce = await jpost({ action: 'extend', baseGcsUri: basePoll.baseGcsUri, prompt: continuationPrompt });
+            if (!ce.extendOp) { setRecipeError('Extended video could not continue — ' + (ce.error || 'extend create failed')); setTiktokVideoLoading(false); setExtStage(null); return; }
+            const extPoll = await pollUntil('poll-extend', 'extendOp', ce.extendOp, 'videoUrl');
+            if (extPoll?.status === 'FILTERED') { filteredOut = true; continue; }
+            if (!extPoll?.videoUrl) { setRecipeError('Extended video failed during the second segment.'); setTiktokVideoLoading(false); setExtStage(null); return; }
+            finalUrl = extPoll.videoUrl;
+          }
+          if (!finalUrl) {
+            // Still filtered after a retry → clean fail, never serve a blocked result.
+            setRecipeError(filteredOut ? "This one couldn't be generated just now — please try again." : 'Extended video generation failed.');
+            setTiktokVideoLoading(false); setExtStage(null); return;
+          }
+          setTiktokVideoUrl(finalUrl); setTiktokVideoLoading(false); setExtStage(null);
           try { track('tiktok_output_completed', { engine: 'veo-extended' }); } catch (_) {}
         } catch (e) { console.error('[veo-ext] orchestration error:', e.message); setRecipeError('Extended video generation failed.'); setTiktokVideoLoading(false); setExtStage(null); }
         return; // extended path done — do not fall through to the standard single-call flow

@@ -97,7 +97,11 @@ export default async function handler(req, res) {
       const sample = resp.videos?.[0] || resp.predictions?.[0] || null;
       const gcs = sample?.gcsUri || sample?.video?.uri || sample?.uri || null;
       console.log('[veo-ext] base done. gcsUri:', gcs, '| keys:', Object.keys(resp).join(','), sample ? '| sample:' + Object.keys(sample).join(',') : '');
-      if (!gcs) return res.status(200).json({ status: 'COMPLETED', baseGcsUri: null, detail: JSON.stringify(op).slice(0, 400) });
+      if (!gcs) {
+        const raiBlocked = (resp.raiMediaFilteredCount > 0) || !!resp.raiMediaFilteredReasons;
+        if (raiBlocked) console.error('[veo-ext] base RAI-FILTERED:', JSON.stringify(resp.raiMediaFilteredReasons || resp.raiMediaFilteredCount).slice(0, 300));
+        return res.status(200).json({ status: raiBlocked ? 'FILTERED' : 'COMPLETED', baseGcsUri: null, detail: JSON.stringify(op).slice(0, 400) });
+      }
       return res.status(200).json({ status: 'COMPLETED', baseGcsUri: gcs });
     }
 
@@ -148,7 +152,11 @@ export default async function handler(req, res) {
         const blob = await put(`veo-ext-raw-${stamp}.mp4`, buf, { access: 'public', contentType: 'video/mp4', token: process.env.BLOB_READ_WRITE_TOKEN });
         rawUrl = blob.url;
       }
-      if (!rawUrl) return res.status(200).json({ status: 'COMPLETED', videoUrl: null, detail: JSON.stringify(op).slice(0, 400) });
+      if (!rawUrl) {
+        const raiBlocked = (resp.raiMediaFilteredCount > 0) || !!resp.raiMediaFilteredReasons;
+        if (raiBlocked) console.error('[veo-ext] extend RAI-FILTERED:', JSON.stringify(resp.raiMediaFilteredReasons || resp.raiMediaFilteredCount).slice(0, 300));
+        return res.status(200).json({ status: raiBlocked ? 'FILTERED' : 'COMPLETED', videoUrl: null, detail: JSON.stringify(op).slice(0, 400) });
+      }
 
       const { url: videoUrl, labelled } = await labelAndStore(rawUrl, 'veo');
       return res.status(200).json({ status: 'COMPLETED', videoUrl, labelled });
