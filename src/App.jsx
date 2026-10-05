@@ -1133,8 +1133,10 @@ function RSAStudio() {
               body: JSON.stringify({ url: lastGeneratedUrlRef.current || url, storyboardOnly: true, extended: true, videoEngine: 'veo', archetype: activeTemplate, language: pageMeta?.language || 'English' }) });
             const sd = await sr.json();
             basePrompt = sd.basePrompt || ''; continuationPrompt = sd.continuationPrompt || '';
+            console.log('[veo-ext] split inputs → url:', (lastGeneratedUrlRef.current || url), '| archetype:', activeTemplate, '| imageUrl:', String(imageUrl).slice(0,90));
+            console.log('[veo-ext] split result → basePrompt:', String(basePrompt).slice(0,200), '| ...cont:', String(continuationPrompt).slice(0,120));
           } catch (e) { console.error('[veo-ext] split-prompt fetch failed:', e.message); }
-          if (!basePrompt) basePrompt = tiktokResult.videoPrompt || '';
+          if (!basePrompt) { basePrompt = tiktokResult.videoPrompt || ''; console.log('[veo-ext] FELL BACK to tiktokResult.videoPrompt:', String(basePrompt).slice(0,200)); }
           if (!continuationPrompt) continuationPrompt = 'Continue directly and seamlessly from the final frame; preserve subject, product, wardrobe, environment, lighting and camera style; deliver the closing scenes. No text, no logos.';
 
           const EXT = '/api/veo-extended';
