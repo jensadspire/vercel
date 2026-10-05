@@ -1096,6 +1096,8 @@ function RSAStudio() {
   // NEW UI: reusable video generation trigger (mirrors the detailed-view button logic).
   const startVideoGeneration = async () => {
     if (!tiktokResult || !tiktokResult.videoPrompt) return;
+    setTiktokVideoUrl(null); // clear stale video before new gen (so a previous run's video doesn't resurface after a swap)
+    setExtStage(null);
     setTiktokVideoLoading(true);
     try {
       const selectedImg = tiktokSourceImageRef.current || metaResult?.imageVariations?.[activeImageVariant] || metaResult?.imageUrl || metaResult?.heroProductImage || null;
