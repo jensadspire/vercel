@@ -1078,6 +1078,12 @@ function RSAStudio() {
   const [tiktokError, setTiktokError] = useState('');
   const [tiktokVideoLoading, setTiktokVideoLoading] = useState(false);
   const [extStage, setExtStage] = useState(null); // null | 'base' | 'extend' — VEO-extended progress stage
+  // Part B: multi-reference images (video only). refImages[0] = hero (auto), [1] = user-added 2nd.
+  const [refImages, setRefImages] = useState([]);
+  const [multiRefOpen, setMultiRefOpen] = useState(false);
+  const [multiRefTray, setMultiRefTray] = useState(false);
+  // Which templates expose the multi-ref feature (Fashion extended templates for now).
+  const MULTIREF_TEMPLATES = ['fashion_street_style', 'fashion_wardrobe_lifestyle'];
   const [tiktokVideoUrl, setTiktokVideoUrl] = useState(null);
   const [videoUseMetaCopy, setVideoUseMetaCopy] = useState(false); // false = variation[1] (default), true = match Meta[0]
   // Phase 4a — branded outro (post-video)
@@ -1162,7 +1168,8 @@ function RSAStudio() {
             filteredOut = false;
             // base
             setExtStage('base');
-            const cb = await jpost({ action: 'create-base', imageUrl, prompt: basePrompt });
+            const _refs = (refImages && refImages.length > 1) ? refImages.filter(Boolean) : null;
+            const cb = await jpost(_refs ? { action: 'create-base', referenceImages: _refs, prompt: basePrompt } : { action: 'create-base', imageUrl, prompt: basePrompt });
             if (!cb.baseOp) { setRecipeError('Extended video could not start — ' + (cb.error || 'base create failed')); setTiktokVideoLoading(false); setExtStage(null); return; }
             const basePoll = await pollUntil('poll-base', 'baseOp', cb.baseOp, 'baseGcsUri');
             if (basePoll?.status === 'FILTERED') { filteredOut = true; continue; }
@@ -4095,7 +4102,49 @@ STRICT rules:
                   <>
                     <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Turn your product into a short-form video ad.<br/>Takes about 3–4 minutes.</div>
                     <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{(activeTemplate && templateLabel(activeTemplate)) ? ('✦ ' + templateLabel(activeTemplate)) : (videoEngine === 'runway' ? 'Runway · best for fashion' : ('Kling · ' + (videoArchetype === 'studio_spin' ? 'Studio Spin' : videoArchetype === 'lifestyle_montage' ? 'Lifestyle Montage' : 'Scene Reveal')))}</div>
-                    <button onClick={(e) => { e.stopPropagation(); startVideoGeneration(); }} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Generate video</button>
+                    {/* Part B: multi-reference 3-icon stack (Fashion extended templates only) */}
+                    {MULTIREF_TEMPLATES.includes(activeTemplate) && (() => {
+                      const vars = (metaResult?.imageVariations && metaResult.imageVariations.length ? metaResult.imageVariations : [metaResult?.imageUrl].filter(Boolean));
+                      const hero = tiktokSourceImageRef.current || metaResult?.imageUrl || vars[0] || null;
+                      const second = refImages[1] || null;
+                      return (
+                        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", width: "100%", justifyContent: "center" }}>
+                          {/* icon stack */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <button onClick={(e) => { e.stopPropagation(); setMultiRefOpen(v => !v); }} title="Multi-reference — add front & back images" style={{ width: 34, height: 34, borderRadius: 8, border: multiRefOpen ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.15)", background: (second ? "rgba(139,92,246,0.25)" : "rgba(139,92,246,0.10)"), color: "#c4b5fd", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>⧉</button>
+                            <div title="Persona consistency — coming soon" style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#4a5568", cursor: "not-allowed", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>☺</div>
+                            <div title="Sequential ads — coming soon" style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#4a5568", cursor: "not-allowed", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>⚏</div>
+                          </div>
+                          {/* multi-ref panel */}
+                          {multiRefOpen && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "rgba(0,0,0,0.25)", borderRadius: 10, padding: 10, maxWidth: 240 }}>
+                              <div style={{ fontSize: 10.5, color: "#9db0c7", fontWeight: 700 }}>Multi-reference (front + back)</div>
+                              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                {hero && <img src={hero} alt="1" style={{ width: 40, height: 40, borderRadius: 6, objectFit: "cover", border: "1px solid rgba(255,255,255,0.15)" }} />}
+                                {second ? (
+                                  <div style={{ position: "relative" }}>
+                                    <img src={second} alt="2" style={{ width: 40, height: 40, borderRadius: 6, objectFit: "cover", border: "2px solid #8b5cf6" }} />
+                                    <span onClick={(e) => { e.stopPropagation(); setRefImages([]); }} style={{ position: "absolute", top: -6, right: -6, background: "#0f172a", color: "#f87171", borderRadius: "50%", width: 16, height: 16, fontSize: 11, textAlign: "center", lineHeight: "16px", cursor: "pointer", border: "1px solid rgba(255,255,255,0.2)" }}>×</span>
+                                  </div>
+                                ) : (
+                                  <button onClick={(e) => { e.stopPropagation(); setMultiRefTray(v => !v); }} style={{ width: 40, height: 40, borderRadius: 6, border: "1px dashed rgba(139,92,246,0.5)", background: "transparent", color: "#8b5cf6", fontSize: 20, cursor: "pointer" }}>+</button>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 9.5, color: "#5a6b80" }}>Tip: use product-only shots for best results.</div>
+                              {multiRefTray && !second && (
+                                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", maxWidth: 220 }}>
+                                  {vars.slice(0, 12).map((iv, i) => (
+                                    <img key={i} src={iv} alt="" onClick={(e) => { e.stopPropagation(); setRefImages([hero, iv]); setMultiRefTray(false); }}
+                                      style={{ width: 30, height: 30, borderRadius: 5, objectFit: "cover", cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)" }} />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                                        <button onClick={(e) => { e.stopPropagation(); startVideoGeneration(); }} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Generate video</button>
                   </>
                 ) : (
                   <div style={{ fontSize: 12, color: "#4a5568", textAlign: "center", lineHeight: 1.5 }}>Check the <b>Video</b> box above and generate to enable video.</div>
