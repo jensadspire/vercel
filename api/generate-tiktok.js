@@ -536,8 +536,9 @@ const NO_TEXT_RULE = `- CRITICAL — VISUALS ONLY: every storyboard scene and th
 const MUST_KEEP_RULE = `- MUST-KEEP (do not drop these, even when elaborating):
   1. The scene BEATS below are AUTHORITATIVE — follow them in order, each visibly represented; do not collapse or skip beats. If a beat is intentionally about the person/outcome/lifestyle (e.g. "leaves confident"), that beat is correct WITHOUT the product — do not force the product into it.
   2. The product is the HERO of the ad overall and must be prominently featured across the video. In any beat that shows the product, it must be clearly visible and must NOT accidentally drop out of frame.
-  3. Maintain 100% visual consistency of the product (same product, colours, shape, branding) wherever it appears. Never substitute or invent a different product.
-  4. 9:16 vertical, cinematic and aspirational, smooth camera movement.`;
+  3. The product shown is the EXACT product from the opening reference image — identical colour, shape, material, pattern, cut and branding — in every scene it appears. Describe it as it actually is in the image; never substitute, recolour, or invent a different product. If the reference image shows a dark/black top, it stays a dark/black top throughout; it must never morph into a different garment or colour across scenes or the transition.
+  4. Keep a consistent model throughout — the same person, with the same appearance, build, hair and styling in every scene; do not change the person between scenes or across the transition.
+  5. 9:16 vertical, cinematic and aspirational, smooth camera movement.`;
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -614,8 +615,8 @@ Return ONLY valid JSON (no markdown, no preamble):
 {
   ${storyboardJson},
   "videoPrompt": "${videoPromptGuide}"${extended ? `,
-  "basePrompt": "A single cinematic 9:16 video prompt covering ONLY the FIRST HALF of the storyboard (the opening scenes, ~first 8 seconds) — product introduction and first action. Self-contained and visually rich. Visuals only, no text/logos.",
-  "continuationPrompt": "A single cinematic 9:16 video prompt for the SECOND HALF of the storyboard (the remaining scenes). It MUST begin by continuing directly and seamlessly from the final frame/state of the first half — preserve the same subject/person, product, wardrobe, environment, lighting and camera style; do not restart or re-introduce the product. Then deliver the closing scenes. Visuals only, no text/logos."` : ''}
+  "basePrompt": "A single cinematic 9:16 video prompt covering ONLY the FIRST HALF of the storyboard (the opening scenes, ~first 8 seconds) — product introduction and first action. Describe the product EXACTLY as it appears in the opening reference image (same colour, shape, material, pattern) — do not change or invent its appearance. Self-contained and visually rich. Visuals only, no text/logos.",
+  "continuationPrompt": "A single cinematic 9:16 video prompt for the SECOND HALF of the storyboard (the remaining scenes). It MUST begin by continuing directly and seamlessly from the final frame/state of the first half. CRITICAL: keep the EXACT SAME product (identical colour, shape, material, pattern — the same item from the opening reference image; it must NOT change garment or colour) and the EXACT SAME person (same appearance, build, hair, styling), plus the same wardrobe, environment, lighting and camera style. Do not restart, re-introduce, or alter the product or person. Then deliver the closing scenes. Visuals only, no text/logos."` : ''}
 }`;
     try {
       const r = await fetch(ANTHROPIC_API, {
