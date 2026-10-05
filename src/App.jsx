@@ -1078,8 +1078,6 @@ function RSAStudio() {
   const [tiktokError, setTiktokError] = useState('');
   const [tiktokVideoLoading, setTiktokVideoLoading] = useState(false);
   const [extStage, setExtStage] = useState(null); // null | 'base' | 'extend' — VEO-extended progress stage
-  const [ovVideoImgPicker, setOvVideoImgPicker] = useState(false); // Part A: overview video input-image tray open
-  const [ovVideoImgTick, setOvVideoImgTick] = useState(0); // force re-render when tiktokSourceImageRef changes
   const [tiktokVideoUrl, setTiktokVideoUrl] = useState(null);
   const [videoUseMetaCopy, setVideoUseMetaCopy] = useState(false); // false = variation[1] (default), true = match Meta[0]
   // Phase 4a — branded outro (post-video)
@@ -3997,8 +3995,8 @@ STRICT rules:
                   {(metaResult.primaryTexts?.[0] || "").slice(0, 140)}{(metaResult.primaryTexts?.[0] || "").length > 140 ? "…" : ""}
                 </div>
                 {/* image */}
-                {(metaResult.imageVariations?.[0] || metaResult.imageUrl) && (
-                  <img src={metaResult.imageVariations?.[0] || metaResult.imageUrl} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
+                {(tiktokSourceImageRef.current || metaResult.imageUrl || metaResult.imageVariations?.[0]) && (
+                  <img src={tiktokSourceImageRef.current || metaResult.imageUrl || metaResult.imageVariations?.[0]} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
                 )}
                 {/* headline + Meta-blue CTA */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "#f0f2f5", borderTop: "1px solid #dadde1" }}>
@@ -4095,31 +4093,6 @@ STRICT rules:
                   <>
                     <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Turn your product into a short-form video ad.<br/>Takes about 3–4 minutes.</div>
                     <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{(activeTemplate && templateLabel(activeTemplate)) ? ('✦ ' + templateLabel(activeTemplate)) : (videoEngine === 'runway' ? 'Runway · best for fashion' : ('Kling · ' + (videoArchetype === 'studio_spin' ? 'Studio Spin' : videoArchetype === 'lifestyle_montage' ? 'Lifestyle Montage' : 'Scene Reveal')))}</div>
-                    {/* Part A: video input image + swap from tray */}
-                    {(() => {
-                      const vars = (metaResult?.imageVariations && metaResult.imageVariations.length ? metaResult.imageVariations : [metaResult?.imageUrl].filter(Boolean));
-                      const current = tiktokSourceImageRef.current || vars[0] || metaResult?.imageUrl || null;
-                      if (!current) return null;
-                      return (
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: "100%" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <img src={current} alt="video input" style={{ width: 40, height: 40, borderRadius: 6, objectFit: "cover", border: "1px solid rgba(255,255,255,0.15)" }} />
-                            <span onClick={(e) => { e.stopPropagation(); setOvVideoImgPicker(v => !v); }} style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>{ovVideoImgPicker ? "Close" : "Change image"}</span>
-                          </div>
-                          {ovVideoImgPicker && vars.length > 1 && (
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", maxWidth: 260 }}>
-                              {vars.slice(0, 12).map((iv, i) => {
-                                const sel = (tiktokSourceImageRef.current || vars[0]) === iv;
-                                return (
-                                  <img key={i} src={iv} alt="" onClick={(e) => { e.stopPropagation(); tiktokSourceImageRef.current = iv; setMetaResult(r => ({ ...r })); setOvVideoImgTick(t => t + 1); setOvVideoImgPicker(false); }}
-                                    style={{ width: 34, height: 34, borderRadius: 5, objectFit: "cover", cursor: "pointer", border: sel ? "2px solid #8b5cf6" : "1px solid rgba(255,255,255,0.12)" }} />
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
                     <button onClick={(e) => { e.stopPropagation(); startVideoGeneration(); }} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Generate video</button>
                   </>
                 ) : (
