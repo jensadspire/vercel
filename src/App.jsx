@@ -932,6 +932,7 @@ const TEMPLATE_ENGINE = {
   // Fashion
   fashion_wardrobe_lifestyle: 'veo-extended',
   fashion_street_style: 'veo-extended',
+  fashion_360_showcase: 'veo-extended',
   // Home Decor
   homedecor_empty_designed: 'veo',
   homedecor_product_in_context: 'veo',
@@ -967,6 +968,7 @@ const CS_VERTICALS = {
       { id: 'fashion_street_style', label: 'Street Style', desc: 'City environment → model appears → walking/editorial' },
       { id: 'fashion_day_to_night', label: 'Day → Night', desc: 'Daytime look → time shifts → evening version' },
       { id: 'fashion_one_piece_three_looks', label: 'One Piece / Three Looks', desc: 'One hero piece → Look 1 → Look 2 → Look 3' },
+      { id: 'fashion_360_showcase', label: '360 Showcase', desc: 'Smooth 360° product rotation — add front & back images (multi-reference)' },
     ],
   },
   homedecor: {
@@ -1083,7 +1085,7 @@ function RSAStudio() {
   const [multiRefOpen, setMultiRefOpen] = useState(false);
   const [multiRefTray, setMultiRefTray] = useState(false);
   // Which templates expose the multi-ref feature (Fashion extended templates for now).
-  const MULTIREF_TEMPLATES = ['fashion_street_style', 'fashion_wardrobe_lifestyle'];
+  const MULTIREF_TEMPLATES = ['fashion_360_showcase'];
   const [tiktokVideoUrl, setTiktokVideoUrl] = useState(null);
   const [videoUseMetaCopy, setVideoUseMetaCopy] = useState(false); // false = variation[1] (default), true = match Meta[0]
   // Phase 4a — branded outro (post-video)
