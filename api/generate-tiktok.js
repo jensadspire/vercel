@@ -229,11 +229,11 @@ const ARCHETYPES = {
 
   fashion_360_showcase: {
     label: "360 Showcase",
-    instructions: `- The product from the reference image(s) presented elegantly, slowly rotating a full turn to reveal front, side and back detail. Soft natural daylight, premium product focus, clean uncluttered setting. Smooth continuous rotation, product sharp and centred throughout — no narrative, no scene cuts, the product is the sole hero.
-  PRODUCT ANCHOR: it is the EXACT item from the reference image(s) — identical colour, shape, material, pattern and detailing; never changes, recolours or morphs at any point in the rotation.
-  BACKGROUND ANCHOR: keep the same clean environment/backdrop as the opening image throughout — do not change or add a different setting during the rotation.
-  Scene 1 (0-4s): Product front-on, soft daylight, slow push-in on detail, rotation begins.
-  Scene 2 (4-8s): Smooth continuous rotation through side to back, material detail catching the light, product sharp and centred.`,
+    instructions: `- 360 Showcase. Write a SHORT, MINIMAL video prompt — this template works best when the prompt is restrained and lets the REFERENCE IMAGE supply the real colour, material, finish and background. DO NOT invent or elaborate attributes (do NOT describe the fabric as glossy/matte, do NOT specify lighting direction, do NOT name a backdrop colour) — only name the product plainly (use its actual type/colour from the product title, e.g. "a coffee-brown puffer jacket", "a burnt henna red knit sweater") and describe the motion simply.
+  TARGET STYLE (keep it this short): "[product, plainly named] presented elegantly, slowly rotating to reveal front, side and back detail. Soft natural daylight, premium product focus, clean setting."
+  Keep the EXACT product and background from the reference image — the minimal prompt is what preserves them; verbose descriptions cause the model to invent wrong materials/backgrounds. No narrative, no scene cuts, no text, no logos.
+  Scene 1 (0-4s): Product front-on, rotation begins.
+  Scene 2 (4-8s): Smooth rotation through side to back, product sharp and centred.`,
     json: `"storyboard": [
     { "scene": 1, "timing": "0-4s", "title": "Front & Detail", "description": "Product front-on, clean studio light, push-in on detail, rotation begins" },
     { "scene": 2, "timing": "4-8s", "title": "Rotation", "description": "Smooth rotation through the side, material detail, product sharp and centred" }
