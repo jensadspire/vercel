@@ -1085,6 +1085,7 @@ function RSAStudio() {
   const [refImages, setRefImages] = useState([]);
   const [multiRefOpen, setMultiRefOpen] = useState(false);
   const [multiRefTray, setMultiRefTray] = useState(false);
+  const multiRefSliderRef = useRef(null);
   // Which templates expose the multi-ref feature (Fashion extended templates for now).
   const MULTIREF_TEMPLATES = ['fashion_360_showcase'];
   const [tiktokVideoUrl, setTiktokVideoUrl] = useState(null);
@@ -4135,11 +4136,18 @@ STRICT rules:
                               </div>
                               <div style={{ fontSize: 9.5, color: "#5a6b80" }}>Tip: use product-only shots for best results.</div>
                               {multiRefTray && !second && (
-                                <div style={{ display: "flex", gap: 8, overflowX: "auto", maxWidth: 360, paddingBottom: 6, scrollbarWidth: "thin" }}>
-                                  {vars.slice(0, 20).map((iv, i) => (
-                                    <img key={i} src={iv} alt="" onClick={(e) => { e.stopPropagation(); setRefImages([hero, iv]); setMultiRefTray(false); }}
-                                      style={{ width: 110, height: 110, flexShrink: 0, borderRadius: 8, objectFit: "cover", cursor: "pointer", border: "1px solid rgba(255,255,255,0.15)" }} />
-                                  ))}
+                                <div style={{ position: "relative", maxWidth: 360 }}>
+                                  <div ref={multiRefSliderRef} style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 6, scrollbarWidth: "thin" }}>
+                                    {vars.slice(0, 20).map((iv, i) => (
+                                      <img key={i} src={iv} alt="" onClick={(e) => { e.stopPropagation(); setRefImages([hero, iv]); setMultiRefTray(false); }}
+                                        style={{ width: 110, height: 110, flexShrink: 0, borderRadius: 8, objectFit: "cover", cursor: "pointer", border: "1px solid rgba(255,255,255,0.15)" }} />
+                                    ))}
+                                  </div>
+                                  {vars.length > 3 && (
+                                    <div onClick={(e) => { e.stopPropagation(); if (multiRefSliderRef.current) multiRefSliderRef.current.scrollBy({ left: 240, behavior: 'smooth' }); }}
+                                      style={{ position: "absolute", top: 0, right: 0, height: 110, width: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                                        background: "linear-gradient(to right, rgba(15,23,42,0) 0%, rgba(15,23,42,0.85) 60%)", borderRadius: "0 8px 8px 0", color: "#c4b5fd", fontSize: 22, fontWeight: 800 }}>›</div>
+                                  )}
                                 </div>
                               )}
                             </div>
