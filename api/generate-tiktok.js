@@ -239,6 +239,20 @@ const ARCHETYPES = {
   ]`,
   },
 
+  fashion_catwalk: {
+    label: "Catwalk",
+    instructions: `- Video storyboard: 3 scenes — the "Catwalk" style. A model walks confidently toward the camera down a runway-like setting, editorial and dynamic, the garment the clear focus. The model is in motion with a natural, poised stride; gaze is forward/past the camera, not locked directly into the lens.
+  Scene 1 (0-3s): The model begins walking toward camera from a short distance, full-body framing, confident runway stride, clean editorial lighting, the garment fully visible.
+  Scene 2 (3-7s): The walk continues, camera holding or easing back slightly to keep the model and garment in frame; fabric moves naturally with the stride, dynamic and aspirational.
+  Scene 3 (7-10s): The model arrives closer, a composed editorial beat — a slight turn or pause — garment sharp and hero, cinematic finish.
+  Keep the same model, same garment (exact colour/shape/material) throughout. No text, no logos, no overlays.`,
+    json: `"storyboard": [
+    { "scene": 1, "timing": "0-3s", "title": "Walk Begins", "description": "Model walks toward camera, full-body, confident runway stride, garment visible" },
+    { "scene": 2, "timing": "3-7s", "title": "Runway Motion", "description": "Walk continues, fabric moves naturally, dynamic editorial" },
+    { "scene": 3, "timing": "7-10s", "title": "Editorial Close", "description": "Model arrives closer, composed turn/pause, garment hero, cinematic finish" }
+  ]`,
+  },
+
   // ── Creative Studio TEMPLATES — Home Decor & Interior Design ──
   homedecor_product_room: {
     label: "Product → Room",

@@ -969,6 +969,7 @@ const CS_VERTICALS = {
       { id: 'fashion_day_to_night', label: 'Day → Night', desc: 'Daytime look → time shifts → evening version' },
       { id: 'fashion_one_piece_three_looks', label: 'One Piece / Three Looks', desc: 'One hero piece → Look 1 → Look 2 → Look 3' },
       { id: 'fashion_360_showcase', label: '360 Showcase', desc: 'Smooth 360° product rotation — add front & back images (multi-reference)' },
+      { id: 'fashion_catwalk', label: 'Catwalk', desc: 'Model walks toward camera — dynamic editorial runway' },
     ],
   },
   homedecor: {
