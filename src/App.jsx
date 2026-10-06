@@ -9891,11 +9891,14 @@ STRICT rules:
                       {[
                         { id: 'kling', label: '⚡ Kling V3', desc: 'Products & food', color: '#34d399' },
                         { id: 'runway', label: '🎞 Runway', desc: 'Fashion & models', color: '#fbbf24' },
+                        { id: 'veo', label: '✦ VEO', desc: 'Google · 8s', color: '#60a5fa' },
+                        { id: 'veo-extended', label: '✦ VEO Ext', desc: 'Google · 15s' + (isPro ? '' : ' · Pro'), color: '#818cf8', pro: true },
                         { id: 'recipe', label: '✦ Recipe', desc: 'Premium commercial', color: '#a5b4fc' },
                       ].map(e => (
-                        <button key={e.id} onClick={() => setVideoEngine(e.id)} style={{
+                        <button key={e.id} onClick={() => { if (e.pro && !isPro) { setRecipeError('VEO Ext (15s) is a Pro feature — upgrade to use it.'); return; } setVideoEngine(e.id); }} style={{
                           flex: 1, padding: '7px 10px', fontSize: 10, fontWeight: 700, borderRadius: 7,
-                          background: videoEngine === e.id ? (e.id === 'kling' ? 'rgba(52,211,153,0.12)' : 'rgba(251,191,36,0.12)') : 'rgba(255,255,255,0.04)',
+                          opacity: (e.pro && !isPro) ? 0.55 : 1,
+                          background: videoEngine === e.id ? (e.color + '1f') : 'rgba(255,255,255,0.04)',
                           color: videoEngine === e.id ? e.color : '#7e92a8',
                           border: videoEngine === e.id ? `1px solid ${e.color}40` : '1px solid rgba(255,255,255,0.08)',
                           cursor: 'pointer', transition: 'all 0.15s',
