@@ -229,10 +229,11 @@ const ARCHETYPES = {
 
   fashion_360_showcase: {
     label: "360 Showcase",
-    instructions: `- Video storyboard: a smooth, premium full 360° product presentation (an advanced studio-spin). The SAME product from the reference image(s) rotates slowly and continuously to reveal every angle — front, sides, back — in clean, even studio light against a simple, uncluttered background. No narrative, no scene changes: the product is the sole focus throughout, elegant and aspirational.
-  CRITICAL PRODUCT ANCHOR: the product is the EXACT item from the reference image(s) — identical colour, shape, material, pattern, cut and detailing. It must never change, recolour, or morph at any point in the rotation. Every angle is the same real product.
-  Scene 1 (0-4s): The product presented front-on in clean studio light, slow push-in on texture and detail, then the rotation begins.
-  Scene 2 (4-8s): Continuous smooth rotation through the side profile, fabric/material detail catching the light, product sharp and centred.`,
+    instructions: `- The product from the reference image(s) presented elegantly, slowly rotating a full turn to reveal front, side and back detail. Soft natural daylight, premium product focus, clean uncluttered setting. Smooth continuous rotation, product sharp and centred throughout — no narrative, no scene cuts, the product is the sole hero.
+  PRODUCT ANCHOR: it is the EXACT item from the reference image(s) — identical colour, shape, material, pattern and detailing; never changes, recolours or morphs at any point in the rotation.
+  BACKGROUND ANCHOR: keep the same clean environment/backdrop as the opening image throughout — do not change or add a different setting during the rotation.
+  Scene 1 (0-4s): Product front-on, soft daylight, slow push-in on detail, rotation begins.
+  Scene 2 (4-8s): Smooth continuous rotation through side to back, material detail catching the light, product sharp and centred.`,
     json: `"storyboard": [
     { "scene": 1, "timing": "0-4s", "title": "Front & Detail", "description": "Product front-on, clean studio light, push-in on detail, rotation begins" },
     { "scene": 2, "timing": "4-8s", "title": "Rotation", "description": "Smooth rotation through the side, material detail, product sharp and centred" }
