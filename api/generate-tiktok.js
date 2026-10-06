@@ -634,6 +634,7 @@ URL: ${url}
 Brand: ${brand}
 Page content: ${content.slice(0, 800)}
 Language: ${language}
+PRODUCT IDENTITY: Identify the product's actual TYPE (e.g. dress, sweater, bag, shoe, jacket). If the page title clearly names the product type, use it. If the title is ambiguous (only a brand + a style/model name + a colour, with NO product type), determine the type from the page content and the product image instead — and NEVER guess the product type from the brand name (a brand known for one category, e.g. menswear, may sell others like bags or womenswear). Describe only the actual product; if it is a bag, it is a bag regardless of the brand.
 ${storyboardInstructions}
 ${MUST_KEEP_RULE}
 ${NO_TEXT_RULE}
@@ -675,6 +676,7 @@ URL: ${url}
 Brand: ${brand}
 Page content: ${content.slice(0, 1000)}
 Language: ${language}
+PRODUCT IDENTITY: Identify the product's actual TYPE (e.g. dress, sweater, bag, shoe, jacket). If the page title clearly names the product type, use it. If the title is ambiguous (only a brand + a style/model name + a colour, with NO product type), determine the type from the page content and the product image instead — and NEVER guess the product type from the brand name. Describe only the actual product.
 Video format: ${isRunway ? "Fashion/lifestyle — 2-scene product-to-life format" : `'${arch.label}' archetype`}
 
 ${audienceBrief ? `Audience Brief:
