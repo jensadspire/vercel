@@ -634,7 +634,7 @@ URL: ${url}
 Brand: ${brand}
 Page content: ${content.slice(0, 800)}
 Language: ${language}
-PRODUCT IDENTITY: Identify the product's actual TYPE (e.g. dress, sweater, bag, shoe, jacket). If the page title clearly names the product type, use it. If the title is ambiguous (only a brand + a style/model name + a colour, with NO product type), determine the type from the page content and the product image instead — and NEVER guess the product type from the brand name (a brand known for one category, e.g. menswear, may sell others like bags or womenswear). Describe only the actual product; if it is a bag, it is a bag regardless of the brand.
+PRODUCT IDENTITY: Identify the product's actual TYPE (e.g. dress, sweater, bag, shoe, jacket). If the page title clearly names the product type, use it. If the title is ambiguous (only a brand + a style/model name + a colour, with NO product type), determine the type from the page content and the product image instead — and NEVER guess the product type from the brand name (a brand known for one category, e.g. menswear, may sell others like bags or womenswear). Describe only the actual product; if it is a bag, it is a bag regardless of the brand. PRODUCT COLOUR: Use the product's actual colour from the title — focus on the core colour word(s) and ignore marketing/finish lingo (e.g. "Brandy Brown Melange / Orange" → a brown/orange sweater; don't be thrown by "Melange"). If the title's colour is unclear or missing, do NOT invent or guess a colour (never default to e.g. navy/black) — describe the product neutrally and let the reference image supply the true colour.
 ${storyboardInstructions}
 ${MUST_KEEP_RULE}
 ${NO_TEXT_RULE}
