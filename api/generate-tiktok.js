@@ -655,6 +655,7 @@ Return ONLY valid JSON (no markdown, no preamble):
       const raw = d.content?.[0]?.text || "";
       if (!raw) return res.status(500).json({ error: "Storyboard generation failed", detail: d.error?.message || "" });
       const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      console.log('[PROMPT SENT] archetype=' + archetype + ' engine=' + videoEngine + ' extended=' + !!extended + '\n  videoPrompt: ' + (parsed.videoPrompt || '').slice(0, 1200) + (extended ? ('\n  basePrompt: ' + (parsed.basePrompt || '').slice(0, 1200) + '\n  continuationPrompt: ' + (parsed.continuationPrompt || '').slice(0, 1200)) : ''));
       return res.status(200).json({
         storyboard: parsed.storyboard || [],
         videoPrompt: parsed.videoPrompt || "",
@@ -724,6 +725,7 @@ Return ONLY valid JSON:
     return res.status(500).json({ error: "TikTok copy generation failed", detail: e.message });
   }
 
+  console.log('[PROMPT SENT] archetype=' + archetype + ' engine=' + videoEngine + ' (full)\n  videoPrompt: ' + (parsed.videoPrompt || '').slice(0, 1200));
   return res.status(200).json({
     hookLine: parsed.hookLine || "",
     primaryText: parsed.primaryText || "",
