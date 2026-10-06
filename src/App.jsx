@@ -4134,10 +4134,10 @@ STRICT rules:
                               </div>
                               <div style={{ fontSize: 9.5, color: "#5a6b80" }}>Tip: use product-only shots for best results.</div>
                               {multiRefTray && !second && (
-                                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", maxWidth: 220 }}>
-                                  {vars.slice(0, 12).map((iv, i) => (
+                                <div style={{ display: "flex", gap: 8, overflowX: "auto", maxWidth: 360, paddingBottom: 6, scrollbarWidth: "thin" }}>
+                                  {vars.slice(0, 20).map((iv, i) => (
                                     <img key={i} src={iv} alt="" onClick={(e) => { e.stopPropagation(); setRefImages([hero, iv]); setMultiRefTray(false); }}
-                                      style={{ width: 30, height: 30, borderRadius: 5, objectFit: "cover", cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)" }} />
+                                      style={{ width: 110, height: 110, flexShrink: 0, borderRadius: 8, objectFit: "cover", cursor: "pointer", border: "1px solid rgba(255,255,255,0.15)" }} />
                                   ))}
                                 </div>
                               )}
