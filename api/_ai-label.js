@@ -22,6 +22,8 @@ const RENDI_API_URL = 'https://api.rendi.dev/v1';
 const RENDI_POLL_MS = 2500;        // gap between Rendi status polls
 const RENDI_MAX_POLLS = 24;        // ~60s ceiling for a short 9:16 clip
 const RENDI_SUBMIT_TIMEOUT_MS = 15000;
+const RENDI_429_RETRIES = 3;       // retry attempts on rate-limit (429)
+const RENDI_429_WAIT_MS = 20000;   // wait between 429 retries (Rendi quota is per-minute)
 
 /**
  * Burn a visible "AI-generated" label onto a video via Rendi (hosted ffmpeg).
@@ -44,18 +46,27 @@ export async function addAiLabelViaRendi(videoUrl) {
     '-i {{in_1}} -vf "' + drawtext + '" -c:a copy -movflags +faststart {{out_1}}';
 
   try {
-    // ── submit ────────────────────────────────────────────────────────────────
-    const submitRes = await fetch(RENDI_API_URL + '/run-ffmpeg-command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-KEY': key },
-      body: JSON.stringify({
-        input_files: { in_1: videoUrl },
-        output_files: { out_1: 'labelled.mp4' },
-        ffmpeg_command,
-      }),
-      signal: AbortSignal.timeout(RENDI_SUBMIT_TIMEOUT_MS),
-    });
-    const submitData = await submitRes.json().catch(() => ({}));
+    // ── submit (with retry on 429 rate-limit — Rendi quota is per-minute) ────────
+    let submitRes, submitData;
+    for (let attempt = 0; ; attempt++) {
+      submitRes = await fetch(RENDI_API_URL + '/run-ffmpeg-command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-KEY': key },
+        body: JSON.stringify({
+          input_files: { in_1: videoUrl },
+          output_files: { out_1: 'labelled.mp4' },
+          ffmpeg_command,
+        }),
+        signal: AbortSignal.timeout(RENDI_SUBMIT_TIMEOUT_MS),
+      });
+      submitData = await submitRes.json().catch(() => ({}));
+      if (submitRes.status === 429 && attempt < RENDI_429_RETRIES) {
+        console.error('[ai-label] Rendi 429 rate-limit — retry ' + (attempt + 1) + '/' + RENDI_429_RETRIES + ' in ' + (RENDI_429_WAIT_MS / 1000) + 's');
+        await new Promise(r => setTimeout(r, RENDI_429_WAIT_MS));
+        continue;
+      }
+      break;
+    }
     if (!submitRes.ok) {
       console.error('[ai-label] Rendi submit failed:', submitRes.status, JSON.stringify(submitData).slice(0, 300));
       return null;

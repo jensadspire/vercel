@@ -8,7 +8,7 @@
  *   1. JSON-LD Organization/publisher logo  (brand-declared, usually the real mark)
  *   2. Web app manifest icons               (often 192/512px — highest res)
  *   3. apple-touch-icon                      (usually 180px+, square)
- *   4. og:logo / og:image                    (sometimes a logo)
+ *   4. og:logo                               (explicit logo only; og:image excluded — it's the product photo on PDPs)
  *   5. header/nav <img> with "logo"          (the visible site logo)
  *   6. high-res rel=icon (sizes >= 64)       (better than a 16px favicon)
  *
@@ -91,13 +91,10 @@ export default async function handler(req, res) {
       push(tag.match(/href=["']([^"']+)["']/i)?.[1], 'apple-touch-icon', tag.match(/sizes=["']([^"']+)["']/i)?.[1]);
     }
 
-    // 4. og:logo, then og:image
+    // 4. og:logo only. (og:image is intentionally EXCLUDED — on product pages it is the
+    //    product photo, not a logo, and was hijacking the advertiser-logo slot. The favicon
+    //    fallback is far more reliable for the brand mark.)
     push(html.match(/<meta[^>]+property=["']og:logo["'][^>]+content=["']([^"']+)["']/i)?.[1], 'og:logo');
-    push(
-      html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
-      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)?.[1],
-      'og:image'
-    );
 
     // 5. header/nav <img> whose tag mentions "logo"
     const headerZone =
