@@ -159,11 +159,46 @@ export default async function handler(req, res) {
       html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:site_name["']/i)?.[1] || null;
     const h1 = html.match(/<h1[^>]*>([^<]{3,})<\/h1>/i)?.[1]?.replace(/<[^>]+>/g, "").trim() || null;
 
+    // ── Breadcrumb trail extraction (audience/category signal) ──────────────────
+    // Primary: JSON-LD BreadcrumbList. Fallback: HTML breadcrumb nav.
+    let breadcrumbs = null;
+    try {
+      const ldBlocks = [...html.matchAll(/<script[^>]+type=["\x27]application\/ld\+json["\x27][^>]*>([\s\S]*?)<\/script>/gi)];
+      for (const m of ldBlocks) {
+        try {
+          const parsed = JSON.parse(m[1].trim());
+          const items = Array.isArray(parsed) ? parsed : [parsed];
+          const flat = [];
+          for (const it of items) { if (it && Array.isArray(it['@graph'])) flat.push(...it['@graph']); else flat.push(it); }
+          for (const item of flat) {
+            if (item && item['@type'] === 'BreadcrumbList' && Array.isArray(item.itemListElement)) {
+              const names = item.itemListElement
+                .sort((a, b) => (a.position || 0) - (b.position || 0))
+                .map(el => (el.name || (el.item && el.item.name) || '').toString().trim())
+                .filter(Boolean);
+              if (names.length) { breadcrumbs = names.join(' > '); break; }
+            }
+          }
+          if (breadcrumbs) break;
+        } catch (_) {}
+      }
+    } catch (_) {}
+    if (!breadcrumbs) {
+      try {
+        const navMatch = html.match(/<(nav|ol|ul)[^>]*(?:class|id)=["\x27][^"\x27]*(?:breadcrumb|crumb)[^"\x27]*["\x27][^>]*>([\s\S]*?)<\/\1>/i);
+        if (navMatch) {
+          const links = [...navMatch[2].matchAll(/<a[^>]*>([^<]{1,40})<\/a>/gi)].map(x => x[1].replace(/<[^>]+>/g, '').trim()).filter(Boolean);
+          if (links.length) breadcrumbs = links.join(' > ');
+        }
+      } catch (_) {}
+    }
+
     const result = {
       language,
       detectedLangCode: detectedCode,
       title: ogTitle || title,
       metaDescription: ogDesc || metaDesc,
+      breadcrumbs,
       siteName: ogSiteName,
       h1,
       signals: { htmlLang, ogLocale, headerLang, hreflang, urlLang, subdomainLang, tldLang, tld },

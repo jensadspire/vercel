@@ -22,6 +22,7 @@ export default async function handler(req, res) {
   // ── Step 1: Scrape the URL ────────────────────────────────────────────────
   let pageContent = "";
   let metaDescription = "";
+  let breadcrumbs = "";
   let scrapeImages = [];
   try {
     const scrapeRes = await fetch(`${req.headers.origin || "https://" + req.headers.host}/api/scrape`, {
@@ -33,6 +34,7 @@ export default async function handler(req, res) {
     pageContent = scrapeData.content || scrapeData.text || "";
     scrapeImages = scrapeData.images || [];
     metaDescription = scrapeData.metaDescription || "";
+    breadcrumbs = scrapeData.breadcrumbs || "";
   } catch (e) {
     pageContent = url; // fallback to URL only
   }
@@ -206,6 +208,7 @@ Analyse this product/service page and write scroll-stopping Meta ad copy in ${la
 
 Page URL: ${url}
 Product description (accurate, retailer-written — treat as the authoritative source for the product's TYPE, intended AUDIENCE/gender, and COLOUR; never contradict it, e.g. never call a women's item men's): ${(metaDescription || '').slice(0, 600)}
+Breadcrumb trail (authoritative for AUDIENCE/CATEGORY — e.g. "Women > Shirts" means a women's shirt; never contradict the audience/category it implies): ${(breadcrumbs || '').slice(0, 300)}
 Page content:
 ${pageContent.slice(0, 3000)}
 
