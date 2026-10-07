@@ -9801,11 +9801,14 @@ STRICT rules:
                         setRecipeError(null); // reset any prior video error on a new gen (all engines)
                         if (currentEngine === 'recipe') { setRecipeGated(null); }
                         const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe'
-                          : currentEngine === 'runway' ? '/api/runway' : '/api/kling';
+                          : currentEngine === 'runway' ? '/api/runway'
+                          : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
                         const videoPayload = currentEngine === 'recipe'
                           ? { mode: recipeMode, imageUrl, characterImage: recipeMode === 'ugc' ? recipeCharacterImage : undefined, productInfo: (tiktokResult.brand || pageMeta?.brand || ''), userConcept: recipeMode === 'ugc' ? tiktokResult.videoPrompt : `Polished cinematic product advertisement for ${tiktokResult.brand || pageMeta?.brand || 'this product'}. The product is the clear hero, shown in an aspirational real-world setting with warm professional lighting and smooth, elegant camera movement. High-quality commercial style. No on-screen text, captions, logos, brand names or overlays anywhere.` }
                           : currentEngine === 'runway'
                           ? { imageUrl, prompt: tiktokResult.videoPrompt, duration: 10, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
+                          : currentEngine === 'veo'
+                          ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English' }
                           : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
                         const r = await fetch(videoApi, {
                           method: 'POST',
@@ -9853,7 +9856,7 @@ STRICT rules:
                       display: 'flex', alignItems: 'center', gap: 6,
                       animation: tiktokVideoLoading ? 'pulse 1.5s ease-in-out infinite' : 'none',
                     }}>
-                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating with {videoEngine === 'recipe' ? 'Recipe' : videoEngine === 'runway' ? 'Runway' : 'Kling'}…</> : (videoEngine === 'recipe' ? '✦ Generate Video (Recipe)' : videoEngine === 'runway' ? '🎞 Generate Video (Runway)' : '🎬 Generate Video (Kling V3)')}
+                      {tiktokVideoLoading ? <><span style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }}>⟳</span> Generating with {videoEngine === 'recipe' ? 'Recipe' : videoEngine === 'runway' ? 'Runway' : videoEngine === 'veo' ? 'VEO' : 'Kling'}…</> : (videoEngine === 'recipe' ? '✦ Generate Video (Recipe)' : videoEngine === 'runway' ? '🎞 Generate Video (Runway)' : videoEngine === 'veo' ? '✦ Generate Video (VEO)' : '🎬 Generate Video (Kling V3)')}
                     </button>
                   </>
                 )}
@@ -9892,7 +9895,6 @@ STRICT rules:
                         { id: 'kling', label: '⚡ Kling V3', desc: 'Products & food', color: '#34d399' },
                         { id: 'runway', label: '🎞 Runway', desc: 'Fashion & models', color: '#fbbf24' },
                         { id: 'veo', label: '✦ VEO', desc: 'Google · 8s', color: '#60a5fa' },
-                        { id: 'veo-extended', label: '✦ VEO Ext', desc: 'Google · 15s' + (isPro ? '' : ' · Pro'), color: '#818cf8', pro: true },
                         { id: 'recipe', label: '✦ Recipe', desc: 'Premium commercial', color: '#a5b4fc' },
                       ].map(e => (
                         <button key={e.id} onClick={() => { if (e.pro && !isPro) { setRecipeError('VEO Ext (15s) is a Pro feature — upgrade to use it.'); return; } setVideoEngine(e.id); }} style={{
