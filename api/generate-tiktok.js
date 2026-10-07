@@ -585,6 +585,7 @@ export default async function handler(req, res) {
 
   // ── Scrape if no content provided ────────────────────────────────────────────
   let content = pageContent;
+  let productDescription = req.body.productDescription || "";
   if (!content) {
     try {
       const scrapeRes = await fetch(`${req.headers.origin || "https://" + req.headers.host}/api/scrape`, {
@@ -594,6 +595,7 @@ export default async function handler(req, res) {
       });
       const scrapeData = await scrapeRes.json();
       content = scrapeData.content || scrapeData.text || "";
+      if (!productDescription) productDescription = scrapeData.metaDescription || "";
     } catch (_) {}
   }
 
@@ -633,6 +635,7 @@ ${arch.instructions}
 URL: ${url}
 Brand: ${brand}
 Page content: ${content.slice(0, 800)}
+Product description (accurate, retailer-written — USE THIS as the primary source for the product's type, colour, pattern and material; prefer it over guessing): ${(productDescription || '').slice(0, 600)}
 Language: ${language}
 ${storyboardInstructions}
 ${MUST_KEEP_RULE}
@@ -674,6 +677,7 @@ Return ONLY valid JSON (no markdown, no preamble):
 URL: ${url}
 Brand: ${brand}
 Page content: ${content.slice(0, 1000)}
+Product description (accurate, retailer-written — USE THIS as the primary source for the product's type, colour, pattern and material; prefer it over guessing): ${(productDescription || '').slice(0, 600)}
 Language: ${language}
 Video format: ${isRunway ? "Fashion/lifestyle — 2-scene product-to-life format" : `'${arch.label}' archetype`}
 
