@@ -3274,7 +3274,7 @@ STRICT rules:
         setMetaImagesLoading(false);
         setMetaResult(null); // clear previous result to avoid stale images
         metaGenId.current += 1; // invalidate any in-flight async image callbacks
-        setActiveImageVariant(0);
+        if (lastGeneratedUrlRef.current !== url) setActiveImageVariant(0); // preserve swiper on same-URL regen
         setMetaEdits({});
         setAdFormat("meta"); // switch to meta tab immediately so user sees spinner
         try {
@@ -3318,9 +3318,9 @@ STRICT rules:
               imageVariations: initialVariations.length > 0 ? initialVariations : [],
             });
             try { track('meta_output_completed'); } catch (_) {}
-            setActiveImageVariant(0);
-            // Only reset thumbnail selection when URL actually changed
+            // Only reset swiper (activeImageVariant + thumbnail) when URL actually changed — preserve swiper on same-URL regen
             if (lastGeneratedUrlRef.current !== url) {
+              setActiveImageVariant(0);
               tiktokSourceImageRef.current = null;
               lastGeneratedUrlRef.current = url;
             }
