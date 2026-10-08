@@ -4007,10 +4007,33 @@ STRICT rules:
                 <div style={{ padding: "0 14px 10px", fontSize: 12.5, color: "#1c1e21", lineHeight: 1.4, whiteSpace: "pre-wrap" }}>
                   {(metaResult.primaryTexts?.[0] || "").slice(0, 140)}{(metaResult.primaryTexts?.[0] || "").length > 140 ? "…" : ""}
                 </div>
-                {/* image */}
-                {(tiktokSourceImageRef.current || metaResult.imageUrl || metaResult.imageVariations?.[0]) && (
-                  <img src={tiktokSourceImageRef.current || metaResult.imageUrl || metaResult.imageVariations?.[0]} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
-                )}
+                {/* image + << >> cycle arrows */}
+                {(() => {
+                  const vars = (metaResult.imageVariations && metaResult.imageVariations.length) ? metaResult.imageVariations : [metaResult.imageUrl].filter(Boolean);
+                  const current = tiktokSourceImageRef.current || metaResult.imageUrl || vars[0];
+                  if (!current) return null;
+                  const metaImgCycle = (dir) => {
+                    if (vars.length < 2) return;
+                    const idx = Math.max(0, vars.indexOf(tiktokSourceImageRef.current || metaResult.imageUrl || vars[0]));
+                    const next = (idx + dir + vars.length) % vars.length;
+                    tiktokSourceImageRef.current = vars[next];
+                    setActiveImageVariant(next);
+                    setMetaResult(r => ({ ...r, imageUrl: vars[next] }));
+                  };
+                  return (
+                    <div style={{ position: "relative" }}>
+                      <img src={current} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
+                      {vars.length > 1 && (
+                        <>
+                          <div onClick={(e) => { e.stopPropagation(); metaImgCycle(-1); }} title="Previous image"
+                            style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, fontWeight: 800, userSelect: "none" }}>‹</div>
+                          <div onClick={(e) => { e.stopPropagation(); metaImgCycle(1); }} title="Next image"
+                            style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, fontWeight: 800, userSelect: "none" }}>›</div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
                 {/* headline + Meta-blue CTA */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "#f0f2f5", borderTop: "1px solid #dadde1" }}>
                   <div style={{ minWidth: 0 }}>
