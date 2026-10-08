@@ -1213,7 +1213,9 @@ function RSAStudio() {
       // ── One create attempt for a given engine; returns {ok, d, httpOk, status} ────
       const attemptVideoCreate = async (eng) => {
         // TEST HOOK: VITE_FORCE_FAIL_ENGINE=<engine> simulates that engine being down (create fails).
-        const forceFail = (import.meta.env.VITE_FORCE_FAIL_ENGINE || '').split(',').map(s => s.trim()).filter(Boolean);
+        let _ffParam = '';
+        try { _ffParam = new URLSearchParams(window.location.search).get('forcefail') || ''; } catch (_) {}
+        const forceFail = ((import.meta.env.VITE_FORCE_FAIL_ENGINE || '') + ',' + _ffParam).split(',').map(s => s.trim()).filter(Boolean);
         try {
           if (forceFail.includes(eng)) { console.warn('[failover] TEST HOOK forcing create-fail for', eng); return { ok: false, infraFail: true, d: { error: 'forced-fail (test hook)' } }; }
           const api = apiForEngine(eng);
