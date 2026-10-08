@@ -1134,7 +1134,7 @@ function RSAStudio() {
       if (currentEngine !== videoEngineRef.current) { videoEngineRef.current = currentEngine; setVideoEngine(currentEngine); }
       setRecipeError(null);
       if (currentEngine === 'recipe') { setRecipeGated(null); }
-      const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
+      let videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
       // ── VEO-EXTENDED: orchestrate the base→extend chain (15s). Separate path; leaves all other engines untouched. ──
       if (currentEngine === 'veo-extended') {
         try {
@@ -1198,24 +1198,61 @@ function RSAStudio() {
         return; // extended path done — do not fall through to the standard single-call flow
       }
       console.log('[VIDEO DISPATCH] activeTemplate=', activeTemplate, '| TEMPLATE_ENGINE=', activeTemplate ? TEMPLATE_ENGINE[activeTemplate] : null, '| ref=', videoEngineRef.current, '| currentEngine=', currentEngine, '| → videoApi=', videoApi);
-      const videoPayload = currentEngine === 'recipe'
+      // ── Build the engine-specific create payload for a given engine ──────────────
+      const buildVideoPayload = (eng) => eng === 'recipe'
         ? { mode: recipeMode, imageUrl, characterImage: recipeMode === 'ugc' ? recipeCharacterImage : undefined, productInfo: (tiktokResult.brand || pageMeta?.brand || ''), userConcept: recipeMode === 'ugc' ? tiktokResult.videoPrompt : `Polished cinematic product advertisement for ${tiktokResult.brand || pageMeta?.brand || 'this product'}. The product is the clear hero, shown in an aspirational real-world setting with warm professional lighting and smooth, elegant camera movement. High-quality commercial style. No on-screen text, captions, logos, brand names or overlays anywhere.` }
-        : currentEngine === 'runway'
+        : eng === 'runway'
         ? { imageUrl, prompt: tiktokResult.videoPrompt, duration: 10, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
+        : eng === 'veo'
+        ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English' }
         : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
-      const r = await fetch(videoApi, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(currentEngine === 'recipe' && isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}),
-          ...(currentEngine === 'recipe' && isSignedIn && window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}),
-        },
-        body: JSON.stringify(videoPayload),
-      });
-      const d = await r.json();
+      const apiForEngine = (eng) => eng === 'recipe' ? '/api/runway-recipe' : eng === 'runway' ? '/api/runway' : eng === 'veo' ? '/api/veo' : '/api/kling';
+      // Backup engine: Kling is the universal backup; if the primary IS Kling, use Runway instead.
+      const backupForEngine = (eng) => eng === 'kling' ? 'runway' : 'kling';
+
+      // ── One create attempt for a given engine; returns {ok, d, httpOk, status} ────
+      const attemptVideoCreate = async (eng) => {
+        // TEST HOOK: VITE_FORCE_FAIL_ENGINE=<engine> simulates that engine being down (create fails).
+        const forceFail = (import.meta.env.VITE_FORCE_FAIL_ENGINE || '').split(',').map(s => s.trim()).filter(Boolean);
+        try {
+          if (forceFail.includes(eng)) { console.warn('[failover] TEST HOOK forcing create-fail for', eng); return { ok: false, infraFail: true, d: { error: 'forced-fail (test hook)' } }; }
+          const api = apiForEngine(eng);
+          const rr = await fetch(api, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(eng === 'recipe' && isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}),
+              ...(eng === 'recipe' && isSignedIn && window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}),
+            },
+            body: JSON.stringify(buildVideoPayload(eng)),
+          });
+          // Infra failure = HTTP not ok (5xx/network at server). 4xx (bad request/gated) is NOT infra.
+          if (!rr.ok && rr.status >= 500) { console.error('[failover]', eng, 'HTTP', rr.status, '→ infra fail'); return { ok: false, infraFail: true, d: { error: 'HTTP ' + rr.status } }; }
+          const dd = await rr.json().catch(() => ({}));
+          return { ok: true, infraFail: false, d: dd, api };
+        } catch (netErr) {
+          console.error('[failover]', eng, 'network error → infra fail:', netErr.message);
+          return { ok: false, infraFail: true, d: { error: netErr.message } };
+        }
+      };
+
+      // ── Try primary; on INFRA failure, silently retry once with the backup engine ──
+      let usedEngine = currentEngine;
+      let attempt = await attemptVideoCreate(currentEngine);
+      if (attempt.infraFail) {
+        const backup = backupForEngine(currentEngine);
+        console.warn('[failover] ' + currentEngine + ' infra-failed → failing over to ' + backup);
+        usedEngine = backup;
+        attempt = await attemptVideoCreate(backup);
+      }
+      // Re-point videoApi to whichever engine actually served (so the poll loop hits the right API).
+      videoApi = apiForEngine(usedEngine);
+      videoEngineRef.current = usedEngine;
+      const d = attempt.d || {};
+
       if (d.gated) { setRecipeGated({ count: d.count, limit: d.limit }); setTiktokVideoLoading(false); return; }
-      if (d.error || (!d.videoUrl && !d.requestId && !d.taskId)) {
-        console.error('Video create failed:', JSON.stringify(d));
+      if (attempt.infraFail || d.error || (!d.videoUrl && !d.requestId && !d.taskId)) {
+        console.error('Video create failed (after failover):', JSON.stringify(d));
         setRecipeError(d.error ? ('Video generation failed: ' + d.error) : 'Video generation could not start — please try again, or try a different product image.');
         setTiktokVideoLoading(false);
         if (videoPollRef.current) clearInterval(videoPollRef.current);
