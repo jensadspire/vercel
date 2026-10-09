@@ -49,6 +49,14 @@
       "destination": "/moderation-policy.html"
     },
     {
+      "source": "/invite",
+      "destination": "/invite/index.html"
+    },
+    {
+      "source": "/invite-admin",
+      "destination": "/invite-admin/index.html"
+    },
+    {
       "source": "/r/:token",
       "destination": "/api/r/:token"
     }

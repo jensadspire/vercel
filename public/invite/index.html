@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Ad Studio — Request beta access</title>
+<meta name="description" content="Request access to AI Ad Studio — ready-to-publish Google, Meta and TikTok ads generated from a single product URL.">
+<style>
+  :root{
+    --bg:#0b0f17; --card:#121826; --card2:#1a2233; --line:rgba(255,255,255,0.08);
+    --ink:#e8eef6; --muted:#8595ab; --accent:#6c7bff; --accent2:#a5b4fc;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.6}
+  a{color:var(--accent2)}
+  .wrap{max-width:760px;margin:0 auto;padding:32px 22px 80px}
+  header.top{text-align:center;padding:18px 0 6px}
+  .logo{display:inline-flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:.2px}
+  .logo .mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#6c7bff,#a5b4fc);display:inline-block}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 11px;border-radius:999px;
+    background:rgba(165,180,252,.14);color:var(--accent2);border:1px solid rgba(165,180,252,.3)}
+  h1{font-size:clamp(26px,5vw,40px);text-align:center;margin:16px 0 10px;font-weight:800;line-height:1.15}
+  .sub{text-align:center;color:var(--muted);max-width:600px;margin:0 auto;font-size:15.5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px 24px;margin:30px auto 0;max-width:460px}
+  .card h2{font-size:19px;margin:0 0 4px;font-weight:700;text-align:center}
+  .card p.lead{color:var(--muted);font-size:14px;text-align:center;margin:0 0 18px}
+  form{display:flex;flex-direction:column;gap:12px}
+  input[type=email]{width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--line);
+    background:var(--card2);color:var(--ink);font-size:15px;outline:none}
+  input[type=email]:focus{border-color:var(--accent)}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+  button{background:var(--accent);color:#fff;border:0;font-weight:700;padding:13px 18px;border-radius:10px;
+    font-size:15px;cursor:pointer;transition:transform .12s,background .12s}
+  button:hover{background:#5968ff;transform:translateY(-1px)}
+  button:disabled{opacity:.6;cursor:default;transform:none}
+  .note{text-align:center;color:var(--muted);font-size:12.5px;margin-top:2px}
+  .msg{text-align:center;font-size:14px;margin-top:2px;min-height:1px}
+  .msg.err{color:#ff9d9d}
+  .ok{text-align:center;padding:6px 0}
+  .ok .check{width:46px;height:46px;border-radius:50%;background:rgba(108,123,255,.16);border:1px solid rgba(165,180,252,.4);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 12px;color:var(--accent2);font-size:22px}
+  .ok h2{margin:0 0 6px}
+  .usps{display:grid;grid-template-columns:1fr;gap:14px;margin-top:40px}
+  @media(min-width:680px){.usps{grid-template-columns:1fr 1fr}}
+  .usp{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .usp h3{margin:0 0 6px;font-size:15.5px;font-weight:700}
+  .usp p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.5}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:48px;border-top:1px solid var(--line);padding-top:22px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="logo"><span class="mark"></span> AI Ad Studio</span>
+  </header>
+
+  <div style="text-align:center"><span class="pill">Private beta · inviting in batches</span></div>
+  <h1>Your next online campaign starts here.</h1>
+  <p class="sub">From a single product or website URL, AI Ad Studio generates ready-to-publish ads for Google, Meta and TikTok — copy, imagery and video — in about a minute.</p>
+
+  <div class="card" id="card">
+    <h2>Get access to AI Ad Studio</h2>
+    <p class="lead">Enter your email to request access. Approved applicants receive a private signup link.</p>
+    <form id="form" novalidate>
+      <input type="email" id="email" name="email" placeholder="you@company.com" autocomplete="email" required>
+      <!-- honeypot: hidden from users; bots that fill it are silently dropped -->
+      <input type="text" class="hp" id="website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <button type="submit" id="submit">Request access</button>
+      <div class="msg" id="msg"></div>
+      <div class="note">Access is subject to approval.</div>
+    </form>
+  </div>
+
+  <div class="usps">
+    <div class="usp"><h3>Every platform, one input</h3><p>Complete, policy-checked creative for Google, Meta and TikTok — each in the exact format the platform expects.</p></div>
+    <div class="usp"><h3>A full video studio</h3><p>Multiple engines, a scene-by-scene storyboard, brand overlays and UGC creator personas — not just a single clip.</p></div>
+    <div class="usp"><h3>Built for catalogue speed</h3><p>Batch generation, an Audience Builder and trend insights — aim the creative before you spend.</p></div>
+    <div class="usp"><h3>Into your own ad accounts</h3><p>Connected to Google and Meta directly, so ads land where you'll run them — always paused for your review first.</p></div>
+  </div>
+
+  <footer>
+    AI Ad Studio is developed by Adspire Deutschland GmbH · Hamburg · <a href="https://www.adspire.de">www.adspire.de</a>
+  </footer>
+</div>
+
+<script>
+  var form = document.getElementById('form');
+  var emailEl = document.getElementById('email');
+  var hpEl = document.getElementById('website');
+  var btn = document.getElementById('submit');
+  var msg = document.getElementById('msg');
+  var card = document.getElementById('card');
+
+  function validEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    msg.textContent = ''; msg.className = 'msg';
+    var email = (emailEl.value || '').trim();
+    if(!validEmail(email)){ msg.textContent = 'Please enter a valid email address.'; msg.className = 'msg err'; return; }
+    btn.disabled = true; btn.textContent = 'Requesting…';
+    try{
+      var r = await fetch('/api/request-access', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email: email, website: hpEl.value || '' })
+      });
+      var d = await r.json().catch(function(){ return {}; });
+      if(r.ok && d.ok){
+        card.innerHTML = '<div class="ok"><div class="check">✓</div><h2>You’re on the list</h2><p class="lead">We review applications in batches and email approved applicants a private signup link. Keep an eye on your inbox.</p></div>';
+      } else {
+        msg.textContent = (d && d.error) ? d.error : 'Something went wrong — please try again.'; msg.className = 'msg err';
+        btn.disabled = false; btn.textContent = 'Request access';
+      }
+    }catch(err){
+      msg.textContent = 'Network error — please try again.'; msg.className = 'msg err';
+      btn.disabled = false; btn.textContent = 'Request access';
+    }
+  });
+</script>
+</body>
+</html>

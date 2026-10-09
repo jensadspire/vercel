@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Access requests — admin</title>
+<style>
+  :root{
+    --bg:#0b0f17; --card:#121826; --card2:#1a2233; --line:rgba(255,255,255,0.08);
+    --ink:#e8eef6; --muted:#8595ab; --accent:#6c7bff; --accent2:#a5b4fc;
+    --ok:#4ade80; --no:#ff9d9d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.5}
+  .wrap{max-width:720px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:22px;font-weight:800;margin:4px 0 2px}
+  .muted{color:var(--muted);font-size:13px}
+  .bar{display:flex;gap:8px;margin:18px 0 10px;flex-wrap:wrap}
+  input{flex:1;min-width:200px;padding:11px 12px;border-radius:9px;border:1px solid var(--line);
+    background:var(--card2);color:var(--ink);font-size:14px;outline:none}
+  input:focus{border-color:var(--accent)}
+  button{background:var(--accent);color:#fff;border:0;font-weight:700;padding:11px 16px;border-radius:9px;
+    font-size:14px;cursor:pointer}
+  button.ghost{background:var(--card2);color:var(--ink);border:1px solid var(--line)}
+  button.reject{background:transparent;color:var(--no);border:1px solid rgba(255,157,157,.4)}
+  button:disabled{opacity:.5;cursor:default}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+  .row .email{font-size:14.5px;font-weight:600;word-break:break-all}
+  .row .when{font-size:11.5px;color:var(--muted)}
+  .acts{display:flex;gap:8px;flex-shrink:0}
+  .status{font-size:13px;margin:10px 0}
+  .status.err{color:var(--no)} .status.good{color:var(--ok)}
+  .empty{color:var(--muted);text-align:center;padding:40px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Access requests</h1>
+  <div class="muted">Pending beta applications. Approving sends a Clerk signup invite.</div>
+
+  <div class="bar">
+    <input type="password" id="key" placeholder="Admin key" autocomplete="off">
+    <button id="load">Load</button>
+  </div>
+  <div class="status" id="status"></div>
+  <div id="list"></div>
+</div>
+
+<script>
+  var keyEl = document.getElementById('key');
+  var statusEl = document.getElementById('status');
+  var listEl = document.getElementById('list');
+
+  // Remember the key for the session only (never persisted to disk).
+  try { var saved = sessionStorage.getItem('aiad_admin_key'); if (saved) keyEl.value = saved; } catch(_) {}
+
+  function setStatus(t, cls){ statusEl.textContent = t || ''; statusEl.className = 'status' + (cls ? ' ' + cls : ''); }
+  function adminKey(){ return (keyEl.value || '').trim(); }
+  function fmt(ts){ try { return new Date(ts).toLocaleString(); } catch(_) { return ''; } }
+
+  async function api(method, payload){
+    var opts = { method: method, headers: { 'x-admin-key': adminKey() } };
+    if (payload){ opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(payload); }
+    var r = await fetch('/api/approve-access' + (method === 'GET' ? '?action=list' : ''), opts);
+    var d = await r.json().catch(function(){ return {}; });
+    return { r: r, d: d };
+  }
+
+  async function load(){
+    if (!adminKey()){ setStatus('Enter the admin key.', 'err'); return; }
+    try { sessionStorage.setItem('aiad_admin_key', adminKey()); } catch(_) {}
+    setStatus('Loading…');
+    var res = await api('GET');
+    if (!res.r.ok){ setStatus(res.d.error || ('Error ' + res.r.status), 'err'); return; }
+    render(res.d.pending || []);
+    setStatus((res.d.pending || []).length + ' pending', 'good');
+  }
+
+  function render(items){
+    if (!items.length){ listEl.innerHTML = '<div class="empty">No pending requests.</div>'; return; }
+    listEl.innerHTML = '';
+    items.forEach(function(it){
+      var row = document.createElement('div'); row.className = 'row';
+      var left = document.createElement('div');
+      left.innerHTML = '<div class="email"></div><div class="when"></div>';
+      left.querySelector('.email').textContent = it.email;
+      left.querySelector('.when').textContent = fmt(it.ts);
+      var acts = document.createElement('div'); acts.className = 'acts';
+      var approve = document.createElement('button'); approve.textContent = 'Approve';
+      var reject = document.createElement('button'); reject.textContent = 'Reject'; reject.className = 'reject';
+      approve.addEventListener('click', function(){ act('approve', it.email, row, approve, reject); });
+      reject.addEventListener('click', function(){ act('reject', it.email, row, approve, reject); });
+      acts.appendChild(approve); acts.appendChild(reject);
+      row.appendChild(left); row.appendChild(acts);
+      listEl.appendChild(row);
+    });
+  }
+
+  async function act(action, email, row, approve, reject){
+    approve.disabled = true; reject.disabled = true;
+    setStatus((action === 'approve' ? 'Inviting ' : 'Rejecting ') + email + '…');
+    var res = await api('POST', { action: action, email: email });
+    if (res.r.ok && res.d.ok){
+      row.style.opacity = '0.4';
+      row.querySelector('.acts').innerHTML = '<span class="when">' + (action === 'approve' ? 'Invited ✓' : 'Rejected') + '</span>';
+      setStatus((action === 'approve' ? 'Invited ' : 'Rejected ') + email, 'good');
+    } else {
+      approve.disabled = false; reject.disabled = false;
+      setStatus(res.d.error || ('Error ' + res.r.status), 'err');
+    }
+  }
+
+  document.getElementById('load').addEventListener('click', load);
+  keyEl.addEventListener('keydown', function(e){ if (e.key === 'Enter') load(); });
+</script>
+</body>
+</html>
