@@ -3950,6 +3950,7 @@ STRICT rules:
         </div>
         {/* Hero */}
         <div style={{ width: "100%", maxWidth: 960, textAlign: "center", marginTop: 24 }}>
+          <img src="/apple-touch-icon.png" alt="" width={72} height={72} style={{ borderRadius: 16, display: "block", margin: "0 auto 14px" }} />
           <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: "-0.02em", color: "white" }}>AI Ad Studio</div>
           <div style={{ fontSize: 16, color: "#7e92a8", marginTop: 8 }}>Your next online campaign starts here.</div>
 
