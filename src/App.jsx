@@ -4051,6 +4051,7 @@ STRICT rules:
                   const vars = (metaResult.imageVariations && metaResult.imageVariations.length) ? metaResult.imageVariations : [metaResult.imageUrl].filter(Boolean);
                   const current = tiktokSourceImageRef.current || metaResult.imageUrl || vars[0];
                   if (!current) return null;
+                  const idx = Math.max(0, vars.indexOf(current));
                   const metaImgCycle = (dir) => {
                     if (vars.length < 2) return;
                     const idx = Math.max(0, vars.indexOf(tiktokSourceImageRef.current || metaResult.imageUrl || vars[0]));
@@ -4062,12 +4063,12 @@ STRICT rules:
                   return (
                     <div style={{ position: "relative" }}>
                       <img src={current} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
-                      {vars.length > 1 && (
+                      {vars.length > 1 && !metaImagesLoading && (
                         <>
                           <div onClick={(e) => { e.stopPropagation(); metaImgCycle(-1); }} title="Previous image"
-                            style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, fontWeight: 800, userSelect: "none" }}>‹</div>
+                            style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, fontWeight: 800, userSelect: "none" }}>{idx === 0 ? "|‹" : "‹"}</div>
                           <div onClick={(e) => { e.stopPropagation(); metaImgCycle(1); }} title="Next image"
-                            style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, fontWeight: 800, userSelect: "none" }}>›</div>
+                            style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, fontWeight: 800, userSelect: "none" }}>{idx === vars.length - 1 ? "›|" : "›"}</div>
                         </>
                       )}
                     </div>
