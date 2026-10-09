@@ -83,12 +83,24 @@ export default async function handler(req, res) {
           throw new Error(`Image fetch failed: ${imgRes.status}`);
         }
 
-        const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+        let imgBuffer = Buffer.from(await imgRes.arrayBuffer());
         let contentType = imgRes.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
-        // Runway gen3a_turbo doesn't support webp — treat as jpeg
-        if (contentType === 'image/webp') {
-          contentType = 'image/jpeg';
-          console.log('Remapped webp → jpeg content-type for Runway');
+        // Runway gen3a_turbo doesn't support webp, and transparent images (webp/png
+        // alpha) render their transparent regions as BLACK. Run the buffer through
+        // sharp: flatten any alpha onto white AND re-encode to real jpeg. Fails open
+        // to the original buffer (with a webp→jpeg header remap) if sharp errors, so
+        // it never blocks generation.
+        try {
+          const sharp = (await import('sharp')).default;
+          const meta = await sharp(imgBuffer).metadata();
+          if (meta.hasAlpha || contentType === 'image/webp') {
+            imgBuffer = await sharp(imgBuffer).flatten({ background: '#ffffff' }).jpeg({ quality: 90 }).toBuffer();
+            contentType = 'image/jpeg';
+            console.log('[runway] normalized image (flatten alpha onto white + jpeg re-encode)');
+          }
+        } catch (flatErr) {
+          if (contentType === 'image/webp') contentType = 'image/jpeg';
+          console.error('[runway] image normalize skipped (fail-open):', flatErr.message);
         }
         const base64 = imgBuffer.toString('base64');
         const dataUri = `data:${contentType};base64,${base64}`;
