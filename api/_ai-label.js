@@ -114,6 +114,61 @@ export async function addAiLabelViaRendi(videoUrl) {
   }
 }
 
+// ── C2PA signing (Cloud Run signing service, authenticated via GCP IAM) ──────
+const SIGN_TIMEOUT_MS = 60000; // the service fetches + signs the video server-side
+
+/**
+ * C2PA-sign a (labelled) video via the private Cloud Run signing service and
+ * return the signed MP4 bytes. Two-layer auth: a Google ID token (GCP IAM, from
+ * a service-account key in SIGNING_SA_KEY, audience = the service URL) PLUS the
+ * x-internal-token shared secret. Fail-open: returns null on any failure.
+ *
+ * @param {string} videoUrl - public URL of the (labelled) video to sign.
+ * @param {string} brand    - brand for the manifest title.
+ * @returns {Promise<Buffer|null>} signed MP4 bytes, or null on any failure.
+ */
+async function signC2PA(videoUrl, brand = '') {
+  const base = (process.env.SIGNING_SERVICE_URL || '').replace(/\/$/, '');
+  const secret = process.env.SIGNING_INTERNAL_TOKEN;
+  const saKey = process.env.SIGNING_SA_KEY;
+  if (!base || !secret || !saKey) {
+    console.error('[c2pa] signing not configured (SIGNING_SERVICE_URL / SIGNING_INTERNAL_TOKEN / SIGNING_SA_KEY) — skipping (fail-open)');
+    return null;
+  }
+  try {
+    // Mint a Google ID token for the Cloud Run service (audience = service base URL).
+    const { GoogleAuth } = await import('google-auth-library');
+    const auth = new GoogleAuth({ credentials: JSON.parse(saKey) });
+    const idClient = await auth.getIdTokenClient(base);
+    const idToken = await idClient.idTokenProvider.fetchIdToken(base);
+
+    const res = await fetch(base + '/sign', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + idToken,
+        'x-internal-token': secret,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ videoUrl, brand, compositesRealImage: true }),
+      signal: AbortSignal.timeout(SIGN_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      const msg = await res.text().catch(() => '');
+      console.error('[c2pa] sign failed:', res.status, msg.slice(0, 200));
+      return null;
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 2000) { // a real signed MP4 is MBs; a tiny body is an error
+      console.error('[c2pa] sign returned suspiciously small output (' + buf.length + ' bytes) — fail-open');
+      return null;
+    }
+    return buf;
+  } catch (e) {
+    console.error('[c2pa] sign error (fail-open):', e.message);
+    return null;
+  }
+}
+
 /**
  * Label a video URL, then store the (labelled or, on failure, original) video to
  * Vercel Blob. For engines that DON'T already re-host (Kling, Runway-regular):
@@ -121,15 +176,18 @@ export async function addAiLabelViaRendi(videoUrl) {
  *
  * @param {string} sourceUrl - the engine's output video URL.
  * @param {string} filenamePrefix - Blob filename prefix, e.g. 'kling' or 'runway'.
- * @returns {Promise<{url: string, labelled: boolean, stored: boolean}>}
+ * @returns {Promise<{url: string, labelled: boolean, signed: boolean, stored: boolean}>}
  *   url:      the URL to return to the user (Blob URL when stored, else a fallback)
  *   labelled: whether the AI label was successfully burned in
+ *   signed:   whether the video was C2PA-signed
  *   stored:   whether the video is now on our Blob (vs the engine's original URL)
  *
- * FAIL-OPEN at every step: label failure → store the original; store failure →
- * return whatever URL we have (labelled temp URL or the engine's original).
+ * FAIL-OPEN at every step: label failure → store the original; sign failure →
+ * store the labelled-but-unsigned video; store failure → return the working URL.
+ *
+ * @param {object} [opts] - { brand } for the C2PA manifest title.
  */
-export async function labelAndStore(sourceUrl, filenamePrefix) {
+export async function labelAndStore(sourceUrl, filenamePrefix, opts = {}) {
   // 1) label (fail-open: fall back to the original engine URL)
   let workingUrl = sourceUrl;
   let labelled = false;
@@ -137,13 +195,22 @@ export async function labelAndStore(sourceUrl, filenamePrefix) {
   if (labelledUrl) { workingUrl = labelledUrl; labelled = true; }
   else { console.error('[ai-label] Delivering UNLABELLED', filenamePrefix, 'video (Rendi unavailable)'); }
 
-  // 2) download + store to Blob (so we control the asset, like Recipe does)
+  // 2) C2PA-sign the (labelled) video. Fail-open: on failure signedBuf stays null
+  //    and step 3 downloads + stores the unsigned working video instead.
+  const signedBuf = await signC2PA(workingUrl, opts.brand || '');
+  const signed = !!signedBuf;
+  if (!signed) console.error('[c2pa] Delivering UNSIGNED', filenamePrefix, 'video (signing unavailable)');
+
+  // 3) store to Blob — the signed bytes if we have them, else download the working video
   let outUrl = workingUrl;
   let stored = false;
   try {
-    const vidRes = await fetch(workingUrl);
-    if (!vidRes.ok) throw new Error(`download ${vidRes.status}`);
-    const buf = Buffer.from(await vidRes.arrayBuffer());
+    let buf = signedBuf;
+    if (!buf) {
+      const vidRes = await fetch(workingUrl);
+      if (!vidRes.ok) throw new Error(`download ${vidRes.status}`);
+      buf = Buffer.from(await vidRes.arrayBuffer());
+    }
     const { put } = await import('@vercel/blob');
     const blob = await put(`${filenamePrefix}-${Date.now()}.mp4`, buf, {
       access: 'public',
@@ -157,5 +224,5 @@ export async function labelAndStore(sourceUrl, filenamePrefix) {
     console.error('[ai-label]', filenamePrefix, 'Blob store failed, returning unstored URL:', storeErr.message);
   }
 
-  return { url: outUrl, labelled, stored };
+  return { url: outUrl, labelled, signed, stored };
 }
