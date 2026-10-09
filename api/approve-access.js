@@ -1,14 +1,17 @@
 /**
  * api/approve-access.js — Admin review + approval for beta access requests.
  *
- * Guarded by x-admin-key === process.env.ADMIN_KEY (same guard as runway-recipe).
- * Paired with the admin view at /invite-admin.
+ * Guarded by x-admin-key === process.env.INVITE_ADMIN_KEY (a dedicated key for
+ * this page — independent of ADMIN_KEY / runway-recipe). Paired with /invite-admin.
  *
  *   GET  (or ?action=list)             → list pending requests (newest first)
  *   POST { action:'approve', email }   → Clerk createInvitation + move to approved
  *   POST { action:'reject',  email }   → remove from the queue
  *
  * On approval Clerk emails the prospect a unique signup link; nothing else sends mail.
+ *
+ * NOTE: the [approve-access] AUTH FAIL log below is a temporary diagnostic —
+ * remove it (and this note) before the production merge once auth is confirmed.
  */
 import { createClerkClient } from '@clerk/backend';
 
@@ -33,10 +36,10 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-key');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const adminKey = process.env.ADMIN_KEY;
+  const adminKey = process.env.INVITE_ADMIN_KEY;
   const gotKey = req.headers['x-admin-key'] || '';
   if (!adminKey || gotKey !== adminKey) {
-    console.warn('[approve-access] AUTH FAIL — env ADMIN_KEY present:', !!adminKey,
+    console.warn('[approve-access] AUTH FAIL — env INVITE_ADMIN_KEY present:', !!adminKey,
       '| env len:', adminKey ? adminKey.length : 0,
       '| received len:', gotKey.length,
       '| match:', gotKey === adminKey);
