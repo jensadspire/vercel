@@ -1134,7 +1134,7 @@ function RSAStudio() {
       if (currentEngine !== videoEngineRef.current) { videoEngineRef.current = currentEngine; setVideoEngine(currentEngine); }
       setRecipeError(null);
       if (currentEngine === 'recipe') { setRecipeGated(null); }
-      const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
+      let videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
       // ── VEO-EXTENDED: orchestrate the base→extend chain (15s). Separate path; leaves all other engines untouched. ──
       if (currentEngine === 'veo-extended') {
         try {
@@ -1198,24 +1198,63 @@ function RSAStudio() {
         return; // extended path done — do not fall through to the standard single-call flow
       }
       console.log('[VIDEO DISPATCH] activeTemplate=', activeTemplate, '| TEMPLATE_ENGINE=', activeTemplate ? TEMPLATE_ENGINE[activeTemplate] : null, '| ref=', videoEngineRef.current, '| currentEngine=', currentEngine, '| → videoApi=', videoApi);
-      const videoPayload = currentEngine === 'recipe'
+      // ── Build the engine-specific create payload for a given engine ──────────────
+      const buildVideoPayload = (eng) => eng === 'recipe'
         ? { mode: recipeMode, imageUrl, characterImage: recipeMode === 'ugc' ? recipeCharacterImage : undefined, productInfo: (tiktokResult.brand || pageMeta?.brand || ''), userConcept: recipeMode === 'ugc' ? tiktokResult.videoPrompt : `Polished cinematic product advertisement for ${tiktokResult.brand || pageMeta?.brand || 'this product'}. The product is the clear hero, shown in an aspirational real-world setting with warm professional lighting and smooth, elegant camera movement. High-quality commercial style. No on-screen text, captions, logos, brand names or overlays anywhere.` }
-        : currentEngine === 'runway'
+        : eng === 'runway'
         ? { imageUrl, prompt: tiktokResult.videoPrompt, duration: 10, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
+        : eng === 'veo'
+        ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English' }
         : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
-      const r = await fetch(videoApi, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(currentEngine === 'recipe' && isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}),
-          ...(currentEngine === 'recipe' && isSignedIn && window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}),
-        },
-        body: JSON.stringify(videoPayload),
-      });
-      const d = await r.json();
+      const apiForEngine = (eng) => eng === 'recipe' ? '/api/runway-recipe' : eng === 'runway' ? '/api/runway' : eng === 'veo' ? '/api/veo' : '/api/kling';
+      // Backup engine: Kling is the universal backup; if the primary IS Kling, use Runway instead.
+      const backupForEngine = (eng) => eng === 'kling' ? 'runway' : 'kling';
+
+      // ── One create attempt for a given engine; returns {ok, d, httpOk, status} ────
+      const attemptVideoCreate = async (eng) => {
+        // TEST HOOK: VITE_FORCE_FAIL_ENGINE=<engine> simulates that engine being down (create fails).
+        let _ffParam = '';
+        try { _ffParam = new URLSearchParams(window.location.search).get('forcefail') || ''; } catch (_) {}
+        const forceFail = ((import.meta.env.VITE_FORCE_FAIL_ENGINE || '') + ',' + _ffParam).split(',').map(s => s.trim()).filter(Boolean);
+        try {
+          if (forceFail.includes(eng)) { console.warn('[failover] TEST HOOK forcing create-fail for', eng); return { ok: false, infraFail: true, d: { error: 'forced-fail (test hook)' } }; }
+          const api = apiForEngine(eng);
+          const rr = await fetch(api, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(eng === 'recipe' && isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}),
+              ...(eng === 'recipe' && isSignedIn && window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}),
+            },
+            body: JSON.stringify(buildVideoPayload(eng)),
+          });
+          // Infra failure = HTTP not ok (5xx/network at server). 4xx (bad request/gated) is NOT infra.
+          if (!rr.ok && rr.status >= 500) { console.error('[failover]', eng, 'HTTP', rr.status, '→ infra fail'); return { ok: false, infraFail: true, d: { error: 'HTTP ' + rr.status } }; }
+          const dd = await rr.json().catch(() => ({}));
+          return { ok: true, infraFail: false, d: dd, api };
+        } catch (netErr) {
+          console.error('[failover]', eng, 'network error → infra fail:', netErr.message);
+          return { ok: false, infraFail: true, d: { error: netErr.message } };
+        }
+      };
+
+      // ── Try primary; on INFRA failure, silently retry once with the backup engine ──
+      let usedEngine = currentEngine;
+      let attempt = await attemptVideoCreate(currentEngine);
+      if (attempt.infraFail) {
+        const backup = backupForEngine(currentEngine);
+        console.warn('[failover] ' + currentEngine + ' infra-failed → failing over to ' + backup);
+        usedEngine = backup;
+        attempt = await attemptVideoCreate(backup);
+      }
+      // Re-point videoApi to whichever engine actually served (so the poll loop hits the right API).
+      videoApi = apiForEngine(usedEngine);
+      videoEngineRef.current = usedEngine;
+      const d = attempt.d || {};
+
       if (d.gated) { setRecipeGated({ count: d.count, limit: d.limit }); setTiktokVideoLoading(false); return; }
-      if (d.error || (!d.videoUrl && !d.requestId && !d.taskId)) {
-        console.error('Video create failed:', JSON.stringify(d));
+      if (attempt.infraFail || d.error || (!d.videoUrl && !d.requestId && !d.taskId)) {
+        console.error('Video create failed (after failover):', JSON.stringify(d));
         setRecipeError(d.error ? ('Video generation failed: ' + d.error) : 'Video generation could not start — please try again, or try a different product image.');
         setTiktokVideoLoading(false);
         if (videoPollRef.current) clearInterval(videoPollRef.current);
@@ -3235,7 +3274,7 @@ STRICT rules:
         setMetaImagesLoading(false);
         setMetaResult(null); // clear previous result to avoid stale images
         metaGenId.current += 1; // invalidate any in-flight async image callbacks
-        setActiveImageVariant(0);
+        if (lastGeneratedUrlRef.current !== url) setActiveImageVariant(0); // preserve swiper on same-URL regen
         setMetaEdits({});
         setAdFormat("meta"); // switch to meta tab immediately so user sees spinner
         try {
@@ -3279,9 +3318,9 @@ STRICT rules:
               imageVariations: initialVariations.length > 0 ? initialVariations : [],
             });
             try { track('meta_output_completed'); } catch (_) {}
-            setActiveImageVariant(0);
-            // Only reset thumbnail selection when URL actually changed
+            // Only reset swiper (activeImageVariant + thumbnail) when URL actually changed — preserve swiper on same-URL regen
             if (lastGeneratedUrlRef.current !== url) {
+              setActiveImageVariant(0);
               tiktokSourceImageRef.current = null;
               lastGeneratedUrlRef.current = url;
             }
@@ -4007,10 +4046,34 @@ STRICT rules:
                 <div style={{ padding: "0 14px 10px", fontSize: 12.5, color: "#1c1e21", lineHeight: 1.4, whiteSpace: "pre-wrap" }}>
                   {(metaResult.primaryTexts?.[0] || "").slice(0, 140)}{(metaResult.primaryTexts?.[0] || "").length > 140 ? "…" : ""}
                 </div>
-                {/* image */}
-                {(tiktokSourceImageRef.current || metaResult.imageUrl || metaResult.imageVariations?.[0]) && (
-                  <img src={tiktokSourceImageRef.current || metaResult.imageUrl || metaResult.imageVariations?.[0]} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
-                )}
+                {/* image + << >> cycle arrows */}
+                {(() => {
+                  const vars = (metaResult.imageVariations && metaResult.imageVariations.length) ? metaResult.imageVariations : [metaResult.imageUrl].filter(Boolean);
+                  const current = tiktokSourceImageRef.current || metaResult.imageUrl || vars[0];
+                  if (!current) return null;
+                  const idx = Math.max(0, vars.indexOf(current));
+                  const metaImgCycle = (dir) => {
+                    if (vars.length < 2) return;
+                    const idx = Math.max(0, vars.indexOf(tiktokSourceImageRef.current || metaResult.imageUrl || vars[0]));
+                    const next = (idx + dir + vars.length) % vars.length;
+                    tiktokSourceImageRef.current = vars[next];
+                    setActiveImageVariant(next);
+                    setMetaResult(r => ({ ...r, imageUrl: vars[next] }));
+                  };
+                  return (
+                    <div style={{ position: "relative" }}>
+                      <img src={current} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
+                      {vars.length > 1 && !metaImagesLoading && (
+                        <>
+                          <div onClick={(e) => { e.stopPropagation(); metaImgCycle(-1); }} title="Previous image"
+                            style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, fontWeight: 800, userSelect: "none" }}>{idx === 0 ? "|‹" : "‹"}</div>
+                          <div onClick={(e) => { e.stopPropagation(); metaImgCycle(1); }} title="Next image"
+                            style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, fontWeight: 800, userSelect: "none" }}>{idx === vars.length - 1 ? "›|" : "›"}</div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
                 {/* headline + Meta-blue CTA */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "#f0f2f5", borderTop: "1px solid #dadde1" }}>
                   <div style={{ minWidth: 0 }}>
