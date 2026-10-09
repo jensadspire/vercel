@@ -9,9 +9,6 @@
  *   POST { action:'reject',  email }   → remove from the queue
  *
  * On approval Clerk emails the prospect a unique signup link; nothing else sends mail.
- *
- * NOTE: the [approve-access] AUTH FAIL log below is a temporary diagnostic —
- * remove it (and this note) before the production merge once auth is confirmed.
  */
 import { createClerkClient } from '@clerk/backend';
 
@@ -37,12 +34,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const adminKey = process.env.INVITE_ADMIN_KEY;
-  const gotKey = req.headers['x-admin-key'] || '';
-  if (!adminKey || gotKey !== adminKey) {
-    console.warn('[approve-access] AUTH FAIL — env INVITE_ADMIN_KEY present:', !!adminKey,
-      '| env len:', adminKey ? adminKey.length : 0,
-      '| received len:', gotKey.length,
-      '| match:', gotKey === adminKey);
+  if (!adminKey || (req.headers['x-admin-key'] || '') !== adminKey) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -69,7 +61,8 @@ export default async function handler(req, res) {
         const inv = await clerk.invitations.createInvitation({ emailAddress: email, redirectUrl: 'https://theaiad.studio/' });
         invitationId = inv && inv.id ? inv.id : null;
       } catch (clerkErr) {
-        return res.status(502).json({ error: 'Clerk invite failed: ' + clerkErr.message });
+        const detail = (clerkErr && clerkErr.errors && clerkErr.errors[0] && clerkErr.errors[0].longMessage) || clerkErr.message;
+        return res.status(502).json({ error: 'Clerk invite failed: ' + detail });
       }
       await redis('ZREM', 'access:pending', email);
       await redis('ZADD', 'access:approved', String(Date.now()), email);
