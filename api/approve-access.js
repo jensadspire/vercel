@@ -34,7 +34,12 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const adminKey = process.env.ADMIN_KEY;
-  if (!adminKey || (req.headers['x-admin-key'] || '') !== adminKey) {
+  const gotKey = req.headers['x-admin-key'] || '';
+  if (!adminKey || gotKey !== adminKey) {
+    console.warn('[approve-access] AUTH FAIL — env ADMIN_KEY present:', !!adminKey,
+      '| env len:', adminKey ? adminKey.length : 0,
+      '| received len:', gotKey.length,
+      '| match:', gotKey === adminKey);
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
