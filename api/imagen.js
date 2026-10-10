@@ -1,22 +1,12 @@
 /**
- * /api/imagen — Google Vertex AI image generation/editing
- * Accepts: { prompt, imageBase64?, imageMimeType?, imageUrl?, sceneImageUrl?, aspectRatio? }
- * Returns: { imageUrl }  (Vercel Blob permanent URL)
+ * /api/imagen — Google Vertex AI Imagen 3 image generation/editing
+ * Accepts: { prompt, imageBase64?, imageMimeType?, imageUrl? }
+ * Returns: { imageUrl } (Vercel Blob permanent URL)
  *
- * Migrated from Imagen 3 (:predict) to Gemini 2.5 Flash Image ("Nano Banana",
- * google/gemini-2.5-flash-image) via :generateContent. The entire Imagen model
- * family was shut down on Vertex (Aug 2026), which is why imagen-3.0-generate-001
- * / imagen-3.0-capability-001 started 404-ing. One model now serves all modes:
- *   - text only        → prompt                              → generated image
- *   - reference image  → prompt + product image              → product kept, new scene
- *   - remix            → prompt + product image + scene image → product composited in
- *
- * The request/response contract is unchanged, so no frontend caller changes.
- * Auth + env vars (GOOGLE_SERVICE_ACCOUNT_KEY, BLOB_READ_WRITE_TOKEN) are untouched.
+ * If a reference image is provided, uses imagen-3.0-capability-001 with
+ * REFERENCE_TYPE_SUBJECT to keep the product and place it in a new scene.
+ * Otherwise falls back to imagen-3.0-generate-001 for text-to-image.
  */
-
-const MODEL = 'gemini-2.5-flash-image';
-const LOCATION = 'us-central1';
 
 async function getAccessToken(serviceAccountKey) {
   const key = typeof serviceAccountKey === 'string'
@@ -64,20 +54,6 @@ async function getAccessToken(serviceAccountKey) {
   return tokenData.access_token;
 }
 
-/** Fetch an image URL → { data: base64, mimeType }. Returns null on any failure. */
-async function fetchAsBase64(url) {
-  try {
-    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (!r.ok) return null;
-    const data = Buffer.from(await r.arrayBuffer()).toString('base64');
-    const mimeType = r.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
-    return { data, mimeType };
-  } catch (e) {
-    console.warn('Could not fetch image:', String(url).slice(0, 80), e.message);
-    return null;
-  }
-}
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -90,7 +66,9 @@ export default async function handler(req, res) {
 
   const { prompt, imageBase64, imageMimeType = 'image/jpeg', imageUrl, sceneImageUrl, aspectRatio = '1:1' } = req.body || {};
 
-  // Keep the same five Imagen ratios so a bad caller value can never break a generation.
+  // ── Aspect ratio: caller may request one; defaults to 1:1 (preserves Meta) ──
+  // Imagen 3 supports exactly these five ratios. Anything else degrades to 1:1
+  // rather than erroring, so a bad caller value can never break a generation.
   const SUPPORTED_ASPECT_RATIOS = ['1:1', '9:16', '16:9', '3:4', '4:3'];
   const safeAspectRatio = SUPPORTED_ASPECT_RATIOS.includes(aspectRatio) ? aspectRatio : '1:1';
   if (!prompt) return res.status(400).json({ error: 'prompt is required' });
@@ -98,90 +76,139 @@ export default async function handler(req, res) {
   const projectId = JSON.parse(saKey).project_id;
 
   try {
-    // ── Resolve input images (inline base64 wins, else fetch URL) ─────────────
-    let product = null;
-    if (imageBase64) product = { data: imageBase64, mimeType: imageMimeType };
-    else if (imageUrl) product = await fetchAsBase64(imageUrl);
+    // ── Resolve reference image ───────────────────────────────────────────────
+    let finalBase64 = imageBase64;
+    let finalMimeType = imageMimeType;
 
-    let scene = null;
-    if (sceneImageUrl) scene = await fetchAsBase64(sceneImageUrl);
-
-    const hasReference = !!product;
-    const isRemix = hasReference && !!scene;
-
-    // ── Build generateContent parts: text prompt + any input images ───────────
-    // Gemini composes directly from attached images — no SUBJECT/STYLE reference
-    // config needed (that was Imagen's capability API). Product first, scene second.
-    const parts = [{ text: prompt }];
-    if (product) parts.push({ inlineData: { mimeType: product.mimeType, data: product.data } });
-    if (scene) parts.push({ inlineData: { mimeType: scene.mimeType, data: scene.data } });
+    if (!finalBase64 && imageUrl) {
+      try {
+        const imgRes = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (imgRes.ok) {
+          finalBase64 = Buffer.from(await imgRes.arrayBuffer()).toString('base64');
+          finalMimeType = imgRes.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+        }
+      } catch(e) {
+        console.warn('Could not fetch reference image:', e.message);
+      }
+    }
 
     const accessToken = await getAccessToken(saKey);
-    console.log(`Calling ${MODEL}, hasReference: ${hasReference}, isRemix: ${isRemix}, ar: ${safeAspectRatio}`);
+    const hasReference = !!finalBase64;
 
-    const endpoint = `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${LOCATION}/publishers/google/models/${MODEL}:generateContent`;
+    // ── Fetch scene image for remix mode ──────────────────────────────────────
+    let sceneBase64 = null;
+    let sceneMimeType = 'image/jpeg';
+    if (sceneImageUrl) {
+      try {
+        const sceneRes = await fetch(sceneImageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (sceneRes.ok) {
+          sceneBase64 = Buffer.from(await sceneRes.arrayBuffer()).toString('base64');
+          sceneMimeType = sceneRes.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+        }
+      } catch(e) {
+        console.warn('Could not fetch scene image:', e.message);
+      }
+    }
+    const isRemix = hasReference && !!sceneBase64;
 
-    const buildBody = (withImageConfig) => {
-      const generationConfig = { responseModalities: ['TEXT', 'IMAGE'] };
-      if (withImageConfig) generationConfig.imageConfig = { aspectRatio: safeAspectRatio };
-      return JSON.stringify({
-        contents: [{ role: 'user', parts }],
-        generationConfig,
-        safetySettings: [
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
-        ],
-      });
-    };
+    // ── Choose model and build request ────────────────────────────────────────
+    // Remix mode: capability model with SUBJECT (product) + STYLE (scene)
+    // Reference only: capability model with SUBJECT mode
+    // Text only: generate model
+    const model = (hasReference || isRemix)
+      ? 'imagen-3.0-capability-001'
+      : 'imagen-3.0-generate-001';
 
-    const callModel = (body) => fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body,
-    });
+    const instance = { prompt };
 
-    // Attempt with imageConfig (aspect ratio). If the model rejects that field,
-    // retry once without it rather than hard-failing the whole generation.
-    let genRes = await callModel(buildBody(true));
-    let rawText = await genRes.text();
-    if (!genRes.ok && /imageConfig|aspectRatio|aspect_ratio|Unknown name/i.test(rawText)) {
-      console.warn('imageConfig not accepted, retrying without aspect ratio');
-      genRes = await callModel(buildBody(false));
-      rawText = await genRes.text();
+    if (isRemix) {
+      // Single SUBJECT reference — proven approach from v2
+      // Scene passed via prompt description only, not as style reference
+      instance.referenceImages = [
+        {
+          referenceId: 1,
+          referenceType: 'REFERENCE_TYPE_SUBJECT',
+          subjectImageConfig: { subjectType: 'SUBJECT_TYPE_PRODUCT' },
+          referenceImage: { bytesBase64Encoded: finalBase64, mimeType: finalMimeType },
+        },
+      ];
+    } else if (hasReference) {
+      instance.referenceImages = [
+        {
+          referenceId: 1,
+          referenceType: 'REFERENCE_TYPE_SUBJECT',
+          subjectImageConfig: { subjectType: 'SUBJECT_TYPE_PRODUCT' },
+          referenceImage: {
+            bytesBase64Encoded: finalBase64,
+            mimeType: finalMimeType,
+          },
+        },
+      ];
     }
 
-    let data;
-    try { data = JSON.parse(rawText); } catch (_) {
-      console.error('Gemini image non-JSON response:', rawText.slice(0, 300));
-      return res.status(500).json({ error: 'Image model returned non-JSON: ' + rawText.slice(0, 200) });
+    console.log(`Calling Imagen model: ${model}, hasReference: ${hasReference}, isRemix: ${isRemix}`);
+
+    const imagenRes = await fetch(
+      `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/${model}:predict`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          instances: [instance],
+          parameters: {
+            sampleCount: 1,
+            aspectRatio: safeAspectRatio,
+            safetyFilterLevel: 'block_some',
+            personGeneration: 'allow_adult',
+          },
+        }),
+      }
+    );
+
+    let imagenData;
+    const rawText = await imagenRes.text();
+    try { imagenData = JSON.parse(rawText); } catch(_) {
+      console.error('Imagen non-JSON response:', rawText.slice(0, 300));
+      return res.status(500).json({ error: 'Imagen returned non-JSON: ' + rawText.slice(0, 200) });
     }
 
-    if (!genRes.ok) {
-      console.error('Gemini image error:', JSON.stringify(data));
-      return res.status(500).json({ error: data.error?.message || 'Image generation failed' });
+    if (!imagenRes.ok) {
+      console.error('Imagen error:', JSON.stringify(imagenData));
+      // If capability model fails, fall back to generate model
+      if (hasReference && imagenData.error) {
+        console.log('Capability model failed, falling back to generate model');
+        const fallbackRes = await fetch(
+          `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagen-3.0-generate-001:predict`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              instances: [{ prompt }],
+              parameters: { sampleCount: 1, aspectRatio: safeAspectRatio, safetyFilterLevel: 'block_some' },
+            }),
+          }
+        );
+        const fallbackText = await fallbackRes.text();
+        try { imagenData = JSON.parse(fallbackText); } catch(_) {
+          return res.status(500).json({ error: 'Fallback also failed: ' + fallbackText.slice(0, 100) });
+        }
+        if (!fallbackRes.ok) return res.status(500).json({ error: imagenData.error?.message || 'Generation failed' });
+      } else {
+        return res.status(500).json({ error: imagenData.error?.message || 'Imagen generation failed' });
+      }
     }
 
-    // ── Extract the first inline image part from the candidate ────────────────
-    const partsOut = data.candidates?.[0]?.content?.parts || [];
-    const imgPart = partsOut.find(p => p.inlineData?.data || p.inline_data?.data);
-    const b64 = imgPart?.inlineData?.data || imgPart?.inline_data?.data;
-    if (!b64) {
-      // No image — usually a safety block or a text-only reply. Surface why.
-      const finish = data.candidates?.[0]?.finishReason;
-      const textOut = partsOut.find(p => p.text)?.text;
-      console.error('No image in response. finishReason:', finish, '| text:', String(textOut).slice(0, 200), '| raw:', JSON.stringify(data).slice(0, 400));
-      return res.status(500).json({ error: `No image returned (finishReason: ${finish || 'unknown'})` });
-    }
-    const outMime = imgPart.inlineData?.mimeType || imgPart.inline_data?.mimeType || 'image/png';
-    const ext = /jpe?g/i.test(outMime) ? 'jpg' : 'png';
+    const b64 = imagenData.predictions?.[0]?.bytesBase64Encoded;
+    if (!b64) return res.status(500).json({ error: 'No image returned from Imagen', raw: imagenData });
 
     // ── Upload to Vercel Blob ─────────────────────────────────────────────────
     const { put } = await import('@vercel/blob');
-    const blob = await put(`imagen-${safeAspectRatio.replace(':', 'x')}-${Date.now()}.${ext}`, Buffer.from(b64, 'base64'), {
+    const blob = await put(`imagen-${safeAspectRatio.replace(':', 'x')}-${Date.now()}.png`, Buffer.from(b64, 'base64'), {
       access: 'public',
-      contentType: outMime,
+      contentType: 'image/png',
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
