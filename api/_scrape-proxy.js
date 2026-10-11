@@ -29,7 +29,7 @@ export async function fetchViaProxy(url) {
     const res = await fetch(proxied, {
       // The proxy fetches + (optionally) renders + solves challenges server-side,
       // so give it much more headroom than the direct 8s fetch.
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(25000),
     });
     if (!res.ok) {
       console.log('[scrape-proxy] proxy returned', res.status, 'for', url);
