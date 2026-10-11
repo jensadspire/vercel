@@ -611,13 +611,22 @@ export default async function handler(req, res) {
   const arch = ARCHETYPES[archetype] || ARCHETYPES.scene_reveal;
 
   // ── Storyboard skeleton: Runway keeps 2-scene product→lifestyle; Kling uses the archetype ──
-  const storyboardInstructions = isRunway ? `
+  let storyboardInstructions = isRunway ? `
 - Video storyboard: 2 scenes ONLY — designed for a 10-second lifestyle/fashion video:
   Scene 1 (0-4s): PRODUCT SHOWCASE — Product presented beautifully in its original setting. Clean, aspirational shot. The product is the hero — clearly visible, well-lit. Camera slowly moves in or orbits the product.
   Scene 2 (4-10s): HUMAN LIFESTYLE MOMENT — A real person is WEARING or USING the product in an aspirational real-life setting. The person must be clearly visible — this scene MUST show a human being, not just the product alone. Confident, natural, aspirational.
 - Both scenes must flow seamlessly — same colour palette, same mood, same lighting style.` : `
 ${arch.instructions}
 - Each scene 1-2 sentences. Product clearly the hero, smooth cinematic camera movement, aspirational lighting.`;
+
+  // Scene variation (user-selected in Creative Studio): override the end/lifestyle
+  // environment for this generation. Archetype-agnostic — storyboardInstructions feeds
+  // both the main and storyboardOnly prompts and every engine. No-op when unset.
+  const sceneSel = (req.body.scene || "").trim();
+  if (sceneSel) {
+    storyboardInstructions += `
+- SCENE SETTING (user-selected — important): the lifestyle / end environment of the video MUST be a ${sceneSel} setting. Build the final scene(s) specifically as a ${sceneSel} setting, keeping the product the clear hero and its appearance unchanged. Do not substitute any other environment.`;
+  }
 
   const storyboardJson = isRunway ? `"storyboard": [
     { "scene": 1, "timing": "0-4s", "title": "Product Showcase", "description": "Beautiful product shot in original setting" },
