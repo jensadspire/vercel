@@ -954,7 +954,7 @@ const CS_VERTICALS = {
     templates: [
       { id: 'beauty_morning_ritual', label: 'White → Morning Ritual', desc: 'Product on white → space materialises → applied → confident lifestyle' },
       { id: 'beauty_ingredient_transformation', label: 'Ingredient → Transformation', desc: 'Ingredients appear → merge → result-focused scene' },
-      { id: 'beauty_luxury_reveal', label: 'Luxury Reveal', desc: 'Cinematic packshot → elegant vanity → hero object' },
+      { id: 'beauty_luxury_reveal', label: 'Luxury Reveal', desc: 'Cinematic packshot → elegant vanity → hero object', scenes: ['Botanical & Natural Oasis','Spa Aesthetic','High-End Bathroom','Clinical & Science Lab','Macro Texture / Smear'] },
       { id: 'beauty_before_the_day', label: 'Before the Day Starts', desc: 'Morning environment → gets ready → leaves confident' },
       { id: 'beauty_problem_solution', label: 'Problem → Solution', desc: 'Concern → product enters → usage → positive result' },
     ],
@@ -962,7 +962,7 @@ const CS_VERTICALS = {
   fashion: {
     label: 'Fashion & Apparel',
     templates: [
-      { id: 'fashion_flatlay_model', label: 'Flat Lay → Model', desc: 'Flat-lay → environment forms → worn on model → model moves' },
+      { id: 'fashion_flatlay_model', label: 'Flat Lay → Model', desc: 'Flat-lay → environment forms → worn on model → model moves', scenes: ['City (day)','Beach','Café','Office','City at Night'] },
       { id: 'fashion_outfit_transformation', label: 'Outfit Transformation', desc: 'Hero item constant → outfit changes around it → final look' },
       { id: 'fashion_wardrobe_lifestyle', label: 'Wardrobe → Lifestyle', desc: 'Wardrobe → gets dressed → leaves → lifestyle scene' },
       { id: 'fashion_street_style', label: 'Street Style', desc: 'City environment → model appears → walking/editorial' },
@@ -987,7 +987,7 @@ const CS_VERTICALS = {
     label: 'Fitness & Wellness',
     templates: [
       { id: 'fitness_workout_activation', label: 'Workout Activation', desc: 'Product → gym/home environment → use → workout begins → hero' },
-      { id: 'fitness_morning_wellness', label: 'Morning Wellness Routine', desc: 'Product → morning prep → consumption → active day → hero' },
+      { id: 'fitness_morning_wellness', label: 'Morning Wellness Routine', desc: 'Product → morning prep → consumption → active day → hero', scenes: ['Fitness Studio','Beach','Open Terrain','Outdoor Fitness Grounds','Calisthenics Park'] },
       { id: 'fitness_performance_transformation', label: 'Performance Transformation', desc: 'Product → athlete appears → use → intensity → performance → hero' },
       { id: 'fitness_activity_recovery', label: 'Activity → Recovery', desc: 'Product → activity/effort → recovery moment → hero' },
       { id: 'fitness_lifestyle_transformation', label: 'Lifestyle Transformation', desc: 'Product → everyday → enters routine → activity → healthy life → hero' },
@@ -1142,7 +1142,7 @@ function RSAStudio() {
           let basePrompt = '', continuationPrompt = '';
           try {
             const sr = await fetch('/api/generate-tiktok', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: lastGeneratedUrlRef.current || url, storyboardOnly: true, extended: true, videoEngine: 'veo', archetype: activeTemplate, language: pageMeta?.language || 'English' }) });
+              body: JSON.stringify({ url: lastGeneratedUrlRef.current || url, storyboardOnly: true, extended: true, videoEngine: 'veo', archetype: activeTemplate, scene: activeSceneRef.current || undefined, language: pageMeta?.language || 'English' }) });
             const sd = await sr.json();
             basePrompt = sd.basePrompt || ''; continuationPrompt = sd.continuationPrompt || '';
             console.log('[veo-ext] split inputs → url:', (lastGeneratedUrlRef.current || url), '| archetype:', activeTemplate, '| imageUrl:', String(imageUrl).slice(0,90));
@@ -1365,7 +1365,7 @@ function RSAStudio() {
         body: JSON.stringify({
           url, language: pageMeta?.language || "English", videoEngine: 'kling',
           audienceBrief, pageContent: pageMeta?.content || "",
-          archetype: archetypeId, storyboardOnly: true,
+          archetype: archetypeId, scene: activeSceneRef.current || undefined, storyboardOnly: true,
         }),
       });
       const d = await r.json();
@@ -2510,21 +2510,26 @@ function RSAStudio() {
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
   const csRotationRef = useRef(0); // advances each generation to rotate through csTemplates
   const [activeTemplate, setActiveTemplate] = useState(null); // id of the CS template driving the current video (rotation)
+  const [csScenes, setCsScenes] = useState({}); // { [templateId]: [sceneName,…] } — chosen scene variations per template
+  const [activeScene, setActiveScene] = useState(null); // scene variation driving the current video (rotation)
+  const activeSceneRef = useRef(null); // synchronous — storyboard calls read this
   // Look up a template's display label across all verticals.
   const templateLabel = (id) => { for (const v of Object.values(CS_VERTICALS)) { const t = (v.templates || []).find(x => x.id === id); if (t) return t.label; } return null; };
   useEffect(() => {
     const cs = brandData?.creativeStudio;
-    if (cs && Array.isArray(cs.templates)) { setCsTemplates(cs.templates); if (cs.vertical) setCsVertical(cs.vertical); }
+    if (cs && Array.isArray(cs.templates)) { setCsTemplates(cs.templates); if (cs.vertical) setCsVertical(cs.vertical); if (cs.scenes && typeof cs.scenes === 'object') setCsScenes(cs.scenes); }
   }, [brandData]);
   const [csSavedFlash, setCsSavedFlash] = useState(false);
-  const saveCreativeStudio = async (nextTemplates, nextVertical) => {
+  const saveCreativeStudio = async (nextTemplates, nextVertical, nextScenes) => {
     setCsTemplates(nextTemplates);
     if (nextVertical) setCsVertical(nextVertical);
+    const scenesToSave = nextScenes !== undefined ? nextScenes : csScenes;
+    if (nextScenes !== undefined) setCsScenes(nextScenes);
     try {
       if (!isSignedIn || !window.Clerk?.session) return;
       const token = await window.Clerk.session.getToken();
       await fetch('/api/brand', { method: 'POST', headers: { 'x-clerk-session': token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...(brandData || {}), creativeStudio: { vertical: nextVertical || csVertical, templates: nextTemplates } }) });
+        body: JSON.stringify({ ...(brandData || {}), creativeStudio: { vertical: nextVertical || csVertical, templates: nextTemplates, scenes: scenesToSave } }) });
     } catch (e) { console.error('[creative-studio] save failed:', e.message); }
   };
   const [librarySaving, setLibrarySaving] = useState(null);
@@ -2913,18 +2918,26 @@ function RSAStudio() {
             setVideoEngine(sel.engine);
             videoEngineRef.current = sel.engine;
             videoSelArchetypeRef.current = sel.archetype; // synchronous — storyboard call reads this
-            setActiveTemplate(null); // default: not a CS template unless the override below sets it
+            setActiveTemplate(null); activeSceneRef.current = null; setActiveScene(null); // default: not a CS template unless the override below sets it
             // Creative Studio (Pro): if templates are selected, rotate through them, overriding auto-detect.
             if (isPro && csTemplates.length > 0) {
-              const pick = csTemplates[csRotationRef.current % csTemplates.length];
+              // Expand selected templates × their chosen scene variations into rotation slots.
+              const _slots = csTemplates.flatMap(tid => {
+                const scs = csScenes[tid] || [];
+                return scs.length ? scs.map(sc => ({ tid, scene: sc })) : [{ tid, scene: null }];
+              });
+              const _slot = _slots[csRotationRef.current % _slots.length];
+              const pick = _slot.tid;
               csRotationRef.current += 1;
               videoSelArchetypeRef.current = pick;
+              activeSceneRef.current = _slot.scene;
               setVideoArchetype(pick);
               setActiveTemplate(pick);
+              setActiveScene(_slot.scene);
               // Template-driven engine routing: lifestyle templates → VEO, else keep detected engine.
               const tplEngine = TEMPLATE_ENGINE[pick];
               if (tplEngine) { setVideoEngine(tplEngine); videoEngineRef.current = tplEngine; console.log('[route] template', pick, '→ engine', tplEngine); }
-              console.log('[creative-studio] template rotation →', pick);
+              console.log('[creative-studio] template rotation →', pick, _slot.scene ? ('· scene → ' + _slot.scene) : '');
             }
             if (sel.engine === 'kling') setVideoArchetype(sel.archetype);
             console.log('[model-select] auto:', sel.engine, sel.archetype);
@@ -3422,7 +3435,7 @@ STRICT rules:
           const tiktokRes = await fetch("/api/generate-tiktok", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta?.language || "English", videoEngine: videoEngineRef.current, audienceBrief, pageContent: pageMeta?.content || "", archetype: videoSelArchetypeRef.current }),
+            body: JSON.stringify({ url, language: pageMeta?.language || "English", videoEngine: videoEngineRef.current, audienceBrief, pageContent: pageMeta?.content || "", archetype: videoSelArchetypeRef.current, scene: activeSceneRef.current || undefined }),
           });
           const tiktokData = await tiktokRes.json();
           if (tiktokData.error) {
@@ -4288,13 +4301,32 @@ STRICT rules:
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
                   {vert.templates.map(t => {
                     const on = csTemplates.includes(t.id);
+                    const selScenes = csScenes[t.id] || [];
+                    const toggleScene = (sc) => {
+                      const cur = csScenes[t.id] || [];
+                      const next = cur.includes(sc) ? cur.filter(x => x !== sc) : [...cur, sc];
+                      saveCreativeStudio(csTemplates, csVertical, { ...csScenes, [t.id]: next });
+                    };
                     return (
-                      <div key={t.id} onClick={() => toggleTpl(t.id)} style={{ display: "flex", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: "pointer", background: on ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.03)", border: on ? "1px solid rgba(139,92,246,0.4)" : "1px solid rgba(255,255,255,0.08)" }}>
-                        <div style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, marginTop: 1, border: on ? "none" : "1.5px solid rgba(255,255,255,0.25)", background: on ? "#8b5cf6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "white", fontWeight: 800 }}>{on ? "✓" : ""}</div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: on ? "#e2e8f0" : "#c7d2e0" }}>{t.label}</div>
-                          <div style={{ fontSize: 11, color: "#7e92a8", marginTop: 2, lineHeight: 1.4 }}>{t.desc}</div>
+                      <div key={t.id} style={{ borderRadius: 10, background: on ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.03)", border: on ? "1px solid rgba(139,92,246,0.4)" : "1px solid rgba(255,255,255,0.08)" }}>
+                        <div onClick={() => toggleTpl(t.id)} style={{ display: "flex", gap: 10, padding: "10px 12px", cursor: "pointer" }}>
+                          <div style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, marginTop: 1, border: on ? "none" : "1.5px solid rgba(255,255,255,0.25)", background: on ? "#8b5cf6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "white", fontWeight: 800 }}>{on ? "✓" : ""}</div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: on ? "#e2e8f0" : "#c7d2e0" }}>{t.label}</div>
+                            <div style={{ fontSize: 11, color: "#7e92a8", marginTop: 2, lineHeight: 1.4 }}>{t.desc}</div>
+                          </div>
                         </div>
+                        {on && Array.isArray(t.scenes) && t.scenes.length > 0 && (
+                          <div style={{ padding: "0 12px 10px 40px", display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            <div style={{ width: "100%", fontSize: 10, color: "#6b7a90", marginBottom: 2 }}>{selScenes.length ? ('Scenes · ' + selScenes.length + ' selected · rotates') : 'Scene variations (optional — auto scene if none picked)'}</div>
+                            {t.scenes.map(sc => {
+                              const scOn = selScenes.includes(sc);
+                              return (
+                                <span key={sc} onClick={(e) => { e.stopPropagation(); toggleScene(sc); }} style={{ cursor: "pointer", fontSize: 11, fontWeight: 600, padding: "4px 10px", borderRadius: 999, border: scOn ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.14)", background: scOn ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.04)", color: scOn ? "#c4b5fd" : "#9db0c7" }}>{scOn ? "✓ " : ""}{sc}</span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
