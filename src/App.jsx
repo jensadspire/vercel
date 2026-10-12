@@ -929,9 +929,14 @@ const TEMPLATE_ENGINE = {
   // Beauty
   beauty_morning_ritual: 'veo-extended',
   beauty_before_the_day: 'veo-extended',
-  // Fashion
-  fashion_wardrobe_lifestyle: 'veo-extended',
-  fashion_street_style: 'veo-extended',
+  beauty_luxury_reveal: 'kling',
+  // Fashion — all → Runway, except 360 Showcase (VEO-ext) and Catwalk (auto-detect, unpinned)
+  fashion_flatlay_model: 'runway',
+  fashion_outfit_transformation: 'runway',
+  fashion_wardrobe_lifestyle: 'runway',
+  fashion_street_style: 'runway',
+  fashion_day_to_night: 'runway',
+  fashion_one_piece_three_looks: 'runway',
   fashion_360_showcase: 'veo-extended',
   // Home Decor
   homedecor_empty_designed: 'veo',
