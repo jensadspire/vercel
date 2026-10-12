@@ -1,0 +1,301 @@
+industry,country,sub_category,query_en,query_da,recent_avg,trailing_avg,wow_change_pct,threshold_pct,meets_volume_floor,meets_baseline_floor,flagged
+outdoor_recreation,US,campsite_chair,campsite chair,campingstol,14.29,0,999,8,True,False,False
+food_beverage_specialty,US,craft_chocolate,craft chocolate,håndlavet chokolade,27.14,3.96,584.7,8,True,False,False
+toys_games,US,kids_art_supplies,kids art supplies,børne hobbyartikler,19,5.04,277.3,8,True,False,False
+fashion_men,US,wool_overcoat,wool overcoat,uldfrakke,64.14,20.46,213.4,8,True,True,True
+bikes_cycling,US,bike_pannier,bike pannier,cykeltaske,21.86,7.25,201.5,8,True,False,False
+garden_outdoor,US,garden_hammock,garden hammock,hængekøje,53,20,165.0,8,True,True,True
+fitness_apparel,US,athletic_tee,athletic tee,trænings t-shirt,30.43,11.61,162.2,8,True,True,True
+fashion_men,US,tee_basics,tee basics,basis t-shirt,48,18.61,158.0,8,True,True,True
+food_beverage_specialty,US,single_origin_coffee,single origin coffee,single origin kaffe,32.57,14.29,128.0,8,True,True,True
+food_beverage_specialty,US,natural_snacks,natural snacks,naturlige snacks,30.71,14.21,116.1,8,True,True,True
+jewelry_accessories,US,stacking_rings,stacking rings,stacking ringe,37.57,19.18,95.9,8,True,True,True
+fitness_apparel,US,compression_tights,compression tights,kompressionstights,49.57,31.07,59.5,8,True,True,True
+food_beverage_specialty,US,fermented_foods,fermented foods,fermenterede fødevarer,53,33.57,57.9,8,True,True,True
+home_appliances,US,space_heater,space heater,el-radiator,79.29,56.29,40.9,8,True,True,True
+fashion_women,US,cargo_trousers,cargo trousers,cargo bukser,27.14,20.75,30.8,8,True,True,True
+fashion_men,US,leather_jacket,leather jacket,læderjakke,89.57,70.79,26.5,8,True,True,True
+stationery_office,US,calendar,calendar,kalender,66,52.21,26.4,8,True,True,True
+fashion_women,US,oversized_blazer,oversized blazer,oversize blazer,60.43,48.68,24.1,8,True,True,True
+tech_accessories,US,webcam,webcam,webcam,72.29,59.39,21.7,8,True,True,True
+lingerie_intimates,US,robe,robe,morgenkåbe,82.43,67.96,21.3,8,True,True,True
+toys_games,US,wooden_toys,wooden toys,trælegetøj,60.14,49.61,21.2,8,True,True,True
+toys_games,US,educational_toys,educational toys,lærings legetøj,31.57,26.64,18.5,8,True,True,True
+kitchen_dining,US,ceramic_mugs,ceramic mugs,keramikkrus,56.14,47.68,17.8,8,True,True,True
+bikes_cycling,US,indoor_trainer,indoor trainer,hometrainer,45.71,38.96,17.3,8,True,True,True
+footwear_casual,US,chelsea_boots,chelsea boots,chelsea boots,75.71,64.93,16.6,8,True,True,True
+home_appliances,US,robot_vacuum,robot vacuum,robotstøvsuger,52.71,45.36,16.2,8,True,True,True
+home_appliances,US,stand_mixer,stand mixer,røremaskine,71.71,62.11,15.5,8,True,True,True
+kitchen_dining,US,stand_mixer,stand mixer,røremaskine,71.43,62.04,15.1,8,True,True,True
+toys_games,US,puzzle,puzzle,puslespil,88.86,77.43,14.8,8,True,True,True
+home_appliances,US,tumble_dryer,tumble dryer,tørretumbler,25.14,22,14.3,8,True,True,True
+travel_luggage,US,carry_on_suitcase,carry on suitcase,håndbagage kuffert,61.14,53.5,14.3,8,True,True,True
+fashion_women,US,trench_coat,trench coat,trenchcoat,79.43,69.64,14.1,8,True,True,True
+home_appliances,US,coffee_machine,coffee machine,kaffemaskine,71.43,62.86,13.6,8,True,True,True
+automotive_accessories,US,winter_tires,winter tires,vinterdæk,58,52.11,11.3,8,True,True,True
+beauty_makeup,US,mascara,mascara,mascara,75.14,67.89,10.7,8,True,True,True
+stationery_office,US,calligraphy_pen,calligraphy pen,kalligrafi pen,31.86,29,9.9,8,True,True,True
+toys_games,US,board_game,board game,brætspil,71.57,65.11,9.9,8,True,True,True
+kids_baby,US,nursery_decor,nursery decor,børneværelse indretning,50.57,46.14,9.6,8,True,True,True
+toys_games,US,doll_house,doll house,dukkehus,82.71,75.86,9.0,8,True,True,True
+bikes_cycling,US,cycling_helmet,cycling helmet,cykelhjelm,16.43,15.11,8.7,8,True,True,True
+toys_games,US,stuffed_animal,stuffed animal,bamse,87.14,80.32,8.5,8,True,True,True
+lighting,US,reading_lamp,reading lamp,læselampe,56,51.64,8.4,8,True,True,True
+bath_personal_care,US,perfume,perfume,parfume,86.29,79.75,8.2,8,True,True,True
+jewelry_accessories,US,minimalist_watch,minimalist watch,minimalistisk ur,10.86,10.04,8.2,8,True,True,True
+tech_accessories,US,headphones,headphones,hovedtelefoner,47.29,43.86,7.8,8,True,True,False
+fitness_apparel,US,leggings,leggings,leggings,75.71,70.39,7.6,8,True,True,False
+home_decor,US,candle,candle,stearinlys,84.86,79.32,7.0,8,True,True,False
+outdoor_recreation,US,rain_jacket,rain jacket,regnjakke,64.57,60.32,7.0,8,True,True,False
+automotive_accessories,US,dash_cam,dash cam,dashcam,76.57,71.82,6.6,8,True,True,False
+lingerie_intimates,US,silk_pajamas,silk pajamas,silke pyjamas,64.43,60.61,6.3,8,True,True,False
+travel_luggage,US,checked_luggage,checked luggage,kuffert indchecket,62.57,58.96,6.1,8,True,True,False
+fashion_men,US,raw_denim,raw denim,raw denim,68.29,64.39,6.0,8,True,True,False
+footwear_casual,US,trail_runners,trail runners,trail løbesko,45.43,42.93,5.8,8,True,True,False
+kitchen_dining,US,espresso_machine,espresso machine,espressomaskine,61.29,58.14,5.4,8,True,True,False
+bath_personal_care,US,bath_salts,bath salts,badesalt,66.43,63.14,5.2,8,True,True,False
+pet_supplies,US,pet_harness,pet harness,hundesele,21.86,20.79,5.2,8,True,True,False
+beauty_skincare,US,face_mist,face mist,ansigtsmist,58.57,55.79,5.0,8,True,True,False
+fashion_men,US,suit,suit,jakkesæt,92.14,87.82,4.9,8,True,True,False
+wellness_supplements,US,sleep_aids,sleep aids,søvnhjælp,54.71,52.32,4.6,8,True,True,False
+home_decor,US,indoor_planter,indoor planter,urtepotte,42.43,40.61,4.5,8,True,True,False
+outdoor_recreation,US,headlamp,headlamp,pandelampe,62,59.71,3.8,8,True,True,False
+footwear_casual,US,ballet_flats,ballet flats,ballerinasko,77.71,74.96,3.7,8,True,True,False
+footwear_casual,US,loafers,loafers,loafers,85,82,3.7,8,True,True,False
+toys_games,US,trampoline,trampoline,trampolin,48.86,47.11,3.7,8,True,True,False
+beauty_makeup,US,concealer,concealer,concealer,74.14,71.57,3.6,8,True,True,False
+fashion_women,US,ballet_flats,ballet flats,ballerinasko,77.57,75,3.4,8,True,True,False
+beauty_makeup,US,highlighter,highlighter,highlighter,59.57,57.68,3.3,8,True,True,False
+beauty_makeup,US,eyeshadow_palette,eyeshadow palette,øjenskygge palette,67.86,65.86,3.0,8,True,True,False
+home_appliances,US,microwave,microwave,mikroovn,79.29,77.07,2.9,8,True,True,False
+hair_care,US,curling_iron,curling iron,krøllejern,78.86,76.71,2.8,8,True,True,False
+hair_care,US,hair_growth_serum,hair growth serum,hårvækst serum,39.43,38.36,2.8,8,True,True,False
+automotive_accessories,US,wiper_blades,wiper blades,viskerblade,67.57,66.07,2.3,8,True,True,False
+lighting,US,outdoor_solar_lights,outdoor solar lights,solcellelamper,72.57,71.07,2.1,8,True,True,False
+jewelry_accessories,US,signet_ring,signet ring,signetring,68.29,67.29,1.5,8,True,True,False
+beauty_skincare,US,retinol_cream,retinol cream,retinol creme,48.57,47.96,1.3,8,True,True,False
+lighting,US,string_lights,string lights,lyskæde,73.86,72.89,1.3,8,True,True,False
+kids_baby,US,stroller,stroller,klapvogn,49.43,48.86,1.2,8,True,True,False
+fashion_women,US,knit_cardigan,knit cardigan,strikket cardigan,73.43,72.71,1.0,8,True,True,False
+beauty_skincare,US,eye_cream,eye cream,øjencreme,64.29,63.79,0.8,8,True,True,False
+kids_baby,US,kids_toys,kids toys,børnelegetøj,82.29,81.75,0.7,8,True,True,False
+bath_personal_care,US,hand_cream,hand cream,håndcreme,54.43,54.18,0.5,8,True,True,False
+hair_care,US,scalp_serum,scalp serum,hovedbund serum,55.43,55.21,0.4,8,True,True,False
+hair_care,US,hair_mask,hair mask,hårmaske,63,62.96,0.1,8,True,True,False
+fashion_women,US,slip_skirt,slip skirt,slipskirt,40.14,40.14,0.0,8,True,True,False
+hair_care,US,leave_in_conditioner,leave in conditioner,leave in conditioner,68,68.04,-0.1,8,True,True,False
+pet_supplies,US,scratching_post,scratching post,kradsetræ,49.43,49.5,-0.1,8,True,True,False
+wellness_supplements,US,protein_powder,protein powder,proteinpulver,44.14,44.18,-0.1,8,True,True,False
+beauty_skincare,US,retinol_serum,retinol serum,retinol serum,39.86,39.93,-0.2,8,True,True,False
+garden_outdoor,US,fire_pit,fire pit,bålfad,60.14,60.32,-0.3,8,True,True,False
+beauty_makeup,US,setting_spray,setting spray,setting spray,66.86,67.11,-0.4,8,True,True,False
+kitchen_dining,US,wine_glasses,wine glasses,vinglas,69.43,69.68,-0.4,8,True,True,False
+home_appliances,US,food_processor,food processor,foodprocessor,63.71,64.11,-0.6,8,True,True,False
+sports_fitness,US,fitness_tracker,fitness tracker,aktivitetsmåler,10.57,10.64,-0.7,8,True,True,False
+hair_care,US,rosemary_oil,rosemary oil,rosmarinolie,61,61.46,-0.8,8,True,True,False
+beauty_makeup,US,tinted_moisturizer,tinted moisturizer,tinted moisturizer,65.43,66,-0.9,8,True,True,False
+pet_supplies,US,chew_toys,chew toys,tyggelegetøj,45.57,46,-0.9,8,True,True,False
+garden_outdoor,US,bbq,BBQ,grill,61.86,62.54,-1.1,8,True,True,False
+home_appliances,US,air_fryer,air fryer,airfryer,47.86,48.39,-1.1,8,True,True,False
+lingerie_intimates,US,matching_set,matching set,matching sæt,78.71,79.61,-1.1,8,True,True,False
+fitness_apparel,US,matching_set,matching set,matching sæt,78.71,79.64,-1.2,8,True,True,False
+travel_luggage,US,travel_pillow,travel pillow,rejsepude,50,50.61,-1.2,8,True,True,False
+beauty_skincare,US,cleansing_oil,cleansing oil,renseolie,61.14,61.96,-1.3,8,True,True,False
+home_appliances,US,blender,blender,blender,71.57,72.64,-1.5,8,True,True,False
+bath_personal_care,US,body_lotion,body lotion,bodylotion,54.43,55.29,-1.6,8,True,True,False
+kids_baby,US,baby_bath,baby bath,babybadekar,55.86,56.79,-1.6,8,True,True,False
+wellness_supplements,US,creatine,creatine,kreatin,74.43,75.61,-1.6,8,True,True,False
+lingerie_intimates,US,bikini,bikini,bikini,47.43,48.25,-1.7,8,True,True,False
+stationery_office,US,fountain_pen,fountain pen,fyldepen,77.86,79.21,-1.7,8,True,True,False
+home_appliances,US,bread_maker,bread maker,bagemaskine,62.43,63.57,-1.8,8,True,True,False
+wellness_supplements,US,massage_gun,massage gun,massagepistol,45.29,46.18,-1.9,8,True,True,False
+fashion_women,US,midi_skirt,midi skirt,midi nederdel,67,68.39,-2.0,8,True,True,False
+furniture_indoor,US,tv_stand,tv stand,tv bord,61.14,62.39,-2.0,8,True,True,False
+home_appliances,US,freezer,freezer,fryser,72.86,74.36,-2.0,8,True,True,False
+hair_care,US,hair_oil,hair oil,hårolie,63,64.39,-2.2,8,True,True,False
+pet_supplies,US,dog_bed,dog bed,hundeseng,63.71,65.43,-2.6,8,True,True,False
+beauty_makeup,US,lip_oil,lip oil,lip oil,64.43,66.21,-2.7,8,True,True,False
+home_appliances,US,dishwasher,dishwasher,opvaskemaskine,75,77.07,-2.7,8,True,True,False
+beauty_makeup,US,lip_liner,lip liner,lip liner,59,60.68,-2.8,8,True,True,False
+diy_tools,US,ladder,ladder,stige,20.86,21.46,-2.8,8,True,True,False
+home_appliances,US,fan,fan,ventilator,62.43,64.36,-3.0,8,True,True,False
+diy_tools,US,tool_box,tool box,værktøjskasse,78.71,81.21,-3.1,8,True,True,False
+beauty_skincare,US,exfoliant,exfoliant,peeling,59.43,61.39,-3.2,8,True,True,False
+footwear_casual,US,high_tops,high tops,høje sneakers,57.71,59.64,-3.2,8,True,True,False
+home_decor,US,curtains,curtains,gardiner,65.29,67.61,-3.4,8,True,True,False
+pet_supplies,US,leash,leash,hundesnor,65,67.29,-3.4,8,True,True,False
+fashion_men,US,chinos,chinos,chinos,62.29,64.57,-3.5,8,True,True,False
+kids_baby,US,baby_carrier,baby carrier,bæresele,74.43,77.11,-3.5,8,True,True,False
+wellness_supplements,US,vitamin_d,vitamin d,d-vitamin,69.43,72.11,-3.7,8,True,True,False
+beauty_skincare,US,hyaluronic_acid,hyaluronic acid,hyaluronsyre,44.29,46.04,-3.8,8,True,True,False
+wellness_supplements,US,ashwagandha,ashwagandha,ashwagandha,60.71,63.43,-4.3,8,True,True,False
+kids_baby,US,baby_monitor,baby monitor,babyalarm,57.71,60.43,-4.5,8,True,True,False
+lighting,US,chandelier,chandelier,lysekrone,74.29,77.75,-4.5,8,True,True,False
+food_beverage_specialty,US,hot_sauce,hot sauce,hot sauce,69.57,72.93,-4.6,8,True,True,False
+fitness_apparel,US,yoga_pants,yoga pants,yogabukser,66.14,69.5,-4.8,8,True,True,False
+hair_care,US,curl_cream,curl cream,krølle creme,57.57,60.5,-4.8,8,True,True,False
+jewelry_accessories,US,engagement_ring,engagement ring,forlovelsesring,71.43,75.07,-4.9,8,True,True,False
+pet_supplies,US,litter_box,litter box,kattebakke,56.43,59.36,-4.9,8,True,True,False
+beauty_skincare,US,niacinamide,niacinamide,niacinamid,37.43,39.39,-5.0,8,True,True,False
+garden_outdoor,US,parasol,parasol,parasol,43.43,45.79,-5.1,8,True,True,False
+home_appliances,US,vacuum_cleaner,vacuum cleaner,støvsuger,54.29,57.21,-5.1,8,True,True,False
+outdoor_recreation,US,tent,tent,telt,64.71,68.21,-5.1,8,True,True,False
+wellness_supplements,US,collagen_powder,collagen powder,kollagen pulver,50.29,53,-5.1,8,True,True,False
+lighting,US,led_strip,led strip,led strip,56.86,60,-5.2,8,True,True,False
+lingerie_intimates,US,shapewear,shapewear,shapewear,74.14,78.21,-5.2,8,True,True,False
+travel_luggage,US,hardside_luggage,hardside luggage,hardcase kuffert,34.86,36.79,-5.2,8,True,True,False
+travel_luggage,US,weekender_bag,weekender bag,weekendtaske,45.86,48.39,-5.2,8,True,True,False
+kids_baby,US,kids_clothing,kids clothing,børnetøj,43.14,45.57,-5.3,8,True,True,False
+lighting,US,smart_bulb,smart bulb,smart pære,49.29,52.07,-5.3,8,True,True,False
+sports_fitness,US,compression_wear,compression wear,kompressionstøj,68.43,72.29,-5.3,8,True,True,False
+furniture_indoor,US,dining_table,dining table,spisebord,54.14,57.25,-5.4,8,True,True,False
+pet_supplies,US,cat_tree,cat tree,kradsetræ,26.71,28.25,-5.4,8,True,True,False
+bath_personal_care,US,body_scrub,body scrub,body scrub,52.86,55.96,-5.6,8,True,True,False
+diy_tools,US,cordless_drill,cordless drill,akku boremaskine,37,39.21,-5.6,8,True,True,False
+garden_outdoor,US,bistro_table,bistro table,bistrobord,47.57,50.46,-5.7,8,True,True,False
+tech_accessories,US,mouse_pad,mouse pad,musemåtte,63.14,67,-5.8,8,True,True,False
+travel_luggage,US,luggage_tags,luggage tags,kuffertmærker,53.71,57.04,-5.8,8,True,True,False
+diy_tools,US,circular_saw,circular saw,rundsav,71.43,75.89,-5.9,8,True,True,False
+hair_care,US,hair_dryer,hair dryer,hårtørrer,57.29,60.96,-6.0,8,True,True,False
+lingerie_intimates,US,lounge_set,lounge set,loungewear sæt,55,58.54,-6.0,8,True,True,False
+outdoor_recreation,US,trekking_poles,trekking poles,vandrestave,37.43,39.82,-6.0,8,True,True,False
+tech_accessories,US,monitor_arm,monitor arm,skærmarm,62.86,66.86,-6.0,8,True,True,False
+kitchen_dining,US,chef_knife,chef knife,kokkekniv,37.71,40.18,-6.1,8,True,True,False
+fitness_apparel,US,training_jacket,training jacket,trænings jakke,25.14,26.82,-6.3,8,True,True,False
+hair_care,US,dry_shampoo,dry shampoo,tørshampoo,61.57,65.71,-6.3,8,True,True,False
+jewelry_accessories,US,silver_chain,silver chain,sølvkæde,57.43,61.43,-6.5,8,True,True,False
+home_appliances,US,refrigerator,refrigerator,køleskab,55.57,59.5,-6.6,8,True,True,False
+tech_accessories,US,mechanical_keyboard,mechanical keyboard,mekanisk tastatur,49.29,52.75,-6.6,8,True,True,False
+wellness_supplements,US,magnesium_supplement,magnesium supplement,magnesium tilskud,52.86,56.64,-6.7,8,True,True,False
+home_decor,US,wall_art,wall art,vægkunst,61,65.43,-6.8,8,True,True,False
+kitchen_dining,US,cookware_set,cookware set,grydesæt,52.14,55.93,-6.8,8,True,True,False
+lighting,US,floor_lamp,floor lamp,standerlampe,58.29,62.57,-6.8,8,True,True,False
+home_appliances,US,kettle,kettle,elkedel,62.29,66.93,-6.9,8,True,True,False
+bikes_cycling,US,electric_bike,electric bike,elcykel,30.71,33.04,-7.0,8,True,True,False
+diy_tools,US,measuring_tape,measuring tape,målebånd,74.71,80.36,-7.0,8,True,True,False
+home_decor,US,bedding_set,bedding set,sengetøj sæt,50.43,54.25,-7.0,8,True,True,False
+pet_supplies,US,food_bowl,food bowl,foderskål,67.57,72.68,-7.0,8,True,True,False
+food_beverage_specialty,US,olive_oil,olive oil,olivenolie,64.43,69.46,-7.2,8,True,True,False
+jewelry_accessories,US,crossbody_bag,crossbody bag,crossbody taske,62.29,67.25,-7.4,8,True,True,False
+fashion_men,US,knitwear,knitwear,strikvarer,51.14,55.29,-7.5,8,True,True,False
+kids_baby,US,high_chair,high chair,højstol,64.29,69.86,-8.0,8,True,True,False
+beauty_makeup,US,liquid_blush,liquid blush,flydende blush,51.71,56.39,-8.3,8,True,True,False
+jewelry_accessories,US,pearl_necklace,pearl necklace,perlekæde,62.57,68.29,-8.4,8,True,True,False
+toys_games,US,outdoor_toys,outdoor toys,udendørs legetøj,40.71,44.46,-8.4,8,True,True,False
+outdoor_recreation,US,backpack,backpack,rygsæk,29,31.68,-8.5,8,True,True,False
+fashion_women,US,wrap_top,wrap top,slå-om top,61.71,67.61,-8.7,8,True,True,False
+home_decor,US,vase,vase,vase,63,69.14,-8.9,8,True,True,False
+diy_tools,US,tool_belt,tool belt,værktøjsbælte,67.43,74.14,-9.1,8,True,True,False
+tech_accessories,US,wireless_charger,wireless charger,trådløs oplader,57.71,63.5,-9.1,8,True,True,False
+home_appliances,US,washing_machine,washing machine,vaskemaskine,63.29,69.71,-9.2,8,True,True,False
+furniture_indoor,US,storage_bench,storage bench,opbevaringsbænk,52.29,57.68,-9.3,8,True,True,False
+outdoor_recreation,US,cooler,cooler,køleboks,50.71,55.93,-9.3,8,True,True,False
+fashion_men,US,dress_shoes,dress shoes,lædersko,60,66.25,-9.4,8,True,True,False
+sports_fitness,US,water_bottle,water bottle,drikkedunk,55.14,60.89,-9.4,8,True,True,False
+stationery_office,US,notebook,notebook,notesbog,65,71.86,-9.5,8,True,True,False
+sports_fitness,US,foam_roller,foam roller,foam roller,11.71,12.96,-9.6,8,True,True,False
+bath_personal_care,US,bath_bomb,bath bomb,badebombe,30.57,33.86,-9.7,8,True,True,False
+beauty_makeup,US,contour_stick,contour stick,contour stick,60.57,67.07,-9.7,8,True,True,False
+lingerie_intimates,US,bralette,bralette,bralette,51.43,56.96,-9.7,8,True,True,False
+sports_fitness,US,weighted_vest,weighted vest,vægtvest,52.57,58.25,-9.7,8,True,True,False
+diy_tools,US,shop_vacuum,shop vacuum,værkstedstøvsuger,52,57.64,-9.8,8,True,True,False
+jewelry_accessories,US,tennis_bracelet,tennis bracelet,tennisarmbånd,45.71,50.68,-9.8,8,True,True,False
+jewelry_accessories,US,hoop_earrings,hoop earrings,creoler,50.29,55.89,-10.0,8,True,True,False
+automotive_accessories,US,roof_box,roof box,tagboks,52.86,58.96,-10.4,8,True,True,False
+wellness_supplements,US,electrolyte_drink,electrolyte drink,elektrolyt drik,46,51.36,-10.4,8,True,True,False
+outdoor_recreation,US,camping_stove,camping stove,trangia,44.71,49.96,-10.5,8,True,True,False
+kitchen_dining,US,dinnerware_set,dinnerware set,stel,43.29,48.43,-10.6,8,True,True,False
+footwear_casual,US,slides,slides,badesandaler,52.86,59.29,-10.8,8,True,True,False
+jewelry_accessories,US,leather_wallet,leather wallet,læderpung,51.29,57.61,-11.0,8,True,True,False
+travel_luggage,US,travel_toiletry,travel toiletry,toilettaske,41.14,46.21,-11.0,8,True,True,False
+food_beverage_specialty,US,specialty_coffee,specialty coffee,specialty kaffe,29.14,32.86,-11.3,8,True,True,False
+tech_accessories,US,phone_case,phone case,mobilcover,67.86,76.61,-11.4,8,True,True,False
+kitchen_dining,US,kitchen_scale,kitchen scale,køkkenvægt,23,26,-11.5,8,True,True,False
+home_decor,US,throw_pillow,throw pillow,pyntepude,36.14,40.89,-11.6,8,True,True,False
+automotive_accessories,US,car_cover,car cover,biltæppe,53.71,60.82,-11.7,8,True,True,False
+furniture_indoor,US,wardrobe,wardrobe,garderobe,55.86,63.29,-11.7,8,True,True,False
+automotive_accessories,US,child_car_seat,child car seat,autostol,55.57,63.11,-11.9,8,True,True,False
+furniture_indoor,US,bookshelf,bookshelf,bogreol,44,49.96,-11.9,8,True,True,False
+kids_baby,US,diaper_bag,diaper bag,pusletaske,51.71,58.71,-11.9,8,True,True,False
+automotive_accessories,US,car_detailing,car detailing,bilpleje,61.43,69.89,-12.1,8,True,True,False
+bikes_cycling,US,bike_lights,bike lights,cykellygter,40.57,46.18,-12.1,8,True,True,False
+pet_supplies,US,pet_carrier,pet carrier,transporttaske kæledyr,50.43,57.39,-12.1,8,True,True,False
+outdoor_recreation,US,sleeping_bag,sleeping bag,sovepose,51.71,59.04,-12.4,8,True,True,False
+diy_tools,US,screwdriver_set,screwdriver set,skruetrækkersæt,31.71,36.29,-12.6,8,True,True,False
+furniture_indoor,US,side_table,side table,sidebord,57.86,66.39,-12.9,8,True,True,False
+stationery_office,US,leather_journal,leather journal,læder notesbog,42.14,48.57,-13.2,8,True,True,False
+bikes_cycling,US,gravel_bike,gravel bike,gravel bike,57.14,65.96,-13.4,8,True,True,False
+garden_outdoor,US,patio_set,patio set,havemøbelsæt,34.43,39.75,-13.4,8,True,True,False
+automotive_accessories,US,ev_charger,ev charger,elbil oplader,38,43.93,-13.5,8,True,True,False
+diy_tools,US,work_gloves,work gloves,arbejdshandsker,59.29,68.5,-13.5,8,True,True,False
+sports_fitness,US,kettlebell,kettlebell,kettlebell,57.86,66.89,-13.5,8,True,True,False
+furniture_indoor,US,armchair,armchair,lænestol,38.57,44.79,-13.9,8,True,True,False
+bikes_cycling,US,cycling_jersey,cycling jersey,cykeltrøje,35.43,41.21,-14.0,8,True,True,False
+lingerie_intimates,US,seamless_underwear,seamless underwear,sømløse trusser,30.86,36,-14.3,8,True,True,False
+fitness_apparel,US,running_shorts,running shorts,løbeshorts,45,52.57,-14.4,8,True,True,False
+fashion_men,US,polo_shirt,polo shirt,polo shirt,53.43,62.46,-14.5,8,True,True,False
+bath_personal_care,US,shampoo_bar,shampoo bar,shampoo bar,51.43,60.32,-14.7,8,True,True,False
+tech_accessories,US,usb_hub,usb hub,usb hub,41.14,48.25,-14.7,8,True,True,False
+bikes_cycling,US,road_bike,road bike,racercykel,50.71,59.68,-15.0,8,True,True,False
+footwear_casual,US,platform_sneakers,platform sneakers,platform sneakers,42.86,50.57,-15.3,8,True,True,False
+home_decor,US,table_lamp,table lamp,bordlampe,48,56.64,-15.3,8,True,True,False
+fashion_men,US,oxford_shirt,oxford shirt,oxford skjorte,54.43,64.36,-15.4,8,True,True,False
+lighting,US,table_lamp,table lamp,bordlampe,47.86,56.64,-15.5,8,True,True,False
+sports_fitness,US,resistance_bands,resistance bands,elastik bånd,39.86,47.18,-15.5,8,True,True,False
+sports_fitness,US,gym_bag,gym bag,sportstaske,53.29,63.29,-15.8,8,True,True,False
+stationery_office,US,sticky_notes,sticky notes,post-it,54.71,65,-15.8,8,True,True,False
+automotive_accessories,US,phone_mount,phone mount,mobilholder bil,54.57,64.86,-15.9,8,True,True,False
+home_decor,US,wall_mirror,wall mirror,vægspejl,43.86,52.18,-15.9,8,True,True,False
+stationery_office,US,office_desk,office desk,skrivebord,46.86,55.86,-16.1,8,True,True,False
+fitness_apparel,US,sports_bra,sports bra,sports bh,45.29,54.14,-16.4,8,True,True,False
+lingerie_intimates,US,sports_bra,sports bra,sports bh,45.29,54.46,-16.9,8,True,True,False
+beauty_skincare,US,vitamin_c_serum,vitamin c serum,c-vitamin serum,41.29,49.79,-17.1,8,True,True,False
+kitchen_dining,US,cutting_board,cutting board,skærebræt,44.57,53.89,-17.3,8,True,True,False
+lighting,US,wall_sconce,wall sconce,væglampe,43.43,52.54,-17.3,8,True,True,False
+lighting,US,pendant_light,pendant light,pendel,51,61.75,-17.4,8,True,True,False
+home_decor,US,area_rug,area rug,gulvtæppe,29,35.14,-17.5,8,True,True,False
+fashion_women,US,summer_sandals,summer sandals,sommersandaler,12,14.57,-17.6,8,True,True,False
+tech_accessories,US,screen_protector,screen protector,skærmbeskytter,46.29,56.25,-17.7,8,True,True,False
+garden_outdoor,US,garden_lighting,garden lighting,havebelysning,23.29,28.32,-17.8,8,True,True,False
+automotive_accessories,US,car_vacuum,car vacuum,bilstøvsuger,37,45.18,-18.1,8,True,True,False
+stationery_office,US,planner,planner,kalender,57.43,70.82,-18.9,8,True,True,False
+beauty_skincare,US,sunscreen,sunscreen,solcreme,29.71,36.68,-19.0,8,True,True,False
+bath_personal_care,US,shower_gel,shower gel,shower gel,37,45.75,-19.1,8,True,True,False
+footwear_casual,US,running_shoes,running shoes,løbesko,23.43,29.04,-19.3,8,True,True,False
+sports_fitness,US,running_shoes,running shoes,løbesko,23.43,29.04,-19.3,8,True,True,False
+stationery_office,US,highlighters,highlighters,overstregningstusser,40,49.68,-19.5,8,True,True,False
+footwear_casual,US,boat_shoes,boat shoes,sejlersko,41,51.21,-19.9,8,True,True,False
+bikes_cycling,US,bike_lock,bike lock,cykellås,51,63.71,-20.0,8,True,True,False
+outdoor_recreation,US,hiking_boots,hiking boots,vandrestøvler,35,43.75,-20.0,8,True,True,False
+home_appliances,US,dehumidifier,dehumidifier,affugter,46.71,58.68,-20.4,8,True,True,False
+kids_baby,US,school_bag,school bag,skoletaske,39.86,50.21,-20.6,8,True,True,False
+home_appliances,US,air_cooler,air cooler,aircooler,29.29,36.93,-20.7,8,True,True,False
+stationery_office,US,desk_organizer,desk organizer,skrivebordsorganizer,48,60.5,-20.7,8,True,True,False
+bikes_cycling,US,cargo_bike,cargo bike,ladcykel,38.29,48.71,-21.4,8,True,True,False
+bath_personal_care,US,deodorant_natural,deodorant natural,naturlig deodorant,13.43,17.14,-21.7,8,True,True,False
+sports_fitness,US,yoga_mat,yoga mat,yogamåtte,29.57,37.82,-21.8,8,True,True,False
+diy_tools,US,tool_storage,tool storage,værktøjsopbevaring,42.57,54.75,-22.2,8,True,True,False
+footwear_casual,US,white_sneakers,white sneakers,hvide sneakers,38.14,49.11,-22.3,8,True,True,False
+food_beverage_specialty,US,natural_wine,natural wine,naturvin,24.86,32.18,-22.8,8,True,True,False
+toys_games,US,building_blocks,building blocks,klodser,51.43,67,-23.2,8,True,True,False
+wellness_supplements,US,essential_oils,essential oils,æteriske olier,38.86,50.61,-23.2,8,True,True,False
+furniture_indoor,US,platform_bed,platform bed,platformseng,33.71,44.14,-23.6,8,True,True,False
+bath_personal_care,US,essential_oils,essential oils,æteriske olier,37,48.57,-23.8,8,True,True,False
+kitchen_dining,US,cast_iron_pan,cast iron pan,støbejernspande,36.29,47.64,-23.8,8,True,True,False
+furniture_indoor,US,modular_sofa,modular sofa,modulsofa,27.57,36.89,-25.3,8,True,True,False
+furniture_indoor,US,office_chair,office chair,kontorstol,7.86,10.54,-25.4,8,False,True,False
+fitness_apparel,US,performance_fabric,performance fabric,funktionstekstil,29.29,39.68,-26.2,8,True,True,False
+home_appliances,US,air_conditioner,air conditioner,aircondition,18.29,25.61,-28.6,8,True,True,False
+travel_luggage,US,travel_backpack,travel backpack,rejserygsæk,35.57,50.07,-29.0,8,True,True,False
+pet_supplies,US,grain_free_dog_food,grain free dog food,kornfri hundemad,19,26.82,-29.2,8,True,True,False
+garden_outdoor,US,outdoor_rug,outdoor rug,udendørs tæppe,14.14,21.11,-33.0,8,True,True,False
+food_beverage_specialty,US,premium_tea,premium tea,premium te,12,17.93,-33.1,8,True,True,False
+lingerie_intimates,US,one_piece_swimsuit,one piece swimsuit,badedragt,22,33.04,-33.4,8,True,True,False
+garden_outdoor,US,outdoor_sofa,outdoor sofa,havesofa,20.43,33.93,-39.8,8,True,True,False
+fashion_women,US,linen_dress,linen dress,hørkjole,21.43,36.61,-41.5,8,True,True,False
+garden_outdoor,US,garden_chair,garden chair,havestol,15,25.75,-41.7,8,True,True,False
+travel_luggage,US,packing_cubes,packing cubes,packing cubes,19.29,36.64,-47.4,8,True,True,False
+fitness_apparel,US,tennis_skirt,tennis skirt,tennis nederdel,14.57,30.5,-52.2,8,True,True,False
+travel_luggage,US,travel_adapter,travel adapter,rejseadapter,14.86,33.93,-56.2,8,True,True,False
+tech_accessories,US,laptop_stand,laptop stand,laptop stander,1.43,4.57,-68.7,8,False,False,False
+food_beverage_specialty,US,craft_liquorice,craft liquorice,lakrids,0,3.57,-100.0,8,False,False,False
