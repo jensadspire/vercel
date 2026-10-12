@@ -516,7 +516,11 @@ export default async function handler(req, res) {
      .filter(src => src && !src.includes('data:') && !src.includes('.svg') && !src.includes('placeholder'));
 
     // Deduplicate preserving order
-    result.images = [...new Set(rawImages)].slice(0, 20);
+    // decode entity/unicode ampersands so query strings aren't broken
+    // (Sanity/Next.js sites emit ...?fm=webp&amp;w=1200 → the CDN rejects the malformed query)
+    result.images = [...new Set(rawImages.map(u => String(u)
+      .replace(/&amp;/g, '&').replace(/&#0*38;/g, '&').replace(/&#x0*26;/gi, '&').replace(/\\u0026/g, '&')
+    ))].slice(0, 20);
 
     // ── Price + currency ──────────────────────────────────────────────────────
     // Price stays bound to the main product, and currency is resolved INDEPENDENTLY
