@@ -931,7 +931,7 @@ const TEMPLATE_ENGINE = {
   beauty_before_the_day: 'veo-extended',
   beauty_luxury_reveal: 'kling',
   // Fashion — all → Runway, except 360 Showcase (VEO-ext) and Catwalk (auto-detect, unpinned)
-  fashion_flatlay_model: 'runway',
+  fashion_flatlay_model: 'kling',
   fashion_outfit_transformation: 'runway',
   fashion_wardrobe_lifestyle: 'runway',
   fashion_street_style: 'runway',
@@ -943,7 +943,7 @@ const TEMPLATE_ENGINE = {
   homedecor_product_in_context: 'veo',
   // Fitness
   fitness_workout_activation: 'veo',
-  fitness_morning_wellness: 'veo',
+  fitness_morning_wellness: 'veo-extended',
   fitness_activity_recovery: 'veo',
   fitness_lifestyle_transformation: 'veo',
   // Home Improvement & DIY
