@@ -1108,6 +1108,29 @@ function RSAStudio() {
   const [videoArchetype, setVideoArchetype] = useState('scene_reveal'); // Kling storyboard style
   const [storyboardUpdating, setStoryboardUpdating] = useState(false);
   const [storyboardReady, setStoryboardReady] = useState(false);
+  // ── Anonymous video showcase: 2 free generations before the sign-in wall ──
+  // Kling/Runway/VEO/VEO-ext have no server-side auth (Recipe is sign-in-only, enforced
+  // server-side). A signed-out user only ever gets a video via a fresh gen (library /
+  // replay are sign-in-only), so counting completed videos = the free allowance spent.
+  const FREE_ANON_VIDEOS = 2;
+  const [anonVideoCount, setAnonVideoCount] = useState(() => {
+    try { return parseInt(localStorage.getItem('anonVideoCount') || '0', 10) || 0; } catch { return 0; }
+  });
+  useEffect(() => {
+    if (tiktokVideoUrl && !isSignedIn) {
+      setAnonVideoCount(c => { const n = c + 1; try { localStorage.setItem('anonVideoCount', String(n)); } catch (_) {} return n; });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tiktokVideoUrl]);
+  // true (and shows the right wall) when a signed-out user may NOT generate:
+  // Recipe is always sign-in-only; otherwise the 2 free videos must not be spent yet.
+  const videoGateBlocked = (engine) => {
+    if (isSignedIn) return false;
+    if (engine === 'recipe') { setShowAuthModal(true); return true; }
+    if (anonVideoCount >= FREE_ANON_VIDEOS) { setShowGateModal(true); return true; }
+    return false;
+  };
+
   // NEW UI: reusable video generation trigger (mirrors the detailed-view button logic).
   const startVideoGeneration = async () => {
     if (!tiktokResult || !tiktokResult.videoPrompt) return;
@@ -1137,6 +1160,7 @@ function RSAStudio() {
       const authoritativeEngine = (activeTemplate && TEMPLATE_ENGINE[activeTemplate]) ? TEMPLATE_ENGINE[activeTemplate] : videoEngineRef.current;
       const currentEngine = authoritativeEngine;
       if (currentEngine !== videoEngineRef.current) { videoEngineRef.current = currentEngine; setVideoEngine(currentEngine); }
+      if (videoGateBlocked(currentEngine)) { setTiktokVideoLoading(false); return; }
       setRecipeError(null);
       if (currentEngine === 'recipe') { setRecipeGated(null); }
       let videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
@@ -3985,7 +4009,7 @@ STRICT rules:
               <span style={{ fontSize: 12, color: "#7e92a8" }}>Generate:</span>
               <span style={{ fontSize: 12, color: "#a5b4fc", padding: "6px 12px", background: "rgba(99,102,241,0.15)", borderRadius: 8, fontWeight: 700 }}>Google ✓</span>
               <button onClick={() => setGenerateMeta(v => !v)} style={{ fontSize: 12, color: generateMeta ? "#93c5fd" : "#7e92a8", padding: "6px 12px", background: generateMeta ? "rgba(14,165,233,0.15)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Meta {generateMeta ? "✓" : ""}</button>
-              <button onClick={() => isSignedIn ? setGenerateTiktok(v => !v) : null} title={isSignedIn ? "" : "Sign in to generate video"} style={{ fontSize: 12, color: generateTiktok ? "#c4b5fd" : "#7e92a8", padding: "6px 12px", background: generateTiktok ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Video {generateTiktok ? "✓" : (isSignedIn ? "" : "🔒")}</button>
+              <button onClick={() => setGenerateTiktok(v => !v)} title="" style={{ fontSize: 12, color: generateTiktok ? "#c4b5fd" : "#7e92a8", padding: "6px 12px", background: generateTiktok ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Video {generateTiktok ? "✓" : ""}</button>
             </div>
             <button data-generate-btn onClick={generate} disabled={loading || batchRunning} style={{
               marginTop: 16, width: "100%", padding: "14px", fontSize: 15, fontWeight: 800,
@@ -4116,10 +4140,8 @@ STRICT rules:
           </div>
 
           {/* Video */}
-          <div style={{ ...cardShell, opacity: isSignedIn ? (videoReady ? 1 : 0.55) : 0.7, background: (videoReady && isSignedIn) ? "#fff" : "rgba(255,255,255,0.03)" }}>
-            {!isSignedIn ? (
-              <div style={{ fontSize: 12, color: "#7e92a8", padding: 24, margin: "auto 0", lineHeight: 1.5, textAlign: "center" }}>Sign in to turn your product into a short-form video ad.</div>
-            ) : tiktokVideoLoading ? (
+          <div style={{ ...cardShell, opacity: videoReady ? 1 : 0.55, background: videoReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
+            {tiktokVideoLoading ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 14, minHeight: 280 }}>
                 <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
                 <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{extStage ? <>Crafting your extended video…<br/>Check back in 4–5 minutes</> : <>Generating your video…<br/>Check back in 3–4 minutes</>}</div>
@@ -5385,17 +5407,17 @@ STRICT rules:
                 </div>
                 {/* TikTok checkbox */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", marginTop: 2 }}>
-                  <button onClick={() => isSignedIn && setGenerateTiktok(v => !v)} style={{
+                  <button onClick={() => setGenerateTiktok(v => !v)} style={{
                     width: 16, height: 16, borderRadius: 3, border: "none",
-                    cursor: isSignedIn ? "pointer" : "not-allowed", flexShrink: 0,
-                    background: generateTiktok && isSignedIn ? "linear-gradient(135deg,#ff0050,#ff4d4d)" : "rgba(255,255,255,0.08)",
+                    cursor: "pointer", flexShrink: 0,
+                    background: generateTiktok ? "linear-gradient(135deg,#ff0050,#ff4d4d)" : "rgba(255,255,255,0.08)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
-                    {generateTiktok && isSignedIn && <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
+                    {generateTiktok && <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
                   </button>
-                  <span style={{ fontSize: 11, color: generateTiktok && isSignedIn ? "#fca5a5" : "#4a5568",
-                    cursor: isSignedIn ? "pointer" : "not-allowed", userSelect: "none" }}
-                    onClick={() => isSignedIn && setGenerateTiktok(v => !v)}>
+                  <span style={{ fontSize: 11, color: generateTiktok ? "#fca5a5" : "#4a5568",
+                    cursor: "pointer", userSelect: "none" }}
+                    onClick={() => setGenerateTiktok(v => !v)}>
                     Also generate TikTok ads <span style={{ fontSize: 10, color: "#4a5568" }}>(In-Feed + Video)</span>
                   </span>
                 </div>
@@ -9901,6 +9923,7 @@ STRICT rules:
                         const currentEngine = videoEngineRef.current;
                         setRecipeError(null); // reset any prior video error on a new gen (all engines)
                         if (currentEngine === 'recipe') { setRecipeGated(null); }
+                        if (videoGateBlocked(currentEngine)) { setTiktokVideoLoading(false); return; }
                         const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe'
                           : currentEngine === 'runway' ? '/api/runway'
                           : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
