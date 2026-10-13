@@ -1125,13 +1125,11 @@ function RSAStudio() {
   // true (and shows the right wall) when a signed-out user may NOT generate:
   // Recipe is always sign-in-only; otherwise the 2 free videos must not be spent yet.
   const videoGateBlocked = (engine) => {
+    if (isSignedIn) return false;
+    if (engine === 'recipe') { setShowAuthModal(true); return true; }
     let _used = anonVideoCount;
     try { _used = parseInt(localStorage.getItem('anonVideoCount') || '0', 10) || 0; } catch (_) {}
-    try { console.log('[GATE-DEBUG] signedIn=', isSignedIn, '| engine=', engine, '| ls_used=', _used, '| state=', anonVideoCount, '| FREE=', FREE_ANON_VIDEOS); } catch (_) {}
-    if (isSignedIn) { try { console.log('[GATE-DEBUG] -> pass (signed in)'); } catch (_) {} return false; }
-    if (engine === 'recipe') { try { console.log('[GATE-DEBUG] -> AuthModal (recipe)'); } catch (_) {} setShowAuthModal(true); return true; }
-    if (_used >= FREE_ANON_VIDEOS) { try { console.log('[GATE-DEBUG] -> GateModal: calling setShowGateModal(true)'); } catch (_) {} setShowGateModal(true); return true; }
-    try { console.log('[GATE-DEBUG] -> pass (under quota, used=', _used, ')'); } catch (_) {}
+    if (_used >= FREE_ANON_VIDEOS) { setVideoWallOpen(true); return true; }
     return false;
   };
 
@@ -2503,6 +2501,7 @@ function RSAStudio() {
   const [modalOmitGroup, setModalOmitGroup] = useState(false);
   const nextId = useRef(2);
   const [showGateModal, setShowGateModal] = useState(false);
+  const [videoWallOpen, setVideoWallOpen] = useState(false); // dedicated 2-free-video wall (GateModal won't render)
   const [usageCount, setUsageCount] = useState(0);
   const [gateEmail, setGateEmail] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false); // unchecked by default — GDPR compliant
@@ -8639,6 +8638,26 @@ STRICT rules:
 
       {showGateModal && <GateModal />}
       {showAuthModal && <AuthModal />}
+      {videoWallOpen && (
+        <div onClick={() => setVideoWallOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(6,13,26,0.98))", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16, padding: "36px 32px", maxWidth: 460, width: "100%", textAlign: "center", boxShadow: "0 25px 60px rgba(0,0,0,0.5)" }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>🎬</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>You've used your 2 free videos</div>
+            <div style={{ fontSize: 13, color: "#8fa3b8", lineHeight: 1.6, marginBottom: 24 }}>Create a free account to keep generating videos — and unlock the full set of pro tools built for serious advertisers.</div>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", top: -9, right: 12, zIndex: 2, background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontSize: 9.5, fontWeight: 800, letterSpacing: "0.01em", padding: "3px 9px", borderRadius: 999, whiteSpace: "nowrap", border: "1px solid rgba(255,255,255,0.25)", boxShadow: "0 2px 8px rgba(22,163,74,0.45)" }}>FREE · No credit card required</span>
+              <button onClick={() => { setVideoWallOpen(false); setAuthMode("sign-up"); setShowAuthModal(true); }} style={{ width: "100%", padding: "13px", fontSize: 14, fontWeight: 800, background: "linear-gradient(135deg,#3b82f6,#6366f1)", color: "white", border: "none", borderRadius: 8, cursor: "pointer", marginBottom: 10, boxShadow: "0 4px 20px rgba(99,102,241,0.35)" }}>Create Free Account →</button>
+            </div>
+            <div style={{ fontSize: 11, color: "#8fa3b8", marginBottom: 14 }}>No credit card required · Takes 30 seconds</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+              <span style={{ fontSize: 10, color: "#8fa3b8", letterSpacing: "0.08em" }}>ALREADY HAVE AN ACCOUNT?</span>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+            </div>
+            <button onClick={() => { setVideoWallOpen(false); setAuthMode("sign-in"); setShowAuthModal(true); }} style={{ width: "100%", padding: "11px", fontSize: 13, fontWeight: 700, background: "rgba(255,255,255,0.04)", color: "#adbccb", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, cursor: "pointer" }}>Sign in</button>
+          </div>
+        </div>
+      )}
 
       {/* ── Brand & Context panel (Step 3a: load/edit/save round-trip) ── */}
       {brandPanelOpen && (
