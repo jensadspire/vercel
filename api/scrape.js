@@ -519,6 +519,7 @@ export default async function handler(req, res) {
     // decode entity/unicode ampersands so query strings aren't broken
     // (Sanity/Next.js sites emit ...?fm=webp&amp;w=1200 → the CDN rejects the malformed query)
     result.images = [...new Set(rawImages.map(u => String(u)
+      .replace(/^https?:\/\/[^\/]+?(https?:\/\/)/i, '$1') // fix doubled origin (origin prepended to an already-absolute URL)
       .replace(/&amp;/g, '&').replace(/&#0*38;/g, '&').replace(/&#x0*26;/gi, '&').replace(/\\u0026/g, '&')
     ))].slice(0, 20);
 
