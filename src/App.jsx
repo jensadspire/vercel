@@ -3653,6 +3653,15 @@ STRICT rules:
         </div>
 
         {/* Primary CTA — sign up */}
+        <div style={{ position: "relative" }}>
+          {/* gate-free-badge */}
+          <span style={{
+            position: "absolute", top: -9, right: 12, zIndex: 2,
+            background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff",
+            fontSize: 9.5, fontWeight: 800, letterSpacing: "0.01em",
+            padding: "3px 9px", borderRadius: 999, whiteSpace: "nowrap",
+            border: "1px solid rgba(255,255,255,0.25)", boxShadow: "0 2px 8px rgba(22,163,74,0.45)",
+          }}>FREE · No credit card required</span>
         <button
           onClick={async () => {
             // Store opt-in preference in Redis before opening Clerk
@@ -3674,6 +3683,7 @@ STRICT rules:
           }}>
           Create Free Account →
         </button>
+        </div>
 
         {/* Marketing opt-in checkbox */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 14, textAlign: "left" }}>
