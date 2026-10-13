@@ -959,7 +959,7 @@ const CS_VERTICALS = {
     templates: [
       { id: 'beauty_morning_ritual', label: 'White → Morning Ritual', desc: 'Product on white → space materialises → applied → confident lifestyle' },
       { id: 'beauty_ingredient_transformation', label: 'Ingredient → Transformation', desc: 'Ingredients appear → merge → result-focused scene' },
-      { id: 'beauty_luxury_reveal', label: 'Luxury Reveal', desc: 'Cinematic packshot → elegant vanity → hero object', scenes: ['Botanical & Natural Oasis','Spa Aesthetic','High-End Bathroom','Clinical & Science Lab','Macro Texture / Smear'] },
+      { id: 'beauty_luxury_reveal', label: 'Luxury Reveal', desc: 'Cinematic packshot → elegant vanity → hero object', scenes: ['Botanical & Natural Oasis','Spa Aesthetic','High-End Bathroom','Pharmacy / Drug Store','Macro Detail'] },
       { id: 'beauty_before_the_day', label: 'Before the Day Starts', desc: 'Morning environment → gets ready → leaves confident' },
       { id: 'beauty_problem_solution', label: 'Problem → Solution', desc: 'Concern → product enters → usage → positive result' },
     ],
