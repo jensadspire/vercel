@@ -1476,7 +1476,7 @@ function RSAStudio() {
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
-  const [generateTiktok, setGenerateTiktok] = useState(false);
+  const [generateTiktok, setGenerateTiktok] = useState(true); // pre-checked: video active on load
   const [editOpen, setEditOpen] = useState(false); // RSA edit accordion
   const [tiktokExportCopied, setTiktokExportCopied] = useState(false);
   const [enhanceOpen, setEnhanceOpen] = useState(false);
@@ -4041,7 +4041,7 @@ STRICT rules:
           <div style={{ marginTop: 36, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, padding: 20 }}>
             <input
               value={url}
-              onChange={e => setUrl(e.target.value)}
+              onChange={e => { setUrl(e.target.value); setTiktokVideoUrl(null); setTiktokResult(null); setTiktokVideoLoading(false); }}
               onKeyDown={e => e.key === "Enter" && !loading && generate()}
               placeholder="Paste a product URL (https://...)"
               style={{ width: "100%", boxSizing: "border-box", padding: "14px 16px", fontSize: 15, borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "white", outline: "none" }}
