@@ -932,11 +932,11 @@ const TEMPLATE_ENGINE = {
   beauty_luxury_reveal: 'kling',
   // Fashion — all → Runway, except 360 Showcase (VEO-ext) and Catwalk (auto-detect, unpinned)
   fashion_flatlay_model: 'kling',
-  fashion_outfit_transformation: 'runway',
-  fashion_wardrobe_lifestyle: 'runway',
-  fashion_street_style: 'runway',
+  fashion_outfit_transformation: 'kling',
+  fashion_wardrobe_lifestyle: 'kling',
+  fashion_street_style: 'veo-extended',
   fashion_day_to_night: 'runway',
-  fashion_one_piece_three_looks: 'runway',
+  fashion_one_piece_three_looks: 'recipe',
   fashion_360_showcase: 'veo-extended',
   // Home Decor
   homedecor_empty_designed: 'veo',
