@@ -1133,6 +1133,12 @@ function RSAStudio() {
 
   // NEW UI: reusable video generation trigger (mirrors the detailed-view button logic).
   const startVideoGeneration = async () => {
+    // Out-of-quota (or Recipe) signed-out users hit the wall FIRST — before any
+    // image/storyboard pre-check can early-return and swallow the click.
+    if (!isSignedIn) {
+      const _ge = (activeTemplate && TEMPLATE_ENGINE[activeTemplate]) ? TEMPLATE_ENGINE[activeTemplate] : videoEngineRef.current;
+      if (videoGateBlocked(_ge)) return;
+    }
     if (!tiktokResult || !tiktokResult.videoPrompt) return;
     setTiktokVideoUrl(null); // clear stale video before new gen (so a previous run's video doesn't resurface after a swap)
     setExtStage(null);
@@ -9904,6 +9910,10 @@ STRICT rules:
                       {tiktokResult.videoPrompt}
                     </div>
                     <button onClick={async () => {
+                      if (!isSignedIn) {
+                        const _ge = (activeTemplate && TEMPLATE_ENGINE[activeTemplate]) ? TEMPLATE_ENGINE[activeTemplate] : videoEngineRef.current;
+                        if (videoGateBlocked(_ge)) return; // wall FIRST, before pre-checks
+                      }
                       if (!tiktokResult.videoPrompt) return;
                       setTiktokVideoLoading(true);
                       try {
