@@ -1116,12 +1116,12 @@ function RSAStudio() {
   const [anonVideoCount, setAnonVideoCount] = useState(() => {
     try { return parseInt(localStorage.getItem('anonVideoCount') || '0', 10) || 0; } catch { return 0; }
   });
-  useEffect(() => {
-    if (tiktokVideoUrl && !isSignedIn) {
-      setAnonVideoCount(c => { const n = c + 1; try { localStorage.setItem('anonVideoCount', String(n)); } catch (_) {} return n; });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tiktokVideoUrl]);
+  // Charge one free video per generation at DISPATCH (see the two gate sites), not via
+  // a tiktokVideoUrl effect — one completed video writes the URL several times
+  // (raw -> labelled -> stored), which over-counted.
+  const chargeAnonVideo = () => {
+    setAnonVideoCount(c => { const n = c + 1; try { localStorage.setItem('anonVideoCount', String(n)); } catch (_) {} return n; });
+  };
   // true (and shows the right wall) when a signed-out user may NOT generate:
   // Recipe is always sign-in-only; otherwise the 2 free videos must not be spent yet.
   const videoGateBlocked = (engine) => {
@@ -1161,6 +1161,7 @@ function RSAStudio() {
       const currentEngine = authoritativeEngine;
       if (currentEngine !== videoEngineRef.current) { videoEngineRef.current = currentEngine; setVideoEngine(currentEngine); }
       if (videoGateBlocked(currentEngine)) { setTiktokVideoLoading(false); return; }
+      if (!isSignedIn) chargeAnonVideo(); // count this free video once, at dispatch
       setRecipeError(null);
       if (currentEngine === 'recipe') { setRecipeGated(null); }
       let videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
@@ -9934,6 +9935,7 @@ STRICT rules:
                         setRecipeError(null); // reset any prior video error on a new gen (all engines)
                         if (currentEngine === 'recipe') { setRecipeGated(null); }
                         if (videoGateBlocked(currentEngine)) { setTiktokVideoLoading(false); return; }
+                        if (!isSignedIn) chargeAnonVideo(); // count this free video once, at dispatch
                         const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe'
                           : currentEngine === 'runway' ? '/api/runway'
                           : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
