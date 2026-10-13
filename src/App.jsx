@@ -1125,12 +1125,13 @@ function RSAStudio() {
   // true (and shows the right wall) when a signed-out user may NOT generate:
   // Recipe is always sign-in-only; otherwise the 2 free videos must not be spent yet.
   const videoGateBlocked = (engine) => {
-    if (isSignedIn) return false;
-    if (engine === 'recipe') { setShowAuthModal(true); return true; }
-    // live count from storage (state can lag in a click closure); fall back to state
     let _used = anonVideoCount;
     try { _used = parseInt(localStorage.getItem('anonVideoCount') || '0', 10) || 0; } catch (_) {}
-    if (_used >= FREE_ANON_VIDEOS) { setShowGateModal(true); return true; }
+    try { console.log('[GATE-DEBUG] signedIn=', isSignedIn, '| engine=', engine, '| ls_used=', _used, '| state=', anonVideoCount, '| FREE=', FREE_ANON_VIDEOS); } catch (_) {}
+    if (isSignedIn) { try { console.log('[GATE-DEBUG] -> pass (signed in)'); } catch (_) {} return false; }
+    if (engine === 'recipe') { try { console.log('[GATE-DEBUG] -> AuthModal (recipe)'); } catch (_) {} setShowAuthModal(true); return true; }
+    if (_used >= FREE_ANON_VIDEOS) { try { console.log('[GATE-DEBUG] -> GateModal: calling setShowGateModal(true)'); } catch (_) {} setShowGateModal(true); return true; }
+    try { console.log('[GATE-DEBUG] -> pass (under quota, used=', _used, ')'); } catch (_) {}
     return false;
   };
 
