@@ -1127,7 +1127,10 @@ function RSAStudio() {
   const videoGateBlocked = (engine) => {
     if (isSignedIn) return false;
     if (engine === 'recipe') { setShowAuthModal(true); return true; }
-    if (anonVideoCount >= FREE_ANON_VIDEOS) { setShowGateModal(true); return true; }
+    // live count from storage (state can lag in a click closure); fall back to state
+    let _used = anonVideoCount;
+    try { _used = parseInt(localStorage.getItem('anonVideoCount') || '0', 10) || 0; } catch (_) {}
+    if (_used >= FREE_ANON_VIDEOS) { setShowGateModal(true); return true; }
     return false;
   };
 
