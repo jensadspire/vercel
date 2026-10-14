@@ -2258,7 +2258,8 @@ function RSAStudio() {
     const nextIndex = chain.index + 1;
     if (nextIndex >= chain.steps.length) { setPubChain(null); return; }
     setPubChain({ ...chain, index: nextIndex });
-    setTimeout(() => openGoogleStep(chain.steps[nextIndex]), 180);
+    const _nextStep = chain.steps[nextIndex];
+    setTimeout(() => { if (_nextStep === 'main' || _nextStep === 'carousel') openMetaStep(_nextStep); else openGoogleStep(_nextStep); }, 180);
   };
   const endPublishChain = () => { setPubChain(null); };
   // Watch each step's modal close; read its result (null on open) to decide.
@@ -2276,6 +2277,36 @@ function RSAStudio() {
     prevGadsOpenRef.current = gadsPublishOpen;
     prevPmaxOpenRef.current = pmaxPublishOpen;
   }, [gadsPublishOpen, pmaxPublishOpen, gadsPublishResult, pmaxPublishResult]);
+
+  // ── Meta publish chaining (main → carousel) ───────────────────────────────
+  const openMetaStep = (step) => { setMetaPublishFormat(step === 'carousel' ? 'carousel' : 'image'); setMetaModalStep(1); setMetaPlacement('new'); setMetaConfirmOpen(true); };
+  const startMetaPublishChain = () => {
+    if (!isSignedIn) { setShowAuthModal(true); return; }
+    if (!metaConn.connected) { triggerMetaConnect(); return; }
+    if (!metaConn.selectionComplete) { try { openMetaPicker(); } catch(_){} return; }
+    const steps = [];
+    if (metaBundlePick.main) steps.push('main');
+    if (metaBundlePick.carousel) steps.push('carousel');
+    if (steps.length === 0) { setMetaError('Select at least one format to publish.'); return; }
+    setAdFormat('meta'); setViewMode('detailed');
+    setPubChain({ platform: 'meta', steps, index: 0 });
+    setTimeout(() => openMetaStep(steps[0]), 100);
+  };
+  // The Meta modal closes on publish-click, so watch publishing + result (not close).
+  const prevMetaConfirmRef = useRef(false);
+  const prevMetaPublishingRef = useRef(false);
+  useEffect(() => {
+    const chain = pubChainRef.current;
+    if (chain && (chain.steps[chain.index] === 'main' || chain.steps[chain.index] === 'carousel')) {
+      if (prevMetaPublishingRef.current && !metaPublishing) {
+        if (metaPublishResult && metaPublishResult.success) advancePublishChain(); else endPublishChain(); // fail → abort/stop
+      } else if (prevMetaConfirmRef.current && !metaConfirmOpen && !metaPublishing) {
+        endPublishChain(); // cancelled without publishing
+      }
+    }
+    prevMetaConfirmRef.current = metaConfirmOpen;
+    prevMetaPublishingRef.current = metaPublishing;
+  }, [metaConfirmOpen, metaPublishing, metaPublishResult]);
 
   const openPmaxPublishModal = async () => {
     if (!isSignedIn) { setShowAuthModal(true); return; }
@@ -4337,12 +4368,7 @@ STRICT rules:
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#0866FF", fontWeight: 700 }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
-                  <span onClick={(e) => { e.stopPropagation();
-                    if (!isSignedIn) { setShowAuthModal(true); return; }
-                    if (!metaConn.connected) { triggerMetaConnect(); return; }
-                    if (!metaConn.selectionComplete) { try { openMetaPicker(); } catch(_){} return; }
-                    setAdFormat("meta"); setViewMode("detailed"); setTimeout(() => { try { setMetaPublishFormat('image'); setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new'); } catch(_){} }, 80);
-                  }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
+                  <span title="Ships the selected Meta formats to Meta Ads Manager — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startMetaPublishChain(); }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
             ) : (<><div style={iconBar}>{MetaMark}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div></>)}
@@ -5195,7 +5221,7 @@ STRICT rules:
             <div style={{ background: '#1a1f2e', borderRadius: 14, padding: 24, maxWidth: 460, width: '100%', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
               {/* Step indicator */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>{isVideoPublish ? '🎬 Publish Video to Meta' : '🚀 Publish to Meta'}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>{(pubChain ? ('Step ' + (pubChain.index + 1) + ' of ' + pubChain.steps.length + ' · ') : '') + (isVideoPublish ? '🎬 Publish Video to Meta' : (metaPublishFormat === 'carousel' ? '🚀 Publish Carousel to Meta' : '🚀 Publish to Meta'))}</div>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
                   {[1,2].map(s => (
                     <div key={s} style={{ width: 24, height: 4, borderRadius: 2, background: metaModalStep >= s ? '#1877f2' : 'rgba(255,255,255,0.1)' }} />
