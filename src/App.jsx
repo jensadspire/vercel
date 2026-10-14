@@ -1061,6 +1061,7 @@ function RSAStudio() {
   const [metaConfirmOpen, setMetaConfirmOpen] = useState(false);
   const [metaModalStep, setMetaModalStep] = useState(1); // 1=preview, 2=placement
   const [metaPublishFormat, setMetaPublishFormat] = useState('image'); // 'image' | 'carousel' | 'video'
+  const [metaBundlePick, setMetaBundlePick] = useState({ main: true, carousel: false }); // overview multi-publish selection (visual; wiring later)
   const [metaPlacement, setMetaPlacement] = useState('new'); // 'new' | 'existing_campaign' | 'existing_adset'
   const [metaCampaigns, setMetaCampaigns] = useState([]);
   const [metaAdSets, setMetaAdSets] = useState([]);
@@ -4131,6 +4132,11 @@ STRICT rules:
             {metaReady ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ ...iconBar }}>{MetaMark}</div>
+                <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: "0 14px 8px" }}>
+                  {[{ id: "fb-feed", label: "FB Feed", icon: "▣" }, { id: "ig-feed", label: "IG Feed", icon: "◎" }, { id: "ig-story", label: "IG Story", icon: "▯" }, { id: "fb-story", label: "FB Story", icon: "▮" }, { id: "fb-carousel", label: "Carousel", icon: "⊞" }].map(f => (
+                    <button key={f.id} onClick={(e) => { e.stopPropagation(); setMetaPreviewFormat(f.id); }} style={{ padding: "3px 7px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700, background: metaPreviewFormat === f.id ? "rgba(99,102,241,0.18)" : "rgba(0,0,0,0.05)", color: metaPreviewFormat === f.id ? "#4f46e5" : "#8a8a8a" }}>{f.icon} {f.label}</button>
+                  ))}
+                </div>
                 {/* FB advertiser row */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 14px 8px" }}>
                   <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: "#e4e6eb", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -4150,6 +4156,23 @@ STRICT rules:
                   const vars = (metaResult.imageVariations && metaResult.imageVariations.length) ? metaResult.imageVariations : [metaResult.imageUrl].filter(Boolean);
                   const current = tiktokSourceImageRef.current || metaResult.imageUrl || vars[0];
                   if (!current) return null;
+                  if (metaPreviewFormat === "fb-carousel") {
+                    const cimgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).slice(0, 8);
+                    if (!cimgs.length) return null;
+                    return (
+                      <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "0 14px 6px" }}>
+                        {cimgs.map((im, ci) => (
+                          <div key={ci} style={{ flexShrink: 0, width: 150, borderRadius: 8, overflow: "hidden", border: "1px solid #dadde1", background: "#fff" }}>
+                            <img src={im} alt={"Card " + (ci + 1)} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
+                            <div style={{ padding: "6px 8px" }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(metaResult.headlines?.[ci] || metaResult.headlines?.[0] || "Discover more").slice(0, 22)}</div>
+                              <div style={{ fontSize: 9, color: "#1877f2", fontWeight: 700, marginTop: 2 }}>Shop Now →</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
                   const idx = Math.max(0, vars.indexOf(current));
                   const metaImgCycle = (dir) => {
                     if (vars.length < 2) return;
@@ -4161,7 +4184,7 @@ STRICT rules:
                   };
                   return (
                     <div style={{ position: "relative" }}>
-                      <img src={current} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
+                      <img src={current} alt="" style={{ width: "100%", aspectRatio: (metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story") ? "9/16" : "1/1", objectFit: (metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story") ? "cover" : "contain", background: "#f0f2f5", display: "block", maxHeight: (metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story") ? 440 : undefined }} />
                       {vars.length > 1 && !metaImagesLoading && (
                         <>
                           <div onClick={(e) => { e.stopPropagation(); metaImgCycle(-1); }} title="Previous image"
@@ -4181,7 +4204,11 @@ STRICT rules:
                   </div>
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#0866FF", borderRadius: 6, padding: "8px 12px" }}>{(metaResult.descriptions?.[0] && metaResult.descriptions[0].length <= 18) ? metaResult.descriptions[0] : "Shop Now"}</div>
                 </div>
-                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
+                <div onClick={(e) => e.stopPropagation()} style={{ marginTop: "auto", display: "flex", gap: 14, alignItems: "center", padding: "10px 14px 0", flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#1c1e21", cursor: "pointer", fontWeight: 600 }}><input type="checkbox" checked={metaBundlePick.main} onChange={() => setMetaBundlePick(p => ({ ...p, main: !p.main }))} style={{ cursor: "pointer" }} /> Advantage+ (Feed + Stories)</label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#1c1e21", cursor: "pointer", fontWeight: 600 }}><input type="checkbox" checked={metaBundlePick.carousel} onChange={() => setMetaBundlePick(p => ({ ...p, carousel: !p.carousel }))} style={{ cursor: "pointer" }} /> Carousel</label>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#0866FF", fontWeight: 700 }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
                   <span onClick={(e) => { e.stopPropagation();
