@@ -4131,7 +4131,7 @@ STRICT rules:
           return (
         <div style={{ width: "100%", maxWidth: 1100, marginTop: 28, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
           {/* Google */}
-          <div onClick={() => googleReady && openDetail("rsa")} style={{ ...cardShell, cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55, background: googleReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
+          <div onClick={() => googleReady && openDetail(googlePreviewFormat === "pmax" ? "pmax" : "rsa")} style={{ ...cardShell, cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55, background: googleReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
             {googleReady ? (
               <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ marginBottom: 10 }}>{GoogleG}</div>
