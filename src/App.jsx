@@ -2814,6 +2814,19 @@ function RSAStudio() {
     setGenerateMeta(false);
   };
 
+  const seedPmaxImages = async (srcUrl) => {
+    if (!srcUrl) return;
+    for (const slot of ['landscape', 'square', 'portrait']) {
+      const existing = (rows[activeRow]?.pmaxImages?.[slot]) || [];
+      if (existing.length > 0) continue; // never overwrite curated slots
+      try {
+        const r = await fetch('/api/normalize-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: srcUrl, slot, fit: 'contain' }) });
+        const d = await r.json();
+        if (d.url) updateRow(activeRow, row => ({ ...row, pmaxImages: { ...(row.pmaxImages || { landscape: [], square: [], portrait: [] }), [slot]: [{ srcUrl, url: d.url, fit: 'contain' }] } }));
+      } catch (_) {}
+    }
+  };
+
   const generatePmaxAssetGroup = async (audienceInstruction) => {
         const pmaxRes = await fetch("/api/generate", {
           method: "POST",
@@ -3330,6 +3343,7 @@ STRICT rules:
         return updated;
       });
       // ── Meta generation (opt-in) ─────────────────────────────────────────
+      let pmaxSeedSrc = null;
       if (googleBundlePick.pmax) { await generatePmaxAssetGroup(audienceInstruction); }
       if (generateMeta) {
         setMetaLoading(true);
@@ -3358,6 +3372,7 @@ STRICT rules:
             setMetaError("");
             // Use scraped product image as primary FB preview if available
             const initialImageUrl = metaData.heroProductImage || metaData.imageUrl || null;
+            pmaxSeedSrc = metaData.heroProductImage || metaData.imageUrl || pmaxSeedSrc;
             // Use all scraped images for rich thumbnail tray
             const initialVariations = [
               metaData.heroProductImage,
@@ -3472,6 +3487,7 @@ STRICT rules:
       }
 
       // ── TikTok generation (opt-in) ────────────────────────────────────────
+      if (googleBundlePick.pmax) { const _seed = pmaxSeedSrc || (pageMeta.images || [])[0]; if (_seed) await seedPmaxImages(_seed); }
       if (generateTiktok) {
         setTiktokLoading(true);
         setTiktokError("");
