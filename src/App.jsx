@@ -4321,7 +4321,7 @@ STRICT rules:
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.10)", paddingTop: 28 }}>
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
               {/* Creative Studio */}
-              <div onClick={() => { if (isPro) setShowCreativeStudio(true); }} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(139,92,246,0.3)", background: "linear-gradient(135deg,rgba(139,92,246,0.10),rgba(99,102,241,0.06))", cursor: isPro ? "pointer" : "default", position: "relative" }}>
+              <div onClick={() => { if (isPro) { setShowCreativeStudio(true); } else { setUpgradeFeature('creative-studio'); setShowUpgradeModal(true); } }} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(139,92,246,0.3)", background: "linear-gradient(135deg,rgba(139,92,246,0.10),rgba(99,102,241,0.06))", cursor: "pointer", position: "relative" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <span style={{ fontSize: 15, fontWeight: 800, color: "#c4b5fd" }}>✦ Creative Studio</span>
                   {!isPro && <span style={{ fontSize: 10, fontWeight: 800, color: "#fbbf24", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", borderRadius: 6, padding: "2px 8px" }}>🔒 PRO</span>}
