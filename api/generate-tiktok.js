@@ -611,13 +611,39 @@ export default async function handler(req, res) {
   const arch = ARCHETYPES[archetype] || ARCHETYPES.scene_reveal;
 
   // ── Storyboard skeleton: Runway keeps 2-scene product→lifestyle; Kling uses the archetype ──
-  const storyboardInstructions = isRunway ? `
+  let storyboardInstructions = isRunway ? `
 - Video storyboard: 2 scenes ONLY — designed for a 10-second lifestyle/fashion video:
   Scene 1 (0-4s): PRODUCT SHOWCASE — Product presented beautifully in its original setting. Clean, aspirational shot. The product is the hero — clearly visible, well-lit. Camera slowly moves in or orbits the product.
   Scene 2 (4-10s): HUMAN LIFESTYLE MOMENT — A real person is WEARING or USING the product in an aspirational real-life setting. The person must be clearly visible — this scene MUST show a human being, not just the product alone. Confident, natural, aspirational.
 - Both scenes must flow seamlessly — same colour palette, same mood, same lighting style.` : `
 ${arch.instructions}
 - Each scene 1-2 sentences. Product clearly the hero, smooth cinematic camera movement, aspirational lighting.`;
+
+  // Scene variation (user-selected in Creative Studio): override the end/lifestyle
+  // environment for this generation. Archetype-agnostic — storyboardInstructions feeds
+  // both the main and storyboardOnly prompts and every engine. No-op when unset.
+  const sceneSel = (req.body.scene || "").trim();
+  if (sceneSel) {
+    // Rich directives for scenes that need more than a plain "<scene> setting" — a
+    // product-sizing/transition note, or an environment that must NOT read as a lab.
+    // Keyed on both the current and the relabelled chip names so a later frontend
+    // rename can't break the mapping. Unlisted scenes fall back to the generic
+    // directive below (identical to pre-patch behaviour).
+    const PHARMACY_HINT = `the lifestyle / end environment MUST be a professional PHARMACY / DRUG-STORE setting — clean retail shelving stocked with health-and-beauty products, apothecary-style display, bright clean retail lighting, the product presented as a premium pharmacy product. It MUST NOT read as a laboratory: no test tubes, beakers, flasks, microscopes, pipettes or research-lab equipment. Keep the product the clear hero and its appearance unchanged; do not substitute any other environment.`;
+    const MACRO_HINT = `the product MUST stay LARGE and prominent as the hero throughout — never shrink it into a small prop inside a big scene. Stage a premium close reveal: the full-size product transitions and layers perfectly onto a soft, high-end bathroom backdrop (marble surfaces, warm light, spa styling), the product dominating the frame as its world forms behind it, then the shot resolves into a tight MACRO close-up of the product's label and surface texture, with an elegant smear / swatch of the product's contents beside it. Keep the product's appearance, colour and label unchanged throughout.`;
+    const SCENE_HINTS = {
+      'Clinical & Science Lab': PHARMACY_HINT,
+      'Pharmacy / Drug Store': PHARMACY_HINT,
+      'Macro Texture / Smear': MACRO_HINT,
+      'Macro Detail': MACRO_HINT,
+    };
+    const sceneHint = SCENE_HINTS[sceneSel];
+    storyboardInstructions += sceneHint
+      ? `
+- SCENE SETTING (user-selected — important): ${sceneHint}`
+      : `
+- SCENE SETTING (user-selected — important): the lifestyle / end environment of the video MUST be a ${sceneSel} setting. Build the final scene(s) specifically as a ${sceneSel} setting, keeping the product the clear hero and its appearance unchanged. Do not substitute any other environment.`;
+  }
 
   const storyboardJson = isRunway ? `"storyboard": [
     { "scene": 1, "timing": "0-4s", "title": "Product Showcase", "description": "Beautiful product shot in original setting" },

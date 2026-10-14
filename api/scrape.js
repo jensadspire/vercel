@@ -1,3 +1,5 @@
+import { fetchViaProxy } from './_scrape-proxy.js';
+
 // ── Redis helper (same pattern as generate.js) ────────────────────────────────
 async function redis(command, ...args) {
   const url   = process.env.UPSTASH_REDIS_REST_URL;
@@ -42,16 +44,37 @@ export default async function handler(req, res) {
   try {
     // ── Live scrape ────────────────────────────────────────────────────────────
     console.log("Scrape cache MISS — fetching live:", url);
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-      },
-      signal: AbortSignal.timeout(8000),
-    });
+    let response = null;
+    let html = null;
+    let fetchOk = false;
+    try {
+      response = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      fetchOk = response.ok;
+      html = await response.text();
+    } catch (directErr) {
+      console.log("Scrape direct fetch failed:", url, directErr.message);
+    }
 
-    const html = await response.text();
+    // Fallback for bot-protected / datacenter-IP-blocked / slow sites: if the direct
+    // fetch was blocked (non-200), failed (timeout/network), or returned too little to
+    // be a real page, re-fetch the HTML via the proxy route (no-op if unconfigured).
+    if (!fetchOk || !html || html.length < 500) {
+      const proxyHtml = await fetchViaProxy(url);
+      if (proxyHtml && proxyHtml.length > (html ? html.length : 0)) {
+        html = proxyHtml;
+        fetchOk = true;
+        console.log("Scrape used proxy fallback:", url);
+      }
+    }
+
+    if (!html) throw new Error("No HTML — direct fetch blocked/failed and proxy unavailable");
 
     // ── Language detection ────────────────────────────────────────────────────
     const tldLangMap = {
@@ -123,7 +146,7 @@ export default async function handler(req, res) {
     const ogLocale =
       html.match(/<meta[^>]+property=["']og:locale["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
       html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:locale["']/i)?.[1] || null;
-    const headerLang = response.headers.get("content-language") || null;
+    const headerLang = response?.headers.get("content-language") || null;
     const hreflangMatches = [...html.matchAll(/hreflang=["']([^"']+)["']/gi)].map(m => m[1]);
     const hreflang = hreflangMatches.find(l => !l.startsWith("en") && l !== "x-default") ||
                      hreflangMatches[0] || null;
@@ -493,7 +516,12 @@ export default async function handler(req, res) {
      .filter(src => src && !src.includes('data:') && !src.includes('.svg') && !src.includes('placeholder'));
 
     // Deduplicate preserving order
-    result.images = [...new Set(rawImages)].slice(0, 20);
+    // decode entity/unicode ampersands so query strings aren't broken
+    // (Sanity/Next.js sites emit ...?fm=webp&amp;w=1200 → the CDN rejects the malformed query)
+    result.images = [...new Set(rawImages.map(u => String(u)
+      .replace(/^https?:\/\/[^\/]+?(https?:\/\/)/i, '$1') // fix doubled origin (origin prepended to an already-absolute URL)
+      .replace(/&amp;/g, '&').replace(/&#0*38;/g, '&').replace(/&#x0*26;/gi, '&').replace(/\\u0026/g, '&')
+    ))].slice(0, 20);
 
     // ── Price + currency ──────────────────────────────────────────────────────
     // Price stays bound to the main product, and currency is resolved INDEPENDENTLY
@@ -610,10 +638,16 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-    // ── Cache the result for 24 hours ─────────────────────────────────────────
+    // ── Cache the result for 24 hours — ONLY when we actually got the page ────
+    // A blocked/empty result must NOT be cached: it would poison the URL for 24h
+    // and mask the proxy fallback once a key is configured.
     try {
-      await redis("SET", cacheKey, JSON.stringify(result), "EX", CACHE_TTL);
-      console.log("Scrape cached for 24h:", url);
+      if (fetchOk) {
+        await redis("SET", cacheKey, JSON.stringify(result), "EX", CACHE_TTL);
+        console.log("Scrape cached for 24h:", url);
+      } else {
+        console.log("Scrape NOT cached (blocked/empty fetch):", url);
+      }
     } catch (_) {
       // Cache write failure is non-fatal — result still returned to client
     }

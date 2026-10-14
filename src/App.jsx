@@ -929,16 +929,21 @@ const TEMPLATE_ENGINE = {
   // Beauty
   beauty_morning_ritual: 'veo-extended',
   beauty_before_the_day: 'veo-extended',
-  // Fashion
-  fashion_wardrobe_lifestyle: 'veo-extended',
+  beauty_luxury_reveal: 'kling',
+  // Fashion — all → Runway, except 360 Showcase (VEO-ext) and Catwalk (auto-detect, unpinned)
+  fashion_flatlay_model: 'kling',
+  fashion_outfit_transformation: 'kling',
+  fashion_wardrobe_lifestyle: 'kling',
   fashion_street_style: 'veo-extended',
+  fashion_day_to_night: 'runway',
+  fashion_one_piece_three_looks: 'recipe',
   fashion_360_showcase: 'veo-extended',
   // Home Decor
   homedecor_empty_designed: 'veo',
   homedecor_product_in_context: 'veo',
   // Fitness
   fitness_workout_activation: 'veo',
-  fitness_morning_wellness: 'veo',
+  fitness_morning_wellness: 'veo-extended',
   fitness_activity_recovery: 'veo',
   fitness_lifestyle_transformation: 'veo',
   // Home Improvement & DIY
@@ -954,7 +959,7 @@ const CS_VERTICALS = {
     templates: [
       { id: 'beauty_morning_ritual', label: 'White → Morning Ritual', desc: 'Product on white → space materialises → applied → confident lifestyle' },
       { id: 'beauty_ingredient_transformation', label: 'Ingredient → Transformation', desc: 'Ingredients appear → merge → result-focused scene' },
-      { id: 'beauty_luxury_reveal', label: 'Luxury Reveal', desc: 'Cinematic packshot → elegant vanity → hero object' },
+      { id: 'beauty_luxury_reveal', label: 'Luxury Reveal', desc: 'Cinematic packshot → elegant vanity → hero object', scenes: ['Botanical & Natural Oasis','Spa Aesthetic','High-End Bathroom','Pharmacy / Drug Store','Macro Detail'] },
       { id: 'beauty_before_the_day', label: 'Before the Day Starts', desc: 'Morning environment → gets ready → leaves confident' },
       { id: 'beauty_problem_solution', label: 'Problem → Solution', desc: 'Concern → product enters → usage → positive result' },
     ],
@@ -962,7 +967,7 @@ const CS_VERTICALS = {
   fashion: {
     label: 'Fashion & Apparel',
     templates: [
-      { id: 'fashion_flatlay_model', label: 'Flat Lay → Model', desc: 'Flat-lay → environment forms → worn on model → model moves' },
+      { id: 'fashion_flatlay_model', label: 'Flat Lay → Model', desc: 'Flat-lay → environment forms → worn on model → model moves', scenes: ['City (day)','Beach','Café','Office','City at Night'] },
       { id: 'fashion_outfit_transformation', label: 'Outfit Transformation', desc: 'Hero item constant → outfit changes around it → final look' },
       { id: 'fashion_wardrobe_lifestyle', label: 'Wardrobe → Lifestyle', desc: 'Wardrobe → gets dressed → leaves → lifestyle scene' },
       { id: 'fashion_street_style', label: 'Street Style', desc: 'City environment → model appears → walking/editorial' },
@@ -987,7 +992,7 @@ const CS_VERTICALS = {
     label: 'Fitness & Wellness',
     templates: [
       { id: 'fitness_workout_activation', label: 'Workout Activation', desc: 'Product → gym/home environment → use → workout begins → hero' },
-      { id: 'fitness_morning_wellness', label: 'Morning Wellness Routine', desc: 'Product → morning prep → consumption → active day → hero' },
+      { id: 'fitness_morning_wellness', label: 'Morning Wellness Routine', desc: 'Product → morning prep → consumption → active day → hero', scenes: ['Fitness Studio','Beach','Open Terrain','Outdoor Fitness Grounds','Calisthenics Park'] },
       { id: 'fitness_performance_transformation', label: 'Performance Transformation', desc: 'Product → athlete appears → use → intensity → performance → hero' },
       { id: 'fitness_activity_recovery', label: 'Activity → Recovery', desc: 'Product → activity/effort → recovery moment → hero' },
       { id: 'fitness_lifestyle_transformation', label: 'Lifestyle Transformation', desc: 'Product → everyday → enters routine → activity → healthy life → hero' },
@@ -1103,8 +1108,39 @@ function RSAStudio() {
   const [videoArchetype, setVideoArchetype] = useState('scene_reveal'); // Kling storyboard style
   const [storyboardUpdating, setStoryboardUpdating] = useState(false);
   const [storyboardReady, setStoryboardReady] = useState(false);
+  // ── Anonymous video showcase: 2 free generations before the sign-in wall ──
+  // Kling/Runway/VEO/VEO-ext have no server-side auth (Recipe is sign-in-only, enforced
+  // server-side). A signed-out user only ever gets a video via a fresh gen (library /
+  // replay are sign-in-only), so counting completed videos = the free allowance spent.
+  const FREE_ANON_VIDEOS = 2;
+  const [anonVideoCount, setAnonVideoCount] = useState(() => {
+    try { return parseInt(localStorage.getItem('anonVideoCount') || '0', 10) || 0; } catch { return 0; }
+  });
+  // Charge one free video per generation at DISPATCH (see the two gate sites), not via
+  // a tiktokVideoUrl effect — one completed video writes the URL several times
+  // (raw -> labelled -> stored), which over-counted.
+  const chargeAnonVideo = () => {
+    setAnonVideoCount(c => { const n = c + 1; try { localStorage.setItem('anonVideoCount', String(n)); } catch (_) {} return n; });
+  };
+  // true (and shows the right wall) when a signed-out user may NOT generate:
+  // Recipe is always sign-in-only; otherwise the 2 free videos must not be spent yet.
+  const videoGateBlocked = (engine) => {
+    if (isSignedIn) return false;
+    if (engine === 'recipe') { setShowAuthModal(true); return true; }
+    let _used = anonVideoCount;
+    try { _used = parseInt(localStorage.getItem('anonVideoCount') || '0', 10) || 0; } catch (_) {}
+    if (_used >= FREE_ANON_VIDEOS) { setVideoWallOpen(true); return true; }
+    return false;
+  };
+
   // NEW UI: reusable video generation trigger (mirrors the detailed-view button logic).
   const startVideoGeneration = async () => {
+    // Out-of-quota (or Recipe) signed-out users hit the wall FIRST — before any
+    // image/storyboard pre-check can early-return and swallow the click.
+    if (!isSignedIn) {
+      const _ge = (activeTemplate && TEMPLATE_ENGINE[activeTemplate]) ? TEMPLATE_ENGINE[activeTemplate] : videoEngineRef.current;
+      if (videoGateBlocked(_ge)) return;
+    }
     if (!tiktokResult || !tiktokResult.videoPrompt) return;
     setTiktokVideoUrl(null); // clear stale video before new gen (so a previous run's video doesn't resurface after a swap)
     setExtStage(null);
@@ -1132,6 +1168,8 @@ function RSAStudio() {
       const authoritativeEngine = (activeTemplate && TEMPLATE_ENGINE[activeTemplate]) ? TEMPLATE_ENGINE[activeTemplate] : videoEngineRef.current;
       const currentEngine = authoritativeEngine;
       if (currentEngine !== videoEngineRef.current) { videoEngineRef.current = currentEngine; setVideoEngine(currentEngine); }
+      if (videoGateBlocked(currentEngine)) { setTiktokVideoLoading(false); return; }
+      if (!isSignedIn) chargeAnonVideo(); // count this free video once, at dispatch
       setRecipeError(null);
       if (currentEngine === 'recipe') { setRecipeGated(null); }
       let videoApi = currentEngine === 'recipe' ? '/api/runway-recipe' : currentEngine === 'runway' ? '/api/runway' : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
@@ -1142,7 +1180,7 @@ function RSAStudio() {
           let basePrompt = '', continuationPrompt = '';
           try {
             const sr = await fetch('/api/generate-tiktok', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: lastGeneratedUrlRef.current || url, storyboardOnly: true, extended: true, videoEngine: 'veo', archetype: activeTemplate, language: pageMeta?.language || 'English' }) });
+              body: JSON.stringify({ url: lastGeneratedUrlRef.current || url, storyboardOnly: true, extended: true, videoEngine: 'veo', archetype: activeTemplate, scene: activeSceneRef.current || undefined, language: pageMeta?.language || 'English' }) });
             const sd = await sr.json();
             basePrompt = sd.basePrompt || ''; continuationPrompt = sd.continuationPrompt || '';
             console.log('[veo-ext] split inputs → url:', (lastGeneratedUrlRef.current || url), '| archetype:', activeTemplate, '| imageUrl:', String(imageUrl).slice(0,90));
@@ -1266,16 +1304,19 @@ function RSAStudio() {
         const pollKey = d.taskId ? 'taskId' : 'requestId';
         let attempts = 0;
         if (videoPollRef.current) clearInterval(videoPollRef.current);
-        videoPollRef.current = setInterval(async () => {
+        const _iv = setInterval(async () => {
+          if (videoPollRef.current !== _iv) { clearInterval(_iv); return; } // superseded by a newer run
           const pollCap = videoEngineRef.current === 'recipe' ? 156 : 144;
-          if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); return; }
+          if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(_iv); return; }
           try {
             const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
             const pd = await pr.json();
-            if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
-            else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
+            if (videoPollRef.current !== _iv) { clearInterval(_iv); return; } // superseded during fetch — don't resurface old video
+            if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(_iv); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
+            else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(_iv); }
           } catch(pollErr) { console.error('Poll error:', pollErr.message); }
         }, 5000);
+        videoPollRef.current = _iv;
       } else { setTiktokVideoLoading(false); }
     } catch(e) { setTiktokVideoLoading(false); }
   };
@@ -1365,7 +1406,7 @@ function RSAStudio() {
         body: JSON.stringify({
           url, language: pageMeta?.language || "English", videoEngine: 'kling',
           audienceBrief, pageContent: pageMeta?.content || "",
-          archetype: archetypeId, storyboardOnly: true,
+          archetype: archetypeId, scene: activeSceneRef.current || undefined, storyboardOnly: true,
         }),
       });
       const d = await r.json();
@@ -1438,7 +1479,7 @@ function RSAStudio() {
   const [overlayLogo, setOverlayLogo] = useState(true); // inject brand name
   const [overlayIntro, setOverlayIntro] = useState(''); // custom intro headline
   const [overlayOutro, setOverlayOutro] = useState(''); // custom outro/exit messageatar
-  const [generateTiktok, setGenerateTiktok] = useState(false);
+  const [generateTiktok, setGenerateTiktok] = useState(true); // pre-checked: video active on load
   const [editOpen, setEditOpen] = useState(false); // RSA edit accordion
   const [tiktokExportCopied, setTiktokExportCopied] = useState(false);
   const [enhanceOpen, setEnhanceOpen] = useState(false);
@@ -2463,6 +2504,7 @@ function RSAStudio() {
   const [modalOmitGroup, setModalOmitGroup] = useState(false);
   const nextId = useRef(2);
   const [showGateModal, setShowGateModal] = useState(false);
+  const [videoWallOpen, setVideoWallOpen] = useState(false); // dedicated 2-free-video wall (GateModal won't render)
   const [usageCount, setUsageCount] = useState(0);
   const [gateEmail, setGateEmail] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false); // unchecked by default — GDPR compliant
@@ -2510,21 +2552,26 @@ function RSAStudio() {
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
   const csRotationRef = useRef(0); // advances each generation to rotate through csTemplates
   const [activeTemplate, setActiveTemplate] = useState(null); // id of the CS template driving the current video (rotation)
+  const [csScenes, setCsScenes] = useState({}); // { [templateId]: [sceneName,…] } — chosen scene variations per template
+  const [activeScene, setActiveScene] = useState(null); // scene variation driving the current video (rotation)
+  const activeSceneRef = useRef(null); // synchronous — storyboard calls read this
   // Look up a template's display label across all verticals.
   const templateLabel = (id) => { for (const v of Object.values(CS_VERTICALS)) { const t = (v.templates || []).find(x => x.id === id); if (t) return t.label; } return null; };
   useEffect(() => {
     const cs = brandData?.creativeStudio;
-    if (cs && Array.isArray(cs.templates)) { setCsTemplates(cs.templates); if (cs.vertical) setCsVertical(cs.vertical); }
+    if (cs && Array.isArray(cs.templates)) { setCsTemplates(cs.templates); if (cs.vertical) setCsVertical(cs.vertical); if (cs.scenes && typeof cs.scenes === 'object') setCsScenes(cs.scenes); }
   }, [brandData]);
   const [csSavedFlash, setCsSavedFlash] = useState(false);
-  const saveCreativeStudio = async (nextTemplates, nextVertical) => {
+  const saveCreativeStudio = async (nextTemplates, nextVertical, nextScenes) => {
     setCsTemplates(nextTemplates);
     if (nextVertical) setCsVertical(nextVertical);
+    const scenesToSave = nextScenes !== undefined ? nextScenes : csScenes;
+    if (nextScenes !== undefined) setCsScenes(nextScenes);
     try {
       if (!isSignedIn || !window.Clerk?.session) return;
       const token = await window.Clerk.session.getToken();
       await fetch('/api/brand', { method: 'POST', headers: { 'x-clerk-session': token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...(brandData || {}), creativeStudio: { vertical: nextVertical || csVertical, templates: nextTemplates } }) });
+        body: JSON.stringify({ ...(brandData || {}), creativeStudio: { vertical: nextVertical || csVertical, templates: nextTemplates, scenes: scenesToSave } }) });
     } catch (e) { console.error('[creative-studio] save failed:', e.message); }
   };
   const [librarySaving, setLibrarySaving] = useState(null);
@@ -2796,6 +2843,7 @@ function RSAStudio() {
     setTiktokVideoUrl(null);
     setTiktokResult(null);
     setTiktokVideoLoading(false);
+    if (videoPollRef.current) { clearInterval(videoPollRef.current); videoPollRef.current = null; } // cancel in-flight video poll so a previous video can't resurface
     // Clear trends on new generation, clear audiences if not sticky
     setTrends([]);
     setSelectedTrends([]);
@@ -2913,18 +2961,26 @@ function RSAStudio() {
             setVideoEngine(sel.engine);
             videoEngineRef.current = sel.engine;
             videoSelArchetypeRef.current = sel.archetype; // synchronous — storyboard call reads this
-            setActiveTemplate(null); // default: not a CS template unless the override below sets it
+            setActiveTemplate(null); activeSceneRef.current = null; setActiveScene(null); // default: not a CS template unless the override below sets it
             // Creative Studio (Pro): if templates are selected, rotate through them, overriding auto-detect.
             if (isPro && csTemplates.length > 0) {
-              const pick = csTemplates[csRotationRef.current % csTemplates.length];
+              // Expand selected templates × their chosen scene variations into rotation slots.
+              const _slots = csTemplates.flatMap(tid => {
+                const scs = csScenes[tid] || [];
+                return scs.length ? scs.map(sc => ({ tid, scene: sc })) : [{ tid, scene: null }];
+              });
+              const _slot = _slots[csRotationRef.current % _slots.length];
+              const pick = _slot.tid;
               csRotationRef.current += 1;
               videoSelArchetypeRef.current = pick;
+              activeSceneRef.current = _slot.scene;
               setVideoArchetype(pick);
               setActiveTemplate(pick);
+              setActiveScene(_slot.scene);
               // Template-driven engine routing: lifestyle templates → VEO, else keep detected engine.
               const tplEngine = TEMPLATE_ENGINE[pick];
               if (tplEngine) { setVideoEngine(tplEngine); videoEngineRef.current = tplEngine; console.log('[route] template', pick, '→ engine', tplEngine); }
-              console.log('[creative-studio] template rotation →', pick);
+              console.log('[creative-studio] template rotation →', pick, _slot.scene ? ('· scene → ' + _slot.scene) : '');
             }
             if (sel.engine === 'kling') setVideoArchetype(sel.archetype);
             console.log('[model-select] auto:', sel.engine, sel.archetype);
@@ -3422,7 +3478,7 @@ STRICT rules:
           const tiktokRes = await fetch("/api/generate-tiktok", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, language: pageMeta?.language || "English", videoEngine: videoEngineRef.current, audienceBrief, pageContent: pageMeta?.content || "", archetype: videoSelArchetypeRef.current }),
+            body: JSON.stringify({ url, language: pageMeta?.language || "English", videoEngine: videoEngineRef.current, audienceBrief, pageContent: pageMeta?.content || "", archetype: videoSelArchetypeRef.current, scene: activeSceneRef.current || undefined }),
           });
           const tiktokData = await tiktokRes.json();
           if (tiktokData.error) {
@@ -3611,6 +3667,15 @@ STRICT rules:
         </div>
 
         {/* Primary CTA — sign up */}
+        <div style={{ position: "relative" }}>
+          {/* gate-free-badge */}
+          <span style={{
+            position: "absolute", top: -9, right: 12, zIndex: 2,
+            background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff",
+            fontSize: 9.5, fontWeight: 800, letterSpacing: "0.01em",
+            padding: "3px 9px", borderRadius: 999, whiteSpace: "nowrap",
+            border: "1px solid rgba(255,255,255,0.25)", boxShadow: "0 2px 8px rgba(22,163,74,0.45)",
+          }}>FREE · No credit card required</span>
         <button
           onClick={async () => {
             // Store opt-in preference in Redis before opening Clerk
@@ -3632,6 +3697,7 @@ STRICT rules:
           }}>
           Create Free Account →
         </button>
+        </div>
 
         {/* Marketing opt-in checkbox */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 14, textAlign: "left" }}>
@@ -3816,7 +3882,7 @@ STRICT rules:
 
   // ── NEW UI Stage 1a: Overview front page ────────────────────────────────────
   if (viewMode === "overview") {
-    const openDetail = (fmt) => { setAdFormat(fmt); setViewMode("detailed"); };
+    const openDetail = (fmt) => { if (!isSignedIn) { setShowAuthModal(true); return; } setAdFormat(fmt); setViewMode("detailed"); };
     const googleReady = generated && rows && rows.length > 0;
     const metaReady = !!metaResult;
     const videoReady = !!tiktokVideoUrl;
@@ -3835,6 +3901,27 @@ STRICT rules:
       }}>
         {/* overview-auth-bar */}
         {showAuthModal && <AuthModal />}
+        {/* video-wall-overview */}
+        {videoWallOpen && (
+          <div onClick={() => setVideoWallOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(6,13,26,0.98))", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16, padding: "36px 32px", maxWidth: 460, width: "100%", textAlign: "center", boxShadow: "0 25px 60px rgba(0,0,0,0.5)" }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>🎬</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>You've used your 2 free videos</div>
+              <div style={{ fontSize: 13, color: "#8fa3b8", lineHeight: 1.6, marginBottom: 24 }}>Create a free account to keep generating videos — and unlock the full set of pro tools built for serious advertisers.</div>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", top: -9, right: 12, zIndex: 2, background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontSize: 9.5, fontWeight: 800, letterSpacing: "0.01em", padding: "3px 9px", borderRadius: 999, whiteSpace: "nowrap", border: "1px solid rgba(255,255,255,0.25)", boxShadow: "0 2px 8px rgba(22,163,74,0.45)" }}>FREE · No credit card required</span>
+                <button onClick={() => { setVideoWallOpen(false); setAuthMode("sign-up"); setShowAuthModal(true); }} style={{ width: "100%", padding: "13px", fontSize: 14, fontWeight: 800, background: "linear-gradient(135deg,#3b82f6,#6366f1)", color: "white", border: "none", borderRadius: 8, cursor: "pointer", marginBottom: 10, boxShadow: "0 4px 20px rgba(99,102,241,0.35)" }}>Create Free Account →</button>
+              </div>
+              <div style={{ fontSize: 11, color: "#8fa3b8", marginBottom: 14 }}>No credit card required · Takes 30 seconds</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+                <span style={{ fontSize: 10, color: "#8fa3b8", letterSpacing: "0.08em" }}>ALREADY HAVE AN ACCOUNT?</span>
+                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+              </div>
+              <button onClick={() => { setVideoWallOpen(false); setAuthMode("sign-in"); setShowAuthModal(true); }} style={{ width: "100%", padding: "11px", fontSize: 13, fontWeight: 700, background: "rgba(255,255,255,0.04)", color: "#adbccb", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, cursor: "pointer" }}>Sign in</button>
+            </div>
+          </div>
+        )}
       {showLibrary && (
         <div onClick={() => setShowLibrary(false)} style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
@@ -3936,6 +4023,7 @@ STRICT rules:
                   border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap",
                 }}>★ Library <span style={{ background: "rgba(245,158,11,0.3)", borderRadius: 10, padding: "1px 6px", fontSize: 9 }}>{library.length}</span></button>
               )}
+              {isPro && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", letterSpacing: "0.05em" }}>PRO</span>}
               <span style={{ fontSize: 11, color: "#8fa3b8" }}>{user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}</span>
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
@@ -3967,7 +4055,7 @@ STRICT rules:
               <span style={{ fontSize: 12, color: "#7e92a8" }}>Generate:</span>
               <span style={{ fontSize: 12, color: "#a5b4fc", padding: "6px 12px", background: "rgba(99,102,241,0.15)", borderRadius: 8, fontWeight: 700 }}>Google ✓</span>
               <button onClick={() => setGenerateMeta(v => !v)} style={{ fontSize: 12, color: generateMeta ? "#93c5fd" : "#7e92a8", padding: "6px 12px", background: generateMeta ? "rgba(14,165,233,0.15)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Meta {generateMeta ? "✓" : ""}</button>
-              <button onClick={() => isSignedIn ? setGenerateTiktok(v => !v) : null} title={isSignedIn ? "" : "Sign in to generate video"} style={{ fontSize: 12, color: generateTiktok ? "#c4b5fd" : "#7e92a8", padding: "6px 12px", background: generateTiktok ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Video {generateTiktok ? "✓" : (isSignedIn ? "" : "🔒")}</button>
+              <button onClick={() => setGenerateTiktok(v => !v)} title="" style={{ fontSize: 12, color: generateTiktok ? "#c4b5fd" : "#7e92a8", padding: "6px 12px", background: generateTiktok ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Video {generateTiktok ? "✓" : ""}</button>
             </div>
             <button data-generate-btn onClick={generate} disabled={loading || batchRunning} style={{
               marginTop: 16, width: "100%", padding: "14px", fontSize: 15, fontWeight: 800,
@@ -3976,6 +4064,16 @@ STRICT rules:
               animation: (loading || batchRunning) ? "pulse 1.5s ease-in-out infinite" : "none",
             }}>{loading ? "Generating…" : "Generate ads"}</button>
           </div>
+          {usageCount > 0 && !showGateModal && !isAdmin && (
+            <div style={{ maxWidth: 900, margin: "14px auto 0", display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ width: `${(usageCount / 10) * 100}%`, height: "100%", background: usageCount >= 8 ? "linear-gradient(90deg,#f59e0b,#ef4444)" : "linear-gradient(90deg,#3b82f6,#6366f1)", borderRadius: 2, transition: "width 0.4s" }} />
+              </div>
+              <span style={{ fontSize: 10, color: usageCount >= 8 ? "#f59e0b" : "#8fa3b8", fontWeight: 700, whiteSpace: "nowrap" }}>
+                {usageCount}/10 free generations{usageCount >= 8 ? " — almost at limit" : ""}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Output cards — mirror production previews */}
@@ -4005,7 +4103,7 @@ STRICT rules:
           const iconBar = { display: "flex", alignItems: "center", gap: 8, padding: "12px 14px 8px" };
           let brandName = pageMeta?.brand || "";
           if (!brandName) {
-            try { brandName = new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./, "").split(".")[0]; brandName = brandName.charAt(0).toUpperCase() + brandName.slice(1); } catch { brandName = "Your brand"; }
+            try { let _p = new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./, "").split("."); if (_p.length >= 3 && _p[0].length === 2) _p = _p.slice(1); brandName = _p[0]; brandName = brandName.charAt(0).toUpperCase() + brandName.slice(1); } catch { brandName = "Your brand"; }
           }
           return (
         <div style={{ width: "100%", maxWidth: 1100, marginTop: 28, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
@@ -4098,10 +4196,8 @@ STRICT rules:
           </div>
 
           {/* Video */}
-          <div style={{ ...cardShell, opacity: isSignedIn ? (videoReady ? 1 : 0.55) : 0.7, background: (videoReady && isSignedIn) ? "#fff" : "rgba(255,255,255,0.03)" }}>
-            {!isSignedIn ? (
-              <div style={{ fontSize: 12, color: "#7e92a8", padding: 24, margin: "auto 0", lineHeight: 1.5, textAlign: "center" }}>Sign in to turn your product into a short-form video ad.</div>
-            ) : tiktokVideoLoading ? (
+          <div style={{ ...cardShell, opacity: videoReady ? 1 : 0.55, background: videoReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
+            {tiktokVideoLoading ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 14, minHeight: 280 }}>
                 <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
                 <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{extStage ? <>Crafting your extended video…<br/>Check back in 4–5 minutes</> : <>Generating your video…<br/>Check back in 3–4 minutes</>}</div>
@@ -4153,7 +4249,7 @@ STRICT rules:
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#8b5cf6", borderRadius: 6, padding: "8px 12px" }}>{(() => { const a = metaResult?.descriptions || []; const d = videoUseMetaCopy ? a[0] : (a[1] || a[0]); return (d && d.length <= 18) ? d : "Shop Now"; })()}</div>
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
-                  <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); if (!isSignedIn) { setShowAuthModal(true); return; } setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
                   <span onClick={(e) => { e.stopPropagation();
                     if (!isSignedIn) { setShowAuthModal(true); return; }
@@ -4236,7 +4332,7 @@ STRICT rules:
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.10)", paddingTop: 28 }}>
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
               {/* Creative Studio */}
-              <div onClick={() => { if (isPro) setShowCreativeStudio(true); }} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(139,92,246,0.3)", background: "linear-gradient(135deg,rgba(139,92,246,0.10),rgba(99,102,241,0.06))", cursor: isPro ? "pointer" : "default", position: "relative" }}>
+              <div onClick={() => { if (isPro) { setShowCreativeStudio(true); } else { setUpgradeFeature('creative-studio'); setShowUpgradeModal(true); } }} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(139,92,246,0.3)", background: "linear-gradient(135deg,rgba(139,92,246,0.10),rgba(99,102,241,0.06))", cursor: "pointer", position: "relative" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <span style={{ fontSize: 15, fontWeight: 800, color: "#c4b5fd" }}>✦ Creative Studio</span>
                   {!isPro && <span style={{ fontSize: 10, fontWeight: 800, color: "#fbbf24", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", borderRadius: 6, padding: "2px 8px" }}>🔒 PRO</span>}
@@ -4245,7 +4341,7 @@ STRICT rules:
                 {isPro ? (
                   <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#8b5cf6" }}>{csTemplates.length > 0 ? `${csTemplates.length} template${csTemplates.length > 1 ? 's' : ''} active →` : 'Set up your templates →'}</div>
                 ) : (
-                  <div onClick={(e) => { e.stopPropagation(); setShowCreativeStudio(true); }} style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#fbbf24", cursor: "pointer" }}>Upgrade to Pro to unlock →</div>
+                  <div onClick={(e) => { e.stopPropagation(); setUpgradeFeature('creative-studio'); setShowUpgradeModal(true); }} style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#fbbf24", cursor: "pointer" }}>Upgrade to Pro to unlock →</div>
                 )}
               </div>
               {/* Sequential Ad Builder — coming soon */}
@@ -4261,7 +4357,7 @@ STRICT rules:
         </div>
 
         {/* Creative Studio panel */}
-        {showCreativeStudio && (() => {
+        {showCreativeStudio && isPro && (() => {
           const vert = CS_VERTICALS[csVertical] || CS_VERTICALS.beauty;
           const toggleTpl = (id) => { const next = csTemplates.includes(id) ? csTemplates.filter(t => t !== id) : [...csTemplates, id]; saveCreativeStudio(next, csVertical); };
           return (
@@ -4288,13 +4384,32 @@ STRICT rules:
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
                   {vert.templates.map(t => {
                     const on = csTemplates.includes(t.id);
+                    const selScenes = csScenes[t.id] || [];
+                    const toggleScene = (sc) => {
+                      const cur = csScenes[t.id] || [];
+                      const next = cur.includes(sc) ? cur.filter(x => x !== sc) : [...cur, sc];
+                      saveCreativeStudio(csTemplates, csVertical, { ...csScenes, [t.id]: next });
+                    };
                     return (
-                      <div key={t.id} onClick={() => toggleTpl(t.id)} style={{ display: "flex", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: "pointer", background: on ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.03)", border: on ? "1px solid rgba(139,92,246,0.4)" : "1px solid rgba(255,255,255,0.08)" }}>
-                        <div style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, marginTop: 1, border: on ? "none" : "1.5px solid rgba(255,255,255,0.25)", background: on ? "#8b5cf6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "white", fontWeight: 800 }}>{on ? "✓" : ""}</div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: on ? "#e2e8f0" : "#c7d2e0" }}>{t.label}</div>
-                          <div style={{ fontSize: 11, color: "#7e92a8", marginTop: 2, lineHeight: 1.4 }}>{t.desc}</div>
+                      <div key={t.id} style={{ borderRadius: 10, background: on ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.03)", border: on ? "1px solid rgba(139,92,246,0.4)" : "1px solid rgba(255,255,255,0.08)" }}>
+                        <div onClick={() => toggleTpl(t.id)} style={{ display: "flex", gap: 10, padding: "10px 12px", cursor: "pointer" }}>
+                          <div style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, marginTop: 1, border: on ? "none" : "1.5px solid rgba(255,255,255,0.25)", background: on ? "#8b5cf6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "white", fontWeight: 800 }}>{on ? "✓" : ""}</div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: on ? "#e2e8f0" : "#c7d2e0" }}>{t.label}</div>
+                            <div style={{ fontSize: 11, color: "#7e92a8", marginTop: 2, lineHeight: 1.4 }}>{t.desc}</div>
+                          </div>
                         </div>
+                        {on && Array.isArray(t.scenes) && t.scenes.length > 0 && (
+                          <div style={{ padding: "0 12px 10px 40px", display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            <div style={{ width: "100%", fontSize: 10, color: "#6b7a90", marginBottom: 2 }}>{selScenes.length ? ('Scenes · ' + selScenes.length + ' selected · rotates') : 'Scene variations (optional — auto scene if none picked)'}</div>
+                            {t.scenes.map(sc => {
+                              const scOn = selScenes.includes(sc);
+                              return (
+                                <span key={sc} onClick={(e) => { e.stopPropagation(); toggleScene(sc); }} style={{ cursor: "pointer", fontSize: 11, fontWeight: 600, padding: "4px 10px", borderRadius: 999, border: scOn ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.14)", background: scOn ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.04)", color: scOn ? "#c4b5fd" : "#9db0c7" }}>{scOn ? "✓ " : ""}{sc}</span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -5348,17 +5463,17 @@ STRICT rules:
                 </div>
                 {/* TikTok checkbox */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", marginTop: 2 }}>
-                  <button onClick={() => isSignedIn && setGenerateTiktok(v => !v)} style={{
+                  <button onClick={() => setGenerateTiktok(v => !v)} style={{
                     width: 16, height: 16, borderRadius: 3, border: "none",
-                    cursor: isSignedIn ? "pointer" : "not-allowed", flexShrink: 0,
-                    background: generateTiktok && isSignedIn ? "linear-gradient(135deg,#ff0050,#ff4d4d)" : "rgba(255,255,255,0.08)",
+                    cursor: "pointer", flexShrink: 0,
+                    background: generateTiktok ? "linear-gradient(135deg,#ff0050,#ff4d4d)" : "rgba(255,255,255,0.08)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
-                    {generateTiktok && isSignedIn && <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
+                    {generateTiktok && <span style={{ color: "white", fontSize: 9, fontWeight: 900 }}>✓</span>}
                   </button>
-                  <span style={{ fontSize: 11, color: generateTiktok && isSignedIn ? "#fca5a5" : "#4a5568",
-                    cursor: isSignedIn ? "pointer" : "not-allowed", userSelect: "none" }}
-                    onClick={() => isSignedIn && setGenerateTiktok(v => !v)}>
+                  <span style={{ fontSize: 11, color: generateTiktok ? "#fca5a5" : "#4a5568",
+                    cursor: "pointer", userSelect: "none" }}
+                    onClick={() => setGenerateTiktok(v => !v)}>
                     Also generate TikTok ads <span style={{ fontSize: 10, color: "#4a5568" }}>(In-Feed + Video)</span>
                   </span>
                 </div>
@@ -7174,7 +7289,7 @@ STRICT rules:
                       {pmaxLogo ? <img src={pmaxLogo} alt='' style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={e => e.currentTarget.style.display='none'} /> : <span style={{ color: 'white', fontSize: 16, fontWeight: 800 }}>{(rows[activeRow]?.campaign || url || 'B').charAt(0).toUpperCase()}</span>}
                     </div>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{(() => { try { const h = new URL(url).hostname.replace('www.','').split('.')[0]; return h.charAt(0).toUpperCase() + h.slice(1); } catch(_) { return rows[activeRow]?.campaign || 'Brand'; } })()}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{(() => { try { let _p = new URL(url).hostname.replace('www.','').split('.'); if (_p.length >= 3 && _p[0].length === 2) _p = _p.slice(1); const h = _p[0]; return h.charAt(0).toUpperCase() + h.slice(1); } catch(_) { return rows[activeRow]?.campaign || 'Brand'; } })()}</div>
                       <div style={{ fontSize: 10, color: '#8a8a8a' }}>Sponsored · {metaPreviewFormat === 'fb-feed' ? '🌐' : '📱'}</div>
                     </div>
                   </div>
@@ -8559,6 +8674,26 @@ STRICT rules:
 
       {showGateModal && <GateModal />}
       {showAuthModal && <AuthModal />}
+      {videoWallOpen && (
+        <div onClick={() => setVideoWallOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(6,13,26,0.98))", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16, padding: "36px 32px", maxWidth: 460, width: "100%", textAlign: "center", boxShadow: "0 25px 60px rgba(0,0,0,0.5)" }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>🎬</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>You've used your 2 free videos</div>
+            <div style={{ fontSize: 13, color: "#8fa3b8", lineHeight: 1.6, marginBottom: 24 }}>Create a free account to keep generating videos — and unlock the full set of pro tools built for serious advertisers.</div>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", top: -9, right: 12, zIndex: 2, background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontSize: 9.5, fontWeight: 800, letterSpacing: "0.01em", padding: "3px 9px", borderRadius: 999, whiteSpace: "nowrap", border: "1px solid rgba(255,255,255,0.25)", boxShadow: "0 2px 8px rgba(22,163,74,0.45)" }}>FREE · No credit card required</span>
+              <button onClick={() => { setVideoWallOpen(false); setAuthMode("sign-up"); setShowAuthModal(true); }} style={{ width: "100%", padding: "13px", fontSize: 14, fontWeight: 800, background: "linear-gradient(135deg,#3b82f6,#6366f1)", color: "white", border: "none", borderRadius: 8, cursor: "pointer", marginBottom: 10, boxShadow: "0 4px 20px rgba(99,102,241,0.35)" }}>Create Free Account →</button>
+            </div>
+            <div style={{ fontSize: 11, color: "#8fa3b8", marginBottom: 14 }}>No credit card required · Takes 30 seconds</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+              <span style={{ fontSize: 10, color: "#8fa3b8", letterSpacing: "0.08em" }}>ALREADY HAVE AN ACCOUNT?</span>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+            </div>
+            <button onClick={() => { setVideoWallOpen(false); setAuthMode("sign-in"); setShowAuthModal(true); }} style={{ width: "100%", padding: "11px", fontSize: 13, fontWeight: 700, background: "rgba(255,255,255,0.04)", color: "#adbccb", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, cursor: "pointer" }}>Sign in</button>
+          </div>
+        </div>
+      )}
 
       {/* ── Brand & Context panel (Step 3a: load/edit/save round-trip) ── */}
       {brandPanelOpen && (
@@ -8629,11 +8764,13 @@ STRICT rules:
                 {upgradeFeature === 'imagen' ? "✦ Imagen is a Pro feature" :
                  upgradeFeature === 'batch' ? "📦 Batch upload is a Pro feature" :
                  upgradeFeature === 'api' ? "⚡ API access is a Pro feature" :
+                 upgradeFeature === 'creative-studio' ? "✦ Creative Studio is a Pro feature" :
                  "🚀 Unlock Pro features"}
               </div>
               <div style={{ fontSize: 12, color: "#7e92a8", marginTop: 6 }}>
                 {upgradeFeature === 'imagen' ? "You've used your 5 free Imagen generations. Upgrade for unlimited." :
                  upgradeFeature === 'batch' ? "Process multiple URLs at once with the batch uploader." :
+                 upgradeFeature === 'creative-studio' ? "Shape how your video ads look and feel with brand-consistent storyline templates." :
                  "Get unlimited access to all RSA Studio features."}
               </div>
             </div>
@@ -9834,6 +9971,10 @@ STRICT rules:
                       {tiktokResult.videoPrompt}
                     </div>
                     <button onClick={async () => {
+                      if (!isSignedIn) {
+                        const _ge = (activeTemplate && TEMPLATE_ENGINE[activeTemplate]) ? TEMPLATE_ENGINE[activeTemplate] : videoEngineRef.current;
+                        if (videoGateBlocked(_ge)) return; // wall FIRST, before pre-checks
+                      }
                       if (!tiktokResult.videoPrompt) return;
                       setTiktokVideoLoading(true);
                       try {
@@ -9864,6 +10005,8 @@ STRICT rules:
                         const currentEngine = videoEngineRef.current;
                         setRecipeError(null); // reset any prior video error on a new gen (all engines)
                         if (currentEngine === 'recipe') { setRecipeGated(null); }
+                        if (videoGateBlocked(currentEngine)) { setTiktokVideoLoading(false); return; }
+                        if (!isSignedIn) chargeAnonVideo(); // count this free video once, at dispatch
                         const videoApi = currentEngine === 'recipe' ? '/api/runway-recipe'
                           : currentEngine === 'runway' ? '/api/runway'
                           : currentEngine === 'veo' ? '/api/veo' : '/api/kling';
@@ -9900,17 +10043,20 @@ STRICT rules:
                           const pollKey = d.taskId ? 'taskId' : 'requestId';
                           let attempts = 0;
                           if (videoPollRef.current) clearInterval(videoPollRef.current);
-                          videoPollRef.current = setInterval(async () => {
+                          const _iv = setInterval(async () => {
+                            if (videoPollRef.current !== _iv) { clearInterval(_iv); return; } // superseded by a newer run
                             const pollCap = videoEngineRef.current === 'recipe' ? 156 : 144; // recipe ~13min, others ~12min (larger/flattened inputs run slower)
-                            if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); console.warn('Video poll timed out after', attempts, 'attempts (engine:', videoEngineRef.current + ')'); return; }
+                            if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(_iv); console.warn('Video poll timed out after', attempts, 'attempts (engine:', videoEngineRef.current + ')'); return; }
                             try {
                               const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
                               const pd = await pr.json();
+                              if (videoPollRef.current !== _iv) { clearInterval(_iv); return; } // superseded during fetch — don't resurface old video
                               console.log('Poll', attempts, 'status:', pd.status, 'videoUrl:', !!pd.videoUrl);
-                              if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
-                              else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { console.error('Video FAILED:', JSON.stringify(pd)); if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
+                              if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(_iv); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
+                              else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { console.error('Video FAILED:', JSON.stringify(pd)); if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(_iv); }
                             } catch(pollErr) { console.error('Poll error:', pollErr.message); }
                           }, 5000);
+                          videoPollRef.current = _iv;
                         } else { setTiktokVideoLoading(false); }
                       } catch(e) { setTiktokVideoLoading(false); }
                     }} disabled={tiktokVideoLoading || storyboardUpdating} style={{
