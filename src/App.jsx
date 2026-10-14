@@ -1661,6 +1661,11 @@ function RSAStudio() {
   const [gadsMccClients, setGadsMccClients] = useState([]);   // level 2: clients under selected MCC
   // ── Google Ads PUBLISH state (Phase 2.5a — publish RSAs into existing ad groups) ──
   const [gadsPublishOpen, setGadsPublishOpen] = useState(false);
+  const [pubChain, _setPubChain] = useState(null); // Google publish chain: { steps:['rsa','pmax'], index } | null
+  const pubChainRef = useRef(null);
+  const setPubChain = (v) => { const nv = typeof v === 'function' ? v(pubChainRef.current) : v; pubChainRef.current = nv; _setPubChain(nv); };
+  const prevGadsOpenRef = useRef(false);
+  const prevPmaxOpenRef = useRef(false);
   const [gadsPublishStep, setGadsPublishStep] = useState(1);  // 1=config, 2=confirm
   const [gadsPublishing, setGadsPublishing] = useState(false);
   const [gadsPublishResult, setGadsPublishResult] = useState(null);  // { total, successes, failures }
@@ -2233,6 +2238,44 @@ function RSAStudio() {
     if (!pmaxLogo) return 'A logo is required — scrape or upload one first.';
     return '';
   };
+
+  // ── Google publish chaining (RSA → PMax) ──────────────────────────────────
+  const openGoogleStep = (step) => { if (step === 'rsa') openGadsPublishModal(); else if (step === 'pmax') openPmaxPublishModal(); };
+  const startGooglePublishChain = () => {
+    if (!isSignedIn) { setShowAuthModal(true); return; }
+    if (!gadsConn.connected) { triggerGadsConnect(); return; }
+    const steps = [];
+    if (googleBundlePick.rsa) steps.push('rsa');
+    if (googleBundlePick.pmax && rows[activeRow]?.pmaxResult) steps.push('pmax');
+    if (steps.length === 0) { setGadsConnError('Select at least one format to publish.'); return; }
+    setAdFormat('rsa'); setViewMode('detailed');
+    setPubChain({ steps, index: 0 });
+    setTimeout(() => openGoogleStep(steps[0]), 100);
+  };
+  const advancePublishChain = () => {
+    const chain = pubChainRef.current;
+    if (!chain) return;
+    const nextIndex = chain.index + 1;
+    if (nextIndex >= chain.steps.length) { setPubChain(null); return; }
+    setPubChain({ ...chain, index: nextIndex });
+    setTimeout(() => openGoogleStep(chain.steps[nextIndex]), 180);
+  };
+  const endPublishChain = () => { setPubChain(null); };
+  // Watch each step's modal close; read its result (null on open) to decide.
+  useEffect(() => {
+    const chain = pubChainRef.current;
+    if (chain) {
+      const cur = chain.steps[chain.index];
+      if (cur === 'rsa' && prevGadsOpenRef.current && !gadsPublishOpen) {
+        const ok = gadsPublishResult && (gadsPublishResult.failures?.length || 0) === 0 && (gadsPublishResult.successes?.length || 0) > 0;
+        if (ok) advancePublishChain(); else endPublishChain(); // RSA fail/cancel → abort whole chain
+      } else if (cur === 'pmax' && prevPmaxOpenRef.current && !pmaxPublishOpen) {
+        if (pmaxPublishResult) advancePublishChain(); else endPublishChain(); // PMax cancel/skip → keep RSA, stop
+      }
+    }
+    prevGadsOpenRef.current = gadsPublishOpen;
+    prevPmaxOpenRef.current = pmaxPublishOpen;
+  }, [gadsPublishOpen, pmaxPublishOpen, gadsPublishResult, pmaxPublishResult]);
 
   const openPmaxPublishModal = async () => {
     if (!isSignedIn) { setShowAuthModal(true); return; }
@@ -4204,11 +4247,7 @@ STRICT rules:
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
                   <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
-                  <span onClick={(e) => { e.stopPropagation();
-                    if (!isSignedIn) { setShowAuthModal(true); return; }
-                    if (!gadsConn.connected) { triggerGadsConnect(); return; }
-                    setAdFormat("rsa"); setViewMode("detailed"); setTimeout(() => { try { openGadsPublishModal(); } catch(_){} }, 80);
-                  }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
+                  <span title="Ships the selected formats to Google Ads — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startGooglePublishChain(); }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
             ) : (<><div style={iconBar}>{GoogleG}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>Your Google ad will appear here.</div></>)}
@@ -4762,7 +4801,7 @@ STRICT rules:
             </div>
 
             <div style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 8 }}>
-              {gadsPublishStep === 1 ? '🚀 Publish to Google Ads' : '✓ Confirm publish'}
+              {(pubChain ? ('Step ' + (pubChain.index + 1) + ' of ' + pubChain.steps.length + ' · ') : '') + (gadsPublishStep === 1 ? '🚀 Publish to Google Ads' : '✓ Confirm publish')}
             </div>
             <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 16, lineHeight: 1.5 }}>
               {gadsPublishStep === 1
@@ -4973,7 +5012,7 @@ STRICT rules:
           <div style={{ background: '#1a1f2e', borderRadius: 14, padding: 24, maxWidth: 460, width: '100%', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Step indicator */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>◈ Publish PMax Asset Group</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>{(pubChain ? ('Step ' + (pubChain.index + 1) + ' of ' + pubChain.steps.length + ' · ') : '') + '◈ Publish PMax Asset Group'}</div>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
                 {[1, 2].map(s => (
                   <div key={s} style={{ width: 28, height: 4, borderRadius: 2, background: pmaxPublishStep >= s ? '#4285f4' : 'rgba(255,255,255,0.1)' }} />
