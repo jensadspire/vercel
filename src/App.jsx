@@ -4092,7 +4092,7 @@ STRICT rules:
           const iconBar = { display: "flex", alignItems: "center", gap: 8, padding: "12px 14px 8px" };
           let brandName = pageMeta?.brand || "";
           if (!brandName) {
-            try { brandName = new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./, "").split(".")[0]; brandName = brandName.charAt(0).toUpperCase() + brandName.slice(1); } catch { brandName = "Your brand"; }
+            try { let _p = new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./, "").split("."); if (_p.length >= 3 && _p[0].length === 2) _p = _p.slice(1); brandName = _p[0]; brandName = brandName.charAt(0).toUpperCase() + brandName.slice(1); } catch { brandName = "Your brand"; }
           }
           return (
         <div style={{ width: "100%", maxWidth: 1100, marginTop: 28, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
@@ -4330,7 +4330,7 @@ STRICT rules:
                 {isPro ? (
                   <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#8b5cf6" }}>{csTemplates.length > 0 ? `${csTemplates.length} template${csTemplates.length > 1 ? 's' : ''} active →` : 'Set up your templates →'}</div>
                 ) : (
-                  <div onClick={(e) => { e.stopPropagation(); setShowCreativeStudio(true); }} style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#fbbf24", cursor: "pointer" }}>Upgrade to Pro to unlock →</div>
+                  <div onClick={(e) => { e.stopPropagation(); setUpgradeFeature('creative-studio'); setShowUpgradeModal(true); }} style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#fbbf24", cursor: "pointer" }}>Upgrade to Pro to unlock →</div>
                 )}
               </div>
               {/* Sequential Ad Builder — coming soon */}
@@ -4346,7 +4346,7 @@ STRICT rules:
         </div>
 
         {/* Creative Studio panel */}
-        {showCreativeStudio && (() => {
+        {showCreativeStudio && isPro && (() => {
           const vert = CS_VERTICALS[csVertical] || CS_VERTICALS.beauty;
           const toggleTpl = (id) => { const next = csTemplates.includes(id) ? csTemplates.filter(t => t !== id) : [...csTemplates, id]; saveCreativeStudio(next, csVertical); };
           return (
@@ -7278,7 +7278,7 @@ STRICT rules:
                       {pmaxLogo ? <img src={pmaxLogo} alt='' style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={e => e.currentTarget.style.display='none'} /> : <span style={{ color: 'white', fontSize: 16, fontWeight: 800 }}>{(rows[activeRow]?.campaign || url || 'B').charAt(0).toUpperCase()}</span>}
                     </div>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{(() => { try { const h = new URL(url).hostname.replace('www.','').split('.')[0]; return h.charAt(0).toUpperCase() + h.slice(1); } catch(_) { return rows[activeRow]?.campaign || 'Brand'; } })()}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{(() => { try { let _p = new URL(url).hostname.replace('www.','').split('.'); if (_p.length >= 3 && _p[0].length === 2) _p = _p.slice(1); const h = _p[0]; return h.charAt(0).toUpperCase() + h.slice(1); } catch(_) { return rows[activeRow]?.campaign || 'Brand'; } })()}</div>
                       <div style={{ fontSize: 10, color: '#8a8a8a' }}>Sponsored · {metaPreviewFormat === 'fb-feed' ? '🌐' : '📱'}</div>
                     </div>
                   </div>
@@ -8753,11 +8753,13 @@ STRICT rules:
                 {upgradeFeature === 'imagen' ? "✦ Imagen is a Pro feature" :
                  upgradeFeature === 'batch' ? "📦 Batch upload is a Pro feature" :
                  upgradeFeature === 'api' ? "⚡ API access is a Pro feature" :
+                 upgradeFeature === 'creative-studio' ? "✦ Creative Studio is a Pro feature" :
                  "🚀 Unlock Pro features"}
               </div>
               <div style={{ fontSize: 12, color: "#7e92a8", marginTop: 6 }}>
                 {upgradeFeature === 'imagen' ? "You've used your 5 free Imagen generations. Upgrade for unlimited." :
                  upgradeFeature === 'batch' ? "Process multiple URLs at once with the batch uploader." :
+                 upgradeFeature === 'creative-studio' ? "Shape how your video ads look and feel with brand-consistent storyline templates." :
                  "Get unlimited access to all RSA Studio features."}
               </div>
             </div>
