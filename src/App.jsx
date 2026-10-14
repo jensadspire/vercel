@@ -2279,11 +2279,17 @@ function RSAStudio() {
   }, [gadsPublishOpen, pmaxPublishOpen, gadsPublishResult, pmaxPublishResult]);
 
   // ── Meta publish chaining (main → carousel) ───────────────────────────────
-  const openMetaStep = (step) => { setMetaPublishFormat(step === 'carousel' ? 'carousel' : 'image'); setMetaModalStep(1); setMetaPlacement('new'); setMetaConfirmOpen(true); };
+  const openMetaStep = (step) => {
+    setMetaPublishFormat(step === 'carousel' ? 'carousel' : 'image');
+    setMetaModalStep(1); setMetaPlacement('new');
+    setSelectedCampaignId(''); setSelectedAdSetId('');
+    const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB' };
+    const _tld = Object.keys(tldMap).find(t => (url||'').includes(t));
+    setTargetCountries(_tld ? [tldMap[_tld]] : []);
+    setMetaConfirmOpen(true);
+  };
   const startMetaPublishChain = () => {
     if (!isSignedIn) { setShowAuthModal(true); return; }
-    if (!metaConn.connected) { triggerMetaConnect(); return; }
-    if (!metaConn.selectionComplete) { try { openMetaPicker(); } catch(_){} return; }
     const steps = [];
     if (metaBundlePick.main) steps.push('main');
     if (metaBundlePick.carousel) steps.push('carousel');
