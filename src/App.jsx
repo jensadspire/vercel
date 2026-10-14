@@ -4023,6 +4023,7 @@ STRICT rules:
                   border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap",
                 }}>★ Library <span style={{ background: "rgba(245,158,11,0.3)", borderRadius: 10, padding: "1px 6px", fontSize: 9 }}>{library.length}</span></button>
               )}
+              {isPro && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", letterSpacing: "0.05em" }}>PRO</span>}
               <span style={{ fontSize: 11, color: "#8fa3b8" }}>{user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}</span>
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
@@ -4063,6 +4064,16 @@ STRICT rules:
               animation: (loading || batchRunning) ? "pulse 1.5s ease-in-out infinite" : "none",
             }}>{loading ? "Generating…" : "Generate ads"}</button>
           </div>
+          {usageCount > 0 && !showGateModal && !isAdmin && (
+            <div style={{ maxWidth: 900, margin: "14px auto 0", display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ width: `${(usageCount / 10) * 100}%`, height: "100%", background: usageCount >= 8 ? "linear-gradient(90deg,#f59e0b,#ef4444)" : "linear-gradient(90deg,#3b82f6,#6366f1)", borderRadius: 2, transition: "width 0.4s" }} />
+              </div>
+              <span style={{ fontSize: 10, color: usageCount >= 8 ? "#f59e0b" : "#8fa3b8", fontWeight: 700, whiteSpace: "nowrap" }}>
+                {usageCount}/10 free generations{usageCount >= 8 ? " — almost at limit" : ""}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Output cards — mirror production previews */}
