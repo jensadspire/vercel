@@ -1062,6 +1062,8 @@ function RSAStudio() {
   const [metaModalStep, setMetaModalStep] = useState(1); // 1=preview, 2=placement
   const [metaPublishFormat, setMetaPublishFormat] = useState('image'); // 'image' | 'carousel' | 'video'
   const [metaBundlePick, setMetaBundlePick] = useState({ main: true, carousel: false }); // overview multi-publish selection (visual; wiring later)
+  const [googlePreviewFormat, setGooglePreviewFormat] = useState('rsa'); // overview Google card: 'rsa' | 'pmax'
+  const [googleBundlePick, setGoogleBundlePick] = useState({ rsa: true, pmax: false }); // overview Google publish + PMax-gen opt-in
   const [metaPlacement, setMetaPlacement] = useState('new'); // 'new' | 'existing_campaign' | 'existing_adset'
   const [metaCampaigns, setMetaCampaigns] = useState([]);
   const [metaAdSets, setMetaAdSets] = useState([]);
@@ -2812,6 +2814,93 @@ function RSAStudio() {
     setGenerateMeta(false);
   };
 
+  const generatePmaxAssetGroup = async (audienceInstruction) => {
+        const pmaxRes = await fetch("/api/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(isAdmin ? { "x-admin-key": import.meta.env.VITE_ADMIN_KEY } : {}),
+            ...(isSignedIn && session ? { "x-clerk-session": await session.getToken() } : {}),
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-6",
+            max_tokens: 2000,
+            messages: [{
+              role: "user",
+              content: `You are a Google Ads expert. Generate a PMax asset group for this landing page.
+OUTPUT LANGUAGE: ${pageMeta.language}
+CRITICAL: Write ALL copy in ${pageMeta.language}. Do not use English if the language is not English.
+
+Page URL: ${url}
+${pageMeta.title ? `Page Title: ${pageMeta.title}` : ""}
+${pageMeta.metaDescription ? `Meta Description: ${pageMeta.metaDescription}` : ""}
+${pageMeta.h1 ? `H1: ${pageMeta.h1}` : ""}
+${pageMeta.siteName ? `Brand: ${pageMeta.siteName}` : ""}
+${audienceInstruction}
+
+Return ONLY valid JSON — no prose, no markdown fences:
+{
+  "businessName": "max 25 chars",
+  "headlines": ["h1","h2","h3","h4","h5","h6","h7","h8","h9","h10","h11","h12","h13","h14","h15"],
+  "longHeadlines": ["lh1 max 60 chars","lh2","lh3","lh4","lh5"],
+  "descriptions": ["d1","d2","d3","d4","d5"],
+  "callToAction": "one of: Shop Now, Learn More, Sign Up, Get Quote, Apply Now, Book Now, Contact Us, Download, Get Offer, Order Now, Subscribe, Visit Site",
+  "path1": "short-path",
+  "path2": "sub-path"
+}
+
+Rules:
+- businessName: max 25 chars — use brand name only
+- headlines: exactly 15, max 30 chars each — short punchy phrases
+- longHeadlines: exactly 5, max 90 chars each — complete value propositions, no punctuation at end. IMPORTANT: longHeadlines[0] must be max 60 chars. longHeadlines[1-4] max 90 chars.
+- descriptions: exactly 5, max 90 chars each — benefit-focused, include CTA
+- callToAction: pick the single most relevant option from the list above
+- path1, path2: ≤ ${PATH_LIMIT} chars each, no spaces, URL-safe, lowercase — short display-path segments derived from the page (optional but recommended)`
+            }],
+          }),
+        });
+        const pmaxData = await pmaxRes.json();
+        if (pmaxData.gated) {
+          setUsageCount(pmaxData.count || FREE_LIMIT);
+          setShowGateModal(true);
+          setLoading(false);
+          return;
+        }
+        try {
+          const pmaxText = pmaxData.content?.[0]?.text || "";
+          const pmaxClean = pmaxText.replace(/\`\`\`json|\`\`\`/g, "").trim();
+          const pmaxParsed = JSON.parse(pmaxClean);
+          const pmaxP1 = (pmaxParsed.path1 || "").slice(0, PATH_LIMIT);
+          const pmaxP2 = (pmaxParsed.path2 || "").slice(0, PATH_LIMIT);
+          const pmaxTrimmed = {
+            ...pmaxParsed,
+            headlines: (pmaxParsed.headlines || []).map(h => (h || "").slice(0, HL_LIMIT)),
+            longHeadlines: (pmaxParsed.longHeadlines || []).map((h, i) => smartTrimTo(h || "", i === 0 ? LONG_HL_FIRST_LIMIT : LONG_HL_LIMIT)),
+            descriptions: (pmaxParsed.descriptions || []).map(d => smartTrimTo(d || "", DESC_LIMIT)),
+          };
+          updateRow(activeRow, r => ({ ...r, pmaxResult: { ...pmaxTrimmed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }));
+          setGenerated(true);
+          // Track usage count
+          if (pmaxData.usage_count) setUsageCount(pmaxData.usage_count);
+          // Save to history
+          setSessionUrls(prev => [...new Set([...prev, url])]);
+          setSessionLangs(prev => [...new Set([...prev, pageMeta.language || "English"])]);
+          setHistory(prev => {
+            const snapshot = {
+              id: Date.now(),
+              url,
+              format: "pmax",
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: { ...pmaxTrimmed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 } : r))),
+              metaResult: metaResult || null,
+            };
+            return [snapshot, ...prev].slice(0, 20);
+          });
+        } catch (e) {
+          setError("Could not parse PMax response — please try again");
+        }
+  };
+
   const generate = async () => {
     if (!url.trim()) { setError("Please enter a URL first"); return; }
 
@@ -3105,91 +3194,7 @@ NOTE: ${activeModifiers} modifiers are active simultaneously. Balance them caref
 
       // ── Step 3: Generate ad copy (format-aware) ────────────────────────────
       if (adFormat === "pmax") {
-        // ── PMax generation ──
-        const pmaxRes = await fetch("/api/generate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(isAdmin ? { "x-admin-key": import.meta.env.VITE_ADMIN_KEY } : {}),
-            ...(isSignedIn && session ? { "x-clerk-session": await session.getToken() } : {}),
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-6",
-            max_tokens: 2000,
-            messages: [{
-              role: "user",
-              content: `You are a Google Ads expert. Generate a PMax asset group for this landing page.
-OUTPUT LANGUAGE: ${pageMeta.language}
-CRITICAL: Write ALL copy in ${pageMeta.language}. Do not use English if the language is not English.
-
-Page URL: ${url}
-${pageMeta.title ? `Page Title: ${pageMeta.title}` : ""}
-${pageMeta.metaDescription ? `Meta Description: ${pageMeta.metaDescription}` : ""}
-${pageMeta.h1 ? `H1: ${pageMeta.h1}` : ""}
-${pageMeta.siteName ? `Brand: ${pageMeta.siteName}` : ""}
-${audienceInstruction}
-
-Return ONLY valid JSON — no prose, no markdown fences:
-{
-  "businessName": "max 25 chars",
-  "headlines": ["h1","h2","h3","h4","h5","h6","h7","h8","h9","h10","h11","h12","h13","h14","h15"],
-  "longHeadlines": ["lh1 max 60 chars","lh2","lh3","lh4","lh5"],
-  "descriptions": ["d1","d2","d3","d4","d5"],
-  "callToAction": "one of: Shop Now, Learn More, Sign Up, Get Quote, Apply Now, Book Now, Contact Us, Download, Get Offer, Order Now, Subscribe, Visit Site",
-  "path1": "short-path",
-  "path2": "sub-path"
-}
-
-Rules:
-- businessName: max 25 chars — use brand name only
-- headlines: exactly 15, max 30 chars each — short punchy phrases
-- longHeadlines: exactly 5, max 90 chars each — complete value propositions, no punctuation at end. IMPORTANT: longHeadlines[0] must be max 60 chars. longHeadlines[1-4] max 90 chars.
-- descriptions: exactly 5, max 90 chars each — benefit-focused, include CTA
-- callToAction: pick the single most relevant option from the list above
-- path1, path2: ≤ ${PATH_LIMIT} chars each, no spaces, URL-safe, lowercase — short display-path segments derived from the page (optional but recommended)`
-            }],
-          }),
-        });
-        const pmaxData = await pmaxRes.json();
-        if (pmaxData.gated) {
-          setUsageCount(pmaxData.count || FREE_LIMIT);
-          setShowGateModal(true);
-          setLoading(false);
-          return;
-        }
-        try {
-          const pmaxText = pmaxData.content?.[0]?.text || "";
-          const pmaxClean = pmaxText.replace(/\`\`\`json|\`\`\`/g, "").trim();
-          const pmaxParsed = JSON.parse(pmaxClean);
-          const pmaxP1 = (pmaxParsed.path1 || "").slice(0, PATH_LIMIT);
-          const pmaxP2 = (pmaxParsed.path2 || "").slice(0, PATH_LIMIT);
-          const pmaxTrimmed = {
-            ...pmaxParsed,
-            headlines: (pmaxParsed.headlines || []).map(h => (h || "").slice(0, HL_LIMIT)),
-            longHeadlines: (pmaxParsed.longHeadlines || []).map((h, i) => smartTrimTo(h || "", i === 0 ? LONG_HL_FIRST_LIMIT : LONG_HL_LIMIT)),
-            descriptions: (pmaxParsed.descriptions || []).map(d => smartTrimTo(d || "", DESC_LIMIT)),
-          };
-          updateRow(activeRow, r => ({ ...r, pmaxResult: { ...pmaxTrimmed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }));
-          setGenerated(true);
-          // Track usage count
-          if (pmaxData.usage_count) setUsageCount(pmaxData.usage_count);
-          // Save to history
-          setSessionUrls(prev => [...new Set([...prev, url])]);
-          setSessionLangs(prev => [...new Set([...prev, pageMeta.language || "English"])]);
-          setHistory(prev => {
-            const snapshot = {
-              id: Date.now(),
-              url,
-              format: "pmax",
-              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: { ...pmaxTrimmed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 } : r))),
-              metaResult: metaResult || null,
-            };
-            return [snapshot, ...prev].slice(0, 20);
-          });
-        } catch (e) {
-          setError("Could not parse PMax response — please try again");
-        }
+        await generatePmaxAssetGroup(audienceInstruction);
         setLoading(false);
         return;
       }
@@ -3325,6 +3330,7 @@ STRICT rules:
         return updated;
       });
       // ── Meta generation (opt-in) ─────────────────────────────────────────
+      if (googleBundlePick.pmax) { await generatePmaxAssetGroup(audienceInstruction); }
       if (generateMeta) {
         setMetaLoading(true);
         setMetaError("");
@@ -4113,8 +4119,40 @@ STRICT rules:
             {googleReady ? (
               <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ marginBottom: 10 }}>{GoogleG}</div>
-                <SerpPreview row={rows[0]} favicon={pmaxLogo} />
-                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
+                <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                  {[{ id: "rsa", label: "Search ad" }, { id: "pmax", label: "PMax" }].map(f => (
+                    <button key={f.id} onClick={(e) => { e.stopPropagation(); setGooglePreviewFormat(f.id); }} style={{ padding: "3px 9px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700, background: googlePreviewFormat === f.id ? "rgba(99,102,241,0.18)" : "rgba(0,0,0,0.05)", color: googlePreviewFormat === f.id ? "#4f46e5" : "#8a8a8a" }}>{f.label}</button>
+                  ))}
+                </div>
+                {googlePreviewFormat === "pmax" ? (() => {
+                  const pm = rows[0]?.pmaxResult;
+                  if (!pm) return (<div style={{ padding: "28px 16px", textAlign: "center", color: "#8a8a8a", background: "#f7f8fa", borderRadius: 10 }}><div style={{ fontSize: 24, marginBottom: 8 }}>◈</div><div style={{ fontSize: 12, fontWeight: 700, color: "#606770" }}>PMax assets not generated</div><div style={{ fontSize: 11, marginTop: 4 }}>Tick <strong>PMax</strong> below, then Generate.</div></div>);
+                  const pmImg = (rows[0]?.pmaxImages?.landscape?.[0]?.url) || (rows[0]?.pmaxImages?.square?.[0]?.url) || (rows[0]?.pmaxImages?.portrait?.[0]?.url) || null;
+                  const pmHeadline = (pm.longHeadlines || []).find(Boolean) || (pm.headlines || []).find(Boolean) || "Discover more";
+                  const pmDesc = (pm.descriptions || []).find(Boolean) || "";
+                  return (
+                    <div style={{ background: "#fff", border: "1px solid #dadde1", borderRadius: 10, overflow: "hidden" }}>
+                      {pmImg ? <img src={pmImg} alt="" style={{ width: "100%", aspectRatio: "1.91/1", objectFit: "cover", display: "block", background: "#f0f2f5" }} /> : <div style={{ width: "100%", aspectRatio: "1.91/1", background: "linear-gradient(135deg,#eef2ff,#f0f9ff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: 11 }}>Add PMax images in editor</div>}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 6px" }}>
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", overflow: "hidden", background: "#e4e6eb", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{pmaxLogo ? <img src={pmaxLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : null}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pm.businessName || brandName}</div>
+                          <div style={{ fontSize: 10, color: "#1a73e8", fontWeight: 700 }}>Sponsored · Performance Max</div>
+                        </div>
+                      </div>
+                      <div style={{ padding: "0 12px 4px", fontSize: 13, fontWeight: 700, color: "#1c1e21", lineHeight: 1.3 }}>{pmHeadline}</div>
+                      {pmDesc ? <div style={{ padding: "0 12px 10px", fontSize: 11, color: "#606770", lineHeight: 1.4 }}>{pmDesc.slice(0, 90)}</div> : null}
+                      <div style={{ padding: "0 12px 12px" }}><span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, color: "#fff", background: "#1a73e8", borderRadius: 6, padding: "7px 14px" }}>{pm.callToAction || "Learn more"}</span></div>
+                    </div>
+                  );
+                })() : (
+                  <SerpPreview row={rows[0]} favicon={pmaxLogo} />
+                )}
+                <div onClick={(e) => e.stopPropagation()} style={{ marginTop: "auto", display: "flex", gap: 14, alignItems: "center", paddingTop: 12, flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#1c1e21", cursor: "pointer", fontWeight: 600 }}><input type="checkbox" checked={googleBundlePick.rsa} onChange={() => setGoogleBundlePick(p => ({ ...p, rsa: !p.rsa }))} style={{ cursor: "pointer" }} /> Search ad</label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#1c1e21", cursor: "pointer", fontWeight: 600 }}><input type="checkbox" checked={googleBundlePick.pmax} onChange={() => setGoogleBundlePick(p => ({ ...p, pmax: !p.pmax }))} style={{ cursor: "pointer" }} /> PMax</label>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
                   <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
                   <span onClick={(e) => { e.stopPropagation();
