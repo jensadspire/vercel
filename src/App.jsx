@@ -1661,7 +1661,8 @@ function RSAStudio() {
   const [gadsMccClients, setGadsMccClients] = useState([]);   // level 2: clients under selected MCC
   // ── Google Ads PUBLISH state (Phase 2.5a — publish RSAs into existing ad groups) ──
   const [gadsPublishOpen, setGadsPublishOpen] = useState(false);
-  const [pubChain, _setPubChain] = useState(null); // Google publish chain: { steps:['rsa','pmax'], index } | null
+  const [pubChain, _setPubChain] = useState(null);
+  const [pubChainPause, setPubChainPause] = useState(null); // { doneStep, nextStep, nextIndex, total } | null — between-step confirmation // Google publish chain: { steps:['rsa','pmax'], index } | null
   const pubChainRef = useRef(null);
   const setPubChain = (v) => { const nv = typeof v === 'function' ? v(pubChainRef.current) : v; pubChainRef.current = nv; _setPubChain(nv); };
   const prevGadsOpenRef = useRef(false);
@@ -2257,11 +2258,19 @@ function RSAStudio() {
     if (!chain) return;
     const nextIndex = chain.index + 1;
     if (nextIndex >= chain.steps.length) { setPubChain(null); return; }
-    setPubChain({ ...chain, index: nextIndex });
-    const _nextStep = chain.steps[nextIndex];
-    setTimeout(() => { if (_nextStep === 'main' || _nextStep === 'carousel') openMetaStep(_nextStep); else openGoogleStep(_nextStep); }, 180);
+    setPubChainPause({ doneStep: chain.steps[chain.index], nextStep: chain.steps[nextIndex], nextIndex, total: chain.steps.length });
   };
   const endPublishChain = () => { setPubChain(null); };
+  const chainStepLabel = (s) => s === 'rsa' ? 'Search ad' : s === 'pmax' ? 'PMax' : s === 'main' ? 'Meta ad' : s === 'carousel' ? 'Carousel' : s;
+  const continuePublishChain = () => {
+    const chain = pubChainRef.current;
+    if (!chain || !pubChainPause) { setPubChainPause(null); return; }
+    const nextIndex = pubChainPause.nextIndex;
+    const ns = pubChainPause.nextStep;
+    setPubChainPause(null);
+    setPubChain({ ...chain, index: nextIndex });
+    setTimeout(() => { if (ns === 'main' || ns === 'carousel') openMetaStep(ns); else openGoogleStep(ns); }, 120);
+  };
   // Watch each step's modal close; read its result (null on open) to decide.
   useEffect(() => {
     const chain = pubChainRef.current;
@@ -4822,6 +4831,17 @@ STRICT rules:
       )}
 
       {/* ── Google Ads Publish Modal (Phase 2.5a — two-step: config → confirm) ── */}
+      {pubChainPause && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#0f172a', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 14, padding: '26px 24px', maxWidth: 380, width: '100%', textAlign: 'center', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+            <div style={{ fontSize: 34, marginBottom: 10 }}>✅</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0', marginBottom: 6 }}>{chainStepLabel(pubChainPause.doneStep)} published</div>
+            <div style={{ fontSize: 12, color: '#7e92a8', lineHeight: 1.5, marginBottom: 20 }}>Created as paused in your account. Next up: <strong style={{ color: '#cbd5e1' }}>{chainStepLabel(pubChainPause.nextStep)}</strong> — Step {pubChainPause.nextIndex + 1} of {pubChainPause.total}.</div>
+            <button onClick={continuePublishChain} style={{ width: '100%', padding: '12px', fontSize: 13, fontWeight: 800, background: 'linear-gradient(135deg,#10b981,#059669)', color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', marginBottom: 10 }}>Continue to {chainStepLabel(pubChainPause.nextStep)} →</button>
+            <button onClick={() => { setPubChainPause(null); setPubChain(null); }} style={{ width: '100%', padding: '10px', fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.04)', color: '#7e92a8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, cursor: 'pointer' }}>Done for now</button>
+          </div>
+        </div>
+      )}
       {gadsPublishOpen && (
         <div onClick={(e) => { if (e.target === e.currentTarget && !gadsPublishing) setGadsPublishOpen(false); }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: 'linear-gradient(135deg, #0a0e1a, #131825)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 24, maxWidth: 540, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
