@@ -3882,7 +3882,7 @@ STRICT rules:
 
   // ── NEW UI Stage 1a: Overview front page ────────────────────────────────────
   if (viewMode === "overview") {
-    const openDetail = (fmt) => { setAdFormat(fmt); setViewMode("detailed"); };
+    const openDetail = (fmt) => { if (!isSignedIn) { setShowAuthModal(true); return; } setAdFormat(fmt); setViewMode("detailed"); };
     const googleReady = generated && rows && rows.length > 0;
     const metaReady = !!metaResult;
     const videoReady = !!tiktokVideoUrl;
@@ -4238,7 +4238,7 @@ STRICT rules:
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#8b5cf6", borderRadius: 6, padding: "8px 12px" }}>{(() => { const a = metaResult?.descriptions || []; const d = videoUseMetaCopy ? a[0] : (a[1] || a[0]); return (d && d.length <= 18) ? d : "Shop Now"; })()}</div>
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
-                  <span onClick={(e) => { e.stopPropagation(); setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
+                  <span onClick={(e) => { e.stopPropagation(); if (!isSignedIn) { setShowAuthModal(true); return; } setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
                   <span onClick={(e) => { e.stopPropagation();
                     if (!isSignedIn) { setShowAuthModal(true); return; }
