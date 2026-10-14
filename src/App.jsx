@@ -1061,6 +1061,10 @@ function RSAStudio() {
   const [metaConfirmOpen, setMetaConfirmOpen] = useState(false);
   const [metaModalStep, setMetaModalStep] = useState(1); // 1=preview, 2=placement
   const [metaPublishFormat, setMetaPublishFormat] = useState('image'); // 'image' | 'carousel' | 'video'
+  const [metaBundlePick, setMetaBundlePick] = useState({ main: true, carousel: false }); // overview multi-publish selection (visual; wiring later)
+  const [googlePreviewFormat, setGooglePreviewFormat] = useState('rsa'); // overview Google card: 'rsa' | 'pmax'
+  const [googleBundlePick, setGoogleBundlePick] = useState({ rsa: true, pmax: false }); // overview Google publish selection
+  const [pmaxGenLoading, setPmaxGenLoading] = useState(false); // overview on-demand PMax generation spinner
   const [metaPlacement, setMetaPlacement] = useState('new'); // 'new' | 'existing_campaign' | 'existing_adset'
   const [metaCampaigns, setMetaCampaigns] = useState([]);
   const [metaAdSets, setMetaAdSets] = useState([]);
@@ -1657,6 +1661,11 @@ function RSAStudio() {
   const [gadsMccClients, setGadsMccClients] = useState([]);   // level 2: clients under selected MCC
   // ── Google Ads PUBLISH state (Phase 2.5a — publish RSAs into existing ad groups) ──
   const [gadsPublishOpen, setGadsPublishOpen] = useState(false);
+  const [pubChain, _setPubChain] = useState(null); // Google publish chain: { steps:['rsa','pmax'], index } | null
+  const pubChainRef = useRef(null);
+  const setPubChain = (v) => { const nv = typeof v === 'function' ? v(pubChainRef.current) : v; pubChainRef.current = nv; _setPubChain(nv); };
+  const prevGadsOpenRef = useRef(false);
+  const prevPmaxOpenRef = useRef(false);
   const [gadsPublishStep, setGadsPublishStep] = useState(1);  // 1=config, 2=confirm
   const [gadsPublishing, setGadsPublishing] = useState(false);
   const [gadsPublishResult, setGadsPublishResult] = useState(null);  // { total, successes, failures }
@@ -2229,6 +2238,81 @@ function RSAStudio() {
     if (!pmaxLogo) return 'A logo is required — scrape or upload one first.';
     return '';
   };
+
+  // ── Google publish chaining (RSA → PMax) ──────────────────────────────────
+  const openGoogleStep = (step) => { if (step === 'rsa') openGadsPublishModal(); else if (step === 'pmax') openPmaxPublishModal(); };
+  const startGooglePublishChain = () => {
+    if (!isSignedIn) { setShowAuthModal(true); return; }
+    if (!gadsConn.connected) { triggerGadsConnect(); return; }
+    const steps = [];
+    if (googleBundlePick.rsa) steps.push('rsa');
+    if (googleBundlePick.pmax && rows[activeRow]?.pmaxResult) steps.push('pmax');
+    if (steps.length === 0) { setGadsConnError('Select at least one format to publish.'); return; }
+    setAdFormat('rsa'); setViewMode('detailed');
+    setPubChain({ steps, index: 0 });
+    setTimeout(() => openGoogleStep(steps[0]), 100);
+  };
+  const advancePublishChain = () => {
+    const chain = pubChainRef.current;
+    if (!chain) return;
+    const nextIndex = chain.index + 1;
+    if (nextIndex >= chain.steps.length) { setPubChain(null); return; }
+    setPubChain({ ...chain, index: nextIndex });
+    const _nextStep = chain.steps[nextIndex];
+    setTimeout(() => { if (_nextStep === 'main' || _nextStep === 'carousel') openMetaStep(_nextStep); else openGoogleStep(_nextStep); }, 180);
+  };
+  const endPublishChain = () => { setPubChain(null); };
+  // Watch each step's modal close; read its result (null on open) to decide.
+  useEffect(() => {
+    const chain = pubChainRef.current;
+    if (chain) {
+      const cur = chain.steps[chain.index];
+      if (cur === 'rsa' && prevGadsOpenRef.current && !gadsPublishOpen) {
+        const ok = gadsPublishResult && (gadsPublishResult.failures?.length || 0) === 0 && (gadsPublishResult.successes?.length || 0) > 0;
+        if (ok) advancePublishChain(); else endPublishChain(); // RSA fail/cancel → abort whole chain
+      } else if (cur === 'pmax' && prevPmaxOpenRef.current && !pmaxPublishOpen) {
+        if (pmaxPublishResult) advancePublishChain(); else endPublishChain(); // PMax cancel/skip → keep RSA, stop
+      }
+    }
+    prevGadsOpenRef.current = gadsPublishOpen;
+    prevPmaxOpenRef.current = pmaxPublishOpen;
+  }, [gadsPublishOpen, pmaxPublishOpen, gadsPublishResult, pmaxPublishResult]);
+
+  // ── Meta publish chaining (main → carousel) ───────────────────────────────
+  const openMetaStep = (step) => {
+    setMetaPublishFormat(step === 'carousel' ? 'carousel' : 'image');
+    setMetaModalStep(1); setMetaPlacement('new');
+    setSelectedCampaignId(''); setSelectedAdSetId('');
+    const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB' };
+    const _tld = Object.keys(tldMap).find(t => (url||'').includes(t));
+    setTargetCountries(_tld ? [tldMap[_tld]] : []);
+    setMetaConfirmOpen(true);
+  };
+  const startMetaPublishChain = () => {
+    if (!isSignedIn) { setShowAuthModal(true); return; }
+    const steps = [];
+    if (metaBundlePick.main) steps.push('main');
+    if (metaBundlePick.carousel) steps.push('carousel');
+    if (steps.length === 0) { setMetaError('Select at least one format to publish.'); return; }
+    setAdFormat('meta'); setViewMode('detailed');
+    setPubChain({ platform: 'meta', steps, index: 0 });
+    setTimeout(() => openMetaStep(steps[0]), 100);
+  };
+  // The Meta modal closes on publish-click, so watch publishing + result (not close).
+  const prevMetaConfirmRef = useRef(false);
+  const prevMetaPublishingRef = useRef(false);
+  useEffect(() => {
+    const chain = pubChainRef.current;
+    if (chain && (chain.steps[chain.index] === 'main' || chain.steps[chain.index] === 'carousel')) {
+      if (prevMetaPublishingRef.current && !metaPublishing) {
+        if (metaPublishResult && metaPublishResult.success) advancePublishChain(); else endPublishChain(); // fail → abort/stop
+      } else if (prevMetaConfirmRef.current && !metaConfirmOpen && !metaPublishing) {
+        endPublishChain(); // cancelled without publishing
+      }
+    }
+    prevMetaConfirmRef.current = metaConfirmOpen;
+    prevMetaPublishingRef.current = metaPublishing;
+  }, [metaConfirmOpen, metaPublishing, metaPublishResult]);
 
   const openPmaxPublishModal = async () => {
     if (!isSignedIn) { setShowAuthModal(true); return; }
@@ -2811,6 +2895,135 @@ function RSAStudio() {
     setGenerateMeta(false);
   };
 
+  const seedPmaxImages = async (srcUrl) => {
+    if (!srcUrl) return;
+    for (const slot of ['landscape', 'square', 'portrait']) {
+      const existing = (rows[activeRow]?.pmaxImages?.[slot]) || [];
+      if (existing.length > 0) continue; // never overwrite curated slots
+      try {
+        const r = await fetch('/api/normalize-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: srcUrl, slot, fit: 'contain' }) });
+        const d = await r.json();
+        if (d.url) updateRow(activeRow, row => ({ ...row, pmaxImages: { ...(row.pmaxImages || { landscape: [], square: [], portrait: [] }), [slot]: [{ srcUrl, url: d.url, fit: 'contain' }] } }));
+      } catch (_) {}
+    }
+  };
+
+  const generatePmaxAssetGroup = async (audienceInstruction) => {
+        const pmaxRes = await fetch("/api/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(isAdmin ? { "x-admin-key": import.meta.env.VITE_ADMIN_KEY } : {}),
+            ...(isSignedIn && session ? { "x-clerk-session": await session.getToken() } : {}),
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-6",
+            max_tokens: 2000,
+            messages: [{
+              role: "user",
+              content: `You are a Google Ads expert. Generate a PMax asset group for this landing page.
+OUTPUT LANGUAGE: ${pageMeta.language}
+CRITICAL: Write ALL copy in ${pageMeta.language}. Do not use English if the language is not English.
+
+Page URL: ${url}
+${pageMeta.title ? `Page Title: ${pageMeta.title}` : ""}
+${pageMeta.metaDescription ? `Meta Description: ${pageMeta.metaDescription}` : ""}
+${pageMeta.h1 ? `H1: ${pageMeta.h1}` : ""}
+${pageMeta.siteName ? `Brand: ${pageMeta.siteName}` : ""}
+${audienceInstruction}
+
+Return ONLY valid JSON — no prose, no markdown fences:
+{
+  "businessName": "max 25 chars",
+  "headlines": ["h1","h2","h3","h4","h5","h6","h7","h8","h9","h10","h11","h12","h13","h14","h15"],
+  "longHeadlines": ["lh1 max 60 chars","lh2","lh3","lh4","lh5"],
+  "descriptions": ["d1","d2","d3","d4","d5"],
+  "callToAction": "one of: Shop Now, Learn More, Sign Up, Get Quote, Apply Now, Book Now, Contact Us, Download, Get Offer, Order Now, Subscribe, Visit Site",
+  "path1": "short-path",
+  "path2": "sub-path"
+}
+
+Rules:
+- businessName: max 25 chars — use brand name only
+- headlines: exactly 15, max 30 chars each — short punchy phrases
+- longHeadlines: exactly 5, max 90 chars each — complete value propositions, no punctuation at end. IMPORTANT: longHeadlines[0] must be max 60 chars. longHeadlines[1-4] max 90 chars.
+- descriptions: exactly 5, max 90 chars each — benefit-focused, include CTA
+- callToAction: pick the single most relevant option from the list above
+- path1, path2: ≤ ${PATH_LIMIT} chars each, no spaces, URL-safe, lowercase — short display-path segments derived from the page (optional but recommended)`
+            }],
+          }),
+        });
+        const pmaxData = await pmaxRes.json();
+        if (pmaxData.gated) {
+          setUsageCount(pmaxData.count || FREE_LIMIT);
+          setShowGateModal(true);
+          setLoading(false);
+          return;
+        }
+        try {
+          const pmaxText = pmaxData.content?.[0]?.text || "";
+          const pmaxClean = pmaxText.replace(/\`\`\`json|\`\`\`/g, "").trim();
+          const pmaxParsed = JSON.parse(pmaxClean);
+          const pmaxP1 = (pmaxParsed.path1 || "").slice(0, PATH_LIMIT);
+          const pmaxP2 = (pmaxParsed.path2 || "").slice(0, PATH_LIMIT);
+          const pmaxTrimmed = {
+            ...pmaxParsed,
+            headlines: (pmaxParsed.headlines || []).map(h => (h || "").slice(0, HL_LIMIT)),
+            longHeadlines: (pmaxParsed.longHeadlines || []).map((h, i) => smartTrimTo(h || "", i === 0 ? LONG_HL_FIRST_LIMIT : LONG_HL_LIMIT)),
+            descriptions: (pmaxParsed.descriptions || []).map(d => smartTrimTo(d || "", DESC_LIMIT)),
+          };
+          updateRow(activeRow, r => ({ ...r, pmaxResult: { ...pmaxTrimmed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }));
+          setGenerated(true);
+          // Track usage count
+          if (pmaxData.usage_count) setUsageCount(pmaxData.usage_count);
+          // Save to history
+          setSessionUrls(prev => [...new Set([...prev, url])]);
+          setSessionLangs(prev => [...new Set([...prev, pageMeta.language || "English"])]);
+          setHistory(prev => {
+            const snapshot = {
+              id: Date.now(),
+              url,
+              format: "pmax",
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: { ...pmaxTrimmed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 } : r))),
+              metaResult: metaResult || null,
+            };
+            return [snapshot, ...prev].slice(0, 20);
+          });
+        } catch (e) {
+          setError("Could not parse PMax response — please try again");
+        }
+  };
+
+  const buildAudienceInstruction = () => {
+      const activeAudiences = audiences.filter(a => a.name?.trim());
+      const audienceLines = activeAudiences.map((a, i) =>
+        "Segment " + (i + 1) + ": " + a.name + "\n" +
+        "- Pain points / motivations: " + (a.painPoints || "not specified") + "\n" +
+        "- Preferred tone: " + (a.tone || "Professional")
+      ).join("\n");
+      const audienceInstruction = activeAudiences.length > 0
+        ? "\n\nAUDIENCE MODIFIERS (" + activeAudiences.length + " segment" + (activeAudiences.length > 1 ? "s" : "") + " active):\n" +
+          audienceLines + "\n" +
+          "- Write copy that resonates with these audience segments — reflect their language, concerns and motivations\n" +
+          "- Distribute audience-specific angles across the headlines — do not cluster them all together"
+        : "";
+    return audienceInstruction;
+  };
+
+  const runPmaxOnDemand = async () => {
+    if (pmaxGenLoading) return;
+    setGooglePreviewFormat('pmax');
+    setPmaxGenLoading(true);
+    try {
+      await generatePmaxAssetGroup(buildAudienceInstruction());
+      const seed = metaResult?.heroProductImage || metaResult?.imageUrl || (pageMeta.images || [])[0];
+      if (seed) await seedPmaxImages(seed);
+      setGoogleBundlePick(p => ({ ...p, pmax: true }));
+    } catch (e) { console.error('[pmax-on-demand]', e.message); }
+    finally { setPmaxGenLoading(false); }
+  };
+
   const generate = async () => {
     if (!url.trim()) { setError("Please enter a URL first"); return; }
 
@@ -3104,91 +3317,7 @@ NOTE: ${activeModifiers} modifiers are active simultaneously. Balance them caref
 
       // ── Step 3: Generate ad copy (format-aware) ────────────────────────────
       if (adFormat === "pmax") {
-        // ── PMax generation ──
-        const pmaxRes = await fetch("/api/generate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(isAdmin ? { "x-admin-key": import.meta.env.VITE_ADMIN_KEY } : {}),
-            ...(isSignedIn && session ? { "x-clerk-session": await session.getToken() } : {}),
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-6",
-            max_tokens: 2000,
-            messages: [{
-              role: "user",
-              content: `You are a Google Ads expert. Generate a PMax asset group for this landing page.
-OUTPUT LANGUAGE: ${pageMeta.language}
-CRITICAL: Write ALL copy in ${pageMeta.language}. Do not use English if the language is not English.
-
-Page URL: ${url}
-${pageMeta.title ? `Page Title: ${pageMeta.title}` : ""}
-${pageMeta.metaDescription ? `Meta Description: ${pageMeta.metaDescription}` : ""}
-${pageMeta.h1 ? `H1: ${pageMeta.h1}` : ""}
-${pageMeta.siteName ? `Brand: ${pageMeta.siteName}` : ""}
-${audienceInstruction}
-
-Return ONLY valid JSON — no prose, no markdown fences:
-{
-  "businessName": "max 25 chars",
-  "headlines": ["h1","h2","h3","h4","h5","h6","h7","h8","h9","h10","h11","h12","h13","h14","h15"],
-  "longHeadlines": ["lh1 max 60 chars","lh2","lh3","lh4","lh5"],
-  "descriptions": ["d1","d2","d3","d4","d5"],
-  "callToAction": "one of: Shop Now, Learn More, Sign Up, Get Quote, Apply Now, Book Now, Contact Us, Download, Get Offer, Order Now, Subscribe, Visit Site",
-  "path1": "short-path",
-  "path2": "sub-path"
-}
-
-Rules:
-- businessName: max 25 chars — use brand name only
-- headlines: exactly 15, max 30 chars each — short punchy phrases
-- longHeadlines: exactly 5, max 90 chars each — complete value propositions, no punctuation at end. IMPORTANT: longHeadlines[0] must be max 60 chars. longHeadlines[1-4] max 90 chars.
-- descriptions: exactly 5, max 90 chars each — benefit-focused, include CTA
-- callToAction: pick the single most relevant option from the list above
-- path1, path2: ≤ ${PATH_LIMIT} chars each, no spaces, URL-safe, lowercase — short display-path segments derived from the page (optional but recommended)`
-            }],
-          }),
-        });
-        const pmaxData = await pmaxRes.json();
-        if (pmaxData.gated) {
-          setUsageCount(pmaxData.count || FREE_LIMIT);
-          setShowGateModal(true);
-          setLoading(false);
-          return;
-        }
-        try {
-          const pmaxText = pmaxData.content?.[0]?.text || "";
-          const pmaxClean = pmaxText.replace(/\`\`\`json|\`\`\`/g, "").trim();
-          const pmaxParsed = JSON.parse(pmaxClean);
-          const pmaxP1 = (pmaxParsed.path1 || "").slice(0, PATH_LIMIT);
-          const pmaxP2 = (pmaxParsed.path2 || "").slice(0, PATH_LIMIT);
-          const pmaxTrimmed = {
-            ...pmaxParsed,
-            headlines: (pmaxParsed.headlines || []).map(h => (h || "").slice(0, HL_LIMIT)),
-            longHeadlines: (pmaxParsed.longHeadlines || []).map((h, i) => smartTrimTo(h || "", i === 0 ? LONG_HL_FIRST_LIMIT : LONG_HL_LIMIT)),
-            descriptions: (pmaxParsed.descriptions || []).map(d => smartTrimTo(d || "", DESC_LIMIT)),
-          };
-          updateRow(activeRow, r => ({ ...r, pmaxResult: { ...pmaxTrimmed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }));
-          setGenerated(true);
-          // Track usage count
-          if (pmaxData.usage_count) setUsageCount(pmaxData.usage_count);
-          // Save to history
-          setSessionUrls(prev => [...new Set([...prev, url])]);
-          setSessionLangs(prev => [...new Set([...prev, pageMeta.language || "English"])]);
-          setHistory(prev => {
-            const snapshot = {
-              id: Date.now(),
-              url,
-              format: "pmax",
-              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              rows: JSON.parse(JSON.stringify(rows.map((r, i) => i === activeRow ? { ...r, pmaxResult: { ...pmaxTrimmed, finalUrl: url, path1: pmaxP1, path2: pmaxP2 }, finalUrl: url, path1: pmaxP1, path2: pmaxP2 } : r))),
-              metaResult: metaResult || null,
-            };
-            return [snapshot, ...prev].slice(0, 20);
-          });
-        } catch (e) {
-          setError("Could not parse PMax response — please try again");
-        }
+        await generatePmaxAssetGroup(audienceInstruction);
         setLoading(false);
         return;
       }
@@ -4108,19 +4237,54 @@ STRICT rules:
           return (
         <div style={{ width: "100%", maxWidth: 1100, marginTop: 28, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
           {/* Google */}
-          <div onClick={() => googleReady && openDetail("rsa")} style={{ ...cardShell, cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55, background: googleReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
+          <div onClick={() => googleReady && openDetail(googlePreviewFormat === "pmax" ? "pmax" : "rsa")} style={{ ...cardShell, cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55, background: googleReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
             {googleReady ? (
               <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ marginBottom: 10 }}>{GoogleG}</div>
-                <SerpPreview row={rows[0]} favicon={pmaxLogo} />
-                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
+                <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 4, marginBottom: 10, alignItems: "center" }}>
+                  {[{ id: "rsa", label: "Search ad" }, { id: "pmax", label: "PMax" }].map(f => (
+                    <button key={f.id} onClick={(e) => { e.stopPropagation(); setGooglePreviewFormat(f.id); }} style={{ padding: "3px 9px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700, background: googlePreviewFormat === f.id ? "rgba(99,102,241,0.18)" : "rgba(0,0,0,0.05)", color: googlePreviewFormat === f.id ? "#4f46e5" : "#8a8a8a" }}>{f.label}</button>
+                  ))}
+                  {googlePreviewFormat === "pmax" && (
+                    <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 6, fontSize: 10, fontWeight: 700, color: pmaxGenLoading ? "#94a3b8" : "#4f46e5", cursor: pmaxGenLoading ? "wait" : "pointer" }}>
+                      <input type="checkbox" disabled={pmaxGenLoading} checked={!!rows[0]?.pmaxResult || pmaxGenLoading} onChange={(e) => { e.stopPropagation(); if (e.target.checked) { runPmaxOnDemand(); } else { updateRow(activeRow, r => ({ ...r, pmaxResult: null, pmaxImages: { landscape: [], square: [], portrait: [] } })); setGoogleBundlePick(p => ({ ...p, pmax: false })); } }} style={{ cursor: "pointer" }} />
+                      {pmaxGenLoading ? "Preparing…" : "Include PMax"}
+                    </label>
+                  )}
+                </div>
+                {googlePreviewFormat === "pmax" ? (() => {
+                  const pm = rows[0]?.pmaxResult;
+                  if (pmaxGenLoading) return (<div style={{ padding: "32px 16px", textAlign: "center", color: "#8a8a8a", background: "#f7f8fa", borderRadius: 10 }}><div style={{ width: 28, height: 28, margin: "0 auto 10px", border: "3px solid rgba(99,102,241,0.25)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} /><div style={{ fontSize: 12, fontWeight: 700, color: "#606770" }}>Preparing PMax…</div></div>);
+                  if (!pm) return (<div style={{ padding: "28px 16px", textAlign: "center", color: "#8a8a8a", background: "#f7f8fa", borderRadius: 10 }}><div style={{ fontSize: 24, marginBottom: 8 }}>◈</div><div style={{ fontSize: 12, fontWeight: 700, color: "#606770" }}>PMax not included yet</div><div style={{ fontSize: 11, marginTop: 4 }}>Tick <strong>Include PMax</strong> above to generate.</div></div>);
+                  const pmImg = (rows[0]?.pmaxImages?.landscape?.[0]?.url) || (rows[0]?.pmaxImages?.square?.[0]?.url) || (rows[0]?.pmaxImages?.portrait?.[0]?.url) || null;
+                  const pmHeadline = (pm.longHeadlines || []).find(Boolean) || (pm.headlines || []).find(Boolean) || "Discover more";
+                  const pmDesc = (pm.descriptions || []).find(Boolean) || "";
+                  return (
+                    <div style={{ background: "#fff", border: "1px solid #dadde1", borderRadius: 10, overflow: "hidden" }}>
+                      {pmImg ? <img src={pmImg} alt="" style={{ width: "100%", aspectRatio: "1.91/1", objectFit: "cover", display: "block", background: "#f0f2f5" }} /> : <div style={{ width: "100%", aspectRatio: "1.91/1", background: "linear-gradient(135deg,#eef2ff,#f0f9ff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: 11 }}>Add PMax images in editor</div>}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 6px" }}>
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", overflow: "hidden", background: "#e4e6eb", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{pmaxLogo ? <img src={pmaxLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : null}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pm.businessName || brandName}</div>
+                          <div style={{ fontSize: 10, color: "#1a73e8", fontWeight: 700 }}>Sponsored · Performance Max</div>
+                        </div>
+                      </div>
+                      <div style={{ padding: "0 12px 4px", fontSize: 13, fontWeight: 700, color: "#1c1e21", lineHeight: 1.3 }}>{pmHeadline}</div>
+                      {pmDesc ? <div style={{ padding: "0 12px 10px", fontSize: 11, color: "#606770", lineHeight: 1.4 }}>{pmDesc.slice(0, 90)}</div> : null}
+                      <div style={{ padding: "0 12px 12px" }}><span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, color: "#fff", background: "#1a73e8", borderRadius: 6, padding: "7px 14px" }}>{pm.callToAction || "Learn more"}</span></div>
+                    </div>
+                  );
+                })() : (
+                  <SerpPreview row={rows[0]} favicon={pmaxLogo} />
+                )}
+                <div onClick={(e) => e.stopPropagation()} style={{ marginTop: "auto", display: "flex", gap: 14, alignItems: "center", paddingTop: 12, flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#1c1e21", cursor: "pointer", fontWeight: 600 }}><input type="checkbox" checked={googleBundlePick.rsa} onChange={() => setGoogleBundlePick(p => ({ ...p, rsa: !p.rsa }))} style={{ cursor: "pointer" }} /> Search ad</label>
+                  <label title={rows[0]?.pmaxResult ? "" : "Include PMax above first"} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: rows[0]?.pmaxResult ? "#1c1e21" : "#b0b7c0", cursor: rows[0]?.pmaxResult ? "pointer" : "not-allowed", fontWeight: 600 }}><input type="checkbox" disabled={!rows[0]?.pmaxResult} checked={googleBundlePick.pmax && !!rows[0]?.pmaxResult} onChange={() => setGoogleBundlePick(p => ({ ...p, pmax: !p.pmax }))} style={{ cursor: rows[0]?.pmaxResult ? "pointer" : "not-allowed" }} /> PMax</label>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
                   <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
-                  <span onClick={(e) => { e.stopPropagation();
-                    if (!isSignedIn) { setShowAuthModal(true); return; }
-                    if (!gadsConn.connected) { triggerGadsConnect(); return; }
-                    setAdFormat("rsa"); setViewMode("detailed"); setTimeout(() => { try { openGadsPublishModal(); } catch(_){} }, 80);
-                  }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
+                  <span title="Ships the selected formats to Google Ads — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startGooglePublishChain(); }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
             ) : (<><div style={iconBar}>{GoogleG}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>Your Google ad will appear here.</div></>)}
@@ -4131,6 +4295,11 @@ STRICT rules:
             {metaReady ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ ...iconBar }}>{MetaMark}</div>
+                <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: "0 14px 8px" }}>
+                  {[{ id: "fb-feed", label: "FB Feed", icon: "▣" }, { id: "ig-feed", label: "IG Feed", icon: "◎" }, { id: "ig-story", label: "IG Story", icon: "▯" }, { id: "fb-story", label: "FB Story", icon: "▮" }, { id: "fb-carousel", label: "Carousel", icon: "⊞" }].map(f => (
+                    <button key={f.id} onClick={(e) => { e.stopPropagation(); setMetaPreviewFormat(f.id); }} style={{ padding: "3px 7px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700, background: metaPreviewFormat === f.id ? "rgba(99,102,241,0.18)" : "rgba(0,0,0,0.05)", color: metaPreviewFormat === f.id ? "#4f46e5" : "#8a8a8a" }}>{f.icon} {f.label}</button>
+                  ))}
+                </div>
                 {/* FB advertiser row */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 14px 8px" }}>
                   <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: "#e4e6eb", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -4150,6 +4319,23 @@ STRICT rules:
                   const vars = (metaResult.imageVariations && metaResult.imageVariations.length) ? metaResult.imageVariations : [metaResult.imageUrl].filter(Boolean);
                   const current = tiktokSourceImageRef.current || metaResult.imageUrl || vars[0];
                   if (!current) return null;
+                  if (metaPreviewFormat === "fb-carousel") {
+                    const cimgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).slice(0, 8);
+                    if (!cimgs.length) return null;
+                    return (
+                      <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "0 14px 6px" }}>
+                        {cimgs.map((im, ci) => (
+                          <div key={ci} style={{ flexShrink: 0, width: 150, borderRadius: 8, overflow: "hidden", border: "1px solid #dadde1", background: "#fff" }}>
+                            <img src={im} alt={"Card " + (ci + 1)} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
+                            <div style={{ padding: "6px 8px" }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(metaResult.headlines?.[ci] || metaResult.headlines?.[0] || "Discover more").slice(0, 22)}</div>
+                              <div style={{ fontSize: 9, color: "#1877f2", fontWeight: 700, marginTop: 2 }}>Shop Now →</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
                   const idx = Math.max(0, vars.indexOf(current));
                   const metaImgCycle = (dir) => {
                     if (vars.length < 2) return;
@@ -4161,7 +4347,7 @@ STRICT rules:
                   };
                   return (
                     <div style={{ position: "relative" }}>
-                      <img src={current} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#f0f2f5", display: "block" }} />
+                      <img src={current} alt="" style={{ width: "100%", aspectRatio: (metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story") ? "9/16" : "1/1", objectFit: (metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story") ? "cover" : "contain", background: "#f0f2f5", display: "block", maxHeight: (metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story") ? 440 : undefined }} />
                       {vars.length > 1 && !metaImagesLoading && (
                         <>
                           <div onClick={(e) => { e.stopPropagation(); metaImgCycle(-1); }} title="Previous image"
@@ -4181,15 +4367,14 @@ STRICT rules:
                   </div>
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", background: "#0866FF", borderRadius: 6, padding: "8px 12px" }}>{(metaResult.descriptions?.[0] && metaResult.descriptions[0].length <= 18) ? metaResult.descriptions[0] : "Shop Now"}</div>
                 </div>
-                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
+                <div onClick={(e) => e.stopPropagation()} style={{ marginTop: "auto", display: "flex", gap: 14, alignItems: "center", padding: "10px 14px 0", flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#1c1e21", cursor: "pointer", fontWeight: 600 }}><input type="checkbox" checked={metaBundlePick.main} onChange={() => setMetaBundlePick(p => ({ ...p, main: !p.main }))} style={{ cursor: "pointer" }} /> Advantage+ (Feed + Stories)</label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#1c1e21", cursor: "pointer", fontWeight: 600 }}><input type="checkbox" checked={metaBundlePick.carousel} onChange={() => setMetaBundlePick(p => ({ ...p, carousel: !p.carousel }))} style={{ cursor: "pointer" }} /> Carousel</label>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#0866FF", fontWeight: 700 }}>Open editor →</span>
                   <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
-                  <span onClick={(e) => { e.stopPropagation();
-                    if (!isSignedIn) { setShowAuthModal(true); return; }
-                    if (!metaConn.connected) { triggerMetaConnect(); return; }
-                    if (!metaConn.selectionComplete) { try { openMetaPicker(); } catch(_){} return; }
-                    setAdFormat("meta"); setViewMode("detailed"); setTimeout(() => { try { setMetaPublishFormat('image'); setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new'); } catch(_){} }, 80);
-                  }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
+                  <span title="Ships the selected Meta formats to Meta Ads Manager — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startMetaPublishChain(); }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
             ) : (<><div style={iconBar}>{MetaMark}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div></>)}
@@ -4648,7 +4833,7 @@ STRICT rules:
             </div>
 
             <div style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 8 }}>
-              {gadsPublishStep === 1 ? '🚀 Publish to Google Ads' : '✓ Confirm publish'}
+              {(pubChain ? ('Step ' + (pubChain.index + 1) + ' of ' + pubChain.steps.length + ' · ') : '') + (gadsPublishStep === 1 ? '🚀 Publish to Google Ads' : '✓ Confirm publish')}
             </div>
             <div style={{ fontSize: 11, color: '#7e92a8', marginBottom: 16, lineHeight: 1.5 }}>
               {gadsPublishStep === 1
@@ -4859,7 +5044,7 @@ STRICT rules:
           <div style={{ background: '#1a1f2e', borderRadius: 14, padding: 24, maxWidth: 460, width: '100%', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Step indicator */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>◈ Publish PMax Asset Group</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>{(pubChain ? ('Step ' + (pubChain.index + 1) + ' of ' + pubChain.steps.length + ' · ') : '') + '◈ Publish PMax Asset Group'}</div>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
                 {[1, 2].map(s => (
                   <div key={s} style={{ width: 28, height: 4, borderRadius: 2, background: pmaxPublishStep >= s ? '#4285f4' : 'rgba(255,255,255,0.1)' }} />
@@ -5042,7 +5227,7 @@ STRICT rules:
             <div style={{ background: '#1a1f2e', borderRadius: 14, padding: 24, maxWidth: 460, width: '100%', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
               {/* Step indicator */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>{isVideoPublish ? '🎬 Publish Video to Meta' : '🚀 Publish to Meta'}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>{(pubChain ? ('Step ' + (pubChain.index + 1) + ' of ' + pubChain.steps.length + ' · ') : '') + (isVideoPublish ? '🎬 Publish Video to Meta' : (metaPublishFormat === 'carousel' ? '🚀 Publish Carousel to Meta' : '🚀 Publish to Meta'))}</div>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
                   {[1,2].map(s => (
                     <div key={s} style={{ width: 24, height: 4, borderRadius: 2, background: metaModalStep >= s ? '#1877f2' : 'rgba(255,255,255,0.1)' }} />
