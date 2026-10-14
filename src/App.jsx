@@ -1063,7 +1063,8 @@ function RSAStudio() {
   const [metaPublishFormat, setMetaPublishFormat] = useState('image'); // 'image' | 'carousel' | 'video'
   const [metaBundlePick, setMetaBundlePick] = useState({ main: true, carousel: false }); // overview multi-publish selection (visual; wiring later)
   const [googlePreviewFormat, setGooglePreviewFormat] = useState('rsa'); // overview Google card: 'rsa' | 'pmax'
-  const [googleBundlePick, setGoogleBundlePick] = useState({ rsa: true, pmax: false }); // overview Google publish + PMax-gen opt-in
+  const [googleBundlePick, setGoogleBundlePick] = useState({ rsa: true, pmax: false }); // overview Google publish selection
+  const [pmaxGenLoading, setPmaxGenLoading] = useState(false); // overview on-demand PMax generation spinner
   const [metaPlacement, setMetaPlacement] = useState('new'); // 'new' | 'existing_campaign' | 'existing_adset'
   const [metaCampaigns, setMetaCampaigns] = useState([]);
   const [metaAdSets, setMetaAdSets] = useState([]);
@@ -2914,6 +2915,35 @@ Rules:
         }
   };
 
+  const buildAudienceInstruction = () => {
+      const activeAudiences = audiences.filter(a => a.name?.trim());
+      const audienceLines = activeAudiences.map((a, i) =>
+        "Segment " + (i + 1) + ": " + a.name + "\n" +
+        "- Pain points / motivations: " + (a.painPoints || "not specified") + "\n" +
+        "- Preferred tone: " + (a.tone || "Professional")
+      ).join("\n");
+      const audienceInstruction = activeAudiences.length > 0
+        ? "\n\nAUDIENCE MODIFIERS (" + activeAudiences.length + " segment" + (activeAudiences.length > 1 ? "s" : "") + " active):\n" +
+          audienceLines + "\n" +
+          "- Write copy that resonates with these audience segments — reflect their language, concerns and motivations\n" +
+          "- Distribute audience-specific angles across the headlines — do not cluster them all together"
+        : "";
+    return audienceInstruction;
+  };
+
+  const runPmaxOnDemand = async () => {
+    if (pmaxGenLoading) return;
+    setGooglePreviewFormat('pmax');
+    setPmaxGenLoading(true);
+    try {
+      await generatePmaxAssetGroup(buildAudienceInstruction());
+      const seed = metaResult?.heroProductImage || metaResult?.imageUrl || (pageMeta.images || [])[0];
+      if (seed) await seedPmaxImages(seed);
+      setGoogleBundlePick(p => ({ ...p, pmax: true }));
+    } catch (e) { console.error('[pmax-on-demand]', e.message); }
+    finally { setPmaxGenLoading(false); }
+  };
+
   const generate = async () => {
     if (!url.trim()) { setError("Please enter a URL first"); return; }
 
@@ -3343,8 +3373,6 @@ STRICT rules:
         return updated;
       });
       // ── Meta generation (opt-in) ─────────────────────────────────────────
-      let pmaxSeedSrc = null;
-      if (googleBundlePick.pmax) { await generatePmaxAssetGroup(audienceInstruction); }
       if (generateMeta) {
         setMetaLoading(true);
         setMetaError("");
@@ -3372,7 +3400,6 @@ STRICT rules:
             setMetaError("");
             // Use scraped product image as primary FB preview if available
             const initialImageUrl = metaData.heroProductImage || metaData.imageUrl || null;
-            pmaxSeedSrc = metaData.heroProductImage || metaData.imageUrl || pmaxSeedSrc;
             // Use all scraped images for rich thumbnail tray
             const initialVariations = [
               metaData.heroProductImage,
@@ -3487,7 +3514,6 @@ STRICT rules:
       }
 
       // ── TikTok generation (opt-in) ────────────────────────────────────────
-      if (googleBundlePick.pmax) { const _seed = pmaxSeedSrc || (pageMeta.images || [])[0]; if (_seed) await seedPmaxImages(_seed); }
       if (generateTiktok) {
         setTiktokLoading(true);
         setTiktokError("");
@@ -4135,14 +4161,21 @@ STRICT rules:
             {googleReady ? (
               <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ marginBottom: 10 }}>{GoogleG}</div>
-                <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 4, marginBottom: 10, alignItems: "center" }}>
                   {[{ id: "rsa", label: "Search ad" }, { id: "pmax", label: "PMax" }].map(f => (
                     <button key={f.id} onClick={(e) => { e.stopPropagation(); setGooglePreviewFormat(f.id); }} style={{ padding: "3px 9px", borderRadius: 5, border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700, background: googlePreviewFormat === f.id ? "rgba(99,102,241,0.18)" : "rgba(0,0,0,0.05)", color: googlePreviewFormat === f.id ? "#4f46e5" : "#8a8a8a" }}>{f.label}</button>
                   ))}
+                  {googlePreviewFormat === "pmax" && (
+                    <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 6, fontSize: 10, fontWeight: 700, color: pmaxGenLoading ? "#94a3b8" : "#4f46e5", cursor: pmaxGenLoading ? "wait" : "pointer" }}>
+                      <input type="checkbox" disabled={pmaxGenLoading} checked={!!rows[0]?.pmaxResult || pmaxGenLoading} onChange={(e) => { e.stopPropagation(); if (e.target.checked) { runPmaxOnDemand(); } else { updateRow(activeRow, r => ({ ...r, pmaxResult: null, pmaxImages: { landscape: [], square: [], portrait: [] } })); setGoogleBundlePick(p => ({ ...p, pmax: false })); } }} style={{ cursor: "pointer" }} />
+                      {pmaxGenLoading ? "Preparing…" : "Include PMax"}
+                    </label>
+                  )}
                 </div>
                 {googlePreviewFormat === "pmax" ? (() => {
                   const pm = rows[0]?.pmaxResult;
-                  if (!pm) return (<div style={{ padding: "28px 16px", textAlign: "center", color: "#8a8a8a", background: "#f7f8fa", borderRadius: 10 }}><div style={{ fontSize: 24, marginBottom: 8 }}>◈</div><div style={{ fontSize: 12, fontWeight: 700, color: "#606770" }}>PMax assets not generated</div><div style={{ fontSize: 11, marginTop: 4 }}>Tick <strong>PMax</strong> below, then Generate.</div></div>);
+                  if (pmaxGenLoading) return (<div style={{ padding: "32px 16px", textAlign: "center", color: "#8a8a8a", background: "#f7f8fa", borderRadius: 10 }}><div style={{ width: 28, height: 28, margin: "0 auto 10px", border: "3px solid rgba(99,102,241,0.25)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} /><div style={{ fontSize: 12, fontWeight: 700, color: "#606770" }}>Preparing PMax…</div></div>);
+                  if (!pm) return (<div style={{ padding: "28px 16px", textAlign: "center", color: "#8a8a8a", background: "#f7f8fa", borderRadius: 10 }}><div style={{ fontSize: 24, marginBottom: 8 }}>◈</div><div style={{ fontSize: 12, fontWeight: 700, color: "#606770" }}>PMax not included yet</div><div style={{ fontSize: 11, marginTop: 4 }}>Tick <strong>Include PMax</strong> above to generate.</div></div>);
                   const pmImg = (rows[0]?.pmaxImages?.landscape?.[0]?.url) || (rows[0]?.pmaxImages?.square?.[0]?.url) || (rows[0]?.pmaxImages?.portrait?.[0]?.url) || null;
                   const pmHeadline = (pm.longHeadlines || []).find(Boolean) || (pm.headlines || []).find(Boolean) || "Discover more";
                   const pmDesc = (pm.descriptions || []).find(Boolean) || "";
@@ -4166,7 +4199,7 @@ STRICT rules:
                 )}
                 <div onClick={(e) => e.stopPropagation()} style={{ marginTop: "auto", display: "flex", gap: 14, alignItems: "center", paddingTop: 12, flexWrap: "wrap" }}>
                   <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#1c1e21", cursor: "pointer", fontWeight: 600 }}><input type="checkbox" checked={googleBundlePick.rsa} onChange={() => setGoogleBundlePick(p => ({ ...p, rsa: !p.rsa }))} style={{ cursor: "pointer" }} /> Search ad</label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#1c1e21", cursor: "pointer", fontWeight: 600 }}><input type="checkbox" checked={googleBundlePick.pmax} onChange={() => setGoogleBundlePick(p => ({ ...p, pmax: !p.pmax }))} style={{ cursor: "pointer" }} /> PMax</label>
+                  <label title={rows[0]?.pmaxResult ? "" : "Include PMax above first"} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: rows[0]?.pmaxResult ? "#1c1e21" : "#b0b7c0", cursor: rows[0]?.pmaxResult ? "pointer" : "not-allowed", fontWeight: 600 }}><input type="checkbox" disabled={!rows[0]?.pmaxResult} checked={googleBundlePick.pmax && !!rows[0]?.pmaxResult} onChange={() => setGoogleBundlePick(p => ({ ...p, pmax: !p.pmax }))} style={{ cursor: rows[0]?.pmaxResult ? "pointer" : "not-allowed" }} /> PMax</label>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
                   <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
