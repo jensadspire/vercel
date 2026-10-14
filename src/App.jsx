@@ -1304,16 +1304,19 @@ function RSAStudio() {
         const pollKey = d.taskId ? 'taskId' : 'requestId';
         let attempts = 0;
         if (videoPollRef.current) clearInterval(videoPollRef.current);
-        videoPollRef.current = setInterval(async () => {
+        const _iv = setInterval(async () => {
+          if (videoPollRef.current !== _iv) { clearInterval(_iv); return; } // superseded by a newer run
           const pollCap = videoEngineRef.current === 'recipe' ? 156 : 144;
-          if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); return; }
+          if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(_iv); return; }
           try {
             const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
             const pd = await pr.json();
-            if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
-            else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
+            if (videoPollRef.current !== _iv) { clearInterval(_iv); return; } // superseded during fetch — don't resurface old video
+            if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(_iv); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
+            else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(_iv); }
           } catch(pollErr) { console.error('Poll error:', pollErr.message); }
         }, 5000);
+        videoPollRef.current = _iv;
       } else { setTiktokVideoLoading(false); }
     } catch(e) { setTiktokVideoLoading(false); }
   };
@@ -2840,6 +2843,7 @@ function RSAStudio() {
     setTiktokVideoUrl(null);
     setTiktokResult(null);
     setTiktokVideoLoading(false);
+    if (videoPollRef.current) { clearInterval(videoPollRef.current); videoPollRef.current = null; } // cancel in-flight video poll so a previous video can't resurface
     // Clear trends on new generation, clear audiences if not sticky
     setTrends([]);
     setSelectedTrends([]);
@@ -4041,7 +4045,7 @@ STRICT rules:
           <div style={{ marginTop: 36, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, padding: 20 }}>
             <input
               value={url}
-              onChange={e => { setUrl(e.target.value); setTiktokVideoUrl(null); setTiktokResult(null); setTiktokVideoLoading(false); }}
+              onChange={e => setUrl(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !loading && generate()}
               placeholder="Paste a product URL (https://...)"
               style={{ width: "100%", boxSizing: "border-box", padding: "14px 16px", fontSize: 15, borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "white", outline: "none" }}
@@ -10026,17 +10030,20 @@ STRICT rules:
                           const pollKey = d.taskId ? 'taskId' : 'requestId';
                           let attempts = 0;
                           if (videoPollRef.current) clearInterval(videoPollRef.current);
-                          videoPollRef.current = setInterval(async () => {
+                          const _iv = setInterval(async () => {
+                            if (videoPollRef.current !== _iv) { clearInterval(_iv); return; } // superseded by a newer run
                             const pollCap = videoEngineRef.current === 'recipe' ? 156 : 144; // recipe ~13min, others ~12min (larger/flattened inputs run slower)
-                            if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(videoPollRef.current); console.warn('Video poll timed out after', attempts, 'attempts (engine:', videoEngineRef.current + ')'); return; }
+                            if (attempts++ > pollCap) { setTiktokVideoLoading(false); clearInterval(_iv); console.warn('Video poll timed out after', attempts, 'attempts (engine:', videoEngineRef.current + ')'); return; }
                             try {
                               const pr = await fetch(videoApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
                               const pd = await pr.json();
+                              if (videoPollRef.current !== _iv) { clearInterval(_iv); return; } // superseded during fetch — don't resurface old video
                               console.log('Poll', attempts, 'status:', pd.status, 'videoUrl:', !!pd.videoUrl);
-                              if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
-                              else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { console.error('Video FAILED:', JSON.stringify(pd)); if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(videoPollRef.current); }
+                              if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(_iv); try { track('tiktok_output_completed', { engine: videoEngineRef.current }); } catch (_) {} }
+                              else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { console.error('Video FAILED:', JSON.stringify(pd)); if (videoEngineRef.current === 'recipe' && pd.userMessage) setRecipeError(pd.userMessage); setTiktokVideoLoading(false); clearInterval(_iv); }
                             } catch(pollErr) { console.error('Poll error:', pollErr.message); }
                           }, 5000);
+                          videoPollRef.current = _iv;
                         } else { setTiktokVideoLoading(false); }
                       } catch(e) { setTiktokVideoLoading(false); }
                     }} disabled={tiktokVideoLoading || storyboardUpdating} style={{
