@@ -4269,6 +4269,7 @@ STRICT rules:
                   const pmHeadline = (pm.longHeadlines || []).find(Boolean) || (pm.headlines || []).find(Boolean) || "Discover more";
                   const pmDesc = (pm.descriptions || []).find(Boolean) || "";
                   return (
+                    <>
                     <div style={{ background: "#fff", border: "1px solid #dadde1", borderRadius: 10, overflow: "hidden" }}>
                       {pmImg ? <img src={pmImg} alt="" style={{ width: "100%", aspectRatio: "1.91/1", objectFit: "cover", display: "block", background: "#f0f2f5" }} /> : <div style={{ width: "100%", aspectRatio: "1.91/1", background: "linear-gradient(135deg,#eef2ff,#f0f9ff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: 11 }}>Add PMax images in editor</div>}
                       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 6px" }}>
@@ -4282,6 +4283,30 @@ STRICT rules:
                       {pmDesc ? <div style={{ padding: "0 12px 10px", fontSize: 11, color: "#606770", lineHeight: 1.4 }}>{pmDesc.slice(0, 90)}</div> : null}
                       <div style={{ padding: "0 12px 12px" }}><span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, color: "#fff", background: "#1a73e8", borderRadius: 6, padding: "7px 14px" }}>{pm.callToAction || "Learn more"}</span></div>
                     </div>
+                    {(pageMeta.images || []).length > 0 && (
+                      <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 10 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#8a8a8a", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>Images from the page · tap L / S / P to add</div>
+                        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+                          {(pageMeta.images || []).slice(0, 12).map((src, i) => (
+                            <div key={i} style={{ flexShrink: 0, width: 72, border: "1px solid #dadde1", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
+                              <div style={{ width: "100%", aspectRatio: "1", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                                <img src={src} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }} />
+                              </div>
+                              <div style={{ display: "flex", borderTop: "1px solid #e4e6eb" }}>
+                                {[["landscape", "L"], ["square", "S"], ["portrait", "P"]].map(([slot, ltr]) => {
+                                  const on = (rows[0]?.pmaxImages?.[slot] || []).some(e => e.srcUrl === src);
+                                  const busy = slotBusy === (src + "|" + slot);
+                                  return (
+                                    <button key={slot} disabled={busy} onClick={(e) => { e.stopPropagation(); togglePmaxSlot(src, slot, "contain"); }} title={(on ? "Remove from " : "Add to ") + slot} style={{ flex: 1, padding: "4px 0", fontSize: 9, fontWeight: 700, cursor: busy ? "wait" : "pointer", border: "none", borderRight: ltr !== "P" ? "1px solid #e4e6eb" : "none", background: on ? "rgba(52,211,153,0.18)" : "#fff", color: on ? "#0f9d6b" : "#8a8a8a" }}>{busy ? "…" : ltr}</button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    </>
                   );
                 })() : (
                   <SerpPreview row={rows[0]} favicon={pmaxLogo} />
