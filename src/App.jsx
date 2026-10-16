@@ -1065,6 +1065,7 @@ function RSAStudio() {
   const [googlePreviewFormat, setGooglePreviewFormat] = useState('rsa'); // overview Google card: 'rsa' | 'pmax'
   const [googleBundlePick, setGoogleBundlePick] = useState({ rsa: true, pmax: false }); // overview Google publish selection
   const [pmaxGenLoading, setPmaxGenLoading] = useState(false); // overview on-demand PMax generation spinner
+  const [pmaxHeroPreview, setPmaxHeroPreview] = useState(null); // overview PMax: last image added via L/S/P slider (preview only)
   const [metaPlacement, setMetaPlacement] = useState('new'); // 'new' | 'existing_campaign' | 'existing_adset'
   const [metaCampaigns, setMetaCampaigns] = useState([]);
   const [metaAdSets, setMetaAdSets] = useState([]);
@@ -3024,6 +3025,7 @@ Rules:
     if (pmaxGenLoading) return;
     setGooglePreviewFormat('pmax');
     setPmaxGenLoading(true);
+    setPmaxHeroPreview(null);
     try {
       await generatePmaxAssetGroup(buildAudienceInstruction());
       const seed = metaResult?.heroProductImage || metaResult?.imageUrl || (pageMeta.images || [])[0];
@@ -4265,7 +4267,7 @@ STRICT rules:
                   const pm = rows[0]?.pmaxResult;
                   if (pmaxGenLoading) return (<div style={{ padding: "32px 16px", textAlign: "center", color: "#8a8a8a", background: "#f7f8fa", borderRadius: 10 }}><div style={{ width: 28, height: 28, margin: "0 auto 10px", border: "3px solid rgba(99,102,241,0.25)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} /><div style={{ fontSize: 12, fontWeight: 700, color: "#606770" }}>Preparing PMax…</div></div>);
                   if (!pm) return (<div style={{ padding: "28px 16px", textAlign: "center", color: "#8a8a8a", background: "#f7f8fa", borderRadius: 10 }}><div style={{ fontSize: 24, marginBottom: 8 }}>◈</div><div style={{ fontSize: 12, fontWeight: 700, color: "#606770" }}>PMax not included yet</div><div style={{ fontSize: 11, marginTop: 4 }}>Tick <strong>Include PMax</strong> above to generate.</div></div>);
-                  const pmImg = (rows[0]?.pmaxImages?.landscape?.[0]?.url) || (rows[0]?.pmaxImages?.square?.[0]?.url) || (rows[0]?.pmaxImages?.portrait?.[0]?.url) || null;
+                  const pmImg = pmaxHeroPreview || (rows[0]?.pmaxImages?.landscape?.[0]?.url) || (rows[0]?.pmaxImages?.square?.[0]?.url) || (rows[0]?.pmaxImages?.portrait?.[0]?.url) || null;
                   const pmHeadline = (pm.longHeadlines || []).find(Boolean) || (pm.headlines || []).find(Boolean) || "Discover more";
                   const pmDesc = (pm.descriptions || []).find(Boolean) || "";
                   return (
@@ -4297,7 +4299,7 @@ STRICT rules:
                                   const on = (rows[0]?.pmaxImages?.[slot] || []).some(e => e.srcUrl === src);
                                   const busy = slotBusy === (src + "|" + slot);
                                   return (
-                                    <button key={slot} disabled={busy} onClick={(e) => { e.stopPropagation(); togglePmaxSlot(src, slot, "contain"); }} title={(on ? "Remove from " : "Add to ") + slot} style={{ flex: 1, padding: "4px 0", fontSize: 9, fontWeight: 700, cursor: busy ? "wait" : "pointer", border: "none", borderRight: ltr !== "P" ? "1px solid #e4e6eb" : "none", background: on ? "rgba(52,211,153,0.18)" : "#fff", color: on ? "#0f9d6b" : "#8a8a8a" }}>{busy ? "…" : ltr}</button>
+                                    <button key={slot} disabled={busy} onClick={(e) => { e.stopPropagation(); if (!on) setPmaxHeroPreview(src); togglePmaxSlot(src, slot, "contain"); }} title={(on ? "Remove from " : "Add to ") + slot} style={{ flex: 1, padding: "4px 0", fontSize: 9, fontWeight: 700, cursor: busy ? "wait" : "pointer", border: "none", borderRight: ltr !== "P" ? "1px solid #e4e6eb" : "none", background: on ? "rgba(52,211,153,0.18)" : "#fff", color: on ? "#0f9d6b" : "#8a8a8a" }}>{busy ? "…" : ltr}</button>
                                   );
                                 })}
                               </div>
