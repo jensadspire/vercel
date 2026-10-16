@@ -4874,6 +4874,22 @@ STRICT rules:
         </div>
       )}
 
+      {/* ── Publishing pulse — live amber indicator while a step is in flight (covers the Meta modal-closed gap) ── */}
+      {(() => {
+        const inFlight = gadsPublishing || pmaxPublishing || metaPublishing;
+        if (!inFlight) return null;
+        const chain = pubChainRef.current;
+        const platform = metaPublishing ? 'Meta' : 'Google';
+        const stepName = gadsPublishing ? 'Search ad' : pmaxPublishing ? 'PMax' : (chain && chain.steps && chain.steps[chain.index] === 'carousel') ? 'Carousel' : 'Meta ad';
+        const stepSuffix = (chain && chain.steps && chain.steps.length > 1) ? ' · Step ' + (chain.index + 1) + ' of ' + chain.steps.length : '';
+        return (
+          <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1300, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderRadius: 999, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.5)', color: '#fbbf24', fontSize: 12.5, fontWeight: 800, boxShadow: '0 8px 28px rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', whiteSpace: 'nowrap' }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 0 3px rgba(251,191,36,0.25)', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0 }} />
+            Publishing {stepName} to {platform}…{stepSuffix}
+          </div>
+        );
+      })()}
+
       {/* ── Google Ads Publish Modal (Phase 2.5a — two-step: config → confirm) ── */}
       {pubChainPause && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
