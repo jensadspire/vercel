@@ -2276,7 +2276,13 @@ function RSAStudio() {
     if (nextIndex >= chain.steps.length) {
       setPubChain(null);
       setViewMode('overview'); // route to the front so the confirmation isn't hidden behind detailed-view overlays
-      setPublishConfirm({ platform: chain.platform === 'meta' ? 'Meta' : 'Google', steps: chain.steps.map(chainStepLabel) });
+      const _au = encodeURIComponent(gadsConn.googleUserEmail || '');
+      const _viewUrl = chain.platform === 'meta'
+        ? (metaPublishResult?.url || null)
+        : (gadsSelectedCampaignId && gadsSelectedAdGroupId)
+          ? ('https://ads.google.com/aw/ads?campaignId=' + gadsSelectedCampaignId + '&adGroupId=' + gadsSelectedAdGroupId + '&authuser=' + _au)
+          : (pmaxSelectedCampaignId ? ('https://ads.google.com/aw/campaigns?campaignId=' + pmaxSelectedCampaignId + '&authuser=' + _au) : null);
+      setPublishConfirm({ platform: chain.platform === 'meta' ? 'Meta' : 'Google', steps: chain.steps.map(chainStepLabel), url: _viewUrl });
       return;
     }
     setPubChainPause({ doneStep: chain.steps[chain.index], nextStep: chain.steps[nextIndex], nextIndex, total: chain.steps.length });
@@ -2344,12 +2350,7 @@ function RSAStudio() {
     prevMetaPublishingRef.current = metaPublishing;
   }, [metaConfirmOpen, metaPublishing, metaPublishResult]);
 
-  // Auto-dismiss the overview publish confirmation after a few seconds (also manually closable).
-  useEffect(() => {
-    if (!publishConfirm) return;
-    const t = setTimeout(() => setPublishConfirm(null), 6000);
-    return () => clearTimeout(t);
-  }, [publishConfirm]);
+  // Publish confirmation stays until dismissed (it carries a "View your ad" link) — cleared on new generate.
 
   const openPmaxPublishModal = async () => {
     if (!isSignedIn) { setShowAuthModal(true); return; }
@@ -3086,6 +3087,7 @@ Rules:
     setLoading(true); setError("");
     // Clear ALL previous outputs up front so stale ads don't linger on the overview.
     setGooglePreviewFormat('rsa'); // snap the Google card back to RSA (PMax is opt-in per URL)
+    setPublishConfirm(null);
     setPmaxHeroPreview(null);
     setMetaResult(null);
     setMetaImagesLoading(false);
@@ -4284,6 +4286,9 @@ STRICT rules:
                   ? ('Published to ' + publishConfirm.platform + ' — ' + publishConfirm.steps.join(' + ') + '. Created as paused in your account.')
                   : ('Published ' + publishConfirm.steps[0] + ' to ' + publishConfirm.platform + '. Created as paused in your account.')}
               </span>
+              {publishConfirm.url && (
+                <a href={publishConfirm.url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 800, color: "#34d399", textDecoration: "underline", whiteSpace: "nowrap" }}>View your ad in {publishConfirm.platform} →</a>
+              )}
               <button onClick={() => setPublishConfirm(null)} style={{ background: "transparent", border: "none", color: "#34d399", fontSize: 17, cursor: "pointer", opacity: 0.65, flexShrink: 0, lineHeight: 1, padding: 0 }}>×</button>
             </div>
           )}
