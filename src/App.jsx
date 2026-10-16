@@ -1065,6 +1065,7 @@ function RSAStudio() {
   const [googlePreviewFormat, setGooglePreviewFormat] = useState('rsa'); // overview Google card: 'rsa' | 'pmax'
   const [googleBundlePick, setGoogleBundlePick] = useState({ rsa: true, pmax: false }); // overview Google publish selection
   const [pmaxGenLoading, setPmaxGenLoading] = useState(false); // overview on-demand PMax generation spinner
+  const [pmaxHeroPreview, setPmaxHeroPreview] = useState(null); // overview PMax: last image added via L/S/P slider (preview only)
   const [metaPlacement, setMetaPlacement] = useState('new'); // 'new' | 'existing_campaign' | 'existing_adset'
   const [metaCampaigns, setMetaCampaigns] = useState([]);
   const [metaAdSets, setMetaAdSets] = useState([]);
@@ -1082,6 +1083,8 @@ function RSAStudio() {
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
   const [carouselPriceMode, setCarouselPriceMode] = useState(false);
   const [bannedImages, setBannedImages] = useState([]);
+  const [imgDims, setImgDims] = useState({}); // url -> {w,h} natural dims; feeds the >=600px carousel size gate
+  const imgTooSmall = (u) => { const d = imgDims[u]; return !!d && Math.min(d.w, d.h) < 600; };
   const [pausedImages, setPausedImages] = useState([]); // toggle: show price vs USP in subline
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   // ── TikTok state ─────────────────────────────────────────────────────────────
@@ -1109,6 +1112,7 @@ function RSAStudio() {
   const [ugcAvatar, setUgcAvatar] = useState('Ivy'); // selected HeyGen voice/avatar
   const [ugcScene, setUgcScene] = useState('talking'); // talking | product | friends
   const [videoEngine, setVideoEngine] = useState('kling'); // 'kling' | 'runway'
+  const [veoAudio, setVeoAudio] = useState(false); // VEO native sound opt-in (default OFF for cost)
   const [videoArchetype, setVideoArchetype] = useState('scene_reveal'); // Kling storyboard style
   const [storyboardUpdating, setStoryboardUpdating] = useState(false);
   const [storyboardReady, setStoryboardReady] = useState(false);
@@ -1246,7 +1250,7 @@ function RSAStudio() {
         : eng === 'runway'
         ? { imageUrl, prompt: tiktokResult.videoPrompt, duration: 10, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
         : eng === 'veo'
-        ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English' }
+        ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', audio: veoAudio }
         : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
       const apiForEngine = (eng) => eng === 'recipe' ? '/api/runway-recipe' : eng === 'runway' ? '/api/runway' : eng === 'veo' ? '/api/veo' : '/api/kling';
       // Backup engine: Kling is the universal backup; if the primary IS Kling, use Runway instead.
@@ -1423,6 +1427,17 @@ function RSAStudio() {
   };
   // Keep ref in sync so async handlers always get current value
   useEffect(() => { videoEngineRef.current = videoEngine; }, [videoEngine]);
+  // Measure candidate image sizes so the carousel can gate out anything under 600px on its shortest side.
+  useEffect(() => {
+    if (!metaResult) return;
+    const urls = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean);
+    urls.forEach(u => {
+      if (imgDims[u]) return;
+      const im = new Image();
+      im.onload = () => setImgDims(d => (d[u] ? d : { ...d, [u]: { w: im.naturalWidth, h: im.naturalHeight } }));
+      im.src = u;
+    });
+  }, [metaResult]);
   // reset outro on video change — so the "Add branded outro" button reappears fresh
   // for each new video (and stale outro results don't carry over between videos).
   useEffect(() => {
@@ -2885,7 +2900,7 @@ function RSAStudio() {
     setSeasonOn(false); setSeasonPreset(''); setSeasonCustom(''); setSeasonIntensity('Moderate');
     setDiscountOn(false); setDiscountType('% Off'); setDiscountValue(''); setDiscountPlacement('Both');
     setBrandOn(false); setBrandRequired(''); setBrandBanned(''); setBrandTone('Professional');
-    setAudienceDesc(''); setAdFormat('rsa');
+    setAudienceDesc(''); setAdFormat('rsa'); setGooglePreviewFormat('rsa');
     // Meta tab — clear ALL state including the lingering publish success message
     setMetaResult(null); setMetaPublishResult(null); setMetaError(''); setMetaPublishing(false);
     setActiveImageVariant(0); setMetaEdits({}); setMetaEditingField(null);
@@ -3024,6 +3039,7 @@ Rules:
     if (pmaxGenLoading) return;
     setGooglePreviewFormat('pmax');
     setPmaxGenLoading(true);
+    setPmaxHeroPreview(null);
     try {
       await generatePmaxAssetGroup(buildAudienceInstruction());
       const seed = metaResult?.heroProductImage || metaResult?.imageUrl || (pageMeta.images || [])[0];
@@ -3056,6 +3072,8 @@ Rules:
 
     setLoading(true); setError("");
     // Clear ALL previous outputs up front so stale ads don't linger on the overview.
+    setGooglePreviewFormat('rsa'); // snap the Google card back to RSA (PMax is opt-in per URL)
+    setPmaxHeroPreview(null);
     setMetaResult(null);
     setMetaImagesLoading(false);
     metaGenId.current += 1;
@@ -4265,12 +4283,14 @@ STRICT rules:
                   const pm = rows[0]?.pmaxResult;
                   if (pmaxGenLoading) return (<div style={{ padding: "32px 16px", textAlign: "center", color: "#8a8a8a", background: "#f7f8fa", borderRadius: 10 }}><div style={{ width: 28, height: 28, margin: "0 auto 10px", border: "3px solid rgba(99,102,241,0.25)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} /><div style={{ fontSize: 12, fontWeight: 700, color: "#606770" }}>Preparing PMax…</div></div>);
                   if (!pm) return (<div style={{ padding: "28px 16px", textAlign: "center", color: "#8a8a8a", background: "#f7f8fa", borderRadius: 10 }}><div style={{ fontSize: 24, marginBottom: 8 }}>◈</div><div style={{ fontSize: 12, fontWeight: 700, color: "#606770" }}>PMax not included yet</div><div style={{ fontSize: 11, marginTop: 4 }}>Tick <strong>Include PMax</strong> above to generate.</div></div>);
-                  const pmImg = (rows[0]?.pmaxImages?.landscape?.[0]?.url) || (rows[0]?.pmaxImages?.square?.[0]?.url) || (rows[0]?.pmaxImages?.portrait?.[0]?.url) || null;
+                  const pmImg = pmaxHeroPreview || (rows[0]?.pmaxImages?.landscape?.[0]?.url) || (rows[0]?.pmaxImages?.square?.[0]?.url) || (rows[0]?.pmaxImages?.portrait?.[0]?.url) || null;
                   const pmHeadline = (pm.longHeadlines || []).find(Boolean) || (pm.headlines || []).find(Boolean) || "Discover more";
                   const pmDesc = (pm.descriptions || []).find(Boolean) || "";
                   return (
+                    <>
                     <div style={{ background: "#fff", border: "1px solid #dadde1", borderRadius: 10, overflow: "hidden" }}>
-                      {pmImg ? <img src={pmImg} alt="" style={{ width: "100%", aspectRatio: "1.91/1", objectFit: "cover", display: "block", background: "#f0f2f5" }} /> : <div style={{ width: "100%", aspectRatio: "1.91/1", background: "linear-gradient(135deg,#eef2ff,#f0f9ff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: 11 }}>Add PMax images in editor</div>}
+                      {/* pmax-hero-fit: contain so portrait fits height, nothing cropped */}
+                      {pmImg ? <div style={{ width: "100%", height: 300, background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}><img src={pmImg} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }} /></div> : <div style={{ width: "100%", height: 300, background: "linear-gradient(135deg,#eef2ff,#f0f9ff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: 11 }}>Add PMax images in editor</div>}
                       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 6px" }}>
                         <div style={{ width: 28, height: 28, borderRadius: "50%", overflow: "hidden", background: "#e4e6eb", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{pmaxLogo ? <img src={pmaxLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : null}</div>
                         <div style={{ minWidth: 0 }}>
@@ -4282,6 +4302,30 @@ STRICT rules:
                       {pmDesc ? <div style={{ padding: "0 12px 10px", fontSize: 11, color: "#606770", lineHeight: 1.4 }}>{pmDesc.slice(0, 90)}</div> : null}
                       <div style={{ padding: "0 12px 12px" }}><span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, color: "#fff", background: "#1a73e8", borderRadius: 6, padding: "7px 14px" }}>{pm.callToAction || "Learn more"}</span></div>
                     </div>
+                    {(pageMeta.images || []).length > 0 && (
+                      <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 10 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#8a8a8a", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>Images from the page · tap L / S / P to add</div>
+                        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+                          {(pageMeta.images || []).slice(0, 12).map((src, i) => (
+                            <div key={i} style={{ flexShrink: 0, width: 72, border: "1px solid #dadde1", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
+                              <div style={{ width: "100%", aspectRatio: "1", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                                <img src={src} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }} />
+                              </div>
+                              <div style={{ display: "flex", borderTop: "1px solid #e4e6eb" }}>
+                                {[["landscape", "L"], ["square", "S"], ["portrait", "P"]].map(([slot, ltr]) => {
+                                  const on = (rows[0]?.pmaxImages?.[slot] || []).some(e => e.srcUrl === src);
+                                  const busy = slotBusy === (src + "|" + slot);
+                                  return (
+                                    <button key={slot} disabled={busy} onClick={(e) => { e.stopPropagation(); if (!on) setPmaxHeroPreview(src); togglePmaxSlot(src, slot, "contain"); }} title={(on ? "Remove from " : "Add to ") + slot} style={{ flex: 1, padding: "4px 0", fontSize: 9, fontWeight: 700, cursor: busy ? "wait" : "pointer", border: "none", borderRight: ltr !== "P" ? "1px solid #e4e6eb" : "none", background: on ? "rgba(52,211,153,0.18)" : "#fff", color: on ? "#0f9d6b" : "#8a8a8a" }}>{busy ? "…" : ltr}</button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    </>
                   );
                 })() : (
                   <SerpPreview row={rows[0]} favicon={pmaxLogo} />
@@ -4830,6 +4874,22 @@ STRICT rules:
         </div>
       )}
 
+      {/* ── Publishing pulse — live amber indicator while a step is in flight (covers the Meta modal-closed gap) ── */}
+      {(() => {
+        const inFlight = gadsPublishing || pmaxPublishing || metaPublishing;
+        if (!inFlight) return null;
+        const chain = pubChainRef.current;
+        const platform = metaPublishing ? 'Meta' : 'Google';
+        const stepName = gadsPublishing ? 'Search ad' : pmaxPublishing ? 'PMax' : (chain && chain.steps && chain.steps[chain.index] === 'carousel') ? 'Carousel' : 'Meta ad';
+        const stepSuffix = (chain && chain.steps && chain.steps.length > 1) ? ' · Step ' + (chain.index + 1) + ' of ' + chain.steps.length : '';
+        return (
+          <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1300, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderRadius: 999, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.5)', color: '#fbbf24', fontSize: 12.5, fontWeight: 800, boxShadow: '0 8px 28px rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', whiteSpace: 'nowrap' }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 0 3px rgba(251,191,36,0.25)', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0 }} />
+            Publishing {stepName} to {platform}…{stepSuffix}
+          </div>
+        );
+      })()}
+
       {/* ── Google Ads Publish Modal (Phase 2.5a — two-step: config → confirm) ── */}
       {pubChainPause && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -5194,7 +5254,7 @@ STRICT rules:
           ? (tiktokSourceImageRef.current || imgUrl || '')
           : '';
         const isCarouselPublish = metaPublishFormat === 'carousel' || (metaPreviewFormat === 'fb-carousel' && !isVideoPublish);
-        const baseCarouselImgsP = [metaResult?.imageUrl, ...(metaResult?.imageVariations || [])].filter(Boolean).filter(img => !(bannedImages||[]).includes(img)).slice(0, 5);
+        const baseCarouselImgsP = [metaResult?.imageUrl, ...(metaResult?.imageVariations || [])].filter(Boolean).filter(img => !(bannedImages||[]).includes(img)).filter(img => !imgTooSmall(img)).slice(0, 5);
         const activeCarouselImgsP = (carouselImages||[]).length > 0 ? carouselImages : baseCarouselImgsP;
         const carouselCards = activeCarouselImgsP.map((cImg, ci) => ({
           imageUrl: cImg,
@@ -7987,7 +8047,7 @@ STRICT rules:
                   const isStory    = metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story";
                   const isIG       = metaPreviewFormat === "ig-feed"  || metaPreviewFormat === "ig-story";
                   const isCarousel = metaPreviewFormat === "fb-carousel";
-                  const baseCarouselImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).slice(0, 8);
+                  const baseCarouselImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(u => !imgTooSmall(u)).slice(0, 8);
                   const activeCarouselImgs = carouselImages.length > 0 ? carouselImages : baseCarouselImgs;
                   return (
                     <div style={{ display: "flex", justifyContent: "center" }}>
@@ -8022,13 +8082,19 @@ STRICT rules:
                                   <img src={imgUrl} alt={"Card " + (ci+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
                                   <button onClick={(e) => {
                                     e.stopPropagation();
-                                    // Cycle through available thumbnail images
-                                    const allImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean);
+                                    // Deselect: ban this image everywhere in the final output, then backfill from the pool.
                                     const current = activeCarouselImgs[ci];
-                                    const nextImg = allImgs.find(img => img !== current && !activeCarouselImgs.includes(img)) || allImgs[0];
+                                    const newBanned = (bannedImages || []).includes(current) ? (bannedImages || []) : [...(bannedImages || []), current];
+                                    const pool = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(u => !imgTooSmall(u) && !newBanned.includes(u));
+                                    const kept = activeCarouselImgs.filter((_, i) => i !== ci);
+                                    const backfill = pool.find(u => !kept.includes(u));
                                     const newImgs = [...activeCarouselImgs];
-                                    newImgs[ci] = nextImg;
+                                    if (backfill) { newImgs[ci] = backfill; }
+                                    else if (newImgs.length > 2) { newImgs.splice(ci, 1); }
+                                    else { return; }
+                                    setBannedImages(newBanned);
                                     setCarouselImages(newImgs);
+                                    setCarouselIndex(i => Math.min(i, Math.max(newImgs.length - 1, 0)));
                                   }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.5)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
                                 </div>
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
@@ -10220,7 +10286,7 @@ STRICT rules:
                           : currentEngine === 'runway'
                           ? { imageUrl, prompt: tiktokResult.videoPrompt, duration: 10, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
                           : currentEngine === 'veo'
-                          ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English' }
+                          ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', audio: veoAudio }
                           : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
                         const r = await fetch(videoApi, {
                           method: 'POST',
@@ -10325,6 +10391,31 @@ STRICT rules:
                         </button>
                       ))}
                     </div>
+                    {videoEngine === 'veo' && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        <button type="button" onClick={() => setVeoAudio(v => !v)} style={{
+                          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '8px 11px', borderRadius: 7, cursor: 'pointer',
+                          background: veoAudio ? 'rgba(96,165,250,0.14)' : 'rgba(255,255,255,0.04)',
+                          border: veoAudio ? '1px solid rgba(96,165,250,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                          color: veoAudio ? '#60a5fa' : '#7e92a8',
+                        }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 700 }}>
+                            <span style={{ fontSize: 13 }}>{veoAudio ? '🔊' : '🔇'}</span>
+                            Native sound {veoAudio ? 'on' : 'off'}
+                          </span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 9, fontWeight: 400, opacity: 0.7 }}>{veoAudio ? 'premium render' : 'cheaper · silent'}</span>
+                            <span style={{ width: 30, height: 16, borderRadius: 9, background: veoAudio ? '#60a5fa' : 'rgba(255,255,255,0.15)', position: 'relative', transition: 'all 0.15s', flexShrink: 0 }}>
+                              <span style={{ position: 'absolute', top: 2, left: veoAudio ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'all 0.15s' }} />
+                            </span>
+                          </span>
+                        </button>
+                        <div style={{ fontSize: 9, color: '#4a5568', marginTop: 6, lineHeight: 1.4 }}>
+                          VEO adds AI-generated audio by default, which costs significantly more. Off = silent video (recommended); turn on only when you need sound.
+                        </div>
+                      </div>
+                    )}
                     {videoEngine === 'kling' && (
                       <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>

@@ -142,7 +142,7 @@ const WAVE2_TEMPLATES = {
 
 // ── Build one Wave 2 email ──────────────────────────────────────────────────
 const buildEmail = async ({ name, company, title, language, email }, { send }) => {
-  const first = (name || 'there').split(' ')[0];
+  const first = (name || domain).split(' ')[0];
   const titleStr = title || 'E-commerce Manager';
 
   // Mint a Clerk invite only on a real send; dry-run uses the fallback.
