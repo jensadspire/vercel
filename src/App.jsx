@@ -5551,6 +5551,21 @@ STRICT rules:
                   );
                 })()}
               </div>
+              {metaModalStep === 2 && (() => {
+                const _needsCountry = metaPlacement !== 'existing_adset' && targetCountries.length === 0;
+                const _needsCampaign = metaPlacement !== 'new' && !selectedCampaignId;
+                const _needsAdset = metaPlacement === 'existing_adset' && !selectedAdSetId;
+                if (!(_needsCountry || _needsCampaign || _needsAdset)) return null;
+                const _reason = _needsCampaign ? 'Select a campaign to publish.' : _needsAdset ? 'Select an ad set to publish.' : 'No target country detected from this URL — pick one to publish.';
+                return (
+                  <div style={{ marginTop: 10, fontSize: 10.5, color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap', textAlign: 'center' }}>
+                    <span>⚠️ {_reason}</span>
+                    {_needsCountry && !targetingExpanded && (
+                      <button onClick={() => setTargetingExpanded(true)} style={{ background: 'transparent', border: 'none', color: '#60a5fa', fontSize: 10.5, fontWeight: 800, textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>Customise targeting →</button>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );
