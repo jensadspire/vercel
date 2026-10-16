@@ -2899,7 +2899,7 @@ function RSAStudio() {
     setSeasonOn(false); setSeasonPreset(''); setSeasonCustom(''); setSeasonIntensity('Moderate');
     setDiscountOn(false); setDiscountType('% Off'); setDiscountValue(''); setDiscountPlacement('Both');
     setBrandOn(false); setBrandRequired(''); setBrandBanned(''); setBrandTone('Professional');
-    setAudienceDesc(''); setAdFormat('rsa');
+    setAudienceDesc(''); setAdFormat('rsa'); setGooglePreviewFormat('rsa');
     // Meta tab — clear ALL state including the lingering publish success message
     setMetaResult(null); setMetaPublishResult(null); setMetaError(''); setMetaPublishing(false);
     setActiveImageVariant(0); setMetaEdits({}); setMetaEditingField(null);
@@ -3071,6 +3071,8 @@ Rules:
 
     setLoading(true); setError("");
     // Clear ALL previous outputs up front so stale ads don't linger on the overview.
+    setGooglePreviewFormat('rsa'); // snap the Google card back to RSA (PMax is opt-in per URL)
+    setPmaxHeroPreview(null);
     setMetaResult(null);
     setMetaImagesLoading(false);
     metaGenId.current += 1;
