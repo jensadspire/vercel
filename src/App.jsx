@@ -1083,6 +1083,8 @@ function RSAStudio() {
   const [carouselImages, setCarouselImages] = useState([]); // swappable carousel images
   const [carouselPriceMode, setCarouselPriceMode] = useState(false);
   const [bannedImages, setBannedImages] = useState([]);
+  const [imgDims, setImgDims] = useState({}); // url -> {w,h} natural dims; feeds the >=600px carousel size gate
+  const imgTooSmall = (u) => { const d = imgDims[u]; return !!d && Math.min(d.w, d.h) < 600; };
   const [pausedImages, setPausedImages] = useState([]); // toggle: show price vs USP in subline
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   // ── TikTok state ─────────────────────────────────────────────────────────────
@@ -1424,6 +1426,17 @@ function RSAStudio() {
   };
   // Keep ref in sync so async handlers always get current value
   useEffect(() => { videoEngineRef.current = videoEngine; }, [videoEngine]);
+  // Measure candidate image sizes so the carousel can gate out anything under 600px on its shortest side.
+  useEffect(() => {
+    if (!metaResult) return;
+    const urls = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean);
+    urls.forEach(u => {
+      if (imgDims[u]) return;
+      const im = new Image();
+      im.onload = () => setImgDims(d => (d[u] ? d : { ...d, [u]: { w: im.naturalWidth, h: im.naturalHeight } }));
+      im.src = u;
+    });
+  }, [metaResult]);
   // reset outro on video change — so the "Add branded outro" button reappears fresh
   // for each new video (and stale outro results don't carry over between videos).
   useEffect(() => {
@@ -5222,7 +5235,7 @@ STRICT rules:
           ? (tiktokSourceImageRef.current || imgUrl || '')
           : '';
         const isCarouselPublish = metaPublishFormat === 'carousel' || (metaPreviewFormat === 'fb-carousel' && !isVideoPublish);
-        const baseCarouselImgsP = [metaResult?.imageUrl, ...(metaResult?.imageVariations || [])].filter(Boolean).filter(img => !(bannedImages||[]).includes(img)).slice(0, 5);
+        const baseCarouselImgsP = [metaResult?.imageUrl, ...(metaResult?.imageVariations || [])].filter(Boolean).filter(img => !(bannedImages||[]).includes(img)).filter(img => !imgTooSmall(img)).slice(0, 5);
         const activeCarouselImgsP = (carouselImages||[]).length > 0 ? carouselImages : baseCarouselImgsP;
         const carouselCards = activeCarouselImgsP.map((cImg, ci) => ({
           imageUrl: cImg,
@@ -8015,7 +8028,7 @@ STRICT rules:
                   const isStory    = metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story";
                   const isIG       = metaPreviewFormat === "ig-feed"  || metaPreviewFormat === "ig-story";
                   const isCarousel = metaPreviewFormat === "fb-carousel";
-                  const baseCarouselImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).slice(0, 8);
+                  const baseCarouselImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(u => !imgTooSmall(u)).slice(0, 8);
                   const activeCarouselImgs = carouselImages.length > 0 ? carouselImages : baseCarouselImgs;
                   return (
                     <div style={{ display: "flex", justifyContent: "center" }}>
@@ -8050,13 +8063,19 @@ STRICT rules:
                                   <img src={imgUrl} alt={"Card " + (ci+1)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
                                   <button onClick={(e) => {
                                     e.stopPropagation();
-                                    // Cycle through available thumbnail images
-                                    const allImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean);
+                                    // Deselect: ban this image everywhere in the final output, then backfill from the pool.
                                     const current = activeCarouselImgs[ci];
-                                    const nextImg = allImgs.find(img => img !== current && !activeCarouselImgs.includes(img)) || allImgs[0];
+                                    const newBanned = (bannedImages || []).includes(current) ? (bannedImages || []) : [...(bannedImages || []), current];
+                                    const pool = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(u => !imgTooSmall(u) && !newBanned.includes(u));
+                                    const kept = activeCarouselImgs.filter((_, i) => i !== ci);
+                                    const backfill = pool.find(u => !kept.includes(u));
                                     const newImgs = [...activeCarouselImgs];
-                                    newImgs[ci] = nextImg;
+                                    if (backfill) { newImgs[ci] = backfill; }
+                                    else if (newImgs.length > 2) { newImgs.splice(ci, 1); }
+                                    else { return; }
+                                    setBannedImages(newBanned);
                                     setCarouselImages(newImgs);
+                                    setCarouselIndex(i => Math.min(i, Math.max(newImgs.length - 1, 0)));
                                   }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.5)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
                                 </div>
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
