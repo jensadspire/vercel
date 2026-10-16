@@ -1680,6 +1680,7 @@ function RSAStudio() {
   const [pubChainPause, setPubChainPause] = useState(null); // { doneStep, nextStep, nextIndex, total } | null — between-step confirmation // Google publish chain: { steps:['rsa','pmax'], index } | null
   const pubChainRef = useRef(null);
   const setPubChain = (v) => { const nv = typeof v === 'function' ? v(pubChainRef.current) : v; pubChainRef.current = nv; _setPubChain(nv); };
+  const [publishConfirm, setPublishConfirm] = useState(null); // overview green success banner after a publish chain completes
   const prevGadsOpenRef = useRef(false);
   const prevPmaxOpenRef = useRef(false);
   const [gadsPublishStep, setGadsPublishStep] = useState(1);  // 1=config, 2=confirm
@@ -2272,7 +2273,12 @@ function RSAStudio() {
     const chain = pubChainRef.current;
     if (!chain) return;
     const nextIndex = chain.index + 1;
-    if (nextIndex >= chain.steps.length) { setPubChain(null); return; }
+    if (nextIndex >= chain.steps.length) {
+      setPubChain(null);
+      setViewMode('overview'); // route to the front so the confirmation isn't hidden behind detailed-view overlays
+      setPublishConfirm({ platform: chain.platform === 'meta' ? 'Meta' : 'Google', steps: chain.steps.map(chainStepLabel) });
+      return;
+    }
     setPubChainPause({ doneStep: chain.steps[chain.index], nextStep: chain.steps[nextIndex], nextIndex, total: chain.steps.length });
   };
   const endPublishChain = () => { setPubChain(null); };
@@ -2337,6 +2343,13 @@ function RSAStudio() {
     prevMetaConfirmRef.current = metaConfirmOpen;
     prevMetaPublishingRef.current = metaPublishing;
   }, [metaConfirmOpen, metaPublishing, metaPublishResult]);
+
+  // Auto-dismiss the overview publish confirmation after a few seconds (also manually closable).
+  useEffect(() => {
+    if (!publishConfirm) return;
+    const t = setTimeout(() => setPublishConfirm(null), 6000);
+    return () => clearTimeout(t);
+  }, [publishConfirm]);
 
   const openPmaxPublishModal = async () => {
     if (!isSignedIn) { setShowAuthModal(true); return; }
@@ -4263,6 +4276,17 @@ STRICT rules:
           }
           return (
         <div style={{ width: "100%", maxWidth: 1100, marginTop: 28, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
+          {publishConfirm && (
+            <div style={{ flexBasis: "100%", width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", borderRadius: 12, background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.5)", color: "#34d399", fontSize: 13, fontWeight: 700, boxShadow: "0 8px 28px rgba(0,0,0,0.28)" }}>
+              <span style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(16,185,129,0.22)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 12, fontWeight: 900 }}>✓</span>
+              <span style={{ flex: 1, lineHeight: 1.4 }}>
+                {publishConfirm.steps.length > 1
+                  ? ('Published to ' + publishConfirm.platform + ' — ' + publishConfirm.steps.join(' + ') + '. Created as paused in your account.')
+                  : ('Published ' + publishConfirm.steps[0] + ' to ' + publishConfirm.platform + '. Created as paused in your account.')}
+              </span>
+              <button onClick={() => setPublishConfirm(null)} style={{ background: "transparent", border: "none", color: "#34d399", fontSize: 17, cursor: "pointer", opacity: 0.65, flexShrink: 0, lineHeight: 1, padding: 0 }}>×</button>
+            </div>
+          )}
           {/* Google */}
           <div onClick={() => googleReady && openDetail(googlePreviewFormat === "pmax" ? "pmax" : "rsa")} style={{ ...cardShell, cursor: googleReady ? "pointer" : "default", opacity: googleReady ? 1 : 0.55, background: googleReady ? "#fff" : "rgba(255,255,255,0.03)" }}>
             {googleReady ? (
