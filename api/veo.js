@@ -76,7 +76,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { imageUrl, prompt, action = 'create', requestId } = req.body || {};
+  const { imageUrl, prompt, action = 'create', requestId, audio = false } = req.body || {};
 
   const safeJson = async (r) => {
     try { const t = await r.text(); return t && t.trim() ? JSON.parse(t) : {}; }
@@ -191,6 +191,7 @@ export default async function handler(req, res) {
           durationSeconds: parseInt(process.env.VEO_DURATION || '8', 10),
           aspectRatio: '9:16',
           enhancePrompt: (process.env.VEO_ENHANCE || 'on') !== 'off',
+          generateAudio: audio === true, // default OFF for cost; frontend opts in per render
         },
       }),
     });

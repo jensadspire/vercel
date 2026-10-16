@@ -48,7 +48,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { action, imageUrl, referenceImages, prompt, baseOp, baseGcsUri, extendOp } = req.body || {};
+  const { action, imageUrl, referenceImages, prompt, baseOp, baseGcsUri, extendOp, audio = false } = req.body || {};
   const safeJson = async (r) => { try { const t = await r.text(); return t && t.trim() ? JSON.parse(t) : {}; } catch { return {}; } };
   const project = projectId();
   if (!project) return res.status(500).json({ error: 'GCP_SA_KEY missing/invalid' });
@@ -89,7 +89,7 @@ export default async function handler(req, res) {
       const outPrefix = `gs://${BUCKET}/input/${stamp}/`;
       const r = await fetch(`${BASE}:predictLongRunning`, { method: 'POST', headers: H, body: JSON.stringify({
         instances: [instance],
-        parameters: { sampleCount: 1, durationSeconds: 8, aspectRatio: '9:16', storageUri: outPrefix },
+        parameters: { sampleCount: 1, durationSeconds: 8, aspectRatio: '9:16', storageUri: outPrefix, generateAudio: audio === true },
       }) });
       const d = await safeJson(r);
       console.log('[veo-ext] create-base HTTP', r.status, d.name || JSON.stringify(d).slice(0, 200));
@@ -122,7 +122,7 @@ export default async function handler(req, res) {
       const outPrefix = `gs://${BUCKET}/output/${stamp}/`;
       const r = await fetch(`${BASE}:predictLongRunning`, { method: 'POST', headers: H, body: JSON.stringify({
         instances: [{ prompt: (prompt || 'Continue the scene naturally, preserving protagonist, wardrobe, product, environment, lighting and camera style.').slice(0, 2000), video: { gcsUri: baseGcsUri, mimeType: 'video/mp4' } }],
-        parameters: { sampleCount: 1, storageUri: outPrefix },
+        parameters: { sampleCount: 1, storageUri: outPrefix, generateAudio: audio === true },
       }) });
       const d = await safeJson(r);
       console.log('[veo-ext] extend HTTP', r.status, d.name || JSON.stringify(d).slice(0, 300));

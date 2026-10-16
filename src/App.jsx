@@ -1112,6 +1112,7 @@ function RSAStudio() {
   const [ugcAvatar, setUgcAvatar] = useState('Ivy'); // selected HeyGen voice/avatar
   const [ugcScene, setUgcScene] = useState('talking'); // talking | product | friends
   const [videoEngine, setVideoEngine] = useState('kling'); // 'kling' | 'runway'
+  const [veoAudio, setVeoAudio] = useState(false); // VEO native sound opt-in (default OFF for cost)
   const [videoArchetype, setVideoArchetype] = useState('scene_reveal'); // Kling storyboard style
   const [storyboardUpdating, setStoryboardUpdating] = useState(false);
   const [storyboardReady, setStoryboardReady] = useState(false);
@@ -1249,7 +1250,7 @@ function RSAStudio() {
         : eng === 'runway'
         ? { imageUrl, prompt: tiktokResult.videoPrompt, duration: 10, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
         : eng === 'veo'
-        ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English' }
+        ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', audio: veoAudio }
         : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
       const apiForEngine = (eng) => eng === 'recipe' ? '/api/runway-recipe' : eng === 'runway' ? '/api/runway' : eng === 'veo' ? '/api/veo' : '/api/kling';
       // Backup engine: Kling is the universal backup; if the primary IS Kling, use Runway instead.
@@ -10269,7 +10270,7 @@ STRICT rules:
                           : currentEngine === 'runway'
                           ? { imageUrl, prompt: tiktokResult.videoPrompt, duration: 10, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' }
                           : currentEngine === 'veo'
-                          ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English' }
+                          ? { imageUrl, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', audio: veoAudio }
                           : { imageUrl, storyboard: tiktokResult.storyboard, prompt: tiktokResult.videoPrompt, language: pageMeta?.language || 'English', brand: overlayLogo ? (tiktokResult.brand || pageMeta?.brand || '') : '', logoUrl: overlayLogo ? pmaxLogo : null, overlayIntro: overlayIntro || '', overlayOutro: overlayOutro || tiktokResult.cta || '' };
                         const r = await fetch(videoApi, {
                           method: 'POST',
@@ -10374,6 +10375,31 @@ STRICT rules:
                         </button>
                       ))}
                     </div>
+                    {videoEngine === 'veo' && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        <button type="button" onClick={() => setVeoAudio(v => !v)} style={{
+                          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '8px 11px', borderRadius: 7, cursor: 'pointer',
+                          background: veoAudio ? 'rgba(96,165,250,0.14)' : 'rgba(255,255,255,0.04)',
+                          border: veoAudio ? '1px solid rgba(96,165,250,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                          color: veoAudio ? '#60a5fa' : '#7e92a8',
+                        }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 700 }}>
+                            <span style={{ fontSize: 13 }}>{veoAudio ? '🔊' : '🔇'}</span>
+                            Native sound {veoAudio ? 'on' : 'off'}
+                          </span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 9, fontWeight: 400, opacity: 0.7 }}>{veoAudio ? 'premium render' : 'cheaper · silent'}</span>
+                            <span style={{ width: 30, height: 16, borderRadius: 9, background: veoAudio ? '#60a5fa' : 'rgba(255,255,255,0.15)', position: 'relative', transition: 'all 0.15s', flexShrink: 0 }}>
+                              <span style={{ position: 'absolute', top: 2, left: veoAudio ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'all 0.15s' }} />
+                            </span>
+                          </span>
+                        </button>
+                        <div style={{ fontSize: 9, color: '#4a5568', marginTop: 6, lineHeight: 1.4 }}>
+                          VEO adds AI-generated audio by default, which costs significantly more. Off = silent video (recommended); turn on only when you need sound.
+                        </div>
+                      </div>
+                    )}
                     {videoEngine === 'kling' && (
                       <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ fontSize: 10, color: '#4a5568', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
