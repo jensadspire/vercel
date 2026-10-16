@@ -4273,7 +4273,8 @@ STRICT rules:
                   return (
                     <>
                     <div style={{ background: "#fff", border: "1px solid #dadde1", borderRadius: 10, overflow: "hidden" }}>
-                      {pmImg ? <img src={pmImg} alt="" style={{ width: "100%", aspectRatio: "1.91/1", objectFit: "cover", display: "block", background: "#f0f2f5" }} /> : <div style={{ width: "100%", aspectRatio: "1.91/1", background: "linear-gradient(135deg,#eef2ff,#f0f9ff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: 11 }}>Add PMax images in editor</div>}
+                      {/* pmax-hero-fit: contain so portrait fits height, nothing cropped */}
+                      {pmImg ? <div style={{ width: "100%", height: 300, background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}><img src={pmImg} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }} /></div> : <div style={{ width: "100%", height: 300, background: "linear-gradient(135deg,#eef2ff,#f0f9ff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: 11 }}>Add PMax images in editor</div>}
                       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 6px" }}>
                         <div style={{ width: 28, height: 28, borderRadius: "50%", overflow: "hidden", background: "#e4e6eb", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{pmaxLogo ? <img src={pmaxLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : null}</div>
                         <div style={{ minWidth: 0 }}>
