@@ -28,7 +28,7 @@ export default async function handler(req, res) {
   if (!url) return res.status(400).json({ error: "URL is required" });
 
   // ── Cache check — normalise URL to avoid case/trailing-slash misses ──────────
-  const cacheKey = `rsa:scrape:${url.toLowerCase().replace(/\/$/, "")}`;
+  const cacheKey = `rsa:scrape:v2:${url.toLowerCase().replace(/\/$/, "")}`;
 
   try {
     const cached = await redis("GET", cacheKey);
@@ -587,6 +587,49 @@ export default async function handler(req, res) {
 
     if (price) result.price = price;
     if (priceCurrency) result.priceCurrency = priceCurrency;
+
+    // ── UGC / lifestyle-widget detection (additive — separate from the product pool above) ──
+    // Widget-signature first: detect known third-party UGC embed providers by their script
+    // host + container class/data-attr, then collect images served from that provider's image
+    // CDN. result.images and all product scoring above are UNTOUCHED. No signature found →
+    // { detected:false, providers:[], images:[] }. Table-driven — add a provider = one row.
+    const UGC_PROVIDERS = [
+      { name: 'yotpo',       sig: /yotpo\.com|yotpo-widget|yotpo-visual|data-yotpo|yapp-/i,                                             imgHost: /yotpo\.com|yotpocdn/i },
+      { name: 'flowbox',     sig: /getflowbox\.com|flowbox\.com|flowbox-flow|fb-flow|data-flow-key/i,                                    imgHost: /photoslurp\.com|getflowbox\.com/i },
+      { name: 'pixlee',      sig: /pixlee\.com|pixlee_container|data-pixlee/i,                                                           imgHost: /pixlee\.com/i },
+      { name: 'bazaarvoice', sig: /bazaarvoice\.com|bvseo|bv-content|data-bv-/i,                                                         imgHost: /bazaarvoice\.com/i },
+      { name: 'embedsocial', sig: /embedsocial\.com|embedsocialapp|embedsocial-hashtag/i,                                                imgHost: /embedsocial\.com|embedsocialapp|embedcdn/i },
+      { name: 'tagembed',    sig: /tagembed\.com|tagembed-container|tagbox-widget/i,                                                     imgHost: /tagembed\.com|cdn\.tagembed/i },
+      { name: 'instafeed',   sig: /elfsight\.com|snapwidget\.com|juicer\.io|instafeedjs|sb_instagram|instagram-feed|eapps-instagram/i,   imgHost: /cdninstagram\.com|fbcdn\.net|scontent/i },
+    ];
+    const ugc = { detected: false, providers: [], images: [] };
+    try {
+      const ugcSrcPool = [
+        ogImage,
+        ...jsonLdImages,
+        ...allImgTags.map(x => x.src),
+        ...lazyImgs.map(x => x.src),
+        ...jsonImgs.map(x => x.src),
+        ...jsonArrayImgs.map(x => x.src),
+        ...jsonObjectImgs.map(x => x.src),
+        ...srcsetUrls,
+      ].filter(Boolean).map(normaliseUrl).filter(Boolean);
+      const ugcSet = new Set();
+      for (const p of UGC_PROVIDERS) {
+        if (!p.sig.test(html)) continue;
+        ugc.providers.push(p.name);
+        for (const s of ugcSrcPool) {
+          if (p.imgHost.test(s)) ugcSet.add(s);
+        }
+      }
+      ugc.images = [...ugcSet]
+        .filter(s => s && !s.includes('data:') && !s.includes('.svg'))
+        .map(u => String(u).replace(/&amp;/g, '&'))
+        .slice(0, 24);
+      ugc.detected = ugc.providers.length > 0;
+      if (ugc.detected) console.log('UGC widgets detected:', ugc.providers.join(','), '| images:', ugc.images.length);
+    } catch (e) { console.log('UGC detection error:', e.message); }
+    result.ugc = ugc;
 
     // ── Domain-specific gallery extraction ────────────────────────────────────
     // For sites that load galleries via JS/API, construct image URLs from patterns
