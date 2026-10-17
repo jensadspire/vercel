@@ -24,14 +24,14 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { url } = req.body;
+  const { url, noCache } = req.body;
   if (!url) return res.status(400).json({ error: "URL is required" });
 
   // ── Cache check — normalise URL to avoid case/trailing-slash misses ──────────
-  const cacheKey = `rsa:scrape:${url.toLowerCase().replace(/\/$/, "")}`;
+  const cacheKey = `rsa:scrape:v3:${url.toLowerCase().replace(/\/$/, "")}`;
 
   try {
-    const cached = await redis("GET", cacheKey);
+    const cached = noCache ? null : await redis("GET", cacheKey);
     if (cached) {
       const parsed = JSON.parse(cached);
       console.log("Scrape cache HIT:", url);
@@ -588,6 +588,159 @@ export default async function handler(req, res) {
     if (price) result.price = price;
     if (priceCurrency) result.priceCurrency = priceCurrency;
 
+    // ── UGC / lifestyle-widget detection (additive — separate from the product pool above) ──
+    // Widget-signature first: detect known third-party UGC embed providers by their script
+    // host + container class/data-attr, then collect images served from that provider's image
+    // CDN. result.images and all product scoring above are UNTOUCHED. No signature found →
+    // { detected:false, providers:[], images:[] }. Table-driven — add a provider = one row.
+    const UGC_PROVIDERS = [
+      { name: 'yotpo',       sig: /yotpo\.com|yotpo-widget|yotpo-visual|data-yotpo|yapp-/i,                                             imgHost: /yotpo\.com|yotpocdn/i },
+      { name: 'flowbox',     sig: /getflowbox\.com|flowbox\.com|flowbox-flow|fb-flow|data-flow-key/i,                                    imgHost: /photoslurp\.com|getflowbox\.com/i },
+      { name: 'pixlee',      sig: /pixlee\.com|pixlee_container|data-pixlee/i,                                                           imgHost: /pixlee\.com/i },
+      { name: 'bazaarvoice', sig: /bazaarvoice\.com|bvseo|bv-content|data-bv-/i,                                                         imgHost: /bazaarvoice\.com/i },
+      { name: 'embedsocial', sig: /embedsocial\.com|embedsocialapp|embedsocial-hashtag/i,                                                imgHost: /embedsocial\.com|embedsocialapp|embedcdn/i },
+      { name: 'tagembed',    sig: /tagembed\.com|tagembed-container|tagbox-widget/i,                                                     imgHost: /tagembed\.com|cdn\.tagembed/i },
+      { name: 'instafeed',   sig: /elfsight\.com|snapwidget\.com|juicer\.io|instafeedjs|sb_instagram|instagram-feed|eapps-instagram/i,   imgHost: /cdninstagram\.com|fbcdn\.net|scontent/i },
+    ];
+    const ugc = { detected: false, providers: [], images: [] };
+    try {
+      const ugcSrcPool = [
+        ogImage,
+        ...jsonLdImages,
+        ...allImgTags.map(x => x.src),
+        ...lazyImgs.map(x => x.src),
+        ...jsonImgs.map(x => x.src),
+        ...jsonArrayImgs.map(x => x.src),
+        ...jsonObjectImgs.map(x => x.src),
+        ...srcsetUrls,
+      ].filter(Boolean).map(normaliseUrl).filter(Boolean);
+      const ugcSet = new Set();
+      for (const p of UGC_PROVIDERS) {
+        if (!p.sig.test(html)) continue;
+        ugc.providers.push(p.name);
+        for (const s of ugcSrcPool) {
+          if (p.imgHost.test(s)) ugcSet.add(s);
+        }
+      }
+      ugc.images = [...ugcSet]
+        .filter(s => s && !s.includes('data:') && !s.includes('.svg'))
+        .map(u => String(u).replace(/&amp;/g, '&'))
+        .slice(0, 24);
+      ugc.detected = ugc.providers.length > 0;
+      if (ugc.detected) console.log('UGC widgets detected:', ugc.providers.join(','), '| images:', ugc.images.length);
+    } catch (e) { console.log('UGC detection error:', e.message); }
+    // ── Client-rendered UGC: fetch media from the provider's public feed (Flowbox) ──
+    // Flowbox renders its gallery with JS, so detection finds the widget but no images in
+    // the HTML. Its public feed (no auth) is keyed by the flow key in the embed config.
+    if (ugc.detected && ugc.images.length === 0 && ugc.providers.includes('flowbox')) {
+      try {
+        const keySet = new Set();
+        for (const m of html.matchAll(/\bkey\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
+        for (const m of html.matchAll(/"key"\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
+        const keys = [...keySet].slice(0, 4);
+        const locM = html.match(/locale\s*:\s*["']([a-z]{2}-[a-z]{2})["']/i)
+                  || (typeof detectedCode === 'string' && /^[a-z]{2}-[a-z]{2}$/i.test(detectedCode) ? [null, detectedCode] : null)
+                  || url.match(/\/([a-z]{2}-[a-z]{2})(?:[\/?]|$)/i);
+        const locale = locM ? String(locM[1]).toLowerCase() : '';
+        const ugcLang = ((locale ? locale.split('-')[0] : (typeof detectedCode === 'string' ? detectedCode.toLowerCase().split('-')[0] : 'en')) || 'en');
+        const pickFlowboxPost = (post) => {
+          if (!post || typeof post !== 'object') return null;
+          var media = Array.isArray(post.media) ? post.media : [];
+          var m = media.find(function (x) { return x && (!x.type || /image/i.test(x.type)); }) || media[0] || null;
+          var image = (m && (m.url || m.fallbackUrl)) || post.imageUrl || (post.thumbnail && (post.thumbnail.url || post.thumbnail.fallbackUrl)) || null;
+          if (typeof image !== 'string' || !/^https?:\/\//i.test(image)) return null;
+          var caption = (typeof post.text === 'string' && post.text) ? post.text : (typeof post.originalText === 'string' ? post.originalText : '');
+          caption = String(caption).replace(/\s+$/, '').slice(0, 600);
+          var at = (post.altText && post.altText['0']) ? post.altText['0'] : null;
+          var altText = at ? (at[ugcLang] || at.en || at[Object.keys(at)[0]] || '') : '';
+          return { image: image, caption: caption, altText: String(altText).slice(0, 400), creator: post.userName || '', permalink: post.postPermalink || post.userPermalink || '' };
+        };
+        const fbPosts = [];
+        for (const key of keys) {
+          try {
+            const params = new URLSearchParams({ postsPerPage: '30' });
+            if (locale) params.set('locale', locale);
+            const fr = await fetch('https://gateway.getflowbox.com/v1/public/feed/' + key + '?' + params.toString(), { signal: AbortSignal.timeout(6000) });
+            if (!fr.ok) continue;
+            const fd = await fr.json();
+            const allPosts = [].concat(Array.isArray(fd.posts) ? fd.posts : [], Array.isArray(fd.pinned) ? fd.pinned : []);
+            for (const post of allPosts) {
+              const p = pickFlowboxPost(post);
+              if (p) fbPosts.push(p);
+            }
+            if (fbPosts.length) break;
+          } catch (_) {}
+        }
+        if (fbPosts.length) {
+          const seen = new Set();
+          ugc.posts = fbPosts.filter(function (p) { if (seen.has(p.image)) return false; seen.add(p.image); return true; }).slice(0, 24);
+          ugc.images = ugc.posts.map(function (p) { return p.image; });
+          console.log('UGC flowbox feed posts:', ugc.posts.length, '| with caption:', ugc.posts.filter(function (p) { return !!p.caption; }).length, '| key(s):', keys.length, '| locale:', locale || '(none)');
+        } else {
+          console.log('UGC flowbox: widget detected but feed returned no usable posts | key(s):', keys.length);
+        }
+      } catch (e) { console.log('UGC flowbox fetch error:', e.message); }
+    }
+    // ── Client-rendered UGC: Yotpo product review-photos (PDP-scoped, public widget API) ──
+    // Yotpo renders review media with JS, so HTML detection finds the widget but no images.
+    // The widget's own CDN endpoint is public (store app key + product id, no secret).
+    if (ugc.detected && ugc.images.length === 0 && ugc.providers.includes('yotpo')) {
+      try {
+        const storeKeys = [];
+        for (const m of html.matchAll(/cdn-widgetsrepository\.yotpo\.com\/v1\/loader\/([A-Za-z0-9_\-]{20,})/gi)) storeKeys.push(m[1]);
+        for (const m of html.matchAll(/staticw2\.yotpo\.com\/([A-Za-z0-9_\-]{20,})\//gi)) storeKeys.push(m[1]);
+        for (const m of html.matchAll(/data-app-key=["']([A-Za-z0-9_\-]{20,})["']/gi)) storeKeys.push(m[1]);
+        const keys = [...new Set(storeKeys)].slice(0, 3);
+        const prodIdsRaw = [];
+        for (const m of html.matchAll(/data-yotpo-product-id=["'](\d{5,})["']/gi)) prodIdsRaw.push(m[1]);
+        for (const m of html.matchAll(/data-product-id=["'](\d{6,})["']/gi)) prodIdsRaw.push(m[1]);
+        let pm;
+        if ((pm = html.match(/"product"\s*:\s*\{[^{}]*?"id"\s*:\s*(\d{10,})/))) prodIdsRaw.push(pm[1]);
+        if ((pm = html.match(/retailer_item_id["']\s+content=["'](\d{6,})["']/i))) prodIdsRaw.push(pm[1]);
+        const prodIds = [...new Set(prodIdsRaw)].slice(0, 3);
+        const pickYotpoPosts = (review) => {
+          if (!review || typeof review !== 'object') return [];
+          var imgs = Array.isArray(review.imagesData) ? review.imagesData : [];
+          if (!imgs.length) return [];
+          var caption = (typeof review.content === 'string' && review.content.trim()) ? review.content.trim() : (typeof review.title === 'string' ? review.title.trim() : '');
+          caption = String(caption).replace(/\s+$/, '').slice(0, 600);
+          var creator = (review.user && review.user.displayName) ? String(review.user.displayName) : '';
+          var out = [];
+          for (var i = 0; i < imgs.length; i++) {
+            var im = imgs[i];
+            var image = im && (im.originalUrl || im.thumbUrl);
+            if (typeof image === 'string' && /^https?:\/\//i.test(image)) out.push({ image: image, caption: caption, altText: '', creator: creator, permalink: '' });
+          }
+          return out;
+        };
+        const yoPosts = [];
+        let yoDone = false;
+        for (const pid of prodIds) {
+          if (yoDone) break;
+          for (const sk of keys) {
+            try {
+              const yurl = 'https://api-cdn.yotpo.com/v3/storefront/store/' + sk + '/product/' + pid + '/reviews?page=1&perPage=100&sort=images,rating,date,badge';
+              const yr = await fetch(yurl, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6000) });
+              if (!yr.ok) continue;
+              const yd = await yr.json();
+              const reviews = Array.isArray(yd.reviews) ? yd.reviews : [];
+              for (const rev of reviews) { for (const p of pickYotpoPosts(rev)) yoPosts.push(p); }
+              if (yoPosts.length) { yoDone = true; break; }
+            } catch (_) {}
+          }
+        }
+        if (yoPosts.length) {
+          const seen = new Set();
+          ugc.posts = yoPosts.filter(function (p) { if (seen.has(p.image)) return false; seen.add(p.image); return true; }).slice(0, 24);
+          ugc.images = ugc.posts.map(function (p) { return p.image; });
+          console.log('UGC yotpo reviews posts:', ugc.posts.length, '| with caption:', ugc.posts.filter(function (p) { return !!p.caption; }).length, '| store key(s):', keys.length, '| product id(s):', prodIds.length);
+        } else {
+          console.log('UGC yotpo: widget detected but no photo reviews found | store key(s):', keys.length, '| product id(s):', prodIds.length, (keys.length && !prodIds.length) ? '(no product id on page — Yotpo photos are PDP-only)' : '');
+        }
+      } catch (e) { console.log('UGC yotpo fetch error:', e.message); }
+    }
+    result.ugc = ugc;
+
     // ── Domain-specific gallery extraction ────────────────────────────────────
     // For sites that load galleries via JS/API, construct image URLs from patterns
     try {
@@ -642,7 +795,7 @@ export default async function handler(req, res) {
     // A blocked/empty result must NOT be cached: it would poison the URL for 24h
     // and mask the proxy fallback once a key is configured.
     try {
-      if (fetchOk) {
+      if (fetchOk && !noCache) {
         await redis("SET", cacheKey, JSON.stringify(result), "EX", CACHE_TTL);
         console.log("Scrape cached for 24h:", url);
       } else {

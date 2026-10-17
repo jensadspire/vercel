@@ -2670,6 +2670,26 @@ function RSAStudio() {
   const [showLibrary, setShowLibrary] = useState(false);
   // Creative Studio (C1)
   const [showCreativeStudio, setShowCreativeStudio] = useState(false);
+  // ── Personas Builder: UGC source selector (Phase 1) ──
+  const [ugcData, setUgcData] = useState(null);           // { detected, providers, images } | null
+  const [ugcScanLoading, setUgcScanLoading] = useState(false);
+  const [ugcError, setUgcError] = useState('');
+  const [ugcPicked, setUgcPicked] = useState(null);       // chosen UGC character seed (image url)
+  const [ugcCaptionOn, setUgcCaptionOn] = useState(false); // use the picked creator's caption as copy/overlay basis
+  const [ugcAdLang, setUgcAdLang] = useState('');          // the ad's target language (captions localize to it)
+  const scanUgc = async () => {
+    if (!url || !url.trim()) { setUgcError('Enter a product URL and generate first.'); return; }
+    setUgcScanLoading(true); setUgcError(''); setUgcData(null);
+    try {
+      const r = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+      const d = await r.json();
+      const ugc = d.ugc || { detected: false, providers: [], images: [] };
+      setUgcData(ugc); setUgcAdLang(d.language || '');
+      if (!ugc.detected) setUgcError('No UGC gallery detected on this site yet.');
+      else if (!ugc.images || ugc.images.length === 0) setUgcError('UGC widget found (' + (ugc.providers || []).join(', ') + ') but no images could be loaded.');
+    } catch (e) { setUgcError('Scan failed — please try again.'); }
+    finally { setUgcScanLoading(false); }
+  };
   const [csVertical, setCsVertical] = useState('beauty');
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
   const csRotationRef = useRef(0); // advances each generation to rotate through csTemplates
@@ -4682,9 +4702,56 @@ STRICT rules:
                   })}
                 </div>
 
-                {/* 2. Personas — reserved for C2 */}
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#5a6b80", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Personas</div>
-                <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.02)", fontSize: 12, color: "#5a6b80", marginBottom: 20 }}>Persona builder — coming next. Define who your ads speak to.</div>
+                {/* 2. Personas — UGC source selector (Phase 1) */}
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#c4b5fd", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Personas <span style={{ color: "#5a6b80", fontWeight: 600 }}>· character sources</span></div>
+                <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.06)", marginBottom: 20 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e2e8f0", marginBottom: 2 }}>UGC from your site</div>
+                  <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>Pull real creator content from your shop's UGC gallery to reuse as a fixed character across videos.</div>
+                  <button onClick={scanUgc} disabled={ugcScanLoading} style={{ padding: "8px 14px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", cursor: ugcScanLoading ? "default" : "pointer", background: ugcScanLoading ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>
+                    {ugcScanLoading ? "⟳ Scanning…" : (ugcData ? "↻ Re-scan" : "🔍 Find UGC on your site")}
+                  </button>
+                  {ugcError && <div style={{ fontSize: 11, color: "#fca5a5", marginTop: 10, lineHeight: 1.4 }}>{ugcError}</div>}
+                  {ugcData && ugcData.detected && (ugcData.images || []).length > 0 && (() => {
+                    const posts = (ugcData.posts && ugcData.posts.length) ? ugcData.posts : (ugcData.images || []).map(function (u) { return { image: u, caption: "", altText: "", creator: "" }; });
+                    const pickedPost = posts.find(function (p) { return p.image === ugcPicked; }) || null;
+                    return (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 8 }}>{posts.length} creator images via <strong style={{ color: "#c4b5fd" }}>{(ugcData.providers || []).join(", ")}</strong> · tap one to set as character</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, maxHeight: 320, overflowY: "auto", paddingRight: 2 }}>
+                        {posts.map((p, i) => {
+                          const picked = ugcPicked === p.image;
+                          return (
+                            <div key={i} onClick={() => setUgcPicked(picked ? null : p.image)} style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: picked ? "2px solid #8b5cf6" : "2px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)" }}>
+                              <div style={{ position: "relative", aspectRatio: "1" }}>
+                                <img src={p.image} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} />
+                                {picked && <div style={{ position: "absolute", top: 4, right: 4, width: 18, height: 18, borderRadius: "50%", background: "#8b5cf6", color: "white", fontSize: 11, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>✓</div>}
+                              </div>
+                              <div style={{ padding: "5px 7px 7px" }}>
+                                {p.creator ? <div style={{ fontSize: 9, color: "#8b9bb0", fontWeight: 700, marginBottom: 2 }}>@{p.creator}</div> : null}
+                                <div style={{ fontSize: 9.5, color: p.caption ? "#9db0c7" : "#5a6b80", lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{p.caption || "No caption"}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {pickedPost && (
+                        <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                          <div style={{ fontSize: 11, color: "#34d399", fontWeight: 700, marginBottom: pickedPost.caption ? 8 : 0 }}>✓ Character selected{pickedPost.creator ? (" · @" + pickedPost.creator) : ""}</div>
+                          {pickedPost.caption ? (
+                            <div>
+                              <div style={{ fontSize: 11, color: "#c7d2e0", lineHeight: 1.5, whiteSpace: "pre-wrap", maxHeight: 84, overflowY: "auto", marginBottom: 8, padding: "6px 8px", borderRadius: 6, background: "rgba(0,0,0,0.2)" }}>{pickedPost.caption}</div>
+                              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontSize: 11, color: "#e2e8f0", fontWeight: 600 }}>
+                                <input type="checkbox" checked={ugcCaptionOn} onChange={() => setUgcCaptionOn(v => !v)} style={{ marginTop: 2, cursor: "pointer", accentColor: "#8b5cf6" }} />
+                                <span>Enable UGC caption <span style={{ fontWeight: 400, color: "#8a9bb0" }}>— use the creator's caption as the basis for your copy / overlay{ugcAdLang ? (", written in " + ugcAdLang) : ""}.</span></span>
+                              </label>
+                            </div>
+                          ) : <div style={{ fontSize: 10.5, color: "#5a6b80" }}>This post has no caption.</div>}
+                        </div>
+                      )}
+                    </div>
+                    );
+                  })()}
+                </div>
 
                 {/* 3. Shop scenery — reserved (later) */}
                 <div style={{ fontSize: 11, fontWeight: 800, color: "#5a6b80", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>3 · Shop Scenery</div>
