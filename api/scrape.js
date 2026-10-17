@@ -681,6 +681,64 @@ export default async function handler(req, res) {
         }
       } catch (e) { console.log('UGC flowbox fetch error:', e.message); }
     }
+    // ── Client-rendered UGC: Yotpo product review-photos (PDP-scoped, public widget API) ──
+    // Yotpo renders review media with JS, so HTML detection finds the widget but no images.
+    // The widget's own CDN endpoint is public (store app key + product id, no secret).
+    if (ugc.detected && ugc.images.length === 0 && ugc.providers.includes('yotpo')) {
+      try {
+        const storeKeys = [];
+        for (const m of html.matchAll(/cdn-widgetsrepository\.yotpo\.com\/v1\/loader\/([A-Za-z0-9_\-]{20,})/gi)) storeKeys.push(m[1]);
+        for (const m of html.matchAll(/staticw2\.yotpo\.com\/([A-Za-z0-9_\-]{20,})\//gi)) storeKeys.push(m[1]);
+        for (const m of html.matchAll(/data-app-key=["']([A-Za-z0-9_\-]{20,})["']/gi)) storeKeys.push(m[1]);
+        const keys = [...new Set(storeKeys)].slice(0, 3);
+        const prodIdsRaw = [];
+        for (const m of html.matchAll(/data-yotpo-product-id=["'](\d{5,})["']/gi)) prodIdsRaw.push(m[1]);
+        for (const m of html.matchAll(/data-product-id=["'](\d{6,})["']/gi)) prodIdsRaw.push(m[1]);
+        let pm;
+        if ((pm = html.match(/"product"\s*:\s*\{[^{}]*?"id"\s*:\s*(\d{10,})/))) prodIdsRaw.push(pm[1]);
+        if ((pm = html.match(/retailer_item_id["']\s+content=["'](\d{6,})["']/i))) prodIdsRaw.push(pm[1]);
+        const prodIds = [...new Set(prodIdsRaw)].slice(0, 3);
+        const pickYotpoPosts = (review) => {
+          if (!review || typeof review !== 'object') return [];
+          var imgs = Array.isArray(review.imagesData) ? review.imagesData : [];
+          if (!imgs.length) return [];
+          var caption = (typeof review.content === 'string' && review.content.trim()) ? review.content.trim() : (typeof review.title === 'string' ? review.title.trim() : '');
+          caption = String(caption).replace(/\s+$/, '').slice(0, 600);
+          var creator = (review.user && review.user.displayName) ? String(review.user.displayName) : '';
+          var out = [];
+          for (var i = 0; i < imgs.length; i++) {
+            var im = imgs[i];
+            var image = im && (im.originalUrl || im.thumbUrl);
+            if (typeof image === 'string' && /^https?:\/\//i.test(image)) out.push({ image: image, caption: caption, altText: '', creator: creator, permalink: '' });
+          }
+          return out;
+        };
+        const yoPosts = [];
+        let yoDone = false;
+        for (const pid of prodIds) {
+          if (yoDone) break;
+          for (const sk of keys) {
+            try {
+              const yurl = 'https://api-cdn.yotpo.com/v3/storefront/store/' + sk + '/product/' + pid + '/reviews?page=1&perPage=100&sort=images,rating,date,badge';
+              const yr = await fetch(yurl, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6000) });
+              if (!yr.ok) continue;
+              const yd = await yr.json();
+              const reviews = Array.isArray(yd.reviews) ? yd.reviews : [];
+              for (const rev of reviews) { for (const p of pickYotpoPosts(rev)) yoPosts.push(p); }
+              if (yoPosts.length) { yoDone = true; break; }
+            } catch (_) {}
+          }
+        }
+        if (yoPosts.length) {
+          const seen = new Set();
+          ugc.posts = yoPosts.filter(function (p) { if (seen.has(p.image)) return false; seen.add(p.image); return true; }).slice(0, 24);
+          ugc.images = ugc.posts.map(function (p) { return p.image; });
+          console.log('UGC yotpo reviews posts:', ugc.posts.length, '| with caption:', ugc.posts.filter(function (p) { return !!p.caption; }).length, '| store key(s):', keys.length, '| product id(s):', prodIds.length);
+        } else {
+          console.log('UGC yotpo: widget detected but no photo reviews found | store key(s):', keys.length, '| product id(s):', prodIds.length, (keys.length && !prodIds.length) ? '(no product id on page — Yotpo photos are PDP-only)' : '');
+        }
+      } catch (e) { console.log('UGC yotpo fetch error:', e.message); }
+    }
     result.ugc = ugc;
 
     // ── Domain-specific gallery extraction ────────────────────────────────────
