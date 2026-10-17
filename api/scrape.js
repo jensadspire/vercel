@@ -24,14 +24,14 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { url } = req.body;
+  const { url, noCache } = req.body;
   if (!url) return res.status(400).json({ error: "URL is required" });
 
   // ── Cache check — normalise URL to avoid case/trailing-slash misses ──────────
-  const cacheKey = `rsa:scrape:v2:${url.toLowerCase().replace(/\/$/, "")}`;
+  const cacheKey = `rsa:scrape:v3:${url.toLowerCase().replace(/\/$/, "")}`;
 
   try {
-    const cached = await redis("GET", cacheKey);
+    const cached = noCache ? null : await redis("GET", cacheKey);
     if (cached) {
       const parsed = JSON.parse(cached);
       console.log("Scrape cache HIT:", url);
@@ -729,7 +729,7 @@ export default async function handler(req, res) {
     // A blocked/empty result must NOT be cached: it would poison the URL for 24h
     // and mask the proxy fallback once a key is configured.
     try {
-      if (fetchOk) {
+      if (fetchOk && !noCache) {
         await redis("SET", cacheKey, JSON.stringify(result), "EX", CACHE_TTL);
         console.log("Scrape cached for 24h:", url);
       } else {
