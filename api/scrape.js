@@ -629,6 +629,60 @@ export default async function handler(req, res) {
       ugc.detected = ugc.providers.length > 0;
       if (ugc.detected) console.log('UGC widgets detected:', ugc.providers.join(','), '| images:', ugc.images.length);
     } catch (e) { console.log('UGC detection error:', e.message); }
+    // ── Client-rendered UGC: fetch media from the provider's public feed (Flowbox) ──
+    // Flowbox renders its gallery with JS, so detection finds the widget but no images in
+    // the HTML. Its public feed (no auth) is keyed by the flow key in the embed config.
+    if (ugc.detected && ugc.images.length === 0 && ugc.providers.includes('flowbox')) {
+      try {
+        const keySet = new Set();
+        for (const m of html.matchAll(/\bkey\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
+        for (const m of html.matchAll(/"key"\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
+        const keys = [...keySet].slice(0, 4);
+        const locM = html.match(/locale\s*:\s*["']([a-z]{2}-[a-z]{2})["']/i)
+                  || (typeof detectedCode === 'string' && /^[a-z]{2}-[a-z]{2}$/i.test(detectedCode) ? [null, detectedCode] : null)
+                  || url.match(/\/([a-z]{2}-[a-z]{2})(?:[\/?]|$)/i);
+        const locale = locM ? String(locM[1]).toLowerCase() : '';
+        const looksImg = (u) => typeof u === 'string' && /^https?:\/\//i.test(u) &&
+          (/\.(jpg|jpeg|png|webp)(\?|#|$)/i.test(u) || /photoslurp\.com|getflowbox\.com|flowbox|cdninstagram\.com|fbcdn\.net|scontent/i.test(u));
+        const postImages = (post) => {
+          const out = [];
+          const walk = (v, path) => {
+            if (v == null) return;
+            if (typeof v === 'string') {
+              if (/avatar|profile|author|account|userpic|user[_-]?(pic|image|img)/i.test(path)) return;
+              if (looksImg(v)) out.push(v);
+              return;
+            }
+            if (Array.isArray(v)) { for (const x of v) walk(x, path); return; }
+            if (typeof v === 'object') { for (const k in v) walk(v[k], path + '.' + String(k).toLowerCase()); }
+          };
+          walk(post, '');
+          return out;
+        };
+        const fbImgs = [];
+        for (const key of keys) {
+          try {
+            const params = new URLSearchParams({ postsPerPage: '30' });
+            if (locale) params.set('locale', locale);
+            const fr = await fetch('https://gateway.getflowbox.com/v1/public/feed/' + key + '?' + params.toString(), { signal: AbortSignal.timeout(6000) });
+            if (!fr.ok) continue;
+            const fd = await fr.json();
+            const posts = Array.isArray(fd.posts) ? fd.posts : (Array.isArray(fd.data) ? fd.data : []);
+            for (const post of posts) {
+              const imgs = postImages(post);
+              if (imgs.length) fbImgs.push(imgs[0]);
+            }
+            if (fbImgs.length) break;
+          } catch (_) {}
+        }
+        if (fbImgs.length) {
+          ugc.images = [...new Set(fbImgs)].slice(0, 24);
+          console.log('UGC flowbox feed images:', ugc.images.length, '| key(s):', keys.length, '| locale:', locale || '(none)');
+        } else {
+          console.log('UGC flowbox: widget detected but feed returned no usable images | key(s):', keys.length);
+        }
+      } catch (e) { console.log('UGC flowbox fetch error:', e.message); }
+    }
     result.ugc = ugc;
 
     // ── Domain-specific gallery extraction ────────────────────────────────────
