@@ -642,22 +642,12 @@ export default async function handler(req, res) {
                   || (typeof detectedCode === 'string' && /^[a-z]{2}-[a-z]{2}$/i.test(detectedCode) ? [null, detectedCode] : null)
                   || url.match(/\/([a-z]{2}-[a-z]{2})(?:[\/?]|$)/i);
         const locale = locM ? String(locM[1]).toLowerCase() : '';
-        const looksImg = (u) => typeof u === 'string' && /^https?:\/\//i.test(u) &&
-          (/\.(jpg|jpeg|png|webp)(\?|#|$)/i.test(u) || /photoslurp\.com|getflowbox\.com|flowbox|cdninstagram\.com|fbcdn\.net|scontent/i.test(u));
-        const postImages = (post) => {
-          const out = [];
-          const walk = (v, path) => {
-            if (v == null) return;
-            if (typeof v === 'string') {
-              if (/avatar|profile|author|account|userpic|user[_-]?(pic|image|img)/i.test(path)) return;
-              if (looksImg(v)) out.push(v);
-              return;
-            }
-            if (Array.isArray(v)) { for (const x of v) walk(x, path); return; }
-            if (typeof v === 'object') { for (const k in v) walk(v[k], path + '.' + String(k).toLowerCase()); }
-          };
-          walk(post, '');
-          return out;
+        const pickFlowboxImage = (post) => {
+          if (!post || typeof post !== 'object') return null;
+          var media = Array.isArray(post.media) ? post.media : [];
+          var m = media.find(function (x) { return x && (!x.type || /image/i.test(x.type)); }) || media[0] || null;
+          var u = (m && (m.url || m.fallbackUrl)) || post.imageUrl || (post.thumbnail && (post.thumbnail.url || post.thumbnail.fallbackUrl)) || null;
+          return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null;
         };
         const fbImgs = [];
         for (const key of keys) {
@@ -667,10 +657,10 @@ export default async function handler(req, res) {
             const fr = await fetch('https://gateway.getflowbox.com/v1/public/feed/' + key + '?' + params.toString(), { signal: AbortSignal.timeout(6000) });
             if (!fr.ok) continue;
             const fd = await fr.json();
-            const posts = Array.isArray(fd.posts) ? fd.posts : (Array.isArray(fd.data) ? fd.data : []);
-            for (const post of posts) {
-              const imgs = postImages(post);
-              if (imgs.length) fbImgs.push(imgs[0]);
+            const allPosts = [].concat(Array.isArray(fd.posts) ? fd.posts : [], Array.isArray(fd.pinned) ? fd.pinned : []);
+            for (const post of allPosts) {
+              const img = pickFlowboxImage(post);
+              if (img) fbImgs.push(img);
             }
             if (fbImgs.length) break;
           } catch (_) {}
