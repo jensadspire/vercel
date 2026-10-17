@@ -642,14 +642,20 @@ export default async function handler(req, res) {
                   || (typeof detectedCode === 'string' && /^[a-z]{2}-[a-z]{2}$/i.test(detectedCode) ? [null, detectedCode] : null)
                   || url.match(/\/([a-z]{2}-[a-z]{2})(?:[\/?]|$)/i);
         const locale = locM ? String(locM[1]).toLowerCase() : '';
-        const pickFlowboxImage = (post) => {
+        const ugcLang = ((locale ? locale.split('-')[0] : (typeof detectedCode === 'string' ? detectedCode.toLowerCase().split('-')[0] : 'en')) || 'en');
+        const pickFlowboxPost = (post) => {
           if (!post || typeof post !== 'object') return null;
           var media = Array.isArray(post.media) ? post.media : [];
           var m = media.find(function (x) { return x && (!x.type || /image/i.test(x.type)); }) || media[0] || null;
-          var u = (m && (m.url || m.fallbackUrl)) || post.imageUrl || (post.thumbnail && (post.thumbnail.url || post.thumbnail.fallbackUrl)) || null;
-          return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null;
+          var image = (m && (m.url || m.fallbackUrl)) || post.imageUrl || (post.thumbnail && (post.thumbnail.url || post.thumbnail.fallbackUrl)) || null;
+          if (typeof image !== 'string' || !/^https?:\/\//i.test(image)) return null;
+          var caption = (typeof post.text === 'string' && post.text) ? post.text : (typeof post.originalText === 'string' ? post.originalText : '');
+          caption = String(caption).replace(/\s+$/, '').slice(0, 600);
+          var at = (post.altText && post.altText['0']) ? post.altText['0'] : null;
+          var altText = at ? (at[ugcLang] || at.en || at[Object.keys(at)[0]] || '') : '';
+          return { image: image, caption: caption, altText: String(altText).slice(0, 400), creator: post.userName || '', permalink: post.postPermalink || post.userPermalink || '' };
         };
-        const fbImgs = [];
+        const fbPosts = [];
         for (const key of keys) {
           try {
             const params = new URLSearchParams({ postsPerPage: '30' });
@@ -659,17 +665,19 @@ export default async function handler(req, res) {
             const fd = await fr.json();
             const allPosts = [].concat(Array.isArray(fd.posts) ? fd.posts : [], Array.isArray(fd.pinned) ? fd.pinned : []);
             for (const post of allPosts) {
-              const img = pickFlowboxImage(post);
-              if (img) fbImgs.push(img);
+              const p = pickFlowboxPost(post);
+              if (p) fbPosts.push(p);
             }
-            if (fbImgs.length) break;
+            if (fbPosts.length) break;
           } catch (_) {}
         }
-        if (fbImgs.length) {
-          ugc.images = [...new Set(fbImgs)].slice(0, 24);
-          console.log('UGC flowbox feed images:', ugc.images.length, '| key(s):', keys.length, '| locale:', locale || '(none)');
+        if (fbPosts.length) {
+          const seen = new Set();
+          ugc.posts = fbPosts.filter(function (p) { if (seen.has(p.image)) return false; seen.add(p.image); return true; }).slice(0, 24);
+          ugc.images = ugc.posts.map(function (p) { return p.image; });
+          console.log('UGC flowbox feed posts:', ugc.posts.length, '| with caption:', ugc.posts.filter(function (p) { return !!p.caption; }).length, '| key(s):', keys.length, '| locale:', locale || '(none)');
         } else {
-          console.log('UGC flowbox: widget detected but feed returned no usable images | key(s):', keys.length);
+          console.log('UGC flowbox: widget detected but feed returned no usable posts | key(s):', keys.length);
         }
       } catch (e) { console.log('UGC flowbox fetch error:', e.message); }
     }
