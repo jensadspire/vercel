@@ -2739,6 +2739,27 @@ function RSAStudio() {
       setCharLib(prev => Array.isArray(prev) ? prev.filter(c => c.id !== id) : prev);
     } catch (_) {}
   };
+  // ── UGC ad generation (slice 3) — self-contained; branded flow untouched ──
+  const [ugcAdResult, setUgcAdResult] = useState(null);   // generate-meta-ugc response | null
+  const [ugcAdLoading, setUgcAdLoading] = useState(false);
+  const [ugcAdError, setUgcAdError] = useState('');
+  const createUgcAd = async (srcChar) => {
+    if (!srcChar || !srcChar.image) { setUgcAdError('Pick a UGC image first.'); return; }
+    if (!url || !url.trim()) { setUgcAdError('Enter a product URL and generate first.'); return; }
+    setUgcAdLoading(true); setUgcAdError(''); setUgcAdResult(null);
+    try { setTimeout(() => { var el = document.getElementById('ugc-ad-result'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); } catch (_) {}
+    try {
+      const r = await fetch('/api/generate-meta-ugc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        url: url,
+        language: (pageMeta && pageMeta.language) || 'English',
+        ugc: { image: srcChar.image, creator: srcChar.creator || '', caption: srcChar.caption || '', captionLang: srcChar.captionLang || '' },
+      }) });
+      const d = await r.json();
+      if (d && d.primaryTexts) setUgcAdResult(d);
+      else setUgcAdError(d && d.error ? d.error : 'UGC ad generation failed.');
+    } catch (e) { setUgcAdError('UGC ad generation failed — please try again.'); }
+    finally { setUgcAdLoading(false); }
+  };
   const [csVertical, setCsVertical] = useState('beauty');
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
   const csRotationRef = useRef(0); // advances each generation to rotate through csTemplates
@@ -4753,6 +4774,32 @@ STRICT rules:
 
                 {/* 2. Personas — UGC source selector (Phase 1) */}
                 <div style={{ fontSize: 11, fontWeight: 800, color: "#c4b5fd", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Personas <span style={{ color: "#5a6b80", fontWeight: 600 }}>· character sources</span></div>
+                {(ugcAdLoading || ugcAdError || ugcAdResult) && (
+                  <div id="ugc-ad-result" style={{ marginBottom: 16, padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.08)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 800, color: "#c4b5fd" }}>✨ UGC Meta ad{ugcAdResult && ugcAdResult.creator ? (" · @" + ugcAdResult.creator) : ""}</div>
+                      <div onClick={() => { setUgcAdResult(null); setUgcAdError(''); }} style={{ cursor: "pointer", color: "#7e92a8", fontSize: 16, fontWeight: 900, lineHeight: 1 }}>×</div>
+                    </div>
+                    {ugcAdLoading && <div style={{ fontSize: 11, color: "#9db0c7" }}>⟳ Writing the creator-voice ad…</div>}
+                    {ugcAdError && <div style={{ fontSize: 11, color: "#fca5a5" }}>{ugcAdError}</div>}
+                    {ugcAdResult && (
+                      <div style={{ display: "flex", gap: 12 }}>
+                        <img src={ugcAdResult.imageUrl} alt="" style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 8, flexShrink: 0, background: "#1e293b" }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 9, color: "#7e92a8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Primary text <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>· click to copy</span></div>
+                          {(ugcAdResult.primaryTexts || []).map(function (t, i) {
+                            return <div key={i} onClick={() => { try { navigator.clipboard.writeText(t); } catch (_) {} }} title="Click to copy" style={{ fontSize: 11, color: "#dbe4ef", lineHeight: 1.45, marginBottom: 6, padding: "6px 8px", borderRadius: 6, background: "rgba(0,0,0,0.2)", cursor: "pointer" }}>{t}</div>;
+                          })}
+                          <div style={{ fontSize: 9, color: "#7e92a8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", margin: "6px 0 4px" }}>Headlines</div>
+                          <div style={{ fontSize: 10.5, color: "#9db0c7", lineHeight: 1.6 }}>{(ugcAdResult.headlines || []).join("  ·  ")}</div>
+                          {ugcAdResult.descriptions && ugcAdResult.descriptions.length > 0 && (
+                            <div style={{ fontSize: 10.5, color: "#7e92a8", marginTop: 4 }}>{(ugcAdResult.descriptions || []).join("  ·  ")}</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.06)", marginBottom: 20 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e2e8f0", marginBottom: 2 }}>UGC from your site</div>
                   <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>Pull real creator content from your shop's UGC gallery to reuse as a fixed character across videos.</div>
@@ -4804,6 +4851,7 @@ STRICT rules:
                               })}
                             </div>
                             <button onClick={() => saveCharToLibrary(pickedPost)} disabled={ugcSaving} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: ugcSaving ? "default" : "pointer", background: ugcSaving ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>{ugcSaving ? "Saving…" : "＋ Save to character library"}</button>
+                            <button onClick={() => createUgcAd({ image: pickedPost.image, creator: pickedPost.creator, caption: pickedPost.caption, captionLang: '' })} disabled={ugcAdLoading} style={{ marginLeft: 8, padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: ugcAdLoading ? "default" : "pointer", background: ugcAdLoading ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{ugcAdLoading ? "Generating…" : "✨ Create UGC ad"}</button>
                             {ugcSavedMsg && <div style={{ fontSize: 10.5, color: ugcSavedMsg.indexOf("✓") === 0 ? "#34d399" : "#fca5a5", marginTop: 8 }}>{ugcSavedMsg}</div>}
                           </div>
                         </div>
@@ -4843,6 +4891,7 @@ STRICT rules:
                                   <div style={{ padding: "5px 7px 7px" }}>
                                     <div style={{ fontSize: 10, color: "#e2e8f0", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Untitled"}</div>
                                     <div style={{ fontSize: 8.5, color: "#7e92a8", marginTop: 2 }}>{[c.type, (c.shot && c.shot !== "other") ? c.shot.replace("_", " ") : null].filter(Boolean).join(" · ")}</div>
+                                    <button onClick={() => createUgcAd({ image: c.thumbnailUrl || c.seedImageUrl, creator: c.creator || c.name, caption: c.originCaption, captionLang: c.captionLang })} disabled={ugcAdLoading} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: ugcAdLoading ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>✨ UGC ad</button>
                                   </div>
                                 </div>
                               );
