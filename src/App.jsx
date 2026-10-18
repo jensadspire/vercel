@@ -2690,6 +2690,55 @@ function RSAStudio() {
     } catch (e) { setUgcError('Scan failed — please try again.'); }
     finally { setUgcScanLoading(false); }
   };
+  // ── Character Library (Phase 1) ──
+  const [ugcShot, setUgcShot] = useState('');             // shot tag chosen on save
+  const [ugcSaving, setUgcSaving] = useState(false);
+  const [ugcSavedMsg, setUgcSavedMsg] = useState('');
+  const [charLib, setCharLib] = useState(null);           // array | null (not loaded)
+  const [charLibLoading, setCharLibLoading] = useState(false);
+  const [charLibFilter, setCharLibFilter] = useState({}); // { source, type, shot }
+  const charAuthHeaders = async () => {
+    const h = { 'Content-Type': 'application/json' };
+    try { if (window.Clerk && window.Clerk.session) h['x-clerk-session'] = await window.Clerk.session.getToken(); } catch (_) {}
+    return h;
+  };
+  const loadCharLibrary = async (filters) => {
+    setCharLibLoading(true);
+    try {
+      const r = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list', filters: filters || charLibFilter }) });
+      const d = await r.json();
+      setCharLib(Array.isArray(d.characters) ? d.characters : []);
+    } catch (_) { setCharLib([]); }
+    finally { setCharLibLoading(false); }
+  };
+  const saveCharToLibrary = async (post) => {
+    if (!post || !post.image) return;
+    setUgcSaving(true); setUgcSavedMsg('');
+    try {
+      const provider = (ugcData && ugcData.providers && ugcData.providers[0]) || '';
+      const source = provider === 'yotpo' ? 'ugc_yotpo' : (provider === 'flowbox' ? 'ugc_flowbox' : 'ugc');
+      const body = {
+        action: 'save', source: source, type: 'UGC', shot: ugcShot || 'other',
+        name: post.creator || 'UGC character', creator: post.creator || '',
+        thumbnailUrl: post.image, seedImageUrl: post.image, referenceImages: [post.image],
+        originCaption: post.caption || '', captionLang: ugcAdLang || '',
+        sourceUrl: url || '', sourceProvider: provider,
+      };
+      const r = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) });
+      const d = await r.json();
+      if (d && d.character) {
+        setUgcSavedMsg('✓ Saved to your character library');
+        if (charLib !== null) loadCharLibrary();
+      } else { setUgcSavedMsg(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
+    } catch (_) { setUgcSavedMsg('Save failed — please try again.'); }
+    finally { setUgcSaving(false); }
+  };
+  const deleteChar = async (id) => {
+    try {
+      await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'delete', id: id }) });
+      setCharLib(prev => Array.isArray(prev) ? prev.filter(c => c.id !== id) : prev);
+    } catch (_) {}
+  };
   const [csVertical, setCsVertical] = useState('beauty');
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
   const csRotationRef = useRef(0); // advances each generation to rotate through csTemplates
@@ -4746,11 +4795,63 @@ STRICT rules:
                               </label>
                             </div>
                           ) : <div style={{ fontSize: 10.5, color: "#5a6b80" }}>This post has no caption.</div>}
+                          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                            <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 6 }}>Shot type (optional)</div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                              {["headshot", "hands", "full_body", "other"].map(function (s) {
+                                var on = ugcShot === s;
+                                return <span key={s} onClick={() => setUgcShot(on ? '' : s)} style={{ cursor: "pointer", fontSize: 10.5, fontWeight: 600, padding: "3px 9px", borderRadius: 999, border: on ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.14)", background: on ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.04)", color: on ? "#c4b5fd" : "#9db0c7" }}>{on ? "✓ " : ""}{s.replace("_", " ")}</span>;
+                              })}
+                            </div>
+                            <button onClick={() => saveCharToLibrary(pickedPost)} disabled={ugcSaving} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: ugcSaving ? "default" : "pointer", background: ugcSaving ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>{ugcSaving ? "Saving…" : "＋ Save to character library"}</button>
+                            {ugcSavedMsg && <div style={{ fontSize: 10.5, color: ugcSavedMsg.indexOf("✓") === 0 ? "#34d399" : "#fca5a5", marginTop: 8 }}>{ugcSavedMsg}</div>}
+                          </div>
                         </div>
                       )}
                     </div>
                     );
                   })()}
+                </div>
+
+                {/* 2b · Your character library */}
+                <div style={{ marginBottom: 20 }}>
+                  <button onClick={() => { if (charLib === null) { loadCharLibrary(); } else { setCharLib(null); } }} style={{ padding: "7px 13px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", cursor: "pointer", background: "rgba(255,255,255,0.04)", color: "#c4b5fd" }}>📚 {charLib === null ? "Show your character library" : "Hide library"}</button>
+                  {charLib !== null && (
+                    <div style={{ marginTop: 10, padding: 14, borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                        {[["type", "UGC"], ["type", "Brand"], ["type", "Hybrid"], ["shot", "headshot"], ["shot", "hands"], ["shot", "full_body"]].map(function (pair) {
+                          var dim = pair[0], val = pair[1]; var on = charLibFilter[dim] === val;
+                          return <span key={dim + val} onClick={() => { var nf = Object.assign({}, charLibFilter); if (on) { delete nf[dim]; } else { nf[dim] = val; } setCharLibFilter(nf); loadCharLibrary(nf); }} style={{ cursor: "pointer", fontSize: 10.5, fontWeight: 600, padding: "3px 9px", borderRadius: 999, border: on ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.14)", background: on ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.04)", color: on ? "#c4b5fd" : "#9db0c7" }}>{on ? "✓ " : ""}{val.replace("_", " ")}</span>;
+                        })}
+                        {Object.keys(charLibFilter).length > 0 && <span onClick={() => { setCharLibFilter({}); loadCharLibrary({}); }} style={{ cursor: "pointer", fontSize: 10.5, fontWeight: 600, padding: "3px 9px", borderRadius: 999, color: "#7e92a8" }}>clear</span>}
+                      </div>
+                      {charLibLoading ? (
+                        <div style={{ fontSize: 11, color: "#7e92a8" }}>Loading…</div>
+                      ) : (charLib.length === 0 ? (
+                        <div style={{ fontSize: 11, color: "#5a6b80" }}>No characters yet — pick a UGC image above and save it to your library.</div>
+                      ) : (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 8 }}>{charLib.length} character{charLib.length === 1 ? "" : "s"}</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, maxHeight: 300, overflowY: "auto", paddingRight: 2 }}>
+                            {charLib.map(function (c) {
+                              return (
+                                <div key={c.id} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
+                                  <div style={{ position: "relative", aspectRatio: "1" }}>
+                                    <img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} />
+                                    <div onClick={() => deleteChar(c.id)} title="Remove" style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.6)", color: "#fca5a5", fontSize: 13, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>×</div>
+                                  </div>
+                                  <div style={{ padding: "5px 7px 7px" }}>
+                                    <div style={{ fontSize: 10, color: "#e2e8f0", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Untitled"}</div>
+                                    <div style={{ fontSize: 8.5, color: "#7e92a8", marginTop: 2 }}>{[c.type, (c.shot && c.shot !== "other") ? c.shot.replace("_", " ") : null].filter(Boolean).join(" · ")}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* 3. Shop scenery — reserved (later) */}
