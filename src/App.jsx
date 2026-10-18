@@ -4737,7 +4737,7 @@ STRICT rules:
                 {(tiktokResult && tiktokResult.videoPrompt) ? (
                   <>
                     <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Turn your product into a short-form video ad.<br/>Takes about 3–4 minutes.</div>
-                    <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{(activeTemplate && templateLabel(activeTemplate)) ? ('✦ ' + templateLabel(activeTemplate)) : (videoEngine === 'runway' ? 'Runway · best for fashion' : ('Kling · ' + (videoArchetype === 'studio_spin' ? 'Studio Spin' : videoArchetype === 'lifestyle_montage' ? 'Lifestyle Montage' : 'Scene Reveal')))}</div>
+                    <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{(ugcHeroSrc && ugcHeroSrc.image && tiktokSourceImageRef.current === ugcHeroSrc.image) ? 'Kling · UGC Video' : ((activeTemplate && templateLabel(activeTemplate)) ? ('✦ ' + templateLabel(activeTemplate)) : (videoEngine === 'runway' ? 'Runway · best for fashion' : ('Kling · ' + (videoArchetype === 'studio_spin' ? 'Studio Spin' : videoArchetype === 'lifestyle_montage' ? 'Lifestyle Montage' : 'Scene Reveal'))))}</div>
                     {/* Part B: multi-reference 3-icon stack (Fashion extended templates only) */}
                     {MULTIREF_TEMPLATES.includes(activeTemplate) && (() => {
                       const vars = (metaResult?.imageVariations && metaResult.imageVariations.length ? metaResult.imageVariations : [metaResult?.imageUrl].filter(Boolean));
