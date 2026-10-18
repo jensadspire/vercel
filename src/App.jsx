@@ -2760,6 +2760,53 @@ function RSAStudio() {
     } catch (e) { setUgcAdError('UGC ad generation failed — please try again.'); }
     finally { setUgcAdLoading(false); }
   };
+  // ── UGC video (slice 4) — self-contained; branded video flow untouched ──
+  const [ugcVidUrl, setUgcVidUrl] = useState(null);
+  const [ugcVidLoading, setUgcVidLoading] = useState(false);
+  const [ugcVidError, setUgcVidError] = useState('');
+  const ugcVidPollRef = useRef(null);
+  const createUgcVideo = async (srcChar) => {
+    const image = srcChar && srcChar.image;
+    if (!image) { setUgcVidError('No image to animate.'); return; }
+    if (!url || !url.trim()) { setUgcVidError('Enter a product URL first.'); return; }
+    setUgcVidLoading(true); setUgcVidError(''); setUgcVidUrl(null);
+    if (ugcVidPollRef.current) { clearInterval(ugcVidPollRef.current); ugcVidPollRef.current = null; }
+    const lang = (pageMeta && pageMeta.language) || 'English';
+    try {
+      // 1) UGC storyboard + prompt + overlay captions
+      const sr = await fetch('/api/generate-tiktok-ugc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        url: url, language: lang,
+        ugc: { image: image, creator: srcChar.creator || '', caption: srcChar.caption || '', captionLang: srcChar.captionLang || '' },
+      }) });
+      const sd = await sr.json();
+      if (!sd || !sd.videoPrompt) { setUgcVidError(sd && sd.error ? sd.error : 'Could not build the UGC storyboard.'); setUgcVidLoading(false); return; }
+      // 2) Kling dispatch — UGC image is the opening frame; hook + CTA burned as on-screen captions (existing overlay mechanism)
+      const imageUrl = String(image).replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://');
+      const kr = await fetch('/api/kling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        imageUrl: imageUrl, storyboard: sd.storyboard || [], prompt: sd.videoPrompt, language: lang,
+        overlayIntro: sd.hookLine || '', overlayOutro: sd.cta || '',
+      }) });
+      const kd = await kr.json().catch(() => ({}));
+      if (kd.videoUrl) { setUgcVidUrl(kd.videoUrl); setUgcVidLoading(false); return; }
+      if (kd.error || (!kd.requestId && !kd.taskId)) { setUgcVidError(kd.error ? ('Video failed: ' + kd.error) : 'Video could not start.'); setUgcVidLoading(false); return; }
+      // 3) poll /api/kling
+      const pollId = kd.requestId || kd.taskId;
+      const pollKey = kd.taskId ? 'taskId' : 'requestId';
+      let n = 0;
+      const iv = setInterval(async () => {
+        if (ugcVidPollRef.current !== iv) { clearInterval(iv); return; }
+        if (n++ > 144) { setUgcVidLoading(false); setUgcVidError('Video timed out — please try again.'); clearInterval(iv); return; }
+        try {
+          const pr = await fetch('/api/kling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
+          const pd = await pr.json();
+          if (ugcVidPollRef.current !== iv) { clearInterval(iv); return; }
+          if (pd.videoUrl) { setUgcVidUrl(pd.videoUrl); setUgcVidLoading(false); clearInterval(iv); }
+          else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { setUgcVidError('Video generation failed — please try again.'); setUgcVidLoading(false); clearInterval(iv); }
+        } catch (_) {}
+      }, 5000);
+      ugcVidPollRef.current = iv;
+    } catch (e) { setUgcVidError('Video generation failed — please try again.'); setUgcVidLoading(false); }
+  };
   const [csVertical, setCsVertical] = useState('beauty');
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
   const csRotationRef = useRef(0); // advances each generation to rotate through csTemplates
@@ -4796,6 +4843,21 @@ STRICT rules:
                             <div style={{ fontSize: 10.5, color: "#7e92a8", marginTop: 4 }}>{(ugcAdResult.descriptions || []).join("  ·  ")}</div>
                           )}
                         </div>
+                      </div>
+                    )}
+                    {ugcAdResult && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                        {!ugcVidUrl && !ugcVidLoading && (
+                          <button onClick={() => createUgcVideo({ image: ugcAdResult.imageUrl, creator: ugcAdResult.creator, caption: ugcAdResult.captionUsed, captionLang: ugcAdResult.captionLang })} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>🎬 Create UGC video (Kling)</button>
+                        )}
+                        {ugcVidLoading && <div style={{ fontSize: 11, color: "#fbbf24" }}>⟳ Generating UGC video — this takes ~2–4 min, hang tight…</div>}
+                        {ugcVidError && <div style={{ fontSize: 11, color: "#fca5a5", marginTop: 6 }}>{ugcVidError}</div>}
+                        {ugcVidUrl && (
+                          <div style={{ marginTop: 4 }}>
+                            <video src={ugcVidUrl} controls playsInline style={{ width: 180, borderRadius: 10, display: "block", background: "#000" }} />
+                            <div style={{ fontSize: 10, color: "#7e92a8", marginTop: 6 }}>UGC video ready · hook + CTA burned as on-screen captions.</div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
