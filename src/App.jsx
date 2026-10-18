@@ -1149,6 +1149,12 @@ function RSAStudio() {
       const _ge = (activeTemplate && TEMPLATE_ENGINE[activeTemplate]) ? TEMPLATE_ENGINE[activeTemplate] : videoEngineRef.current;
       if (videoGateBlocked(_ge)) return;
     }
+    // UGC-aware: if the active hero image is the tagged UGC image, route to the UGC video
+    // path (handheld storyboard + creator-voice captions). Branded flow is untouched below.
+    if (ugcHeroSrc && ugcHeroSrc.image && tiktokSourceImageRef.current === ugcHeroSrc.image) {
+      await runUgcVideoMain(ugcHeroSrc);
+      return;
+    }
     if (!tiktokResult || !tiktokResult.videoPrompt) return;
     setTiktokVideoUrl(null); // clear stale video before new gen (so a previous run's video doesn't resurface after a swap)
     setExtStage(null);
@@ -2814,6 +2820,7 @@ function RSAStudio() {
     if (!metaResult) { setUgcSentMsg('Generate a Meta ad first, then send.'); setTimeout(() => setUgcSentMsg(''), 2500); return; }
     const img = ugcAdResult.imageUrl;
     tiktokSourceImageRef.current = img;
+    setUgcHeroSrc({ image: img, creator: ugcAdResult.creator || '', caption: ugcAdResult.captionUsed || '', captionLang: ugcAdResult.captionLang || '' });
     setMetaResult(prev => {
       const base = prev || {};
       const vars = [img].concat(Array.isArray(base.imageVariations) ? base.imageVariations : []).filter(function (v, i, a) { return v && a.indexOf(v) === i; });
@@ -2827,6 +2834,46 @@ function RSAStudio() {
     try { setActiveImageVariant(0); } catch (_) {}
     setUgcSentMsg('✓ Sent to your Meta ad — opening it…');
     setTimeout(() => { setUgcSentMsg(''); setShowCreativeStudio(false); }, 1100);
+  };
+  // ── UGC-aware regular video (slice 6) ──
+  const [ugcHeroSrc, setUgcHeroSrc] = useState(null); // { image, creator, caption, captionLang } when the Meta hero is UGC-sourced
+  const runUgcVideoMain = async (srcChar) => {
+    const image = srcChar && srcChar.image;
+    if (!image) return;
+    setTiktokVideoUrl(null); setExtStage(null); setTiktokVideoLoading(true); setRecipeError(null);
+    if (videoPollRef.current) { clearInterval(videoPollRef.current); videoPollRef.current = null; }
+    const lang = (pageMeta && pageMeta.language) || 'English';
+    try {
+      const sr = await fetch('/api/generate-tiktok-ugc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        url: url, language: lang,
+        ugc: { image: image, creator: srcChar.creator || '', caption: srcChar.caption || '', captionLang: srcChar.captionLang || '' },
+      }) });
+      const sd = await sr.json();
+      if (!sd || !sd.videoPrompt) { setRecipeError(sd && sd.error ? sd.error : 'Could not build the UGC storyboard.'); setTiktokVideoLoading(false); return; }
+      const imageUrl = String(image).replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://');
+      const kr = await fetch('/api/kling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        imageUrl: imageUrl, storyboard: sd.storyboard || [], prompt: sd.videoPrompt, language: lang,
+        overlayIntro: sd.hookLine || '', overlayOutro: sd.cta || '',
+      }) });
+      const kd = await kr.json().catch(() => ({}));
+      if (kd.videoUrl) { setTiktokVideoUrl(kd.videoUrl); setTiktokVideoLoading(false); try { track('tiktok_output_completed', { engine: 'kling-ugc' }); } catch (_) {} return; }
+      if (kd.error || (!kd.requestId && !kd.taskId)) { setRecipeError(kd.error ? ('Video generation failed: ' + kd.error) : 'Video could not start — please try again.'); setTiktokVideoLoading(false); return; }
+      const pollId = kd.requestId || kd.taskId;
+      const pollKey = kd.taskId ? 'taskId' : 'requestId';
+      let n = 0;
+      const iv = setInterval(async () => {
+        if (videoPollRef.current !== iv) { clearInterval(iv); return; }
+        if (n++ > 144) { setTiktokVideoLoading(false); clearInterval(iv); return; }
+        try {
+          const pr = await fetch('/api/kling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
+          const pd = await pr.json();
+          if (videoPollRef.current !== iv) { clearInterval(iv); return; }
+          if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(iv); try { track('tiktok_output_completed', { engine: 'kling-ugc' }); } catch (_) {} }
+          else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { setRecipeError('Video generation failed — please try again.'); setTiktokVideoLoading(false); clearInterval(iv); }
+        } catch (_) {}
+      }, 5000);
+      videoPollRef.current = iv;
+    } catch (e) { setRecipeError('Video generation failed — please try again.'); setTiktokVideoLoading(false); }
   };
   const [csVertical, setCsVertical] = useState('beauty');
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
