@@ -2807,6 +2807,27 @@ function RSAStudio() {
       ugcVidPollRef.current = iv;
     } catch (e) { setUgcVidError('Video generation failed — please try again.'); setUgcVidLoading(false); }
   };
+  // ── UGC → Meta surface (slice 5) — send the foundation into the real Meta ad ──
+  const [ugcSentMsg, setUgcSentMsg] = useState('');
+  const sendUgcToMeta = () => {
+    if (!ugcAdResult || !ugcAdResult.imageUrl) return;
+    if (!metaResult) { setUgcSentMsg('Generate a Meta ad first, then send.'); setTimeout(() => setUgcSentMsg(''), 2500); return; }
+    const img = ugcAdResult.imageUrl;
+    tiktokSourceImageRef.current = img;
+    setMetaResult(prev => {
+      const base = prev || {};
+      const vars = [img].concat(Array.isArray(base.imageVariations) ? base.imageVariations : []).filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+      return Object.assign({}, base, {
+        imageUrl: img, heroProductImage: img, imageVariations: vars,
+        primaryTexts: ugcAdResult.primaryTexts || base.primaryTexts || [],
+        headlines: ugcAdResult.headlines || base.headlines || [],
+        descriptions: ugcAdResult.descriptions || base.descriptions || [],
+      });
+    });
+    try { setActiveImageVariant(0); } catch (_) {}
+    setUgcSentMsg('✓ Sent to your Meta ad — opening it…');
+    setTimeout(() => { setUgcSentMsg(''); setShowCreativeStudio(false); }, 1100);
+  };
   const [csVertical, setCsVertical] = useState('beauty');
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
   const csRotationRef = useRef(0); // advances each generation to rotate through csTemplates
@@ -4847,6 +4868,11 @@ STRICT rules:
                     )}
                     {ugcAdResult && (
                       <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                        <div style={{ marginBottom: 10 }}>
+                          <button onClick={() => sendUgcToMeta()} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#1877f2,#0a66c2)", color: "white" }}>Send to Meta ad →</button>
+                          {ugcSentMsg && <div style={{ fontSize: 10.5, color: ugcSentMsg.indexOf("✓") === 0 ? "#34d399" : "#fbbf24", marginTop: 6 }}>{ugcSentMsg}</div>}
+                          <div style={{ fontSize: 9.5, color: "#5a6b80", marginTop: 6 }}>Sets this image + copy as your Meta ad hero. Your regular Kling video button then works from it.</div>
+                        </div>
                         {!ugcVidUrl && !ugcVidLoading && (
                           <button onClick={() => createUgcVideo({ image: ugcAdResult.imageUrl, creator: ugcAdResult.creator, caption: ugcAdResult.captionUsed, captionLang: ugcAdResult.captionLang })} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>🎬 Create UGC video (Kling)</button>
                         )}
