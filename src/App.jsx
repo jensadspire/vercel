@@ -1149,6 +1149,12 @@ function RSAStudio() {
       const _ge = (activeTemplate && TEMPLATE_ENGINE[activeTemplate]) ? TEMPLATE_ENGINE[activeTemplate] : videoEngineRef.current;
       if (videoGateBlocked(_ge)) return;
     }
+    // UGC-aware: if the active hero image is the tagged UGC image, route to the UGC video
+    // path (handheld storyboard + creator-voice captions). Branded flow is untouched below.
+    if (ugcHeroSrc && ugcHeroSrc.image && tiktokSourceImageRef.current === ugcHeroSrc.image) {
+      await runUgcVideoMain(ugcHeroSrc);
+      return;
+    }
     if (!tiktokResult || !tiktokResult.videoPrompt) return;
     setTiktokVideoUrl(null); // clear stale video before new gen (so a previous run's video doesn't resurface after a swap)
     setExtStage(null);
@@ -2689,6 +2695,185 @@ function RSAStudio() {
       else if (!ugc.images || ugc.images.length === 0) setUgcError('UGC widget found (' + (ugc.providers || []).join(', ') + ') but no images could be loaded.');
     } catch (e) { setUgcError('Scan failed — please try again.'); }
     finally { setUgcScanLoading(false); }
+  };
+  // ── Character Library (Phase 1) ──
+  const [ugcShot, setUgcShot] = useState('');             // shot tag chosen on save
+  const [ugcSaving, setUgcSaving] = useState(false);
+  const [ugcSavedMsg, setUgcSavedMsg] = useState('');
+  const [charLib, setCharLib] = useState(null);           // array | null (not loaded)
+  const [charLibLoading, setCharLibLoading] = useState(false);
+  const [charLibFilter, setCharLibFilter] = useState({}); // { source, type, shot }
+  const charAuthHeaders = async () => {
+    const h = { 'Content-Type': 'application/json' };
+    try { if (window.Clerk && window.Clerk.session) h['x-clerk-session'] = await window.Clerk.session.getToken(); } catch (_) {}
+    return h;
+  };
+  const loadCharLibrary = async (filters) => {
+    setCharLibLoading(true);
+    try {
+      const r = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list', filters: filters || charLibFilter }) });
+      const d = await r.json();
+      setCharLib(Array.isArray(d.characters) ? d.characters : []);
+    } catch (_) { setCharLib([]); }
+    finally { setCharLibLoading(false); }
+  };
+  const saveCharToLibrary = async (post) => {
+    if (!post || !post.image) return;
+    setUgcSaving(true); setUgcSavedMsg('');
+    try {
+      const provider = (ugcData && ugcData.providers && ugcData.providers[0]) || '';
+      const source = provider === 'yotpo' ? 'ugc_yotpo' : (provider === 'flowbox' ? 'ugc_flowbox' : 'ugc');
+      const body = {
+        action: 'save', source: source, type: 'UGC', shot: ugcShot || 'other',
+        name: post.creator || 'UGC character', creator: post.creator || '',
+        thumbnailUrl: post.image, seedImageUrl: post.image, referenceImages: [post.image],
+        originCaption: post.caption || '', captionLang: ugcAdLang || '',
+        sourceUrl: url || '', sourceProvider: provider,
+      };
+      const r = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) });
+      const d = await r.json();
+      if (d && d.character) {
+        setUgcSavedMsg('✓ Saved to your character library');
+        if (charLib !== null) loadCharLibrary();
+      } else { setUgcSavedMsg(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
+    } catch (_) { setUgcSavedMsg('Save failed — please try again.'); }
+    finally { setUgcSaving(false); }
+  };
+  const deleteChar = async (id) => {
+    try {
+      await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'delete', id: id }) });
+      setCharLib(prev => Array.isArray(prev) ? prev.filter(c => c.id !== id) : prev);
+    } catch (_) {}
+  };
+  // ── UGC ad generation (slice 3) — self-contained; branded flow untouched ──
+  const [ugcAdResult, setUgcAdResult] = useState(null);   // generate-meta-ugc response | null
+  const [ugcAdLoading, setUgcAdLoading] = useState(false);
+  const [ugcAdError, setUgcAdError] = useState('');
+  const createUgcAd = async (srcChar) => {
+    if (!srcChar || !srcChar.image) { setUgcAdError('Pick a UGC image first.'); return; }
+    if (!url || !url.trim()) { setUgcAdError('Enter a product URL and generate first.'); return; }
+    setUgcAdLoading(true); setUgcAdError(''); setUgcAdResult(null);
+    try { setTimeout(() => { var el = document.getElementById('ugc-ad-result'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); } catch (_) {}
+    try {
+      const r = await fetch('/api/generate-meta-ugc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        url: url,
+        language: (pageMeta && pageMeta.language) || 'English',
+        ugc: { image: srcChar.image, creator: srcChar.creator || '', caption: srcChar.caption || '', captionLang: srcChar.captionLang || '' },
+      }) });
+      const d = await r.json();
+      if (d && d.primaryTexts) setUgcAdResult(d);
+      else setUgcAdError(d && d.error ? d.error : 'UGC ad generation failed.');
+    } catch (e) { setUgcAdError('UGC ad generation failed — please try again.'); }
+    finally { setUgcAdLoading(false); }
+  };
+  // ── UGC video (slice 4) — self-contained; branded video flow untouched ──
+  const [ugcVidUrl, setUgcVidUrl] = useState(null);
+  const [ugcVidLoading, setUgcVidLoading] = useState(false);
+  const [ugcVidError, setUgcVidError] = useState('');
+  const ugcVidPollRef = useRef(null);
+  const createUgcVideo = async (srcChar) => {
+    const image = srcChar && srcChar.image;
+    if (!image) { setUgcVidError('No image to animate.'); return; }
+    if (!url || !url.trim()) { setUgcVidError('Enter a product URL first.'); return; }
+    setUgcVidLoading(true); setUgcVidError(''); setUgcVidUrl(null);
+    if (ugcVidPollRef.current) { clearInterval(ugcVidPollRef.current); ugcVidPollRef.current = null; }
+    const lang = (pageMeta && pageMeta.language) || 'English';
+    try {
+      // 1) UGC storyboard + prompt + overlay captions
+      const sr = await fetch('/api/generate-tiktok-ugc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        url: url, language: lang,
+        ugc: { image: image, creator: srcChar.creator || '', caption: srcChar.caption || '', captionLang: srcChar.captionLang || '' },
+      }) });
+      const sd = await sr.json();
+      if (!sd || !sd.videoPrompt) { setUgcVidError(sd && sd.error ? sd.error : 'Could not build the UGC storyboard.'); setUgcVidLoading(false); return; }
+      // 2) Kling dispatch — UGC image is the opening frame; hook + CTA burned as on-screen captions (existing overlay mechanism)
+      const imageUrl = String(image).replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://');
+      const kr = await fetch('/api/kling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        imageUrl: imageUrl, storyboard: sd.storyboard || [], prompt: sd.videoPrompt, language: lang,
+        overlayIntro: sd.hookLine || '', overlayOutro: sd.cta || '',
+      }) });
+      const kd = await kr.json().catch(() => ({}));
+      if (kd.videoUrl) { setUgcVidUrl(kd.videoUrl); setUgcVidLoading(false); return; }
+      if (kd.error || (!kd.requestId && !kd.taskId)) { setUgcVidError(kd.error ? ('Video failed: ' + kd.error) : 'Video could not start.'); setUgcVidLoading(false); return; }
+      // 3) poll /api/kling
+      const pollId = kd.requestId || kd.taskId;
+      const pollKey = kd.taskId ? 'taskId' : 'requestId';
+      let n = 0;
+      const iv = setInterval(async () => {
+        if (ugcVidPollRef.current !== iv) { clearInterval(iv); return; }
+        if (n++ > 144) { setUgcVidLoading(false); setUgcVidError('Video timed out — please try again.'); clearInterval(iv); return; }
+        try {
+          const pr = await fetch('/api/kling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
+          const pd = await pr.json();
+          if (ugcVidPollRef.current !== iv) { clearInterval(iv); return; }
+          if (pd.videoUrl) { setUgcVidUrl(pd.videoUrl); setUgcVidLoading(false); clearInterval(iv); }
+          else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { setUgcVidError('Video generation failed — please try again.'); setUgcVidLoading(false); clearInterval(iv); }
+        } catch (_) {}
+      }, 5000);
+      ugcVidPollRef.current = iv;
+    } catch (e) { setUgcVidError('Video generation failed — please try again.'); setUgcVidLoading(false); }
+  };
+  // ── UGC → Meta surface (slice 5) — send the foundation into the real Meta ad ──
+  const [ugcSentMsg, setUgcSentMsg] = useState('');
+  const sendUgcToMeta = () => {
+    if (!ugcAdResult || !ugcAdResult.imageUrl) return;
+    if (!metaResult) { setUgcSentMsg('Generate a Meta ad first, then send.'); setTimeout(() => setUgcSentMsg(''), 2500); return; }
+    const img = ugcAdResult.imageUrl;
+    tiktokSourceImageRef.current = img;
+    setUgcHeroSrc({ image: img, creator: ugcAdResult.creator || '', caption: ugcAdResult.captionUsed || '', captionLang: ugcAdResult.captionLang || '' });
+    setMetaResult(prev => {
+      const base = prev || {};
+      const vars = [img].concat(Array.isArray(base.imageVariations) ? base.imageVariations : []).filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+      return Object.assign({}, base, {
+        imageUrl: img, heroProductImage: img, imageVariations: vars,
+        primaryTexts: ugcAdResult.primaryTexts || base.primaryTexts || [],
+        headlines: ugcAdResult.headlines || base.headlines || [],
+        descriptions: ugcAdResult.descriptions || base.descriptions || [],
+      });
+    });
+    try { setActiveImageVariant(0); } catch (_) {}
+    setUgcSentMsg('✓ Sent to your Meta ad — opening it…');
+    setTimeout(() => { setUgcSentMsg(''); setShowCreativeStudio(false); }, 1100);
+  };
+  // ── UGC-aware regular video (slice 6) ──
+  const [ugcHeroSrc, setUgcHeroSrc] = useState(null); // { image, creator, caption, captionLang } when the Meta hero is UGC-sourced
+  const runUgcVideoMain = async (srcChar) => {
+    const image = srcChar && srcChar.image;
+    if (!image) return;
+    setTiktokVideoUrl(null); setExtStage(null); setTiktokVideoLoading(true); setRecipeError(null);
+    if (videoPollRef.current) { clearInterval(videoPollRef.current); videoPollRef.current = null; }
+    const lang = (pageMeta && pageMeta.language) || 'English';
+    try {
+      const sr = await fetch('/api/generate-tiktok-ugc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        url: url, language: lang,
+        ugc: { image: image, creator: srcChar.creator || '', caption: srcChar.caption || '', captionLang: srcChar.captionLang || '' },
+      }) });
+      const sd = await sr.json();
+      if (!sd || !sd.videoPrompt) { setRecipeError(sd && sd.error ? sd.error : 'Could not build the UGC storyboard.'); setTiktokVideoLoading(false); return; }
+      const imageUrl = String(image).replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://');
+      const kr = await fetch('/api/kling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        imageUrl: imageUrl, storyboard: sd.storyboard || [], prompt: sd.videoPrompt, language: lang,
+        overlayIntro: sd.hookLine || '', overlayOutro: sd.cta || '',
+      }) });
+      const kd = await kr.json().catch(() => ({}));
+      if (kd.videoUrl) { setTiktokVideoUrl(kd.videoUrl); setTiktokVideoLoading(false); try { track('tiktok_output_completed', { engine: 'kling-ugc' }); } catch (_) {} return; }
+      if (kd.error || (!kd.requestId && !kd.taskId)) { setRecipeError(kd.error ? ('Video generation failed: ' + kd.error) : 'Video could not start — please try again.'); setTiktokVideoLoading(false); return; }
+      const pollId = kd.requestId || kd.taskId;
+      const pollKey = kd.taskId ? 'taskId' : 'requestId';
+      let n = 0;
+      const iv = setInterval(async () => {
+        if (videoPollRef.current !== iv) { clearInterval(iv); return; }
+        if (n++ > 144) { setTiktokVideoLoading(false); clearInterval(iv); return; }
+        try {
+          const pr = await fetch('/api/kling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
+          const pd = await pr.json();
+          if (videoPollRef.current !== iv) { clearInterval(iv); return; }
+          if (pd.videoUrl) { setTiktokVideoUrl(pd.videoUrl); setTiktokVideoLoading(false); clearInterval(iv); try { track('tiktok_output_completed', { engine: 'kling-ugc' }); } catch (_) {} }
+          else if (pd.status === 'FAILED' || pd.status === 'CANCELLED') { setRecipeError('Video generation failed — please try again.'); setTiktokVideoLoading(false); clearInterval(iv); }
+        } catch (_) {}
+      }, 5000);
+      videoPollRef.current = iv;
+    } catch (e) { setRecipeError('Video generation failed — please try again.'); setTiktokVideoLoading(false); }
   };
   const [csVertical, setCsVertical] = useState('beauty');
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
@@ -4552,7 +4737,7 @@ STRICT rules:
                 {(tiktokResult && tiktokResult.videoPrompt) ? (
                   <>
                     <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Turn your product into a short-form video ad.<br/>Takes about 3–4 minutes.</div>
-                    <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{(activeTemplate && templateLabel(activeTemplate)) ? ('✦ ' + templateLabel(activeTemplate)) : (videoEngine === 'runway' ? 'Runway · best for fashion' : ('Kling · ' + (videoArchetype === 'studio_spin' ? 'Studio Spin' : videoArchetype === 'lifestyle_montage' ? 'Lifestyle Montage' : 'Scene Reveal')))}</div>
+                    <div style={{ fontSize: 10.5, color: "#8b5cf6", fontWeight: 700, background: "rgba(139,92,246,0.10)", borderRadius: 6, padding: "4px 10px" }}>{(ugcHeroSrc && ugcHeroSrc.image && tiktokSourceImageRef.current === ugcHeroSrc.image) ? 'Kling · UGC Video' : ((activeTemplate && templateLabel(activeTemplate)) ? ('✦ ' + templateLabel(activeTemplate)) : (videoEngine === 'runway' ? 'Runway · best for fashion' : ('Kling · ' + (videoArchetype === 'studio_spin' ? 'Studio Spin' : videoArchetype === 'lifestyle_montage' ? 'Lifestyle Montage' : 'Scene Reveal'))))}</div>
                     {/* Part B: multi-reference 3-icon stack (Fashion extended templates only) */}
                     {MULTIREF_TEMPLATES.includes(activeTemplate) && (() => {
                       const vars = (metaResult?.imageVariations && metaResult.imageVariations.length ? metaResult.imageVariations : [metaResult?.imageUrl].filter(Boolean));
@@ -4704,6 +4889,52 @@ STRICT rules:
 
                 {/* 2. Personas — UGC source selector (Phase 1) */}
                 <div style={{ fontSize: 11, fontWeight: 800, color: "#c4b5fd", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Personas <span style={{ color: "#5a6b80", fontWeight: 600 }}>· character sources</span></div>
+                {(ugcAdLoading || ugcAdError || ugcAdResult) && (
+                  <div id="ugc-ad-result" style={{ marginBottom: 16, padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.08)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 800, color: "#c4b5fd" }}>✨ UGC Meta ad{ugcAdResult && ugcAdResult.creator ? (" · @" + ugcAdResult.creator) : ""}</div>
+                      <div onClick={() => { setUgcAdResult(null); setUgcAdError(''); }} style={{ cursor: "pointer", color: "#7e92a8", fontSize: 16, fontWeight: 900, lineHeight: 1 }}>×</div>
+                    </div>
+                    {ugcAdLoading && <div style={{ fontSize: 11, color: "#9db0c7" }}>⟳ Writing the creator-voice ad…</div>}
+                    {ugcAdError && <div style={{ fontSize: 11, color: "#fca5a5" }}>{ugcAdError}</div>}
+                    {ugcAdResult && (
+                      <div style={{ display: "flex", gap: 12 }}>
+                        <img src={ugcAdResult.imageUrl} alt="" style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 8, flexShrink: 0, background: "#1e293b" }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 9, color: "#7e92a8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Primary text <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>· click to copy</span></div>
+                          {(ugcAdResult.primaryTexts || []).map(function (t, i) {
+                            return <div key={i} onClick={() => { try { navigator.clipboard.writeText(t); } catch (_) {} }} title="Click to copy" style={{ fontSize: 11, color: "#dbe4ef", lineHeight: 1.45, marginBottom: 6, padding: "6px 8px", borderRadius: 6, background: "rgba(0,0,0,0.2)", cursor: "pointer" }}>{t}</div>;
+                          })}
+                          <div style={{ fontSize: 9, color: "#7e92a8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", margin: "6px 0 4px" }}>Headlines</div>
+                          <div style={{ fontSize: 10.5, color: "#9db0c7", lineHeight: 1.6 }}>{(ugcAdResult.headlines || []).join("  ·  ")}</div>
+                          {ugcAdResult.descriptions && ugcAdResult.descriptions.length > 0 && (
+                            <div style={{ fontSize: 10.5, color: "#7e92a8", marginTop: 4 }}>{(ugcAdResult.descriptions || []).join("  ·  ")}</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {ugcAdResult && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                        <div style={{ marginBottom: 10 }}>
+                          <button onClick={() => sendUgcToMeta()} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#1877f2,#0a66c2)", color: "white" }}>Send to Meta ad →</button>
+                          {ugcSentMsg && <div style={{ fontSize: 10.5, color: ugcSentMsg.indexOf("✓") === 0 ? "#34d399" : "#fbbf24", marginTop: 6 }}>{ugcSentMsg}</div>}
+                          <div style={{ fontSize: 9.5, color: "#5a6b80", marginTop: 6 }}>Sets this image + copy as your Meta ad hero. Your regular Kling video button then works from it.</div>
+                        </div>
+                        {!ugcVidUrl && !ugcVidLoading && (
+                          <button onClick={() => createUgcVideo({ image: ugcAdResult.imageUrl, creator: ugcAdResult.creator, caption: ugcAdResult.captionUsed, captionLang: ugcAdResult.captionLang })} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>🎬 Create UGC video (Kling)</button>
+                        )}
+                        {ugcVidLoading && <div style={{ fontSize: 11, color: "#fbbf24" }}>⟳ Generating UGC video — this takes ~2–4 min, hang tight…</div>}
+                        {ugcVidError && <div style={{ fontSize: 11, color: "#fca5a5", marginTop: 6 }}>{ugcVidError}</div>}
+                        {ugcVidUrl && (
+                          <div style={{ marginTop: 4 }}>
+                            <video src={ugcVidUrl} controls playsInline style={{ width: 180, borderRadius: 10, display: "block", background: "#000" }} />
+                            <div style={{ fontSize: 10, color: "#7e92a8", marginTop: 6 }}>UGC video ready · hook + CTA burned as on-screen captions.</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.06)", marginBottom: 20 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e2e8f0", marginBottom: 2 }}>UGC from your site</div>
                   <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>Pull real creator content from your shop's UGC gallery to reuse as a fixed character across videos.</div>
@@ -4746,11 +4977,65 @@ STRICT rules:
                               </label>
                             </div>
                           ) : <div style={{ fontSize: 10.5, color: "#5a6b80" }}>This post has no caption.</div>}
+                          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                            <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 6 }}>Shot type (optional)</div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                              {["headshot", "hands", "full_body", "other"].map(function (s) {
+                                var on = ugcShot === s;
+                                return <span key={s} onClick={() => setUgcShot(on ? '' : s)} style={{ cursor: "pointer", fontSize: 10.5, fontWeight: 600, padding: "3px 9px", borderRadius: 999, border: on ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.14)", background: on ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.04)", color: on ? "#c4b5fd" : "#9db0c7" }}>{on ? "✓ " : ""}{s.replace("_", " ")}</span>;
+                              })}
+                            </div>
+                            <button onClick={() => saveCharToLibrary(pickedPost)} disabled={ugcSaving} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: ugcSaving ? "default" : "pointer", background: ugcSaving ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>{ugcSaving ? "Saving…" : "＋ Save to character library"}</button>
+                            <button onClick={() => createUgcAd({ image: pickedPost.image, creator: pickedPost.creator, caption: pickedPost.caption, captionLang: '' })} disabled={ugcAdLoading} style={{ marginLeft: 8, padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: ugcAdLoading ? "default" : "pointer", background: ugcAdLoading ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{ugcAdLoading ? "Generating…" : "✨ Create UGC ad"}</button>
+                            {ugcSavedMsg && <div style={{ fontSize: 10.5, color: ugcSavedMsg.indexOf("✓") === 0 ? "#34d399" : "#fca5a5", marginTop: 8 }}>{ugcSavedMsg}</div>}
+                          </div>
                         </div>
                       )}
                     </div>
                     );
                   })()}
+                </div>
+
+                {/* 2b · Your character library */}
+                <div style={{ marginBottom: 20 }}>
+                  <button onClick={() => { if (charLib === null) { loadCharLibrary(); } else { setCharLib(null); } }} style={{ padding: "7px 13px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", cursor: "pointer", background: "rgba(255,255,255,0.04)", color: "#c4b5fd" }}>📚 {charLib === null ? "Show your character library" : "Hide library"}</button>
+                  {charLib !== null && (
+                    <div style={{ marginTop: 10, padding: 14, borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                        {[["type", "UGC"], ["type", "Brand"], ["type", "Hybrid"], ["shot", "headshot"], ["shot", "hands"], ["shot", "full_body"]].map(function (pair) {
+                          var dim = pair[0], val = pair[1]; var on = charLibFilter[dim] === val;
+                          return <span key={dim + val} onClick={() => { var nf = Object.assign({}, charLibFilter); if (on) { delete nf[dim]; } else { nf[dim] = val; } setCharLibFilter(nf); loadCharLibrary(nf); }} style={{ cursor: "pointer", fontSize: 10.5, fontWeight: 600, padding: "3px 9px", borderRadius: 999, border: on ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.14)", background: on ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.04)", color: on ? "#c4b5fd" : "#9db0c7" }}>{on ? "✓ " : ""}{val.replace("_", " ")}</span>;
+                        })}
+                        {Object.keys(charLibFilter).length > 0 && <span onClick={() => { setCharLibFilter({}); loadCharLibrary({}); }} style={{ cursor: "pointer", fontSize: 10.5, fontWeight: 600, padding: "3px 9px", borderRadius: 999, color: "#7e92a8" }}>clear</span>}
+                      </div>
+                      {charLibLoading ? (
+                        <div style={{ fontSize: 11, color: "#7e92a8" }}>Loading…</div>
+                      ) : (charLib.length === 0 ? (
+                        <div style={{ fontSize: 11, color: "#5a6b80" }}>No characters yet — pick a UGC image above and save it to your library.</div>
+                      ) : (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 8 }}>{charLib.length} character{charLib.length === 1 ? "" : "s"}</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, maxHeight: 300, overflowY: "auto", paddingRight: 2 }}>
+                            {charLib.map(function (c) {
+                              return (
+                                <div key={c.id} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
+                                  <div style={{ position: "relative", aspectRatio: "1" }}>
+                                    <img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} />
+                                    <div onClick={() => deleteChar(c.id)} title="Remove" style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.6)", color: "#fca5a5", fontSize: 13, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>×</div>
+                                  </div>
+                                  <div style={{ padding: "5px 7px 7px" }}>
+                                    <div style={{ fontSize: 10, color: "#e2e8f0", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Untitled"}</div>
+                                    <div style={{ fontSize: 8.5, color: "#7e92a8", marginTop: 2 }}>{[c.type, (c.shot && c.shot !== "other") ? c.shot.replace("_", " ") : null].filter(Boolean).join(" · ")}</div>
+                                    <button onClick={() => createUgcAd({ image: c.thumbnailUrl || c.seedImageUrl, creator: c.creator || c.name, caption: c.originCaption, captionLang: c.captionLang })} disabled={ugcAdLoading} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: ugcAdLoading ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>✨ UGC ad</button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* 3. Shop scenery — reserved (later) */}
