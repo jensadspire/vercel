@@ -1085,6 +1085,17 @@ function RSAStudio() {
   const [bannedImages, setBannedImages] = useState([]);
   const [imgDims, setImgDims] = useState({}); // url -> {w,h} natural dims; feeds the >=600px carousel size gate
   const imgTooSmall = (u) => { const d = imgDims[u]; return !!d && Math.min(d.w, d.h) < 600; };
+  // Social-network icon detection (names + fb/ig/tt/yt/snap filenames, delimiter-anchored) —
+  // same rule as scrape.js/generate-meta so the preview never shows a FB/IG/TikTok logo as a
+  // product image. isBadImg = social icon OR measured <600px; used everywhere images render.
+  const isSocialIcon = (u) => {
+    if (!u) return false;
+    const s = String(u).toLowerCase();
+    if (/facebook|instagram|tiktok|pinterest|snapchat|linkedin|whatsapp|youtube|twitter|\/social|social-|social_|\/share-|share-icon/.test(s)) return true;
+    if (/(?:^|[/_.\-])(?:fb|ig|tt|yt|snap)\.(?:png|jpe?g|gif|webp|svg|avif)(?:[?#]|$)/.test(s)) return true;
+    return false;
+  };
+  const isBadImg = (u) => isSocialIcon(u) || imgTooSmall(u);
   const [pausedImages, setPausedImages] = useState([]); // toggle: show price vs USP in subline
   const [metaPreviewFormat, setMetaPreviewFormat] = useState("fb-feed"); // fb-feed|ig-feed|ig-story|fb-story
   // ── TikTok state ─────────────────────────────────────────────────────────────
@@ -4609,11 +4620,11 @@ STRICT rules:
                 </div>
                 {/* image + << >> cycle arrows */}
                 {(() => {
-                  const vars = (metaResult.imageVariations && metaResult.imageVariations.length) ? metaResult.imageVariations : [metaResult.imageUrl].filter(Boolean);
-                  const current = tiktokSourceImageRef.current || metaResult.imageUrl || vars[0];
+                  const vars = ((metaResult.imageVariations && metaResult.imageVariations.length) ? metaResult.imageVariations : [metaResult.imageUrl].filter(Boolean)).filter(v => !isBadImg(v));
+                  const current = (tiktokSourceImageRef.current && !isBadImg(tiktokSourceImageRef.current)) ? tiktokSourceImageRef.current : ((metaResult.imageUrl && !isBadImg(metaResult.imageUrl)) ? metaResult.imageUrl : vars[0]);
                   if (!current) return null;
                   if (metaPreviewFormat === "fb-carousel") {
-                    const cimgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).slice(0, 8);
+                    const cimgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(im => !isBadImg(im)).slice(0, 8);
                     if (!cimgs.length) return null;
                     return (
                       <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "0 14px 6px" }}>
@@ -5642,7 +5653,7 @@ STRICT rules:
           ? (tiktokSourceImageRef.current || imgUrl || '')
           : '';
         const isCarouselPublish = metaPublishFormat === 'carousel' || (metaPreviewFormat === 'fb-carousel' && !isVideoPublish);
-        const baseCarouselImgsP = [metaResult?.imageUrl, ...(metaResult?.imageVariations || [])].filter(Boolean).filter(img => !(bannedImages||[]).includes(img)).filter(img => !imgTooSmall(img)).slice(0, 5);
+        const baseCarouselImgsP = [metaResult?.imageUrl, ...(metaResult?.imageVariations || [])].filter(Boolean).filter(img => !(bannedImages||[]).includes(img)).filter(img => !isBadImg(img)).slice(0, 5);
         const activeCarouselImgsP = (carouselImages||[]).length > 0 ? carouselImages : baseCarouselImgsP;
         const carouselCards = activeCarouselImgsP.map((cImg, ci) => ({
           imageUrl: cImg,
@@ -8446,11 +8457,11 @@ STRICT rules:
                   const pt  = metaEdits[`pt-${metaActiveVariants.pt}`] !== undefined ? metaEdits[`pt-${metaActiveVariants.pt}`] : (metaResult.primaryTexts?.[metaActiveVariants.pt] || "");
                   const hl  = metaEdits[`hl-${metaActiveVariants.hl}`] !== undefined ? metaEdits[`hl-${metaActiveVariants.hl}`] : (metaResult.headlines?.[metaActiveVariants.hl] || "");
                   const d   = metaEdits[`desc-${metaActiveVariants.d}`] !== undefined ? metaEdits[`desc-${metaActiveVariants.d}`] : (metaResult.descriptions?.[metaActiveVariants.d] || "");
-                  const img = metaResult.imageUrl;
+                  const img = (metaResult.imageUrl && !isBadImg(metaResult.imageUrl)) ? metaResult.imageUrl : (((metaResult.imageVariations || []).find(v => v && !isBadImg(v))) || metaResult.imageUrl);
                   const isStory    = metaPreviewFormat === "ig-story" || metaPreviewFormat === "fb-story";
                   const isIG       = metaPreviewFormat === "ig-feed"  || metaPreviewFormat === "ig-story";
                   const isCarousel = metaPreviewFormat === "fb-carousel";
-                  const baseCarouselImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(u => !imgTooSmall(u)).slice(0, 8);
+                  const baseCarouselImgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(u => !isBadImg(u)).slice(0, 8);
                   const activeCarouselImgs = carouselImages.length > 0 ? carouselImages : baseCarouselImgs;
                   return (
                     <div style={{ display: "flex", justifyContent: "center" }}>
@@ -8488,7 +8499,7 @@ STRICT rules:
                                     // Deselect: ban this image everywhere in the final output, then backfill from the pool.
                                     const current = activeCarouselImgs[ci];
                                     const newBanned = (bannedImages || []).includes(current) ? (bannedImages || []) : [...(bannedImages || []), current];
-                                    const pool = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(u => !imgTooSmall(u) && !newBanned.includes(u));
+                                    const pool = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(u => !isBadImg(u) && !newBanned.includes(u));
                                     const kept = activeCarouselImgs.filter((_, i) => i !== ci);
                                     const backfill = pool.find(u => !kept.includes(u));
                                     const newImgs = [...activeCarouselImgs];
