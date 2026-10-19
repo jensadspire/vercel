@@ -2338,7 +2338,11 @@ function RSAStudio() {
     setSelectedCampaignId(''); setSelectedAdSetId('');
     const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB' };
     const _tld = Object.keys(tldMap).find(t => (url||'').includes(t));
-    setTargetCountries(_tld ? [tldMap[_tld]] : []);
+    // #2: fall back to a /lang-country/ path segment (e.g. .com/de-de/ → DE) when the TLD
+    // doesn't resolve a country — the ISO country is the part after the dash.
+    let _country = _tld ? tldMap[_tld] : null;
+    if (!_country) { const _pm = (url||'').match(/\/[a-z]{2}-([a-z]{2})(?:\/|\?|$)/i); if (_pm) _country = _pm[1].toUpperCase(); }
+    setTargetCountries(_country ? [_country] : []);
     setMetaConfirmOpen(true);
   };
   const startMetaPublishChain = () => {
@@ -2624,6 +2628,7 @@ function RSAStudio() {
       if (s.pageMeta) setPageMeta(s.pageMeta);
       if (s.pmaxLogo) setPmaxLogo(s.pmaxLogo);
       if (s.videoEngine) { setVideoEngine(s.videoEngine); videoEngineRef.current = s.videoEngine; }
+      if (s.viewMode) setViewMode(s.viewMode);
       console.log('[signin-bridge] restored + cleared');
     } catch (e) { console.error('[signin-bridge] restore failed:', e.message); }
   }, []);
@@ -2631,10 +2636,14 @@ function RSAStudio() {
   const saveSigninBridge = () => {
     try {
       if (!generated && !metaResult && !tiktokVideoUrl && !url) return;
-      const snap = { url, rows, metaResult, tiktokResult, tiktokVideoUrl, generated, generateMeta, generateTiktok, pageMeta, pmaxLogo, videoEngine };
+      const snap = { url, rows, metaResult, tiktokResult, tiktokVideoUrl, generated, generateMeta, generateTiktok, pageMeta, pmaxLogo, videoEngine, viewMode };
       sessionStorage.setItem(RSA_SIGNIN_BRIDGE, JSON.stringify(snap));
     } catch (_) {}
   };
+  // #1: any time the auth modal opens from a state-bearing context (e.g. Publish while
+  // signed out), snapshot into the bridge first — so a sign-in reload restores the ad
+  // output + view instead of wiping it. saveSigninBridge self-guards on having content.
+  useEffect(() => { if (showAuthModal) saveSigninBridge(); }, [showAuthModal]);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState("headlines"); // headlines | descriptions | urls
   const [showGuide, setShowGuide] = useState(false);
@@ -5297,7 +5306,7 @@ STRICT rules:
             <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0', marginBottom: 6 }}>{chainStepLabel(pubChainPause.doneStep)} published</div>
             <div style={{ fontSize: 12, color: '#7e92a8', lineHeight: 1.5, marginBottom: 20 }}>Created as paused in your account. Next up: <strong style={{ color: '#cbd5e1' }}>{chainStepLabel(pubChainPause.nextStep)}</strong> — Step {pubChainPause.nextIndex + 1} of {pubChainPause.total}.</div>
             <button onClick={continuePublishChain} style={{ width: '100%', padding: '12px', fontSize: 13, fontWeight: 800, background: 'linear-gradient(135deg,#10b981,#059669)', color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', marginBottom: 10 }}>Continue to {chainStepLabel(pubChainPause.nextStep)} →</button>
-            <button onClick={() => { setPubChainPause(null); setPubChain(null); }} style={{ width: '100%', padding: '10px', fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.04)', color: '#7e92a8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, cursor: 'pointer' }}>Done for now</button>
+            <button onClick={() => { setPubChainPause(null); setPubChain(null); setViewMode('detailed'); }} style={{ width: '100%', padding: '10px', fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.04)', color: '#7e92a8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, cursor: 'pointer' }}>Done for now</button>
           </div>
         </div>
       )}
