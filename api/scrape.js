@@ -650,12 +650,15 @@ export default async function handler(req, res) {
     if (ugc.detected && ugc.images.length === 0 && ugc.providers.includes('flowbox')) {
       try {
         const keySet = new Set();
+        // Authoritative FIRST — the Flowbox flow key prop (modern Bazaarvoice / Next RSC):
+        // {"flowKey":"W8zLN...","type":"flowboxStaticFlow"}. Added BEFORE the generic key:
+        // patterns because a large RSC / flight-data page carries many "key":"…" values, and
+        // the slice() cap would otherwise truncate the real flow key out of the candidate list.
+        for (const m of html.matchAll(/"(?:flowKey|feedKey|flowboxFlowKey)"\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/gi)) keySet.add(m[1]);
+        // Fallback: generic key: / "key": config values (older Flowbox embeds).
         for (const m of html.matchAll(/\bkey\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
         for (const m of html.matchAll(/"key"\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
-        // Modern Flowbox (Bazaarvoice / Next RSC): flow key is a prop named flowKey/feedKey —
-        // e.g. {"flowKey":"W8zLN...","type":"flowboxStaticFlow"} — which the key: patterns miss.
-        for (const m of html.matchAll(/"(?:flowKey|feedKey|flowboxFlowKey)"\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/gi)) keySet.add(m[1]);
-        const keys = [...keySet].slice(0, 4);
+        const keys = [...keySet].slice(0, 6);
         const locM = html.match(/locale\s*:\s*["']([a-z]{2}-[a-z]{2})["']/i)
                   || (typeof detectedCode === 'string' && /^[a-z]{2}-[a-z]{2}$/i.test(detectedCode) ? [null, detectedCode] : null)
                   || url.match(/\/([a-z]{2}-[a-z]{2})(?:[\/?]|$)/i);
