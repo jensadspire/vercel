@@ -652,6 +652,9 @@ export default async function handler(req, res) {
         const keySet = new Set();
         for (const m of html.matchAll(/\bkey\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
         for (const m of html.matchAll(/"key"\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
+        // Modern Flowbox (Bazaarvoice / Next RSC): flow key is a prop named flowKey/feedKey —
+        // e.g. {"flowKey":"W8zLN...","type":"flowboxStaticFlow"} — which the key: patterns miss.
+        for (const m of html.matchAll(/"(?:flowKey|feedKey|flowboxFlowKey)"\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/gi)) keySet.add(m[1]);
         const keys = [...keySet].slice(0, 4);
         const locM = html.match(/locale\s*:\s*["']([a-z]{2}-[a-z]{2})["']/i)
                   || (typeof detectedCode === 'string' && /^[a-z]{2}-[a-z]{2}$/i.test(detectedCode) ? [null, detectedCode] : null)
