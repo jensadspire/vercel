@@ -3298,6 +3298,12 @@ Rules:
     setMetaImagesLoading(false);
     metaGenId.current += 1;
     setGenerated(false);
+    // Reset Meta preview display state so a new URL starts clean — no carousel
+    // image/variant/format bleed from the previous scrape (snap back to FB Feed hero).
+    setMetaPreviewFormat('fb-feed');
+    setActiveImageVariant(0);
+    setCarouselImages([]); setCarouselCardTexts([]); setCarouselIndex(0);
+    setCarouselPriceMode(false); setBannedImages([]); setPausedImages([]);
     setRows([makeRow(1)]);
     setActiveRow(0);
     setTiktokVideoUrl(null);
@@ -4627,7 +4633,8 @@ STRICT rules:
                   const metaImgCycle = (dir) => {
                     if (vars.length < 2) return;
                     const idx = Math.max(0, vars.indexOf(tiktokSourceImageRef.current || metaResult.imageUrl || vars[0]));
-                    const next = (idx + dir + vars.length) % vars.length;
+                    const next = Math.max(0, Math.min(vars.length - 1, idx + dir));
+                    if (next === idx) return; // real stop at first/last image — no wrap-around
                     tiktokSourceImageRef.current = vars[next];
                     setActiveImageVariant(next);
                     setMetaResult(r => ({ ...r, imageUrl: vars[next] }));
