@@ -2338,7 +2338,11 @@ function RSAStudio() {
     setSelectedCampaignId(''); setSelectedAdSetId('');
     const tldMap = { '.dk': 'DK', '.de': 'DE', '.se': 'SE', '.no': 'NO', '.fi': 'FI', '.nl': 'NL', '.fr': 'FR', '.uk': 'GB' };
     const _tld = Object.keys(tldMap).find(t => (url||'').includes(t));
-    setTargetCountries(_tld ? [tldMap[_tld]] : []);
+    // #2: fall back to a /lang-country/ path segment (e.g. .com/de-de/ → DE) when the TLD
+    // doesn't resolve a country — the ISO country is the part after the dash.
+    let _country = _tld ? tldMap[_tld] : null;
+    if (!_country) { const _pm = (url||'').match(/\/[a-z]{2}-([a-z]{2})(?:\/|\?|$)/i); if (_pm) _country = _pm[1].toUpperCase(); }
+    setTargetCountries(_country ? [_country] : []);
     setMetaConfirmOpen(true);
   };
   const startMetaPublishChain = () => {
@@ -2624,6 +2628,7 @@ function RSAStudio() {
       if (s.pageMeta) setPageMeta(s.pageMeta);
       if (s.pmaxLogo) setPmaxLogo(s.pmaxLogo);
       if (s.videoEngine) { setVideoEngine(s.videoEngine); videoEngineRef.current = s.videoEngine; }
+      if (s.viewMode) setViewMode(s.viewMode);
       console.log('[signin-bridge] restored + cleared');
     } catch (e) { console.error('[signin-bridge] restore failed:', e.message); }
   }, []);
@@ -2631,10 +2636,14 @@ function RSAStudio() {
   const saveSigninBridge = () => {
     try {
       if (!generated && !metaResult && !tiktokVideoUrl && !url) return;
-      const snap = { url, rows, metaResult, tiktokResult, tiktokVideoUrl, generated, generateMeta, generateTiktok, pageMeta, pmaxLogo, videoEngine };
+      const snap = { url, rows, metaResult, tiktokResult, tiktokVideoUrl, generated, generateMeta, generateTiktok, pageMeta, pmaxLogo, videoEngine, viewMode };
       sessionStorage.setItem(RSA_SIGNIN_BRIDGE, JSON.stringify(snap));
     } catch (_) {}
   };
+  // #1: any time the auth modal opens from a state-bearing context (e.g. Publish while
+  // signed out), snapshot into the bridge first — so a sign-in reload restores the ad
+  // output + view instead of wiping it. saveSigninBridge self-guards on having content.
+  useEffect(() => { if (showAuthModal) saveSigninBridge(); }, [showAuthModal]);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState("headlines"); // headlines | descriptions | urls
   const [showGuide, setShowGuide] = useState(false);
@@ -4624,13 +4633,14 @@ STRICT rules:
                   const current = (tiktokSourceImageRef.current && !isBadImg(tiktokSourceImageRef.current)) ? tiktokSourceImageRef.current : ((metaResult.imageUrl && !isBadImg(metaResult.imageUrl)) ? metaResult.imageUrl : vars[0]);
                   if (!current) return null;
                   if (metaPreviewFormat === "fb-carousel") {
-                    const cimgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(im => !isBadImg(im)).slice(0, 8);
+                    const cimgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(im => !isBadImg(im) && !(bannedImages||[]).includes(im)).slice(0, 8);
                     if (!cimgs.length) return null;
                     return (
                       <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "0 14px 6px" }}>
                         {cimgs.map((im, ci) => (
-                          <div key={ci} style={{ flexShrink: 0, width: 150, borderRadius: 8, overflow: "hidden", border: "1px solid #dadde1", background: "#fff" }}>
+                          <div key={ci} style={{ position: "relative", flexShrink: 0, width: 150, borderRadius: 8, overflow: "hidden", border: "1px solid #dadde1", background: "#fff" }}>
                             <img src={im} alt={"Card " + (ci + 1)} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
+                            <button onClick={(e) => { e.stopPropagation(); if (cimgs.length <= 2) return; setBannedImages(prev => (prev||[]).includes(im) ? prev : [...(prev||[]), im]); }} title="Remove from carousel" style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, background: "transparent", border: "none", color: "white", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, textShadow: "0 1px 3px rgba(0,0,0,0.9)", padding: 0 }}>×</button>
                             <div style={{ padding: "6px 8px" }}>
                               <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(metaResult.headlines?.[ci] || metaResult.headlines?.[0] || "Discover more").slice(0, 22)}</div>
                               <div style={{ fontSize: 9, color: "#1877f2", fontWeight: 700, marginTop: 2 }}>Shop Now →</div>
@@ -4806,6 +4816,12 @@ STRICT rules:
                       );
                     })()}
                                         <button onClick={(e) => { e.stopPropagation(); startVideoGeneration(); }} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Generate video</button>
+                  </>
+                ) : tiktokLoading ? (
+                  <>
+                    <div style={{ width: 26, height: 26, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+                    <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Building your video storyboard…<br/>Your preview appears in a few seconds.</div>
+                    <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
                   </>
                 ) : (
                   <div style={{ fontSize: 12, color: "#4a5568", textAlign: "center", lineHeight: 1.5 }}>Check the <b>Video</b> box above and generate to enable video.</div>
@@ -5297,7 +5313,7 @@ STRICT rules:
             <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0', marginBottom: 6 }}>{chainStepLabel(pubChainPause.doneStep)} published</div>
             <div style={{ fontSize: 12, color: '#7e92a8', lineHeight: 1.5, marginBottom: 20 }}>Created as paused in your account. Next up: <strong style={{ color: '#cbd5e1' }}>{chainStepLabel(pubChainPause.nextStep)}</strong> — Step {pubChainPause.nextIndex + 1} of {pubChainPause.total}.</div>
             <button onClick={continuePublishChain} style={{ width: '100%', padding: '12px', fontSize: 13, fontWeight: 800, background: 'linear-gradient(135deg,#10b981,#059669)', color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', marginBottom: 10 }}>Continue to {chainStepLabel(pubChainPause.nextStep)} →</button>
-            <button onClick={() => { setPubChainPause(null); setPubChain(null); }} style={{ width: '100%', padding: '10px', fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.04)', color: '#7e92a8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, cursor: 'pointer' }}>Done for now</button>
+            <button onClick={() => { setPubChainPause(null); setPubChain(null); setViewMode('detailed'); }} style={{ width: '100%', padding: '10px', fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.04)', color: '#7e92a8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, cursor: 'pointer' }}>Done for now</button>
           </div>
         </div>
       )}
@@ -8509,7 +8525,7 @@ STRICT rules:
                                     setBannedImages(newBanned);
                                     setCarouselImages(newImgs);
                                     setCarouselIndex(i => Math.min(i, Math.max(newImgs.length - 1, 0)));
-                                  }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.5)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+                                  }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, background: "transparent", border: "none", color: "white", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, textShadow: "0 1px 3px rgba(0,0,0,0.9)", padding: 0 }}>×</button>
                                 </div>
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl || "Discover More").slice(0, 22)}</div>
