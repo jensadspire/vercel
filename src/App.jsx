@@ -4816,6 +4816,12 @@ STRICT rules:
                     })()}
                                         <button onClick={(e) => { e.stopPropagation(); startVideoGeneration(); }} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Generate video</button>
                   </>
+                ) : tiktokLoading ? (
+                  <>
+                    <div style={{ width: 26, height: 26, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+                    <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>Building your video storyboard…<br/>Your preview appears in a few seconds.</div>
+                    <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+                  </>
                 ) : (
                   <div style={{ fontSize: 12, color: "#4a5568", textAlign: "center", lineHeight: 1.5 }}>Check the <b>Video</b> box above and generate to enable video.</div>
                 )}
