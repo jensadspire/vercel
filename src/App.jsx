@@ -4633,13 +4633,14 @@ STRICT rules:
                   const current = (tiktokSourceImageRef.current && !isBadImg(tiktokSourceImageRef.current)) ? tiktokSourceImageRef.current : ((metaResult.imageUrl && !isBadImg(metaResult.imageUrl)) ? metaResult.imageUrl : vars[0]);
                   if (!current) return null;
                   if (metaPreviewFormat === "fb-carousel") {
-                    const cimgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(im => !isBadImg(im)).slice(0, 8);
+                    const cimgs = [metaResult.imageUrl, ...(metaResult.imageVariations || [])].filter(Boolean).filter(im => !isBadImg(im) && !(bannedImages||[]).includes(im)).slice(0, 8);
                     if (!cimgs.length) return null;
                     return (
                       <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "0 14px 6px" }}>
                         {cimgs.map((im, ci) => (
-                          <div key={ci} style={{ flexShrink: 0, width: 150, borderRadius: 8, overflow: "hidden", border: "1px solid #dadde1", background: "#fff" }}>
+                          <div key={ci} style={{ position: "relative", flexShrink: 0, width: 150, borderRadius: 8, overflow: "hidden", border: "1px solid #dadde1", background: "#fff" }}>
                             <img src={im} alt={"Card " + (ci + 1)} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
+                            <button onClick={(e) => { e.stopPropagation(); if (cimgs.length <= 2) return; setBannedImages(prev => (prev||[]).includes(im) ? prev : [...(prev||[]), im]); }} title="Remove from carousel" style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, background: "transparent", border: "none", color: "white", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, textShadow: "0 1px 3px rgba(0,0,0,0.9)", padding: 0 }}>×</button>
                             <div style={{ padding: "6px 8px" }}>
                               <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(metaResult.headlines?.[ci] || metaResult.headlines?.[0] || "Discover more").slice(0, 22)}</div>
                               <div style={{ fontSize: 9, color: "#1877f2", fontWeight: 700, marginTop: 2 }}>Shop Now →</div>
@@ -8524,7 +8525,7 @@ STRICT rules:
                                     setBannedImages(newBanned);
                                     setCarouselImages(newImgs);
                                     setCarouselIndex(i => Math.min(i, Math.max(newImgs.length - 1, 0)));
-                                  }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.5)", border: "none", color: "white", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+                                  }} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, background: "transparent", border: "none", color: "white", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, textShadow: "0 1px 3px rgba(0,0,0,0.9)", padding: 0 }}>×</button>
                                 </div>
                                   <div style={{ padding: "6px 8px", borderTop: "1px solid #e4e6eb" }}>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: "#1c1e21" }}>{(carouselCardTexts[ci]?.headline || metaResult?.headlines?.[ci] || hl || "Discover More").slice(0, 22)}</div>
