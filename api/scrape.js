@@ -28,7 +28,7 @@ export default async function handler(req, res) {
   if (!url) return res.status(400).json({ error: "URL is required" });
 
   // ── Cache check — normalise URL to avoid case/trailing-slash misses ──────────
-  const cacheKey = `rsa:scrape:v3:${url.toLowerCase().replace(/\/$/, "")}`;
+  const cacheKey = `rsa:scrape:v4:${url.toLowerCase().replace(/\/$/, "")}`;
 
   try {
     const cached = noCache ? null : await redis("GET", cacheKey);
@@ -355,6 +355,10 @@ export default async function handler(req, res) {
       // Explicit UX / nav / sprite assets
       'sprite', '/arrow-', '/chevron-', 'nav-', '/payment-', 'shipping-icon',
       '/flag-', '/flags/',
+      // Social-network icons (full names — long enough to be safe as substrings)
+      'facebook', 'instagram', 'tiktok', 'pinterest', 'snapchat',
+      'linkedin', 'whatsapp', 'youtube', 'twitter',
+      '/social', 'social-', 'social_', '/share-', 'share-icon',
     ];
 
     const isHardExcluded = (src) => {
@@ -365,6 +369,17 @@ export default async function handler(req, res) {
       // Exclude .ico (favicons; would be disastrous as an ad creative)
       if (s.endsWith('.ico') || s.includes('.ico?')) return true;
       // Match any of the explicit patterns
+      // Social-network icon abbreviations (fb/ig/tt/yt/snap) as a filename — a
+      // delimiter MUST precede the token, so product shots that merely end in
+      // those letters (/scott.png, /matt.png, /big.jpg, /wig.png) are never hit.
+      if (/(?:^|[/_.\-])(?:fb|ig|tt|yt|snap)\.(?:png|jpe?g|gif|webp|svg|avif)(?:[?#]|$)/.test(s)) return true;
+      // Resolution gate (fail-open) — drop ONLY when the URL advertises < 600px,
+      // via a genuine width param (width=/w=/imwidth=) or a small NxN filename
+      // token (BOTH dims < 600). size=/sz= are NOT trusted. No size token → keep.
+      var _szw = s.match(/[?&](?:width|imwidth|w)=(\d{1,5})/);
+      if (_szw && parseInt(_szw[1], 10) < 600) return true;
+      var _szf = (s.split('?')[0].split('/').pop() || '').match(/(\d{2,4})x(\d{2,4})/);
+      if (_szf && parseInt(_szf[1], 10) < 600 && parseInt(_szf[2], 10) < 600) return true;
       return HARD_EXCLUDE_PATTERNS.some(pattern => s.includes(pattern));
     };
 
