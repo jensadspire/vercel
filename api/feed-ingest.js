@@ -272,5 +272,25 @@ function toHttps(u) {
   return u.replace(/^http:\/\//i, 'https://');
 }
 
+// ── Network ──────────────────────────────────────────────────────────────────
+async function fetchText(url) {
+  const r = await fetch(url, {
+    headers: { 'User-Agent': UA, 'Accept': 'application/xml,application/rss+xml,text/xml,text/tab-separated-values,text/csv,*/*' },
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!r.ok) throw new Error('Feed fetch failed (HTTP ' + r.status + ').');
+  return await r.text();
+}
+async function tryFetchJson(url) {
+  try {
+    const r = await fetch(url, {
+      headers: { 'User-Agent': UA, 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
+}
+
 // Named exports for offline parser tests (Vercel only invokes the default handler).
 export { ingestGmcXml, ingestGmcTsv, normalizeShopify, splitPrice, htmlToText };
