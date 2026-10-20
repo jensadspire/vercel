@@ -2710,7 +2710,7 @@ function RSAStudio() {
       const r = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
       const d = await r.json();
       const ugc = d.ugc || { detected: false, providers: [], images: [] };
-      setUgcData(ugc); setUgcAdLang(d.language || '');
+      setUgcData(ugc); setUgcAdLang(d.language || ''); ugcScanHostRef.current = ugcHostOf(url);
       if (!ugc.detected) setUgcError('No UGC gallery detected on this site yet.');
       else if (!ugc.images || ugc.images.length === 0) setUgcError('UGC widget found (' + (ugc.providers || []).join(', ') + ') but no images could be loaded.');
     } catch (e) { setUgcError('Scan failed — please try again.'); }
@@ -2894,6 +2894,23 @@ function RSAStudio() {
       }, 5000);
       videoPollRef.current = iv;
     } catch (e) { setRecipeError('Video generation failed — please try again.'); setTiktokVideoLoading(false); }
+  };
+  // ── UGC library reset on domain change (isolated helper) ──────────────────
+  // The scanned UGC gallery (ugcData) + everything derived from it must not leak
+  // between domains — an agency client on site B must not see site A's creators.
+  // Stamp the library with the host it was scanned for; wipe it when a generation
+  // run starts on a different host. Same host (incl. www. and locale-path variants
+  // like /de-de vs /fr-fr) keeps the library.
+  const ugcScanHostRef = useRef('');
+  const ugcHostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./i, '').toLowerCase(); } catch (_) { return ''; } };
+  const resetUgcLibrary = () => {
+    setUgcData(null); setUgcError(''); setUgcPicked(null); setUgcCaptionOn(false); setUgcAdLang('');
+    setUgcShot(''); setUgcSavedMsg('');
+    setUgcAdResult(null); setUgcAdError('');
+    setUgcVidUrl(null); setUgcVidError('');
+    setUgcHeroSrc(null); setUgcSentMsg('');
+    if (ugcVidPollRef.current) { clearInterval(ugcVidPollRef.current); ugcVidPollRef.current = null; }
+    ugcScanHostRef.current = '';
   };
   const [csVertical, setCsVertical] = useState('beauty');
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
@@ -3156,6 +3173,7 @@ function RSAStudio() {
     // TikTok / video / UGC
     setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null); setUgcVideoUrl(null);
     setGenerateMeta(false);
+    resetUgcLibrary();
   };
 
   const seedPmaxImages = async (srcUrl) => {
@@ -3310,6 +3328,9 @@ Rules:
     }
 
     setLoading(true); setError("");
+    // New-domain run → wipe the UGC library so one client's creators never leak onto
+    // another client's domain. Same host keeps it (re-run / different product page).
+    if (ugcScanHostRef.current && ugcHostOf(url) !== ugcScanHostRef.current) resetUgcLibrary();
     // Clear ALL previous outputs up front so stale ads don't linger on the overview.
     setGooglePreviewFormat('rsa'); // snap the Google card back to RSA (PMax is opt-in per URL)
     setPublishConfirm(null);
