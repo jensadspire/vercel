@@ -4975,11 +4975,16 @@ STRICT rules:
                             ))}
                           </div>
                         </div>
+                        {p.link ? (
+                        <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                          <button onClick={() => { setUrl(p.link); setFeedOpen(false); setTimeout(() => { const _b = document.querySelector('[data-generate-btn]:not([disabled])'); if (_b) _b.click(); }, 350); }} title="Load this product and generate its ads" style={{ padding: "8px 12px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>✨ Generate →</button>
+                        </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>
                   )}
-                  <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Preview only — bulk ad generation across the catalog is the next step. This confirms the feed reads cleanly into the ad engine's format.</div>
+                  <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Click <b style={{ color: "#a9b6c7" }}>✨ Generate</b> on any product to load it into the engine and build its ads. Multi-select + batch generation come next.</div>
                 </>
                 );
               })()}
