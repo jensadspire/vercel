@@ -2703,10 +2703,12 @@ function RSAStudio() {
   const [feedError, setFeedError] = useState('');
   const [feedResult, setFeedResult] = useState(null); // { source, feedUrl, count, products:[] } | null
   const [feedFilter, setFeedFilter] = useState('all');   // 'all' | 'onsale' | 'instock' | 'cat:<productType>'
+  const [feedSel, setFeedSel] = useState({});            // { [productLink]: true } — selected for batch
+  const [feedBatchPending, setFeedBatchPending] = useState(false);
   const fetchFeed = async () => {
     const s = (feedSource || '').trim();
     if (!s) { setFeedError('Enter a Shopify store URL or a Google Merchant feed URL.'); return; }
-    setFeedLoading(true); setFeedError(''); setFeedResult(null); setFeedFilter('all');
+    setFeedLoading(true); setFeedError(''); setFeedResult(null); setFeedFilter('all'); setFeedSel({});
     try {
       const r = await fetch('/api/feed-ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: s, limit: 50 }) });
       const d = await r.json();
@@ -3159,6 +3161,16 @@ function RSAStudio() {
     setScanScannedDomain("");
     setScanError("");
   };
+
+  // Bulk Feed → existing batch engine: once selected feed products are staged into batchUrls,
+  // kick off the (Google-RSA) batch run. The effect fires after state commits, so
+  // runBatchGeneration reads the fresh queue — no stale closure.
+  useEffect(() => {
+    if (!feedBatchPending) return;
+    if (!batchUrls.some(b => b.selected)) return;
+    setFeedBatchPending(false);
+    runBatchGeneration();
+  }, [feedBatchPending, batchUrls]);
 
   // ── Centralised "New URL" reset ──────────────────────────────────────────
   // Clears state across ALL tabs (RSA, Meta, TikTok) so nothing leaks between
@@ -4934,6 +4946,17 @@ STRICT rules:
                   if (feedFilter.indexOf('cat:') === 0) return p.productType === feedFilter.slice(4);
                   return true;
                 });
+                const shownLinks = shown.filter(p => p.link).map(p => p.link);
+                const selCount = shownLinks.filter(l => feedSel[l]).length;
+                const allShownSelected = shownLinks.length > 0 && selCount === shownLinks.length;
+                const toggleAllShown = () => setFeedSel(prev => { const n = { ...prev }; if (allShownSelected) { shownLinks.forEach(l => { delete n[l]; }); } else { shownLinks.forEach(l => { n[l] = true; }); } return n; });
+                const runFeedBatch = () => {
+                  const picks = shown.filter(p => p.link && feedSel[p.link]);
+                  if (!picks.length) return;
+                  setBatchUrls(picks.map(p => ({ url: p.link, category: p.productType || '', selected: true })));
+                  setFeedOpen(false);
+                  setFeedBatchPending(true);
+                };
                 return (
                 <>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
@@ -4947,12 +4970,22 @@ STRICT rules:
                       {cats.length > 0 && <optgroup label="Category">{cats.map(c => <option key={c} value={'cat:' + c}>{c}</option>)}</optgroup>}
                     </select>
                   </div>
+                  {shownLinks.length > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, padding: "8px 10px", borderRadius: 8, background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.2)", flexWrap: "wrap" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#9db0c7", cursor: "pointer" }}>
+                        <input type="checkbox" checked={allShownSelected} onChange={toggleAllShown} style={{ width: 15, height: 15, cursor: "pointer" }} />
+                        Select all shown{selCount > 0 ? (' · ' + selCount + ' selected') : ''}
+                      </label>
+                      <button onClick={runFeedBatch} disabled={selCount === 0 || batchRunning} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (selCount === 0 || batchRunning) ? "default" : "pointer", background: (selCount === 0 || batchRunning) ? "rgba(99,102,241,0.35)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>⚡ Generate {selCount || ''} selected →</button>
+                    </div>
+                  )}
                   {shown.length === 0 ? (
                     <div style={{ fontSize: 12, color: "#7e92a8", padding: "16px 0", textAlign: "center" }}>No products match this filter.</div>
                   ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {shown.map((p, i) => (
-                      <div key={p.id || i} style={{ display: "flex", gap: 12, padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                      <div key={p.id || i} style={{ display: "flex", gap: 12, padding: 12, borderRadius: 10, border: "1px solid " + (p.link && feedSel[p.link] ? "rgba(139,92,246,0.5)" : "rgba(255,255,255,0.08)"), background: (p.link && feedSel[p.link]) ? "rgba(139,92,246,0.06)" : "rgba(255,255,255,0.02)" }}>
+                        {p.link ? <input type="checkbox" checked={!!feedSel[p.link]} onChange={() => setFeedSel(prev => { const n = { ...prev }; if (n[p.link]) { delete n[p.link]; } else { n[p.link] = true; } return n; })} style={{ alignSelf: "center", width: 15, height: 15, cursor: "pointer", flexShrink: 0 }} /> : null}
                         <div style={{ width: 64, height: 64, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#1e293b" }}>
                           {p.image ? <img src={p.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
                         </div>
@@ -4984,7 +5017,7 @@ STRICT rules:
                     ))}
                   </div>
                   )}
-                  <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Click <b style={{ color: "#a9b6c7" }}>✨ Generate</b> on any product to load it into the engine and build its ads. Multi-select + batch generation come next.</div>
+                  <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Tick products and hit <b style={{ color: "#a9b6c7" }}>⚡ Generate selected</b> to batch-build their Google ads (watch progress in the main view, review via history). Or <b style={{ color: "#a9b6c7" }}>✨ Generate</b> a single product for the full Google + Meta + video. Meta/video batch comes next.</div>
                 </>
                 );
               })()}
