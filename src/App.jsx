@@ -2702,12 +2702,13 @@ function RSAStudio() {
   const [feedLoading, setFeedLoading] = useState(false);
   const [feedError, setFeedError] = useState('');
   const [feedResult, setFeedResult] = useState(null); // { source, feedUrl, count, products:[] } | null
+  const [feedFilter, setFeedFilter] = useState('all');   // 'all' | 'onsale' | 'instock' | 'cat:<productType>'
   const fetchFeed = async () => {
     const s = (feedSource || '').trim();
     if (!s) { setFeedError('Enter a Shopify store URL or a Google Merchant feed URL.'); return; }
-    setFeedLoading(true); setFeedError(''); setFeedResult(null);
+    setFeedLoading(true); setFeedError(''); setFeedResult(null); setFeedFilter('all');
     try {
-      const r = await fetch('/api/feed-ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: s, limit: 5 }) });
+      const r = await fetch('/api/feed-ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: s, limit: 50 }) });
       const d = await r.json();
       if (d && d.ok) { setFeedResult(d); if (!d.products || !d.products.length) setFeedError('No products found in this feed.'); }
       else setFeedError((d && d.error) || 'Could not read this feed.');
@@ -4918,29 +4919,55 @@ STRICT rules:
                 <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>▦ Bulk Feed <span style={{ fontSize: 11, fontWeight: 800, color: "#5eead4" }}>· preview</span></span>
                 <button onClick={() => setFeedOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
               </div>
-              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify store URL or a Google Merchant (GMC) feed URL. We read the catalog and show the first 5 products, normalized and ready for ad generation.</div>
+              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify store URL or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <input value={feedSource} onChange={e => setFeedSource(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
                 <button onClick={fetchFeed} disabled={feedLoading} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: feedLoading ? "default" : "pointer", background: feedLoading ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
               </div>
               {feedError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 12 }}>{feedError}</div>}
-              {feedResult && feedResult.products && feedResult.products.length > 0 && (
+              {feedResult && feedResult.products && feedResult.products.length > 0 && (() => {
+                const all = feedResult.products;
+                const cats = [...new Set(all.map(p => p.productType).filter(Boolean))].sort();
+                const shown = all.filter(p => {
+                  if (feedFilter === 'onsale') return !!p.onSale;
+                  if (feedFilter === 'instock') return p.availability === 'in_stock';
+                  if (feedFilter.indexOf('cat:') === 0) return p.productType === feedFilter.slice(4);
+                  return true;
+                });
+                return (
                 <>
-                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 10 }}>
-                    Source: <b style={{ color: "#5eead4" }}>{feedResult.source === 'gmc' ? 'Google Merchant' : 'Shopify'}</b> · showing {feedResult.products.length}{typeof feedResult.count === 'number' ? (' of ' + feedResult.count) : ''}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 11, color: "#7e92a8" }}>
+                      Source: <b style={{ color: "#5eead4" }}>{feedResult.source === 'gmc' ? 'Google Merchant' : 'Shopify'}</b> · showing {shown.length} of {all.length}{typeof feedResult.count === 'number' && feedResult.count > all.length ? (' (' + feedResult.count + ' in feed)') : ''}
+                    </div>
+                    <select value={feedFilter} onChange={e => setFeedFilter(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.14)", fontSize: 12, cursor: "pointer" }}>
+                      <option value="all">All products</option>
+                      <option value="onsale">On offer</option>
+                      <option value="instock">In stock</option>
+                      {cats.length > 0 && <optgroup label="Category">{cats.map(c => <option key={c} value={'cat:' + c}>{c}</option>)}</optgroup>}
+                    </select>
                   </div>
+                  {shown.length === 0 ? (
+                    <div style={{ fontSize: 12, color: "#7e92a8", padding: "16px 0", textAlign: "center" }}>No products match this filter.</div>
+                  ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {feedResult.products.map((p, i) => (
+                    {shown.map((p, i) => (
                       <div key={p.id || i} style={{ display: "flex", gap: 12, padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
                         <div style={{ width: 64, height: 64, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#1e293b" }}>
                           {p.image ? <img src={p.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title || '(untitled)'}</div>
-                          <div style={{ fontSize: 11, color: "#9db0c7", marginTop: 2 }}>
-                            {p.price ? <b style={{ color: "#e2e8f0" }}>{p.price}{p.currency ? (' ' + p.currency) : ''}</b> : <span style={{ color: "#5a6b80" }}>no price</span>}
-                            {p.brand ? <span> · {p.brand}</span> : null}
-                            {p.availability ? <span> · {String(p.availability).replace(/_/g, ' ')}</span> : null}
+                          <div style={{ fontSize: 11, color: "#9db0c7", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            {p.price ? (
+                              <span>
+                                {p.onSale && p.regularPrice ? <span style={{ color: "#6b7a8d", textDecoration: "line-through", marginRight: 4 }}>{p.regularPrice}{p.currency ? (' ' + p.currency) : ''}</span> : null}
+                                <b style={{ color: p.onSale ? "#5eead4" : "#e2e8f0" }}>{p.price}{p.currency ? (' ' + p.currency) : ''}</b>
+                              </span>
+                            ) : <span style={{ color: "#5a6b80" }}>no price</span>}
+                            {p.onSale ? <span style={{ fontSize: 9, fontWeight: 800, color: "#06281f", background: "#5eead4", borderRadius: 4, padding: "1px 5px" }}>SALE</span> : null}
+                            {p.brand ? <span>· {p.brand}</span> : null}
+                            {p.availability ? <span>· {String(p.availability).replace(/_/g, ' ')}</span> : null}
                           </div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
                             {['title', 'description', 'image', 'price', 'brand', 'gtin'].map(f => (
@@ -4951,9 +4978,11 @@ STRICT rules:
                       </div>
                     ))}
                   </div>
+                  )}
                   <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Preview only — bulk ad generation across the catalog is the next step. This confirms the feed reads cleanly into the ad engine's format.</div>
                 </>
-              )}
+                );
+              })()}
             </div>
           </div>
         )}
