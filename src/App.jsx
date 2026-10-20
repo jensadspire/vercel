@@ -2696,6 +2696,24 @@ function RSAStudio() {
   const [showLibrary, setShowLibrary] = useState(false);
   // Creative Studio (C1)
   const [showCreativeStudio, setShowCreativeStudio] = useState(false);
+  // ── Bulk Feed module (Phase 1 — front-end stab; calls /api/feed-ingest) ──
+  const [feedOpen, setFeedOpen] = useState(false);
+  const [feedSource, setFeedSource] = useState('');
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedError, setFeedError] = useState('');
+  const [feedResult, setFeedResult] = useState(null); // { source, feedUrl, count, products:[] } | null
+  const fetchFeed = async () => {
+    const s = (feedSource || '').trim();
+    if (!s) { setFeedError('Enter a Shopify store URL or a Google Merchant feed URL.'); return; }
+    setFeedLoading(true); setFeedError(''); setFeedResult(null);
+    try {
+      const r = await fetch('/api/feed-ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: s, limit: 5 }) });
+      const d = await r.json();
+      if (d && d.ok) { setFeedResult(d); if (!d.products || !d.products.length) setFeedError('No products found in this feed.'); }
+      else setFeedError((d && d.error) || 'Could not read this feed.');
+    } catch (e) { setFeedError('Feed request failed — please try again.'); }
+    finally { setFeedLoading(false); }
+  };
   // ── Personas Builder: UGC source selector (Phase 1) ──
   const [ugcData, setUgcData] = useState(null);           // { detected, providers, images } | null
   const [ugcScanLoading, setUgcScanLoading] = useState(false);
@@ -4879,9 +4897,66 @@ STRICT rules:
                 </div>
                 <div style={{ fontSize: 12.5, color: "#5a6b80", lineHeight: 1.5 }}>Generate coordinated multi-ad campaigns — a uniform set of creatives that share your brand's story arc across formats and moments.</div>
               </div>
+              {/* Bulk Feed — Phase 1 (feed ingestion preview) */}
+              <div onClick={() => { setFeedOpen(true); }} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(45,212,191,0.3)", background: "linear-gradient(135deg,rgba(45,212,191,0.10),rgba(16,185,129,0.06))", cursor: "pointer", position: "relative" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#5eead4" }}>▦ Bulk Feed</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "#5eead4", background: "rgba(45,212,191,0.15)", border: "1px solid rgba(45,212,191,0.35)", borderRadius: 6, padding: "2px 8px" }}>BETA</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Ingest your whole catalog from a Shopify store or Google Merchant feed and turn it into ads in bulk — built for high-volume seasons and agencies.</div>
+                <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#2dd4bf" }}>Connect a feed →</div>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Bulk Feed panel (Phase 1 preview) */}
+        {feedOpen && (
+          <div onClick={() => setFeedOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 640, maxHeight: "85vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(45,212,191,0.3)", borderRadius: 16, padding: 26 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>▦ Bulk Feed <span style={{ fontSize: 11, fontWeight: 800, color: "#5eead4" }}>· preview</span></span>
+                <button onClick={() => setFeedOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+              </div>
+              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify store URL or a Google Merchant (GMC) feed URL. We read the catalog and show the first 5 products, normalized and ready for ad generation.</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <input value={feedSource} onChange={e => setFeedSource(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
+                <button onClick={fetchFeed} disabled={feedLoading} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: feedLoading ? "default" : "pointer", background: feedLoading ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
+              </div>
+              {feedError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 12 }}>{feedError}</div>}
+              {feedResult && feedResult.products && feedResult.products.length > 0 && (
+                <>
+                  <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 10 }}>
+                    Source: <b style={{ color: "#5eead4" }}>{feedResult.source === 'gmc' ? 'Google Merchant' : 'Shopify'}</b> · showing {feedResult.products.length}{typeof feedResult.count === 'number' ? (' of ' + feedResult.count) : ''}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {feedResult.products.map((p, i) => (
+                      <div key={p.id || i} style={{ display: "flex", gap: 12, padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                        <div style={{ width: 64, height: 64, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#1e293b" }}>
+                          {p.image ? <img src={p.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title || '(untitled)'}</div>
+                          <div style={{ fontSize: 11, color: "#9db0c7", marginTop: 2 }}>
+                            {p.price ? <b style={{ color: "#e2e8f0" }}>{p.price}{p.currency ? (' ' + p.currency) : ''}</b> : <span style={{ color: "#5a6b80" }}>no price</span>}
+                            {p.brand ? <span> · {p.brand}</span> : null}
+                            {p.availability ? <span> · {String(p.availability).replace(/_/g, ' ')}</span> : null}
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                            {['title', 'description', 'image', 'price', 'brand', 'gtin'].map(f => (
+                              <span key={f} style={{ fontSize: 9.5, fontWeight: 700, padding: "1px 6px", borderRadius: 5, color: (p.fields && p.fields[f]) ? "#5eead4" : "#5a6b80", background: (p.fields && p.fields[f]) ? "rgba(45,212,191,0.12)" : "rgba(255,255,255,0.03)", border: "1px solid " + ((p.fields && p.fields[f]) ? "rgba(45,212,191,0.3)" : "rgba(255,255,255,0.06)") }}>{(p.fields && p.fields[f]) ? '✓' : '○'} {f}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Preview only — bulk ad generation across the catalog is the next step. This confirms the feed reads cleanly into the ad engine's format.</div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Creative Studio panel */}
         {showCreativeStudio && isPro && (() => {
