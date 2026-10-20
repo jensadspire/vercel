@@ -114,7 +114,10 @@ function normalizeShopify(p, origin) {
   const variants = Array.isArray(p.variants) ? p.variants : [];
   const v0 = variants[0] || {};
   const price = v0.price != null ? String(v0.price) : null;
-  const availability = variants.some(v => v && v.available) ? 'in stock' : 'out of stock';
+  const compareRaw = v0.compare_at_price;
+  const onSale = !!(compareRaw != null && String(compareRaw) !== '' && toNum(compareRaw) > toNum(price));
+  const regularPrice = onSale ? String(compareRaw) : null;
+  const availability = canonAvail(variants.some(v => v && v.available) ? 'in stock' : 'out of stock');
   const gtin = variants.map(v => v && v.barcode).find(Boolean) || null;
   const rec = {
     id: String(p.id || p.handle || ''),
@@ -125,6 +128,8 @@ function normalizeShopify(p, origin) {
     image: images[0] || null,
     price,
     currency: null, // /products.json doesn't expose shop currency unauthenticated
+    onSale,
+    regularPrice,
     availability,
     brand: (p.vendor || '').trim() || null,
     productType: (p.product_type || '').trim() || null,
@@ -153,7 +158,12 @@ function normalizeGmcBlock(block) {
   const get = fieldGetter(block);
   const image = get('image_link');
   const images = [image, ...fieldGetterAll(block, 'additional_image_link')].filter(Boolean).map(toHttps);
-  const { price, currency } = splitPrice(get('price'));
+  const reg = splitPrice(get('price'));
+  const sale = splitPrice(get('sale_price'));
+  const onSale = !!(sale.price != null && reg.price != null && toNum(sale.price) < toNum(reg.price));
+  const price = onSale ? sale.price : reg.price;
+  const currency = reg.currency || sale.currency || null;
+  const regularPrice = onSale ? reg.price : null;
   const rec = {
     id: get('id'),
     title: get('title'),
@@ -163,7 +173,9 @@ function normalizeGmcBlock(block) {
     image: images[0] || null,
     price,
     currency,
-    availability: get('availability') || null,
+    onSale,
+    regularPrice,
+    availability: canonAvail(get('availability')) || null,
     brand: get('brand') || null,
     productType: get('product_type') || null,
     gtin: get('gtin') || null,
@@ -186,7 +198,12 @@ function ingestGmcTsv(feedUrl, tsv, max) {
     const image = get('image_link');
     const addl = get('additional_image_link');
     const images = [image, ...(addl ? addl.split(',').map(s => s.trim()) : [])].filter(Boolean).map(toHttps);
-    const { price, currency } = splitPrice(get('price'));
+    const reg = splitPrice(get('price'));
+    const sale = splitPrice(get('sale_price'));
+    const onSale = !!(sale.price != null && reg.price != null && toNum(sale.price) < toNum(reg.price));
+    const price = onSale ? sale.price : reg.price;
+    const currency = reg.currency || sale.currency || null;
+    const regularPrice = onSale ? reg.price : null;
     const rec = {
       id: get('id'),
       title: get('title'),
@@ -196,7 +213,9 @@ function ingestGmcTsv(feedUrl, tsv, max) {
       image: images[0] || null,
       price,
       currency,
-      availability: get('availability') || null,
+      onSale,
+      regularPrice,
+      availability: canonAvail(get('availability')) || null,
       brand: get('brand') || null,
       productType: get('product_type') || null,
       gtin: get('gtin') || null,
@@ -252,6 +271,15 @@ function decodeEntities(s) {
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#0*39;/g, "'")
     .replace(/&nbsp;/g, ' ').replace(/&#x0*26;/gi, '&').replace(/&#0*38;/g, '&');
+}
+function toNum(s) {
+  if (s == null) return NaN;
+  const m = String(s).replace(/\s/g, '').match(/[0-9]+(?:[.,][0-9]+)?/);
+  return m ? parseFloat(m[0].replace(',', '.')) : NaN;
+}
+function canonAvail(s) {
+  if (!s) return s;
+  return String(s).trim().toLowerCase().replace(/\s+/g, '_');
 }
 function splitPrice(raw) {
   if (!raw) return { price: null, currency: null };
