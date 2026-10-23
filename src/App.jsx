@@ -2706,11 +2706,22 @@ function RSAStudio() {
   const [feedSel, setFeedSel] = useState({});            // { [productLink]: true } — selected for batch
   const [feedBatchPending, setFeedBatchPending] = useState(false);
   const [feedSingleBusy, setFeedSingleBusy] = useState(null); // product link currently generating (single)
+  // Sticky feed: restore the last ingested catalog on mount (survives refresh, 24h TTL).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('rsa_feed_cache_v1');
+      if (!raw) return;
+      const c = JSON.parse(raw);
+      if (c && c.result && c.result.products && c.result.products.length && (Date.now() - (c.ts || 0) < 86400000)) {
+        setFeedResult(c.result); if (c.source) setFeedSource(c.source);
+      }
+    } catch (_) {}
+  }, []);
 
   // ── Bulk Feed B-path: build a full ad (RSA + Meta + storyboard) from a feed product
   // record — NO scrape (feed image_link + copy fed directly). Returns an entry-shaped
   // snapshot the overview can replay. Isolated; single-URL flow + original endpoints untouched.
-  const generateFromProduct = async (product) => {
+  const generateFromProduct = async (product, hooks = {}) => {
     const link = (product && product.link) || '';
     const title = (product && product.title) || '';
     const description = (product && product.description) || '';
@@ -2748,6 +2759,7 @@ function RSAStudio() {
         rsaRow.path2 = (pr.path2 || '').slice(0, PATH_LIMIT);
       }
     } catch (_) {}
+    if (hooks.onRsa) hooks.onRsa(rsaRow);
 
     // 2) Meta — /api/generate-meta-feed (feed images + copy, no scrape). Built into metaResult
     //    exactly like the single-URL flow does from /api/generate-meta.
@@ -2767,6 +2779,7 @@ function RSAStudio() {
         metaResult = { ...metaData, imageUrl: (initialImageUrl || '').replace(/^http:/, 'https:'), imageVariations: initialVariations };
       }
     } catch (_) {}
+    if (hooks.onMeta) hooks.onMeta(metaResult, carouselCardTexts);
 
     // 3) Video storyboard — /api/generate-tiktok (feed copy, kling + scene_reveal, no template)
     let tiktokResult = null;
@@ -2778,6 +2791,7 @@ function RSAStudio() {
       const tkData = await tkRes.json();
       if (tkData && !tkData.error) tiktokResult = tkData;
     } catch (_) {}
+    if (hooks.onStoryboard) hooks.onStoryboard(tiktokResult);
 
     return {
       url: link, rows: [rsaRow], metaResult, carouselCardTexts, tiktokResult,
@@ -2819,12 +2833,23 @@ function RSAStudio() {
     setUrl(product.link);
     setError(''); setGenerated(false);
     setRows([makeRow(1)]); setActiveRow(0);
-    setMetaResult(null); setTiktokResult(null); setTiktokVideoUrl(null);
+    setMetaResult(null); setTiktokResult(null); setTiktokVideoUrl(null); setTiktokVideoLoading(false);
     setGenerateMeta(true); setGenerateTiktok(true);
     setLoading(true); setMetaLoading(true); setTiktokLoading(true);
     try {
-      const entry = await generateFromProduct(product);
-      restoreFeedEntry(entry);
+      await generateFromProduct(product, {
+        // Progressive reveal — mirror the single-URL flow: Google paints first, then Meta,
+        // storyboard last (its "building" indicator shows while the user reads the Meta ad).
+        onRsa: (row) => { setRows([row]); setActiveRow(0); setGenerated(true); setLoading(false); },
+        onMeta: (meta, cards) => {
+          if (meta) { setMetaResult(meta); setMetaError(''); setCarouselCardTexts(cards || []); setCarouselImages([]); setActiveImageVariant(0); }
+          setMetaLoading(false);
+        },
+        onStoryboard: (tk) => {
+          if (tk) { setTiktokResult(tk); setVideoEngine('kling'); videoEngineRef.current = 'kling'; setVideoArchetype('scene_reveal'); videoSelArchetypeRef.current = 'scene_reveal'; }
+          setTiktokLoading(false);
+        },
+      });
     } catch (e) {
       setError('Feed ad generation failed — ' + (e && e.message));
     } finally {
@@ -2838,7 +2863,7 @@ function RSAStudio() {
     try {
       const r = await fetch('/api/feed-ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: s, limit: 50 }) });
       const d = await r.json();
-      if (d && d.ok) { setFeedResult(d); if (!d.products || !d.products.length) setFeedError('No products found in this feed.'); }
+      if (d && d.ok) { setFeedResult(d); try { localStorage.setItem('rsa_feed_cache_v1', JSON.stringify({ source: s, result: d, ts: Date.now() })); } catch (_) {} if (!d.products || !d.products.length) setFeedError('No products found in this feed.'); }
       else setFeedError((d && d.error) || 'Could not read this feed.');
     } catch (e) { setFeedError('Feed request failed — please try again.'); }
     finally { setFeedLoading(false); }
@@ -5136,7 +5161,7 @@ STRICT rules:
                         </div>
                         {p.link ? (
                         <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-                          <button onClick={() => runFeedSingle(p)} disabled={!!feedSingleBusy} title="Generate this product's ads from the feed (no scrape)" style={{ padding: "8px 12px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: feedSingleBusy ? "default" : "pointer", background: feedSingleBusy ? "rgba(99,102,241,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{feedSingleBusy === p.link ? "Generating…" : "✨ Generate →"}</button>
+                          <button onClick={() => runFeedSingle(p)} disabled={!!feedSingleBusy} title="Generate this product's ads from the feed (no scrape)" style={{ padding: "8px 12px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: feedSingleBusy ? "default" : "pointer", background: feedSingleBusy ? "rgba(99,102,241,0.4)" : ((selCount === 1 && feedSel[p.link]) ? "linear-gradient(135deg,#6366f1,#0ea5e9)" : "linear-gradient(135deg,#8b5cf6,#6366f1)"), color: "white", whiteSpace: "nowrap" }}>{feedSingleBusy === p.link ? "Generating…" : "✨ Generate →"}</button>
                         </div>
                         ) : null}
                       </div>
