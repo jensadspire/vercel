@@ -44,6 +44,21 @@ function detectFeedLanguage(source, mode) {
     const lm = String(mode.body).match(/<language>\s*([a-z]{2})(?:-[a-z]{2})?\s*<\/language>/i);
     if (lm && LANG_NAMES[lm[1].toLowerCase()]) return LANG_NAMES[lm[1].toLowerCase()];
   }
+  // 3) ccTLD fallback — national-domain shops with no locale path (e.g. Lammeuld.dk → Danish).
+  //    Only UNAMBIGUOUS single-language domains; multilingual (.ch/.be/.ca/.lu) and generic
+  //    (.com/.io/.shop/.store/.co/.net/.org) are omitted → they keep defaulting to English.
+  const TLD_LANG = {
+    de: 'German', at: 'German', dk: 'Danish', se: 'Swedish', no: 'Norwegian', fi: 'Finnish',
+    nl: 'Dutch', fr: 'French', it: 'Italian', es: 'Spanish', pt: 'Portuguese', pl: 'Polish',
+    cz: 'Czech', sk: 'Slovak', hu: 'Hungarian', ro: 'Romanian', gr: 'Greek', tr: 'Turkish',
+    ru: 'Russian', ua: 'Ukrainian', jp: 'Japanese', kr: 'Korean', is: 'Icelandic',
+    ee: 'Estonian', lv: 'Latvian', lt: 'Lithuanian', si: 'Slovenian', hr: 'Croatian', bg: 'Bulgarian',
+  };
+  try {
+    const host = new URL(/^https?:\/\//i.test(source) ? source : 'https://' + source).hostname.toLowerCase();
+    const tld = host.split('.').pop();
+    if (TLD_LANG[tld]) return TLD_LANG[tld];
+  } catch (_) { /* ignore */ }
   return null;
 }
 
