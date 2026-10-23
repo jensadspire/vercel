@@ -2737,7 +2737,7 @@ function RSAStudio() {
       });
       const rsaData = await rsaRes.json();
       const rsaText = (rsaData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-      const rsaMatch = rsaText.replace(/```json[\s\S]*?```|```/g, '').trim().match(/\{[\s\S]*\}/);
+      const rsaMatch = rsaText.replace(/```json|```/g, '').trim().match(/\{[\s\S]*\}/);
       if (rsaMatch) {
         const pr = JSON.parse(rsaMatch[0]);
         rsaRow.campaign = pr.campaign || '';
