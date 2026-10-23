@@ -2705,6 +2705,132 @@ function RSAStudio() {
   const [feedFilter, setFeedFilter] = useState('all');   // 'all' | 'onsale' | 'instock' | 'cat:<productType>'
   const [feedSel, setFeedSel] = useState({});            // { [productLink]: true } — selected for batch
   const [feedBatchPending, setFeedBatchPending] = useState(false);
+  const [feedSingleBusy, setFeedSingleBusy] = useState(null); // product link currently generating (single)
+
+  // ── Bulk Feed B-path: build a full ad (RSA + Meta + storyboard) from a feed product
+  // record — NO scrape (feed image_link + copy fed directly). Returns an entry-shaped
+  // snapshot the overview can replay. Isolated; single-URL flow + original endpoints untouched.
+  const generateFromProduct = async (product) => {
+    const link = (product && product.link) || '';
+    const title = (product && product.title) || '';
+    const description = (product && product.description) || '';
+    const language = 'English'; // v1: default; localisation is a later refinement
+    const images = Array.isArray(product && product.images) ? product.images : ((product && product.image) ? [product.image] : []);
+
+    // 1) Google RSA — /api/generate (feed-built prompt; same proxy the single-URL flow uses)
+    let rsaRow = makeRow(Date.now());
+    rsaRow.finalUrl = link;
+    try {
+      const rsaPrompt = "You are a Google Ads expert. Generate RSA ad copy.\nCURRENT YEAR: " + new Date().getFullYear()
+        + "\nURL: " + link + "\nPRODUCT: " + title + "\nPRODUCT DESCRIPTION: " + description
+        + "\nBRAND: " + ((product && product.brand) || '') + "\nCATEGORY: " + ((product && product.productType) || '')
+        + "\nOUTPUT LANGUAGE: " + language + "\nCRITICAL: Write ALL copy in " + language
+        + ".\n\nReturn ONLY valid JSON, no markdown:\n{\n  \"campaign\": \"name\",\n  \"adGroup\": \"name\",\n  \"headlines\": [\"h1\", 15 total],\n  \"descriptions\": [\"d1\",\"d2\",\"d3\",\"d4\"],\n  \"path1\": \"p1\",\n  \"path2\": \"p2\"\n}\nRules: Headlines max 30 chars each, exactly 15, unique. Descriptions 80-90 chars each, exactly 4, complete sentences ending with punctuation. path1/path2 max 15 chars.";
+      const rsaRes = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}),
+          ...(isSignedIn && session ? { 'x-clerk-session': await session.getToken() } : {}),
+        },
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, messages: [{ role: 'user', content: rsaPrompt }] }),
+      });
+      const rsaData = await rsaRes.json();
+      const rsaText = (rsaData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+      const rsaMatch = rsaText.replace(/```json[\s\S]*?```|```/g, '').trim().match(/\{[\s\S]*\}/);
+      if (rsaMatch) {
+        const pr = JSON.parse(rsaMatch[0]);
+        rsaRow.campaign = pr.campaign || '';
+        rsaRow.adGroup = pr.adGroup || '';
+        rsaRow.headlines = Array.from({ length: NUM_HL }, (_, j) => ({ text: (pr.headlines && pr.headlines[j] ? pr.headlines[j] : '').slice(0, HL_LIMIT), pin: '' }));
+        rsaRow.descriptions = Array.from({ length: NUM_DESC }, (_, j) => ({ text: smartTrimDesc(pr.descriptions && pr.descriptions[j] ? pr.descriptions[j] : ''), pin: '' }));
+        rsaRow.path1 = (pr.path1 || '').slice(0, PATH_LIMIT);
+        rsaRow.path2 = (pr.path2 || '').slice(0, PATH_LIMIT);
+      }
+    } catch (_) {}
+
+    // 2) Meta — /api/generate-meta-feed (feed images + copy, no scrape). Built into metaResult
+    //    exactly like the single-URL flow does from /api/generate-meta.
+    let metaResult = null; let carouselCardTexts = [];
+    try {
+      const metaRes = await fetch('/api/generate-meta-feed', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: { link, title, description, images, image: (product && product.image), brand: (product && product.brand), productType: (product && product.productType) }, language }),
+      });
+      const metaData = await metaRes.json();
+      if (metaData && (metaData.primaryTexts || metaData.headlines)) {
+        const initialImageUrl = metaData.heroProductImage || metaData.imageUrl || null;
+        const initialVariations = [metaData.heroProductImage, ...(metaData.allImages || []), metaData.secondaryImage, metaData.tertiaryImage]
+          .filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx).slice(0, 16);
+        const hlV = metaData.headlines || []; const dV = metaData.descriptions || [];
+        carouselCardTexts = Array.from({ length: 5 }, (_, i) => ({ headline: hlV[i] || hlV[i % Math.max(hlV.length, 1)] || '', desc: dV[i % Math.max(dV.length, 1)] || '' }));
+        metaResult = { ...metaData, imageUrl: (initialImageUrl || '').replace(/^http:/, 'https:'), imageVariations: initialVariations };
+      }
+    } catch (_) {}
+
+    // 3) Video storyboard — /api/generate-tiktok (feed copy, kling + scene_reveal, no template)
+    let tiktokResult = null;
+    try {
+      const tkRes = await fetch('/api/generate-tiktok', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: link, language, videoEngine: 'kling', archetype: 'scene_reveal', pageContent: (title + '\n' + description), productDescription: description }),
+      });
+      const tkData = await tkRes.json();
+      if (tkData && !tkData.error) tiktokResult = tkData;
+    } catch (_) {}
+
+    return {
+      url: link, rows: [rsaRow], metaResult, carouselCardTexts, tiktokResult,
+      engine: 'kling', archetype: 'scene_reveal',
+      brand: (tiktokResult && tiktokResult.brand) || (product && product.brand) || '',
+      title, thumb: (metaResult && metaResult.heroProductImage) || (product && product.image) || null,
+      _feed: true,
+    };
+  };
+
+  // Restore a feed snapshot into the overview cards (mirrors replayCombined, but shows the
+  // storyboard even without a finished video — our natural stopping point).
+  const restoreFeedEntry = (entry) => {
+    try {
+      setViewMode('overview');
+      setGenerated(false);
+      setRows([makeRow(1)]); setActiveRow(0);
+      setMetaResult(null); setTiktokResult(null); setTiktokVideoUrl(null); setTiktokVideoLoading(false);
+      setUrl(entry.url || '');
+      if (entry.rows && entry.rows.length) { setRows(entry.rows); setActiveRow(0); setGenerated(true); }
+      if (entry.metaResult) {
+        setMetaResult(entry.metaResult); setMetaError(''); setGenerateMeta(true);
+        setCarouselCardTexts(entry.carouselCardTexts || []); setCarouselImages([]); setActiveImageVariant(0);
+      }
+      if (entry.tiktokResult) {
+        setTiktokResult(entry.tiktokResult); setGenerateTiktok(true);
+        if (entry.engine) { setVideoEngine(entry.engine); videoEngineRef.current = entry.engine; }
+        if (entry.archetype) { setVideoArchetype(entry.archetype); videoSelArchetypeRef.current = entry.archetype; }
+      }
+    } catch (e) { console.error('[restore-feed-entry]', e.message); }
+  };
+
+  // Single feed product → full B-path generation with spinners, then restore into the overview.
+  const runFeedSingle = async (product) => {
+    if (!product || !product.link || feedSingleBusy) return;
+    setFeedSingleBusy(product.link);
+    setFeedOpen(false);
+    setViewMode('overview');
+    setUrl(product.link);
+    setError(''); setGenerated(false);
+    setRows([makeRow(1)]); setActiveRow(0);
+    setMetaResult(null); setTiktokResult(null); setTiktokVideoUrl(null);
+    setGenerateMeta(true); setGenerateTiktok(true);
+    setLoading(true); setMetaLoading(true); setTiktokLoading(true);
+    try {
+      const entry = await generateFromProduct(product);
+      restoreFeedEntry(entry);
+    } catch (e) {
+      setError('Feed ad generation failed — ' + (e && e.message));
+    } finally {
+      setLoading(false); setMetaLoading(false); setTiktokLoading(false); setFeedSingleBusy(null);
+    }
+  };
   const fetchFeed = async () => {
     const s = (feedSource || '').trim();
     if (!s) { setFeedError('Enter a Shopify store URL or a Google Merchant feed URL.'); return; }
@@ -5010,7 +5136,7 @@ STRICT rules:
                         </div>
                         {p.link ? (
                         <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-                          <button onClick={() => { setUrl(p.link); setFeedOpen(false); setTimeout(() => { const _b = document.querySelector('[data-generate-btn]:not([disabled])'); if (_b) _b.click(); }, 350); }} title="Load this product and generate its ads" style={{ padding: "8px 12px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>✨ Generate →</button>
+                          <button onClick={() => runFeedSingle(p)} disabled={!!feedSingleBusy} title="Generate this product's ads from the feed (no scrape)" style={{ padding: "8px 12px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: feedSingleBusy ? "default" : "pointer", background: feedSingleBusy ? "rgba(99,102,241,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{feedSingleBusy === p.link ? "Generating…" : "✨ Generate →"}</button>
                         </div>
                         ) : null}
                       </div>
