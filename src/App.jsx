@@ -2781,21 +2781,36 @@ function RSAStudio() {
     } catch (_) {}
     if (hooks.onMeta) hooks.onMeta(metaResult, carouselCardTexts);
 
-    // 3) Video storyboard — /api/generate-tiktok (feed copy, kling + scene_reveal, no template)
+    // Unified video routing (same rule the rich flow will adopt):
+    //   lifestyle/model/portrait signal → Runway; else environment background → Runway;
+    //   else solid background (any colour) → Kling Scene Reveal.
+    const heroImg = images[0] || (product && product.image) || null;
+    let engine = 'kling';
+    try {
+      if (detectVideoEngine(heroImg) === 'runway') {
+        engine = 'runway';
+      } else if (heroImg) {
+        const bgRes = await fetch('/api/detect-bg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: heroImg }) });
+        const bg = await bgRes.json();
+        if (bg && bg.bgEngine === 'runway') engine = 'runway';
+      }
+    } catch (_) { engine = 'kling'; }
+
+    // 3) Video storyboard — /api/generate-tiktok (feed copy, routed engine, no template)
     let tiktokResult = null;
     try {
       const tkRes = await fetch('/api/generate-tiktok', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: link, language, videoEngine: 'kling', archetype: 'scene_reveal', pageContent: (title + '\n' + description), productDescription: description }),
+        body: JSON.stringify({ url: link, language, videoEngine: engine, archetype: 'scene_reveal', pageContent: (title + '\n' + description), productDescription: description }),
       });
       const tkData = await tkRes.json();
       if (tkData && !tkData.error) tiktokResult = tkData;
     } catch (_) {}
-    if (hooks.onStoryboard) hooks.onStoryboard(tiktokResult);
+    if (hooks.onStoryboard) hooks.onStoryboard(tiktokResult, engine);
 
     return {
       url: link, rows: [rsaRow], metaResult, carouselCardTexts, tiktokResult,
-      engine: 'kling', archetype: 'scene_reveal',
+      engine, archetype: 'scene_reveal',
       brand: (tiktokResult && tiktokResult.brand) || (product && product.brand) || '',
       title, thumb: (metaResult && metaResult.heroProductImage) || (product && product.image) || null,
       _feed: true,
@@ -2845,8 +2860,8 @@ function RSAStudio() {
           if (meta) { setMetaResult(meta); setMetaError(''); setCarouselCardTexts(cards || []); setCarouselImages([]); setActiveImageVariant(0); }
           setMetaLoading(false);
         },
-        onStoryboard: (tk) => {
-          if (tk) { setTiktokResult(tk); setVideoEngine('kling'); videoEngineRef.current = 'kling'; setVideoArchetype('scene_reveal'); videoSelArchetypeRef.current = 'scene_reveal'; }
+        onStoryboard: (tk, eng) => {
+          if (tk) { const e = eng || 'kling'; setTiktokResult(tk); setVideoEngine(e); videoEngineRef.current = e; setVideoArchetype('scene_reveal'); videoSelArchetypeRef.current = 'scene_reveal'; }
           setTiktokLoading(false);
         },
       });
