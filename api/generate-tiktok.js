@@ -651,7 +651,7 @@ ${arch.instructions}
   ]` : arch.json;
 
   const videoPromptGuide = isRunway
-    ? `Runway video prompt, max 900 chars — 9:16 vertical. Scene 1 (0-4s): clean product showcase, product is the hero, slow orbiting camera, aspirational lighting. Hard cut at 4s. Scene 2 (4-10s): a person WEARING or USING the product in a real lifestyle setting. Same warm palette. Cinematic and elegant. NO on-screen text, captions, logos or overlays.`
+    ? `Runway video prompt, max 900 chars — 9:16 vertical. Scene 1 (0-4s): clean product showcase, product is the hero, slow orbiting camera, aspirational lighting. Hard cut at 4s. Scene 2 (4-10s): a person WEARING or USING the product in a real lifestyle setting. Same warm palette. Cinematic and elegant. CRITICAL — product fidelity: in every frame the product must stay the EXACT product from the reference image — identical colour, shape, material, pattern, proportions and branding; never recolour, restyle, add or remove parts, substitute it, or let it morph. NO on-screen text, captions, logos or overlays.`
     : `Kling video prompt, max 900 chars — 9:16 vertical, following the '${arch.label}' structure above. Describe camera movement, lighting, setting and mood for each beat. Product clearly visible throughout. NO on-screen text, captions, logos, brand names or overlays of any kind.`;
 
   // ── storyboardOnly: regenerate just the board (archetype switch in the video tab) ──

@@ -2725,7 +2725,7 @@ function RSAStudio() {
     const link = (product && product.link) || '';
     const title = (product && product.title) || '';
     const description = (product && product.description) || '';
-    const language = 'English'; // v1: default; localisation is a later refinement
+    const language = (feedResult && feedResult.language) || 'English'; // feed URL locale (/de-de→German, /da-dk→Danish) or GMC tag; English when undetectable
     const images = Array.isArray(product && product.images) ? product.images : ((product && product.image) ? [product.image] : []);
 
     // 1) Google RSA — /api/generate (feed-built prompt; same proxy the single-URL flow uses)

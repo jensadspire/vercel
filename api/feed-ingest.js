@@ -18,6 +18,35 @@
 
 const UA = 'Mozilla/5.0 (compatible; AIAdStudioFeedBot/1.0; +https://theaiad.studio)';
 
+// ── Feed-language detection ──────────────────────────────────────────────────
+// ISO-639-1 → English language name (the string the generators inject via "Write in ${language}").
+const LANG_NAMES = {
+  en: 'English', de: 'German', da: 'Danish', sv: 'Swedish', nb: 'Norwegian', nn: 'Norwegian',
+  no: 'Norwegian', fi: 'Finnish', nl: 'Dutch', fr: 'French', it: 'Italian', es: 'Spanish',
+  pt: 'Portuguese', pl: 'Polish', cs: 'Czech', sk: 'Slovak', hu: 'Hungarian', ro: 'Romanian',
+  el: 'Greek', tr: 'Turkish', ru: 'Russian', uk: 'Ukrainian', ja: 'Japanese', ko: 'Korean',
+  zh: 'Chinese', ar: 'Arabic', he: 'Hebrew', is: 'Icelandic', et: 'Estonian', lv: 'Latvian',
+  lt: 'Lithuanian', sl: 'Slovenian', hr: 'Croatian', bg: 'Bulgarian', ca: 'Catalan',
+};
+
+// Returns an English language NAME (e.g. "German") or null. null → caller defaults to English.
+function detectFeedLanguage(source, mode) {
+  // 1) Locale in the feed URL (works for BOTH Shopify and GMC — keyed off what the user typed).
+  try {
+    const u = new URL(/^https?:\/\//i.test(source) ? source : 'https://' + source);
+    const path = u.pathname.toLowerCase();
+    let m = path.match(/\/([a-z]{2})-[a-z]{2}(?:\/|$)/);   // /ll-cc/  (e.g. /de-de, /da-dk)
+    if (!m) m = path.match(/^\/([a-z]{2})(?:\/|$)/);        // leading /ll/  (e.g. /de/...)
+    if (m && LANG_NAMES[m[1]]) return LANG_NAMES[m[1]];
+  } catch (_) { /* ignore */ }
+  // 2) GMC XML bonus: RSS <language> channel tag.
+  if (mode && mode.type === 'gmc-xml' && mode.body) {
+    const lm = String(mode.body).match(/<language>\s*([a-z]{2})(?:-[a-z]{2})?\s*<\/language>/i);
+    if (lm && LANG_NAMES[lm[1].toLowerCase()]) return LANG_NAMES[lm[1].toLowerCase()];
+  }
+  return null;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -42,8 +71,9 @@ export default async function handler(req, res) {
              "Paste a product feed URL (.xml / .tsv) or a Shopify store URL."
     });
 
-    console.log('Feed ingest:', mode.type, '| products:', result.count);
-    return res.status(200).json({ ok: true, ...result });
+    const language = detectFeedLanguage(String(source).trim(), mode);
+    console.log('Feed ingest:', mode.type, '| products:', result.count, '| language:', language || 'English (default)');
+    return res.status(200).json({ ok: true, language, ...result });
   } catch (err) {
     console.log('Feed ingest error:', err && err.message);
     return res.status(200).json({ ok: false, error: (err && err.message) || "Feed ingestion failed" });
