@@ -2705,6 +2705,9 @@ function RSAStudio() {
   const [feedFilter, setFeedFilter] = useState('all');   // 'all' | 'onsale' | 'instock' | 'cat:<productType>'
   const [feedSel, setFeedSel] = useState({});            // { [productLink]: true } — selected for batch
   const [feedBatchPending, setFeedBatchPending] = useState(false);
+  const [feedView, setFeedView] = useState('products');   // 'products' | 'outputs' (batch staging buffer)
+  const [feedOutputs, setFeedOutputs] = useState({});     // { [link]: { status:'generating'|'ready'|'failed', snapshot, title, thumb, engine, videoUrl, link } }
+  const [feedBatchBusy, setFeedBatchBusy] = useState(false);
   const [feedSingleBusy, setFeedSingleBusy] = useState(null); // product link currently generating (single)
   const [feedGroupBy, setFeedGroupBy] = useState('category'); // Level-1 grouping axis: 'category' | 'brand'
   const [feedOpenGroup, setFeedOpenGroup] = useState(null);   // opened group key (drill-down) | null = Level 1
@@ -2893,6 +2896,7 @@ function RSAStudio() {
       setRows([makeRow(1)]); setActiveRow(0);
       setMetaResult(null); setTiktokResult(null); setTiktokVideoUrl(null); setTiktokVideoLoading(false);
       setUrl(entry.url || '');
+      try { const _d = new URL(entry.url || '').hostname; if (_d) { setPmaxLogo('https://www.google.com/s2/favicons?domain=' + _d + '&sz=128'); setPmaxLogoSource('favicon'); setPmaxLogoDomain(_d.replace(/^www\./, '')); } } catch (_) {}
       if (entry.rows && entry.rows.length) { setRows(entry.rows); setActiveRow(0); setGenerated(true); }
       if (entry.metaResult) {
         setMetaResult(entry.metaResult); setMetaError(''); setGenerateMeta(true);
@@ -2942,6 +2946,37 @@ function RSAStudio() {
     } finally {
       setLoading(false); setMetaLoading(false); setTiktokLoading(false); setFeedSingleBusy(null);
     }
+  };
+
+  // Multi-product B-path batch (headless): loops generateFromProduct per selected product and
+  // writes each result into feedOutputs (the staging buffer) WITHOUT painting the single view.
+  // Sequential for now — the per-item time this reveals sizes the concurrency tuning later.
+  const runFeedBatchB = async (picks) => {
+    if (!picks || !picks.length || feedBatchBusy) return;
+    setFeedBatchBusy(true);
+    setFeedSel({});
+    setFeedView('outputs');
+    setFeedOutputs(prev => {
+      const n = { ...prev };
+      for (const p of picks) n[p.link] = { status: 'generating', title: p.title || '', thumb: p.image || null, engine: null, videoUrl: null, link: p.link };
+      return n;
+    });
+    for (const p of picks) {
+      try {
+        const snap = await generateFromProduct(p, {
+          onMeta: (meta) => { if (meta && meta.imageUrl) setFeedOutputs(prev => (prev[p.link] ? { ...prev, [p.link]: { ...prev[p.link], thumb: meta.imageUrl } } : prev)); },
+        });
+        setFeedOutputs(prev => ({ ...prev, [p.link]: {
+          status: 'ready', snapshot: snap,
+          title: snap.title || p.title || '',
+          thumb: (snap.metaResult && snap.metaResult.imageUrl) || snap.thumb || p.image || null,
+          engine: snap.engine, videoUrl: snap.videoUrl || null, link: p.link,
+        } }));
+      } catch (e) {
+        setFeedOutputs(prev => ({ ...prev, [p.link]: { ...(prev[p.link] || { link: p.link, title: p.title || '' }), status: 'failed', error: (e && e.message) || 'failed' } }));
+      }
+    }
+    setFeedBatchBusy(false);
   };
   const fetchFeed = async () => {
     const s = (feedSource || '').trim();
@@ -5209,10 +5244,45 @@ STRICT rules:
                 const runFeedBatch = () => {
                   const picks = shown.filter(p => p.link && feedSel[p.link]);
                   if (!picks.length) return;
-                  setBatchUrls(picks.map(p => ({ url: p.link, category: p.productType || '', selected: true })));
-                  setFeedOpen(false);
-                  setFeedBatchPending(true);
+                  runFeedBatchB(picks); // B-path headless batch → outputs staging buffer (retires the old a2 scrape batch)
                 };
+
+                // ── OUTPUTS VIEW: batch staging buffer (flip side of the product selector) ──
+                if (feedView === 'outputs') {
+                  const outs = Object.values(feedOutputs);
+                  const readyCount = outs.filter(o => o.status === 'ready').length;
+                  return (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                      <button onClick={() => setFeedView('products')} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#9db0c7" }}>← Products</button>
+                      <div style={{ fontSize: 11, color: "#7e92a8" }}>{outs.length} output{outs.length === 1 ? '' : 's'} · {readyCount} ready{feedBatchBusy ? ' · generating…' : ''}</div>
+                    </div>
+                    {outs.length === 0 ? (
+                      <div style={{ fontSize: 12, color: "#7e92a8", padding: "16px 0", textAlign: "center" }}>No outputs yet — select products and hit Generate.</div>
+                    ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+                      {outs.map(o => {
+                        const isReady = o.status === 'ready';
+                        return (
+                        <button key={o.link} onClick={() => { if (isReady && o.snapshot) { restoreFeedEntry(o.snapshot); setFeedOpen(false); } }} disabled={!isReady} title={o.title || ''} style={{ textAlign: "left", padding: 0, borderRadius: 10, overflow: "hidden", cursor: isReady ? "pointer" : "default", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", opacity: isReady ? 1 : 0.75 }}>
+                          <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
+                            {o.thumb ? <img src={o.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                            {o.videoUrl ? <span style={{ position: "absolute", top: 6, right: 6, fontSize: 10, fontWeight: 800, color: "white", background: "rgba(139,92,246,0.92)", borderRadius: 5, padding: "2px 6px" }}>▶ video</span> : null}
+                            {!isReady ? <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15,23,42,0.55)", fontSize: 11, fontWeight: 800, color: o.status === 'failed' ? "#fca5a5" : "#5eead4" }}>{o.status === 'failed' ? '✕ failed' : 'generating…'}</div> : null}
+                          </div>
+                          <div style={{ padding: "8px 10px" }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.title || '(untitled)'}</div>
+                            <div style={{ fontSize: 10.5, color: "#7e92a8", marginTop: 1 }}>{isReady ? ((o.engine === 'runway' ? 'Runway' : 'Kling') + ' · ready') : (o.status === 'failed' ? 'failed' : 'building…')}</div>
+                          </div>
+                        </button>
+                        );
+                      })}
+                    </div>
+                    )}
+                    <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Click a ready output to review it in the full editor and publish, then come back here for the next. Outputs stay for this session.</div>
+                  </>
+                  );
+                }
 
                 // ── LEVEL 1: category / brand tiles (one image per group → light DOM) ──
                 if (!feedOpenGroup) {
@@ -5222,7 +5292,10 @@ STRICT rules:
                       <div style={{ fontSize: 11, color: "#7e92a8" }}>
                         Source: <b style={{ color: "#5eead4" }}>{feedResult.source === 'gmc' ? 'Google Merchant' : 'Shopify'}</b> · {groups.length} {feedGroupBy === 'brand' ? 'brands' : 'categories'} · {all.length} products{typeof feedResult.count === 'number' && feedResult.count > all.length ? (' (' + feedResult.count + ' in feed)') : ''}
                       </div>
-                      <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {Object.keys(feedOutputs).length > 0 && (
+                          <button onClick={() => setFeedView('outputs')} style={{ padding: "5px 12px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.14)", color: "#c4b5fd", whiteSpace: "nowrap" }}>◳ Outputs ({Object.keys(feedOutputs).length})</button>
+                        )}
                         {['category', 'brand'].map(g => (
                           <button key={g} onClick={() => setFeedGroupBy(g)} style={{ padding: "5px 12px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", textTransform: "capitalize", border: "1px solid " + (feedGroupBy === g ? "rgba(45,212,191,0.5)" : "rgba(255,255,255,0.12)"), background: feedGroupBy === g ? "rgba(45,212,191,0.12)" : "rgba(0,0,0,0.3)", color: feedGroupBy === g ? "#5eead4" : "#9db0c7" }}>{g}</button>
                         ))}
@@ -5254,6 +5327,9 @@ STRICT rules:
                     <div style={{ fontSize: 11, color: "#7e92a8", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <b style={{ color: "#5eead4" }}>{feedOpenGroup}</b> · showing {shown.length} of {inGroup.length}
                     </div>
+                    {Object.keys(feedOutputs).length > 0 && (
+                      <button onClick={() => setFeedView('outputs')} style={{ padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 8, cursor: "pointer", border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.14)", color: "#c4b5fd", whiteSpace: "nowrap" }}>◳ Outputs ({Object.keys(feedOutputs).length})</button>
+                    )}
                     <select value={feedFilter} onChange={e => setFeedFilter(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.14)", fontSize: 12, cursor: "pointer" }}>
                       <option value="all">All products</option>
                       <option value="onsale">On offer</option>
@@ -5266,7 +5342,7 @@ STRICT rules:
                         <input type="checkbox" checked={allShownSelected} onChange={toggleAllShown} style={{ width: 15, height: 15, cursor: "pointer" }} />
                         Select all shown{selCount > 0 ? (' · ' + selCount + ' selected') : ''}
                       </label>
-                      <button onClick={runFeedBatch} disabled={selCount === 0 || batchRunning} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (selCount === 0 || batchRunning) ? "default" : "pointer", background: (selCount === 0 || batchRunning) ? "rgba(99,102,241,0.35)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>⚡ Generate {selCount || ''} selected →</button>
+                      <button onClick={runFeedBatch} disabled={selCount === 0 || feedBatchBusy} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (selCount === 0 || feedBatchBusy) ? "default" : "pointer", background: (selCount === 0 || feedBatchBusy) ? "rgba(99,102,241,0.35)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{feedBatchBusy ? 'Generating…' : ('⚡ Generate ' + (selCount || '') + ' selected →')}</button>
                     </div>
                   )}
                   {shown.length === 0 ? (
@@ -5307,7 +5383,7 @@ STRICT rules:
                     ))}
                   </div>
                   )}
-                  <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Tick products and hit <b style={{ color: "#a9b6c7" }}>⚡ Generate selected</b> to batch-build their Google ads (watch progress in the main view, review via history). Or <b style={{ color: "#a9b6c7" }}>✨ Generate</b> a single product for the full Google + Meta + video. Meta/video batch comes next.</div>
+                  <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Tick several products and hit <b style={{ color: "#a9b6c7" }}>⚡ Generate selected</b> to batch-build the full Google + Meta + video for each — they collect on the <b style={{ color: "#c4b5fd" }}>◳ Outputs</b> page. Or <b style={{ color: "#a9b6c7" }}>✨ Generate</b> a single product to jump straight into its editor.</div>
                 </>
                 );
               })()}
