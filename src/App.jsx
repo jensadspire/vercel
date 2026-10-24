@@ -2726,13 +2726,13 @@ function RSAStudio() {
   // Self-contained video render for the FEED path (runway/kling only). Pure async — takes all
   // inputs as args and writes NO single-view state, so the single flow and the future bulk loop
   // both call it. One infra-failover (runway↔kling), then poll to completion. Returns { videoUrl } | { error }.
-  const renderFeedVideo = async ({ engine, imageUrl, storyboard, videoPrompt, language }) => {
+  const renderFeedVideo = async ({ engine, imageUrl, storyboard, videoPrompt, language, logoUrl, brand }) => {
     if (!imageUrl || !videoPrompt) return { error: 'missing image or prompt' };
     const img = String(imageUrl).replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://');
     const apiFor = (e) => e === 'runway' ? '/api/runway' : '/api/kling';
     const backupFor = (e) => e === 'kling' ? 'runway' : 'kling';
     // Feed videos stay clean: no brand overlay, no intro/outro text (matches the feed path's no-overlay rule).
-    const body = { imageUrl: img, storyboard: storyboard || [], prompt: videoPrompt, language: language || 'English', brand: '', logoUrl: null, overlayIntro: '', overlayOutro: '' };
+    const body = { imageUrl: img, storyboard: storyboard || [], prompt: videoPrompt, language: language || 'English', brand: brand || '', logoUrl: logoUrl || null, overlayIntro: '', overlayOutro: '' };
     const createOn = async (e) => {
       try {
         const rr = await fetch(apiFor(e), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -2867,7 +2867,8 @@ function RSAStudio() {
     let videoUrl = null;
     if (tiktokResult && tiktokResult.videoPrompt && heroImg) {
       if (hooks.onVideoStart) hooks.onVideoStart(engine);
-      const vr = await renderFeedVideo({ engine, imageUrl: heroImg, storyboard: tiktokResult.storyboard, videoPrompt: tiktokResult.videoPrompt, language });
+      const faviconUrl = (() => { try { return 'https://www.google.com/s2/favicons?domain=' + new URL(link).hostname + '&sz=128'; } catch (_) { return null; } })();
+      const vr = await renderFeedVideo({ engine, imageUrl: heroImg, storyboard: tiktokResult.storyboard, videoPrompt: tiktokResult.videoPrompt, language, logoUrl: faviconUrl, brand: (tiktokResult.brand || (product && product.brand) || '') });
       if (vr && vr.videoUrl) videoUrl = vr.videoUrl;
       if (hooks.onVideo) hooks.onVideo(videoUrl, vr && vr.error);
     } else {
@@ -2913,6 +2914,7 @@ function RSAStudio() {
     setFeedOpen(false);
     setViewMode('overview');
     setUrl(product.link);
+    try { const _d = new URL(product.link).hostname; setPmaxLogo('https://www.google.com/s2/favicons?domain=' + _d + '&sz=128'); setPmaxLogoSource('favicon'); setPmaxLogoDomain(_d.replace(/^www\./, '')); } catch (_) {}
     setError(''); setGenerated(false);
     setRows([makeRow(1)]); setActiveRow(0);
     setMetaResult(null); setTiktokResult(null); setTiktokVideoUrl(null); setTiktokVideoLoading(false);
