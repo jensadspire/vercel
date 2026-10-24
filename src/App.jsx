@@ -2723,6 +2723,47 @@ function RSAStudio() {
   // ── Bulk Feed B-path: build a full ad (RSA + Meta + storyboard) from a feed product
   // record — NO scrape (feed image_link + copy fed directly). Returns an entry-shaped
   // snapshot the overview can replay. Isolated; single-URL flow + original endpoints untouched.
+  // Self-contained video render for the FEED path (runway/kling only). Pure async — takes all
+  // inputs as args and writes NO single-view state, so the single flow and the future bulk loop
+  // both call it. One infra-failover (runway↔kling), then poll to completion. Returns { videoUrl } | { error }.
+  const renderFeedVideo = async ({ engine, imageUrl, storyboard, videoPrompt, language }) => {
+    if (!imageUrl || !videoPrompt) return { error: 'missing image or prompt' };
+    const img = String(imageUrl).replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://');
+    const apiFor = (e) => e === 'runway' ? '/api/runway' : '/api/kling';
+    const backupFor = (e) => e === 'kling' ? 'runway' : 'kling';
+    // Feed videos stay clean: no brand overlay, no intro/outro text (matches the feed path's no-overlay rule).
+    const body = { imageUrl: img, storyboard: storyboard || [], prompt: videoPrompt, language: language || 'English', brand: '', logoUrl: null, overlayIntro: '', overlayOutro: '' };
+    const createOn = async (e) => {
+      try {
+        const rr = await fetch(apiFor(e), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!rr.ok && rr.status >= 500) return { infraFail: true, d: { error: 'HTTP ' + rr.status } };
+        const d = await rr.json().catch(() => ({}));
+        return { infraFail: false, d };
+      } catch (netErr) { return { infraFail: true, d: { error: netErr.message } }; }
+    };
+    let used = engine === 'runway' ? 'runway' : 'kling';
+    let a = await createOn(used);
+    if (a.infraFail) { used = backupFor(used); a = await createOn(used); }   // one silent failover on infra fail
+    const d = (a && a.d) || {};
+    if (d.gated) return { error: 'gated' };
+    if (a.infraFail || d.error || (!d.videoUrl && !d.requestId && !d.taskId)) return { error: (d && d.error) || 'video create failed' };
+    if (d.videoUrl) return { videoUrl: d.videoUrl, engine: used };
+    const pollId = d.requestId || d.taskId;
+    const pollKey = d.taskId ? 'taskId' : 'requestId';
+    const api = apiFor(used);
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 144; i++) {                 // 144 × 5s = up to 12 min (matches the manual path's cap)
+      await sleep(5000);
+      try {
+        const pr = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
+        const pd = await pr.json();
+        if (pd.videoUrl) return { videoUrl: pd.videoUrl, engine: used };
+        if (pd.status === 'FAILED' || pd.status === 'CANCELLED') return { error: 'render ' + pd.status };
+      } catch (_) { /* transient poll error — keep trying */ }
+    }
+    return { error: 'render timed out' };
+  };
+
   const generateFromProduct = async (product, hooks = {}) => {
     const link = (product && product.link) || '';
     const title = (product && product.title) || '';
@@ -2810,17 +2851,28 @@ function RSAStudio() {
     } catch (_) {}
     if (hooks.onStoryboard) hooks.onStoryboard(tiktokResult, engine);
 
+    // 4) Video — render it now (no manual stopping point). Routed engine + feed hero image.
+    let videoUrl = null;
+    if (tiktokResult && tiktokResult.videoPrompt && heroImg) {
+      if (hooks.onVideoStart) hooks.onVideoStart(engine);
+      const vr = await renderFeedVideo({ engine, imageUrl: heroImg, storyboard: tiktokResult.storyboard, videoPrompt: tiktokResult.videoPrompt, language });
+      if (vr && vr.videoUrl) videoUrl = vr.videoUrl;
+      if (hooks.onVideo) hooks.onVideo(videoUrl, vr && vr.error);
+    } else {
+      if (hooks.onVideo) hooks.onVideo(null);
+    }
+
     return {
       url: link, rows: [rsaRow], metaResult, carouselCardTexts, tiktokResult,
-      engine, archetype: 'scene_reveal',
+      engine, archetype: 'scene_reveal', videoUrl,
       brand: (tiktokResult && tiktokResult.brand) || (product && product.brand) || '',
       title, thumb: (metaResult && metaResult.heroProductImage) || (product && product.image) || null,
       _feed: true,
     };
   };
 
-  // Restore a feed snapshot into the overview cards (mirrors replayCombined, but shows the
-  // storyboard even without a finished video — our natural stopping point).
+  // Restore a feed snapshot into the overview cards (mirrors replayCombined), including the
+  // rendered video when the snapshot carries one.
   const restoreFeedEntry = (entry) => {
     try {
       setViewMode('overview');
@@ -2838,6 +2890,7 @@ function RSAStudio() {
         if (entry.engine) { setVideoEngine(entry.engine); videoEngineRef.current = entry.engine; }
         if (entry.archetype) { setVideoArchetype(entry.archetype); videoSelArchetypeRef.current = entry.archetype; }
       }
+      if (entry.videoUrl) setTiktokVideoUrl(entry.videoUrl);
     } catch (e) { console.error('[restore-feed-entry]', e.message); }
   };
 
@@ -2866,6 +2919,9 @@ function RSAStudio() {
           if (tk) { const e = eng || 'kling'; setTiktokResult(tk); setVideoEngine(e); videoEngineRef.current = e; setVideoArchetype('scene_reveal'); videoSelArchetypeRef.current = 'scene_reveal'; }
           setTiktokLoading(false);
         },
+        // No stopping point: the storyboard flows straight into the rendered video.
+        onVideoStart: () => { setTiktokVideoUrl(null); setTiktokVideoLoading(true); },
+        onVideo: (videoUrl) => { if (videoUrl) setTiktokVideoUrl(videoUrl); setTiktokVideoLoading(false); },
       });
     } catch (e) {
       setError('Feed ad generation failed — ' + (e && e.message));
