@@ -39,7 +39,24 @@ function detectFeedLanguage(source, mode) {
     if (!m) m = path.match(/^\/([a-z]{2})(?:\/|$)/);        // leading /ll/  (e.g. /de/...)
     if (m && LANG_NAMES[m[1]]) return LANG_NAMES[m[1]];
   } catch (_) { /* ignore */ }
-  // 2) GMC XML bonus: RSS <language> channel tag.
+  // 2) Market selector in the query string (e.g. .com/?country=DE, ?lang=de, ?language=de-DE).
+  //    country codes ≠ language codes (DK→Danish, SE→Swedish, GB→English) → country uses its own map.
+  try {
+    const qp = new URL(/^https?:\/\//i.test(source) ? source : 'https://' + source).searchParams;
+    const langParam = (qp.get('lang') || qp.get('language') || '').toLowerCase().slice(0, 2);
+    if (langParam && LANG_NAMES[langParam]) return LANG_NAMES[langParam];
+    const COUNTRY_LANG = {
+      de: 'German', at: 'German', dk: 'Danish', se: 'Swedish', no: 'Norwegian', fi: 'Finnish',
+      nl: 'Dutch', fr: 'French', it: 'Italian', es: 'Spanish', pt: 'Portuguese', pl: 'Polish',
+      cz: 'Czech', sk: 'Slovak', hu: 'Hungarian', ro: 'Romanian', gr: 'Greek', tr: 'Turkish',
+      ru: 'Russian', ua: 'Ukrainian', jp: 'Japanese', kr: 'Korean', is: 'Icelandic',
+      ee: 'Estonian', lv: 'Latvian', lt: 'Lithuanian', si: 'Slovenian', hr: 'Croatian', bg: 'Bulgarian',
+      gb: 'English', uk: 'English', us: 'English', ie: 'English', au: 'English', nz: 'English',
+    };
+    const countryParam = (qp.get('country') || '').toLowerCase().slice(0, 2);
+    if (countryParam && COUNTRY_LANG[countryParam]) return COUNTRY_LANG[countryParam];
+  } catch (_) { /* ignore */ }
+  // 3) GMC XML bonus: RSS <language> channel tag.
   if (mode && mode.type === 'gmc-xml' && mode.body) {
     const lm = String(mode.body).match(/<language>\s*([a-z]{2})(?:-[a-z]{2})?\s*<\/language>/i);
     if (lm && LANG_NAMES[lm[1].toLowerCase()]) return LANG_NAMES[lm[1].toLowerCase()];
