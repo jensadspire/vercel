@@ -2839,12 +2839,24 @@ function RSAStudio() {
       }
     } catch (_) { engine = 'kling'; }
 
-    // 3) Video storyboard — /api/generate-tiktok (feed copy, routed engine, no template)
+    // Scene pick (automated flow): classify the product's vertical → best-fitting scenery.
+    // Isolated /api/pick-scene; feeds generate-tiktok's existing `scene` param. Null → generic backdrop.
+    let feedScene = null;
+    try {
+      const scRes = await fetch('/api/pick-scene', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: { title, description, productType: (product && product.productType) || '', brand: (product && product.brand) || '' } }),
+      });
+      const scData = await scRes.json();
+      if (scData && scData.ok && scData.scene) feedScene = scData.scene;
+    } catch (_) {}
+
+    // 3) Video storyboard — /api/generate-tiktok (feed copy, routed engine, picked scene, no template)
     let tiktokResult = null;
     try {
       const tkRes = await fetch('/api/generate-tiktok', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: link, language, videoEngine: engine, archetype: 'scene_reveal', pageContent: (title + '\n' + description), productDescription: description }),
+        body: JSON.stringify({ url: link, language, videoEngine: engine, archetype: 'scene_reveal', scene: feedScene || undefined, pageContent: (title + '\n' + description), productDescription: description }),
       });
       const tkData = await tkRes.json();
       if (tkData && !tkData.error) tiktokResult = tkData;
