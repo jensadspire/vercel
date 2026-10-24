@@ -2706,6 +2706,8 @@ function RSAStudio() {
   const [feedSel, setFeedSel] = useState({});            // { [productLink]: true } — selected for batch
   const [feedBatchPending, setFeedBatchPending] = useState(false);
   const [feedSingleBusy, setFeedSingleBusy] = useState(null); // product link currently generating (single)
+  const [feedGroupBy, setFeedGroupBy] = useState('category'); // Level-1 grouping axis: 'category' | 'brand'
+  const [feedOpenGroup, setFeedOpenGroup] = useState(null);   // opened group key (drill-down) | null = Level 1
   // Sticky feed: restore the last ingested catalog on mount (survives refresh, 24h TTL).
   useEffect(() => {
     try {
@@ -2874,9 +2876,9 @@ function RSAStudio() {
   const fetchFeed = async () => {
     const s = (feedSource || '').trim();
     if (!s) { setFeedError('Enter a Shopify store URL or a Google Merchant feed URL.'); return; }
-    setFeedLoading(true); setFeedError(''); setFeedResult(null); setFeedFilter('all'); setFeedSel({});
+    setFeedLoading(true); setFeedError(''); setFeedResult(null); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
     try {
-      const r = await fetch('/api/feed-ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: s, limit: 50 }) });
+      const r = await fetch('/api/feed-ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: s, limit: 1000 }) });
       const d = await r.json();
       if (d && d.ok) { setFeedResult(d); try { localStorage.setItem('rsa_feed_cache_v1', JSON.stringify({ source: s, result: d, ts: Date.now() })); } catch (_) {} if (!d.products || !d.products.length) setFeedError('No products found in this feed.'); }
       else setFeedError((d && d.error) || 'Could not read this feed.');
@@ -5105,11 +5107,29 @@ STRICT rules:
               {feedError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 12 }}>{feedError}</div>}
               {feedResult && feedResult.products && feedResult.products.length > 0 && (() => {
                 const all = feedResult.products;
-                const cats = [...new Set(all.map(p => p.productType).filter(Boolean))].sort();
-                const shown = all.filter(p => {
+
+                // ── Grouping (Level 1): category = top segment of productType, or brand ──
+                const catOf = (p) => ((p.productType || '').split(/\s*>\s*/)[0].trim()) || 'Uncategorized';
+                const brandOf = (p) => ((p.brand || '').trim()) || 'Unbranded';
+                const keyOf = (p) => feedGroupBy === 'brand' ? brandOf(p) : catOf(p);
+                const residual = feedGroupBy === 'brand' ? 'Unbranded' : 'Uncategorized';
+                const groupMap = new Map();
+                for (const p of all) {
+                  const k = keyOf(p);
+                  let g = groupMap.get(k);
+                  if (!g) { g = { key: k, count: 0, image: null }; groupMap.set(k, g); }
+                  g.count++;
+                  if (!g.image && p.image) g.image = p.image;
+                }
+                const groups = [...groupMap.values()].sort((a, b) =>
+                  a.key === residual ? 1 : b.key === residual ? -1 : (b.count - a.count || a.key.localeCompare(b.key))
+                );
+
+                // Level-2 set: products in the opened group, then the on-sale / in-stock filter.
+                const inGroup = feedOpenGroup ? all.filter(p => keyOf(p) === feedOpenGroup) : [];
+                const shown = inGroup.filter(p => {
                   if (feedFilter === 'onsale') return !!p.onSale;
                   if (feedFilter === 'instock') return p.availability === 'in_stock';
-                  if (feedFilter.indexOf('cat:') === 0) return p.productType === feedFilter.slice(4);
                   return true;
                 });
                 const shownLinks = shown.filter(p => p.link).map(p => p.link);
@@ -5123,17 +5143,51 @@ STRICT rules:
                   setFeedOpen(false);
                   setFeedBatchPending(true);
                 };
+
+                // ── LEVEL 1: category / brand tiles (one image per group → light DOM) ──
+                if (!feedOpenGroup) {
+                  return (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 11, color: "#7e92a8" }}>
+                        Source: <b style={{ color: "#5eead4" }}>{feedResult.source === 'gmc' ? 'Google Merchant' : 'Shopify'}</b> · {groups.length} {feedGroupBy === 'brand' ? 'brands' : 'categories'} · {all.length} products{typeof feedResult.count === 'number' && feedResult.count > all.length ? (' (' + feedResult.count + ' in feed)') : ''}
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {['category', 'brand'].map(g => (
+                          <button key={g} onClick={() => setFeedGroupBy(g)} style={{ padding: "5px 12px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", textTransform: "capitalize", border: "1px solid " + (feedGroupBy === g ? "rgba(45,212,191,0.5)" : "rgba(255,255,255,0.12)"), background: feedGroupBy === g ? "rgba(45,212,191,0.12)" : "rgba(0,0,0,0.3)", color: feedGroupBy === g ? "#5eead4" : "#9db0c7" }}>{g}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+                      {groups.map(g => (
+                        <button key={g.key} onClick={() => { setFeedOpenGroup(g.key); setFeedFilter('all'); }} title={g.key} style={{ textAlign: "left", padding: 0, borderRadius: 10, overflow: "hidden", cursor: "pointer", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                          <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden" }}>
+                            {g.image ? <img src={g.image} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                          </div>
+                          <div style={{ padding: "8px 10px" }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.key}</div>
+                            <div style={{ fontSize: 10.5, color: "#7e92a8", marginTop: 1 }}>{g.count} product{g.count === 1 ? '' : 's'}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Pick a {feedGroupBy === 'brand' ? 'brand' : 'category'} to see its products, then generate ads per item (or select several). Thumbnails load only for the group you open, so large catalogs stay fast.</div>
+                  </>
+                  );
+                }
+
+                // ── LEVEL 2: products within the opened group ──
                 return (
                 <>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-                    <div style={{ fontSize: 11, color: "#7e92a8" }}>
-                      Source: <b style={{ color: "#5eead4" }}>{feedResult.source === 'gmc' ? 'Google Merchant' : 'Shopify'}</b> · showing {shown.length} of {all.length}{typeof feedResult.count === 'number' && feedResult.count > all.length ? (' (' + feedResult.count + ' in feed)') : ''}
+                    <button onClick={() => { setFeedOpenGroup(null); setFeedFilter('all'); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#9db0c7" }}>← {feedGroupBy === 'brand' ? 'Brands' : 'Categories'}</button>
+                    <div style={{ fontSize: 11, color: "#7e92a8", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <b style={{ color: "#5eead4" }}>{feedOpenGroup}</b> · showing {shown.length} of {inGroup.length}
                     </div>
                     <select value={feedFilter} onChange={e => setFeedFilter(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.14)", fontSize: 12, cursor: "pointer" }}>
                       <option value="all">All products</option>
                       <option value="onsale">On offer</option>
                       <option value="instock">In stock</option>
-                      {cats.length > 0 && <optgroup label="Category">{cats.map(c => <option key={c} value={'cat:' + c}>{c}</option>)}</optgroup>}
                     </select>
                   </div>
                   {shownLinks.length > 0 && (
