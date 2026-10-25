@@ -3073,6 +3073,7 @@ function RSAStudio() {
     setFeedResult(null); setFeedSource(''); setFeedError('');
     setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
     setFeedView('products'); setFeedOutputs({});
+    acceptFeedTerms(false); // re-require terms acceptance for the next (possibly different-client) feed
     try { localStorage.removeItem('rsa_feed_cache_v1'); } catch (_) {}
   };
   // ── Personas Builder: UGC source selector (Phase 1) ──
