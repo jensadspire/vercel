@@ -953,6 +953,79 @@ const TEMPLATE_ENGINE = {
   diy_dream_space: 'veo-extended',
 };
 
+const FEED_TERMS_TEXT = `The AI Ad Studio Product Feed Upload Terms of Service
+
+These AI Ad Studio Product Feed Terms of Service (“Terms”) are entered into by Adspire Deutschland GmbH (“Adspire”) the official operator of The AI Ad Studio and the entity executing these Terms or that accepts these Terms electronically (“Product Feed Provider”).
+
+These Terms govern Product Feed Provider’s use of the Product Feed Upload functionality embedded in The AI Ad Studio, including connected services, features and functionality (“Services”) (i) that are accessible through the account(s) given to Product Feed Provider in connection with these Terms (“Accounts”) or (ii) that incorporate these Terms by reference (collectively, “The AI Ad Studio”).
+
+1. Using The AI Ad Studio Product Feed Uploader
+The Product Feed Provider may submit data, feeds or other content (“Content”) to The AI Ad Studio using various means, including through The AI Ad Studio’s Feed Upload Functionality or URL Ingestion (Feed Fetching or Data Source Ingestion).
+The Product Feed Provider agrees to submit content in a manner that complies with any instructions or specifications made available to the Product Feed Provider by The AI Ad Studio.
+The AI Ad Studio may make available functionality that permits the Product Feed Provider to export, link or transfer Content from The AI Ad Studio to, or otherwise use Content from AI Ad Studio with, another The AI Ad Studio service.
+In that case, the terms and conditions of such other The AI Ad Studio service will apply with respect to Product Feed Provider’s use of such service, provided that the Product Feed Provider’s use of AI Ad Studio will continue to be governed by these Terms.
+If the Product Feed Provider chooses to use certain optional The AI Ad Studio Services, then the Product Feed Provider may be required to agree to separate terms that are specific to those Services.
+Selected The AI Ad Studio Services are identified as “Beta” or as otherwise unsupported or confidential (“Beta Features”). The Product Feed Provider may not disclose any information from or about Beta Features or the terms or existence of any non-public Beta Features.
+The AI Ad Studio or its Affiliates may suspend, modify or discontinue Services, including Beta Features, at any time. For purposes of these Terms, “Affiliate” means any entity that directly or indirectly controls, is controlled by, or is under common control with The AI Ad Studio from time to time.
+
+2. Account:
+Product Feed Provider’s use of AI Ad Studio is subject to creation and approval by The AI Ad Studio of one or more Account(s).
+In order to verify Accounts, and from time-to-time in connection with Product Feed Provider’s use of the Product Feed Upload Functionality, The AI Ad Studio may require additional information, including legal entity name, phone number, address and relevant domains.
+The Product Feed Provider is responsible for its use of The AI Ad Studio, including all access to and use of Accounts, Content submitted to The AI Ad Studio through Accounts and safeguarding of Account usernames and passwords.
+
+3. Policies:
+The Product Feed Provider’s use of The AI Ad Studio is subject to (i) the applicable The AI Ad Studio’s policies available at https://www.theaiad.studio/user-terms and all other policies made available by The AI Ad Studio, as may be modified by The AI Ad Studio from time to time (collectively, “Policies”), (ii) these Terms and (iii) The Product Feed Provider’s compliance with applicable law(s).
+In connection with The AI Ad Studio, (i) The Product Feed Provider will comply with the AI Ad Studio’s Privacy Policy available at https://www.theaiad.studio/privacy (as modified from time to time) and (ii) to the extent applicable, The AI Ad Studio and The Product Feed Provider agree to the The AI Ad Studio Data Controller Data Protection Terms at https://www.theaiad.studio/privacy/data-controller-terms (“Data Protection Terms”). The AI Ad Studio will not modify the Data Protection Terms, except as expressly permitted under the Data Protection Terms.
+
+4. The Product Feed Provider Content:
+THe Product Feed Provider hereby grants to The AI Ad Studio an irrevocable, worldwide, royalty-free license to use Content (to the extent protected by intellectual property rights) in connection with The AI Ad Studio’s or its Affiliates’ products and services for the maximum duration of such intellectual property rights under applicable law.
+The Product Feed Provider agrees that The AI Ad Studio may sublicense these rights to its Affiliates and contractors performing services for The AI Ad Studio or its Affiliates and to The AI Ad Studio’s or its Affiliates’ users so they can use such Content in connection with or as the foundation for using The AI Ad Studio’s or its Affiliates’ products and services.
+If Content submitted by The Product Feed Provider contains URLs or similar content, The Product Feed Provider hereby grants to The AI Ad Studio the right to, access, index, cache or crawl the URL(s) and the content available through such URL(s) (“Destinations”).
+For example, The AI Ad Studio may utilize an automated software program to retrieve and analyze websites associated with such URLs. The Product Feed Provider agrees that any content collected by The AI Ad Studio or its Affiliates from Destinations will be considered Content and treated as such in accordance with these Terms.
+By using The AI Ad Studio, The Product Feed Provider authorizes The AI Ad Studio to use any trademarks, service marks, trade names, proprietary logos, domain names and any other source or business identifiers in connection with The AI Ad Studio’s authorized use of Content.
+
+5. Testing:
+The Product Feed Provider authorizes The AI Ad Studio and its Affiliates to (a) periodically conduct tests that may affect The Product Feed Provider’s use of Services (including as relates to Destinations, associated video models, performance, formatting or other adjustments) without notice to The Product Feed Provider, and (b) automate retrieval and analysis of, and create test credentials to access, Destinations.
+
+6. Warranties:
+Each party warrants that it has full power and authority to enter into these Terms.
+Product Feed Provider represents and warrants that:
+it holds, and will maintain, the rights to grant the licenses and permissions set forth in Section 4,
+it will not provide any Content that violates Policies, applicable law or any applicable privacy policies, or infringes any third party intellectual property rights, it has all necessary rights and consents to make available to The AI Ad Studio any information collected from or about an individual that is subject to protection under applicable data privacy or data protection laws or regulations and the information and authorizations provided by The Product Feed Provider (including all necessary product-related disclosures required to display The Product Feed Provider offers) are and will remain complete, correct and current.
+The parties’ only warranties under these Terms are expressly set out in this Section 6 (Warranties).
+Subject to Section 7(b) (Exceptions to Limitations), the parties disclaim all conditions, warranties, and other terms not expressly set out in these Terms (including any implied warranties of Product Feed Providerability or fitness for a particular purpose).
+
+7. Limitation of Liability:
+In this Section 7 (Limitation of Liability), “Liability” means any liability, whether under contract, tort (including negligence), or otherwise, and whether or not foreseeable or contemplated by the parties.
+Limitations:
+To the extent permitted by applicable law and subject to Section 7(b) (Exceptions to Limitations): neither party will have any Liability arising out of or relating to these Terms for any lost revenues or profits (whether direct or indirect); or any special, indirect, incidental or consequential losses (whether or not foreseeable or contemplated by the parties at the Effective Date); and each party’s total Liability arising out of or relating to these Terms is limited to £25,000.
+Exceptions to Limitations.
+Nothing in these Terms excludes or limits either party’s Liability for:
+- death or personal injury resulting from its negligence or the negligence of its employees or agents; fraud or fraudulent misrepresentation; its obligations under Section 8 (Indemnity); or matters for which Liability cannot be excluded or limited under applicable law.
+
+8. Indemnification:
+To the extent allowed by applicable law, The Product Feed Provider will defend and indemnify The AI Ad Studio, its Affiliates, agents and licensors against all liabilities, damages, losses, costs, fees (including legal fees), and expenses relating to any third-party legal proceeding to the extent arising out of or related to The Product Feed Provider’s Content, Destinations, use of The AI Ad Studio, its related Services or any breach of these Terms by Product Feed Provider.
+
+9. Termination:
+The AI Ad Studio reserves the right to restrict, suspend or terminate (in whole or in part) The Product Feed Provider’s access to, or use of, The AI Ad Studio, the Services or the Account(s) upon written notice (or with at least 30 days’ prior notice if required by applicable law) if: (a) The Product Feed Provider breaches these Terms, any Policies or applicable law(s); (b) The AI Ad Studio is required to do so to comply with a legal requirement or a court order; or (c) The AI Ad Studio reasonably believes that The Product Feed Provider’s conduct causes harm or liability to a third party or The AI Ad Studio.
+If The Product Feed Provider believes its access to The AI Ad Studio, the Services or the Account(s) has been restricted, suspended or terminated in error, The Product Feed Provider should refer to the appeal process in the Policies.
+The Product Feed Provider may terminate these Terms at any time by closing its Account(s) and thereby ceasing to use The AI Ad Studio.
+
+10. Changes to Terms:
+The AI Ad Studio may make non-material changes to these Terms at any time without notice, but The AI Ad Studio will provide advance notice of any material changes to these Terms. Changes to the Terms will not apply retroactively and will become effective at least 15 days after posting. However, changes made for legal reasons or in urgent situations (such as preventing ongoing abuse) will be effective immediately upon notice.
+
+11. Governing Law; Dispute Resolution:
+These Terms are governed by German law, and the parties submit to the exclusive jurisdiction of the German courts in relation to any dispute (contractual or non-contractual) concerning these Terms.
+If Product Feed Provider is based in an applicable jurisdiction, Product Feed Provider may also apply to resolve a dispute with The AI Ad Studio arising in relation to these Terms or AI Ad Studio through mediation. Product Feed Provider can find more details about the mediators The AI Ad Studio is willing to engage with and instructions on how to request mediation here. Except as required by applicable law, mediation is voluntary and neither Product Feed Provider nor The AI Ad Studio is obliged to settle disputes through mediation.
+
+12. Translation:
+If these Terms are translated into any other language, to the fullest extent permitted by applicable law, such translation exists for reference purposes only, and the English text will take precedence in the event of a conflict.
+
+13. Miscellaneous:
+(a) Subject to Section 7(b)(ii), these Terms are the parties’ entire agreement relating to their subject matter and supersede any prior or contemporaneous agreements on those subjects. (b) The Product Feed Provider may not make any public statement regarding the relationship contemplated by these Terms (except when required by law). (c) Except for modifications to the Terms by The AI Ad Studio under Section 10, any amendment to these Terms must be agreed to by both parties and must expressly state that it is amending these Terms. (d) All notices of termination or breach must be in writing and addressed to the other party’s Legal Department (or if it is not known if the other party has a Legal Department then to the other party's primary contact or other address on file).
+Emails are written notices. The email address for notices being sent to The AI Ad Studio’s Legal Department is aiadstudio@adspire.de. All other notices to The Product Feed Provider will be in writing and sent to an email address associated with The Product Feed Provider’s account. All other notices to The AI Ad Studio will be in writing and addressed to the Product Feed Provider’s primary contact at The AI Ad Studio or other methods made available by The AI Ad Studio. Notice will be treated as given on receipt, as confirmed by written or electronic means. These notice requirements do not apply to legal service of process, which is instead governed by applicable law. (e) Neither party will be treated as having waived any rights by not exercising (or by delaying the exercise of) any rights under these Terms. (f) If any provision of these Terms is found unenforceable, that provision will be severed and the balance of the Terms will remain in full force and effect. (g) Neither party may assign any of its rights or obligations under these Terms without the written consent of the other party, except to an affiliate but only where (I) the assignee agrees in writing to be bound by these Terms, (II) the assigning party remains liable for obligations under these Terms if the assignee defaults on them, and (III) the assigning party has notified the other party of the assignment.
+Any other attempt to transfer or assign is void. (h) There are no third-party beneficiaries to these Terms. (i) These Terms do not create any agency, partnership, joint venture or employment relationship among the parties. (j) Sections 1, 4, 6-9 (inclusive) and 11-13 (inclusive) will survive expiration or termination of these Terms. (j) No party or its Affiliates are liable for failure or delay in performance to the extent caused by circumstances beyond its reasonable control.`;
+
 const CS_VERTICALS = {
   beauty: {
     label: 'Beauty & Personal Care',
@@ -2708,6 +2781,9 @@ function RSAStudio() {
   const [feedView, setFeedView] = useState('products');   // 'products' | 'outputs' (batch staging buffer)
   const [feedOutputs, setFeedOutputs] = useState({});     // { [link]: { status:'generating'|'ready'|'failed', snapshot, title, thumb, engine, videoUrl, link } }
   const [feedBatchBusy, setFeedBatchBusy] = useState(false);
+  const [feedTermsAccepted, setFeedTermsAccepted] = useState(() => { try { return localStorage.getItem('rsa_feed_terms_v1') === '1'; } catch (_) { return false; } });
+  const [feedTermsOpen, setFeedTermsOpen] = useState(false);
+  const acceptFeedTerms = (v) => { setFeedTermsAccepted(v); try { if (v) localStorage.setItem('rsa_feed_terms_v1', '1'); else localStorage.removeItem('rsa_feed_terms_v1'); } catch (_) {} };
   const [feedSingleBusy, setFeedSingleBusy] = useState(null); // product link currently generating (single)
   const [feedGroupBy, setFeedGroupBy] = useState('category'); // Level-1 grouping axis: 'category' | 'brand'
   const [feedOpenGroup, setFeedOpenGroup] = useState(null);   // opened group key (drill-down) | null = Level 1
@@ -2981,6 +3057,8 @@ function RSAStudio() {
   const fetchFeed = async () => {
     const s = (feedSource || '').trim();
     if (!s) { setFeedError('Enter a Shopify store URL or a Google Merchant feed URL.'); return; }
+    if (!feedTermsAccepted) { setFeedError('Please accept the Product Feed Upload Terms to upload a feed.'); return; }
+    if (feedBatchBusy || feedSingleBusy) return; // a generation run is in progress
     setFeedLoading(true); setFeedError(''); setFeedResult(null); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
     try {
       const r = await fetch('/api/feed-ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: s, limit: 1000 }) });
@@ -5207,7 +5285,11 @@ STRICT rules:
               <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify store URL or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <input value={feedSource} onChange={e => setFeedSource(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
-                <button onClick={fetchFeed} disabled={feedLoading} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: feedLoading ? "default" : "pointer", background: feedLoading ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
+                <button onClick={fetchFeed} disabled={feedLoading || !feedTermsAccepted || feedBatchBusy || !!feedSingleBusy} title={!feedTermsAccepted ? 'Accept the Product Feed Upload Terms to continue' : ((feedBatchBusy || feedSingleBusy) ? 'Generation in progress — please wait' : '')} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "default" : "pointer", background: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, fontSize: 12, color: "#9db0c7", lineHeight: 1.45 }}>
+                <input type="checkbox" checked={feedTermsAccepted} onChange={e => acceptFeedTerms(e.target.checked)} style={{ width: 15, height: 15, cursor: "pointer", marginTop: 1, flexShrink: 0 }} />
+                <span>I have read and agree to the <button onClick={() => setFeedTermsOpen(true)} style={{ background: "none", border: "none", padding: 0, color: "#5eead4", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontSize: 12 }}>Product Feed Upload Terms</button>.</span>
               </div>
               {feedError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 12 }}>{feedError}</div>}
               {feedResult && feedResult.products && feedResult.products.length > 0 && (() => {
@@ -5387,6 +5469,22 @@ STRICT rules:
                 </>
                 );
               })()}
+            </div>
+          </div>
+        )}
+
+        {feedTermsOpen && (
+          <div onClick={() => setFeedTermsOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2100, padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 680, maxHeight: "85vh", display: "flex", flexDirection: "column", background: "#0f172a", border: "1px solid rgba(45,212,191,0.3)", borderRadius: 16, padding: 26 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
+                <span style={{ fontSize: 16, fontWeight: 900, color: "white" }}>Product Feed Upload Terms</span>
+                <button onClick={() => setFeedTermsOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+              </div>
+              <div style={{ flex: 1, overflowY: "auto", fontSize: 12, lineHeight: 1.6, color: "#c4d1e0", whiteSpace: "pre-wrap" }}>{FEED_TERMS_TEXT}</div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16, flexShrink: 0 }}>
+                <button onClick={() => setFeedTermsOpen(false)} style={{ padding: "9px 16px", fontSize: 12.5, fontWeight: 700, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "none", color: "#9db0c7", cursor: "pointer" }}>Close</button>
+                <button onClick={() => { acceptFeedTerms(true); setFeedTermsOpen(false); }} style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f" }}>Accept &amp; close</button>
+              </div>
             </div>
           </div>
         )}
