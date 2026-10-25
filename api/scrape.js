@@ -28,7 +28,7 @@ export default async function handler(req, res) {
   if (!url) return res.status(400).json({ error: "URL is required" });
 
   // ── Cache check — normalise URL to avoid case/trailing-slash misses ──────────
-  const cacheKey = `rsa:scrape:v4:${url.toLowerCase().replace(/\/$/, "")}`;
+  const cacheKey = `rsa:scrape:v5:${url.toLowerCase().replace(/\/$/, "")}`;
 
   try {
     const cached = noCache ? null : await redis("GET", cacheKey);
@@ -650,12 +650,18 @@ export default async function handler(req, res) {
     if (ugc.detected && ugc.images.length === 0 && ugc.providers.includes('flowbox')) {
       try {
         const keySet = new Set();
-        for (const m of html.matchAll(/\bkey\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
-        for (const m of html.matchAll(/"key"\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
-        // Modern Flowbox (Bazaarvoice / Next RSC): flow key is a prop named flowKey/feedKey —
-        // e.g. {"flowKey":"W8zLN...","type":"flowboxStaticFlow"} — which the key: patterns miss.
-        for (const m of html.matchAll(/"(?:flowKey|feedKey|flowboxFlowKey)"\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/gi)) keySet.add(m[1]);
-        const keys = [...keySet].slice(0, 4);
+        // Next RSC / Bazaarvoice embed their config in flight data as an ESCAPED JSON string
+        // (\"flowKey\":\"…\"), so regexes keyed on real quotes miss it. De-escape once and hunt
+        // keys in both the raw and the de-escaped view.
+        const htmlU = html.indexOf('\\"') >= 0 ? html.replace(/\\"/g, '"') : html;
+        const addFlowKey = (h) => { for (const m of h.matchAll(/"(?:flowKey|feedKey|flowboxFlowKey)"\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/gi)) keySet.add(m[1]); };
+        const addGeneric = (h) => {
+          for (const m of h.matchAll(/\bkey\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
+          for (const m of h.matchAll(/"key"\s*:\s*["']([A-Za-z0-9_\-]{12,})["']/g)) keySet.add(m[1]);
+        };
+        // Authoritative flowKey/feedKey FIRST (raw then de-escaped), generic key: as fallback.
+        addFlowKey(html); addFlowKey(htmlU); addGeneric(html); addGeneric(htmlU);
+        const keys = [...keySet].slice(0, 6);
         const locM = html.match(/locale\s*:\s*["']([a-z]{2}-[a-z]{2})["']/i)
                   || (typeof detectedCode === 'string' && /^[a-z]{2}-[a-z]{2}$/i.test(detectedCode) ? [null, detectedCode] : null)
                   || url.match(/\/([a-z]{2}-[a-z]{2})(?:[\/?]|$)/i);
@@ -674,21 +680,37 @@ export default async function handler(req, res) {
           return { image: image, caption: caption, altText: String(altText).slice(0, 400), creator: post.userName || '', permalink: post.postPermalink || post.userPermalink || '' };
         };
         const fbPosts = [];
+        const fbDbg = [];
         for (const key of keys) {
+          let st = 0, raw = 0, usable = 0;
           try {
             const params = new URLSearchParams({ postsPerPage: '30' });
             if (locale) params.set('locale', locale);
             const fr = await fetch('https://gateway.getflowbox.com/v1/public/feed/' + key + '?' + params.toString(), { signal: AbortSignal.timeout(6000) });
-            if (!fr.ok) continue;
-            const fd = await fr.json();
-            const allPosts = [].concat(Array.isArray(fd.posts) ? fd.posts : [], Array.isArray(fd.pinned) ? fd.pinned : []);
-            for (const post of allPosts) {
-              const p = pickFlowboxPost(post);
-              if (p) fbPosts.push(p);
+            st = fr.status;
+            if (fr.ok) {
+              const fd = await fr.json();
+              const allPosts = [].concat(Array.isArray(fd.posts) ? fd.posts : [], Array.isArray(fd.pinned) ? fd.pinned : []);
+              raw = allPosts.length;
+              for (const post of allPosts) {
+                const p = pickFlowboxPost(post);
+                if (p) { fbPosts.push(p); usable++; }
+              }
             }
-            if (fbPosts.length) break;
-          } catch (_) {}
+          } catch (e) { st = st || -1; }
+          fbDbg.push({ k: String(key).slice(0, 6) + '…(' + String(key).length + ')', status: st, raw: raw, usable: usable });
+          if (fbPosts.length) break;
         }
+        // Diagnostic readout — surfaced on the response so a scan proves the path end-to-end.
+        ugc.flowboxDebug = {
+          htmlLen: html.length,
+          escapedFlight: html.indexOf('\\"') >= 0,
+          flowKeyLiteralHits: (html.match(/"(?:flowKey|feedKey|flowboxFlowKey)"\s*:/gi) || []).length,
+          flowKeyEscapedHits: (html.match(/\\"(?:flowKey|feedKey|flowboxFlowKey)\\"\s*:/gi) || []).length,
+          keysTried: keys.map((k) => String(k).slice(0, 6) + '…(' + String(k).length + ')'),
+          locale: locale || '(none)',
+          feeds: fbDbg,
+        };
         if (fbPosts.length) {
           const seen = new Set();
           ugc.posts = fbPosts.filter(function (p) { if (seen.has(p.image)) return false; seen.add(p.image); return true; }).slice(0, 24);

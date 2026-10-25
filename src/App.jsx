@@ -953,6 +953,79 @@ const TEMPLATE_ENGINE = {
   diy_dream_space: 'veo-extended',
 };
 
+const FEED_TERMS_TEXT = `The AI Ad Studio Product Feed Upload Terms of Service
+
+These AI Ad Studio Product Feed Terms of Service (“Terms”) are entered into by Adspire Deutschland GmbH (“Adspire”) the official operator of The AI Ad Studio and the entity executing these Terms or that accepts these Terms electronically (“Product Feed Provider”).
+
+These Terms govern Product Feed Provider’s use of the Product Feed Upload functionality embedded in The AI Ad Studio, including connected services, features and functionality (“Services”) (i) that are accessible through the account(s) given to Product Feed Provider in connection with these Terms (“Accounts”) or (ii) that incorporate these Terms by reference (collectively, “The AI Ad Studio”).
+
+1. Using The AI Ad Studio Product Feed Uploader
+The Product Feed Provider may submit data, feeds or other content (“Content”) to The AI Ad Studio using various means, including through The AI Ad Studio’s Feed Upload Functionality or URL Ingestion (Feed Fetching or Data Source Ingestion).
+The Product Feed Provider agrees to submit content in a manner that complies with any instructions or specifications made available to the Product Feed Provider by The AI Ad Studio.
+The AI Ad Studio may make available functionality that permits the Product Feed Provider to export, link or transfer Content from The AI Ad Studio to, or otherwise use Content from AI Ad Studio with, another The AI Ad Studio service.
+In that case, the terms and conditions of such other The AI Ad Studio service will apply with respect to Product Feed Provider’s use of such service, provided that the Product Feed Provider’s use of AI Ad Studio will continue to be governed by these Terms.
+If the Product Feed Provider chooses to use certain optional The AI Ad Studio Services, then the Product Feed Provider may be required to agree to separate terms that are specific to those Services.
+Selected The AI Ad Studio Services are identified as “Beta” or as otherwise unsupported or confidential (“Beta Features”). The Product Feed Provider may not disclose any information from or about Beta Features or the terms or existence of any non-public Beta Features.
+The AI Ad Studio or its Affiliates may suspend, modify or discontinue Services, including Beta Features, at any time. For purposes of these Terms, “Affiliate” means any entity that directly or indirectly controls, is controlled by, or is under common control with The AI Ad Studio from time to time.
+
+2. Account:
+Product Feed Provider’s use of AI Ad Studio is subject to creation and approval by The AI Ad Studio of one or more Account(s).
+In order to verify Accounts, and from time-to-time in connection with Product Feed Provider’s use of the Product Feed Upload Functionality, The AI Ad Studio may require additional information, including legal entity name, phone number, address and relevant domains.
+The Product Feed Provider is responsible for its use of The AI Ad Studio, including all access to and use of Accounts, Content submitted to The AI Ad Studio through Accounts and safeguarding of Account usernames and passwords.
+
+3. Policies:
+The Product Feed Provider’s use of The AI Ad Studio is subject to (i) the applicable The AI Ad Studio’s policies available at https://www.theaiad.studio/user-terms and all other policies made available by The AI Ad Studio, as may be modified by The AI Ad Studio from time to time (collectively, “Policies”), (ii) these Terms and (iii) The Product Feed Provider’s compliance with applicable law(s).
+In connection with The AI Ad Studio, (i) The Product Feed Provider will comply with the AI Ad Studio’s Privacy Policy available at https://www.theaiad.studio/privacy (as modified from time to time) and (ii) to the extent applicable, The AI Ad Studio and The Product Feed Provider agree to the The AI Ad Studio Data Controller Data Protection Terms at https://www.theaiad.studio/privacy/data-controller-terms (“Data Protection Terms”). The AI Ad Studio will not modify the Data Protection Terms, except as expressly permitted under the Data Protection Terms.
+
+4. The Product Feed Provider Content:
+The Product Feed Provider hereby grants to The AI Ad Studio an irrevocable, worldwide, royalty-free license to use Content (to the extent protected by intellectual property rights) in connection with The AI Ad Studio’s or its Affiliates’ products and services for the maximum duration of such intellectual property rights under applicable law.
+The Product Feed Provider agrees that The AI Ad Studio may sublicense these rights to its Affiliates and contractors performing services for The AI Ad Studio or its Affiliates and to The AI Ad Studio’s or its Affiliates’ users so they can use such Content in connection with or as the foundation for using The AI Ad Studio’s or its Affiliates’ products and services.
+If Content submitted by The Product Feed Provider contains URLs or similar content, The Product Feed Provider hereby grants to The AI Ad Studio the right to, access, index, cache or crawl the URL(s) and the content available through such URL(s) (“Destinations”).
+For example, The AI Ad Studio may utilize an automated software program to retrieve and analyze websites associated with such URLs. The Product Feed Provider agrees that any content collected by The AI Ad Studio or its Affiliates from Destinations will be considered Content and treated as such in accordance with these Terms.
+By using The AI Ad Studio, The Product Feed Provider authorizes The AI Ad Studio to use any trademarks, service marks, trade names, proprietary logos, domain names and any other source or business identifiers in connection with The AI Ad Studio’s authorized use of Content.
+
+5. Testing:
+The Product Feed Provider authorizes The AI Ad Studio and its Affiliates to (a) periodically conduct tests that may affect The Product Feed Provider’s use of Services (including as relates to Destinations, associated video models, performance, formatting or other adjustments) without notice to The Product Feed Provider, and (b) automate retrieval and analysis of, and create test credentials to access, Destinations.
+
+6. Warranties:
+Each party warrants that it has full power and authority to enter into these Terms.
+Product Feed Provider represents and warrants that:
+it holds, and will maintain, the rights to grant the licenses and permissions set forth in Section 4,
+it will not provide any Content that violates Policies, applicable law or any applicable privacy policies, or infringes any third party intellectual property rights, it has all necessary rights and consents to make available to The AI Ad Studio any information collected from or about an individual that is subject to protection under applicable data privacy or data protection laws or regulations and the information and authorizations provided by The Product Feed Provider (including all necessary product-related disclosures required to display The Product Feed Provider offers) are and will remain complete, correct and current.
+The parties’ only warranties under these Terms are expressly set out in this Section 6 (Warranties).
+Subject to Section 7(b) (Exceptions to Limitations), the parties disclaim all conditions, warranties, and other terms not expressly set out in these Terms (including any implied warranties of merchantability or fitness for a particular purpose).
+
+7. Limitation of Liability:
+In this Section 7 (Limitation of Liability), “Liability” means any liability, whether under contract, tort (including negligence), or otherwise, and whether or not foreseeable or contemplated by the parties.
+Limitations:
+To the extent permitted by applicable law and subject to Section 7(b) (Exceptions to Limitations): neither party will have any Liability arising out of or relating to these Terms for any lost revenues or profits (whether direct or indirect); or any special, indirect, incidental or consequential losses (whether or not foreseeable or contemplated by the parties at the Effective Date); and each party’s total Liability arising out of or relating to these Terms is limited to £25,000.
+Exceptions to Limitations.
+Nothing in these Terms excludes or limits either party’s Liability for:
+- death or personal injury resulting from its negligence or the negligence of its employees or agents; fraud or fraudulent misrepresentation; its obligations under Section 8 (Indemnity); or matters for which Liability cannot be excluded or limited under applicable law.
+
+8. Indemnification:
+To the extent allowed by applicable law, The Product Feed Provider will defend and indemnify The AI Ad Studio, its Affiliates, agents and licensors against all liabilities, damages, losses, costs, fees (including legal fees), and expenses relating to any third-party legal proceeding to the extent arising out of or related to The Product Feed Provider’s Content, Destinations, use of The AI Ad Studio, its related Services or any breach of these Terms by Product Feed Provider.
+
+9. Termination:
+The AI Ad Studio reserves the right to restrict, suspend or terminate (in whole or in part) The Product Feed Provider’s access to, or use of, The AI Ad Studio, the Services or the Account(s) upon written notice (or with at least 30 days’ prior notice if required by applicable law) if: (a) The Product Feed Provider breaches these Terms, any Policies or applicable law(s); (b) The AI Ad Studio is required to do so to comply with a legal requirement or a court order; or (c) The AI Ad Studio reasonably believes that The Product Feed Provider’s conduct causes harm or liability to a third party or The AI Ad Studio.
+If The Product Feed Provider believes its access to The AI Ad Studio, the Services or the Account(s) has been restricted, suspended or terminated in error, The Product Feed Provider should refer to the appeal process in the Policies.
+The Product Feed Provider may terminate these Terms at any time by closing its Account(s) and thereby ceasing to use The AI Ad Studio.
+
+10. Changes to Terms:
+The AI Ad Studio may make non-material changes to these Terms at any time without notice, but The AI Ad Studio will provide advance notice of any material changes to these Terms. Changes to the Terms will not apply retroactively and will become effective at least 15 days after posting. However, changes made for legal reasons or in urgent situations (such as preventing ongoing abuse) will be effective immediately upon notice.
+
+11. Governing Law; Dispute Resolution:
+These Terms are governed by German law, and the parties submit to the exclusive jurisdiction of the German courts in relation to any dispute (contractual or non-contractual) concerning these Terms.
+If Product Feed Provider is based in an applicable jurisdiction, Product Feed Provider may also apply to resolve a dispute with The AI Ad Studio arising in relation to these Terms or AI Ad Studio through mediation. Product Feed Provider can find more details about the mediators The AI Ad Studio is willing to engage with and instructions on how to request mediation here. Except as required by applicable law, mediation is voluntary and neither Product Feed Provider nor The AI Ad Studio is obliged to settle disputes through mediation.
+
+12. Translation:
+If these Terms are translated into any other language, to the fullest extent permitted by applicable law, such translation exists for reference purposes only, and the English text will take precedence in the event of a conflict.
+
+13. Miscellaneous:
+(a) Subject to Section 7(b)(ii), these Terms are the parties’ entire agreement relating to their subject matter and supersede any prior or contemporaneous agreements on those subjects. (b) The Product Feed Provider may not make any public statement regarding the relationship contemplated by these Terms (except when required by law). (c) Except for modifications to the Terms by The AI Ad Studio under Section 10, any amendment to these Terms must be agreed to by both parties and must expressly state that it is amending these Terms. (d) All notices of termination or breach must be in writing and addressed to the other party’s Legal Department (or if it is not known if the other party has a Legal Department then to the other party's primary contact or other address on file).
+Emails are written notices. The email address for notices being sent to The AI Ad Studio’s Legal Department is aiadstudio@adspire.de. All other notices to The Product Feed Provider will be in writing and sent to an email address associated with The Product Feed Provider’s account. All other notices to The AI Ad Studio will be in writing and addressed to the Product Feed Provider’s primary contact at The AI Ad Studio or other methods made available by The AI Ad Studio. Notice will be treated as given on receipt, as confirmed by written or electronic means. These notice requirements do not apply to legal service of process, which is instead governed by applicable law. (e) Neither party will be treated as having waived any rights by not exercising (or by delaying the exercise of) any rights under these Terms. (f) If any provision of these Terms is found unenforceable, that provision will be severed and the balance of the Terms will remain in full force and effect. (g) Neither party may assign any of its rights or obligations under these Terms without the written consent of the other party, except to an affiliate but only where (I) the assignee agrees in writing to be bound by these Terms, (II) the assigning party remains liable for obligations under these Terms if the assignee defaults on them, and (III) the assigning party has notified the other party of the assignment.
+Any other attempt to transfer or assign is void. (h) There are no third-party beneficiaries to these Terms. (i) These Terms do not create any agency, partnership, joint venture or employment relationship among the parties. (j) Sections 1, 4, 6-9 (inclusive) and 11-13 (inclusive) will survive expiration or termination of these Terms. (k) No party or its Affiliates are liable for failure or delay in performance to the extent caused by circumstances beyond its reasonable control.`;
+
 const CS_VERTICALS = {
   beauty: {
     label: 'Beauty & Personal Care',
@@ -2696,6 +2769,313 @@ function RSAStudio() {
   const [showLibrary, setShowLibrary] = useState(false);
   // Creative Studio (C1)
   const [showCreativeStudio, setShowCreativeStudio] = useState(false);
+  // ── Bulk Feed module (Phase 1 — front-end stab; calls /api/feed-ingest) ──
+  const [feedOpen, setFeedOpen] = useState(false);
+  const [feedSource, setFeedSource] = useState('');
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedError, setFeedError] = useState('');
+  const [feedResult, setFeedResult] = useState(null); // { source, feedUrl, count, products:[] } | null
+  const [feedFilter, setFeedFilter] = useState('all');   // 'all' | 'onsale' | 'instock' | 'cat:<productType>'
+  const [feedSel, setFeedSel] = useState({});            // { [productLink]: true } — selected for batch
+  const [feedBatchPending, setFeedBatchPending] = useState(false);
+  const [feedView, setFeedView] = useState('products');   // 'products' | 'outputs' (batch staging buffer)
+  const [feedOutputs, setFeedOutputs] = useState({});     // { [link]: { status:'generating'|'ready'|'failed', snapshot, title, thumb, engine, videoUrl, link } }
+  const [feedBatchBusy, setFeedBatchBusy] = useState(false);
+  const [feedTermsAccepted, setFeedTermsAccepted] = useState(() => { try { return localStorage.getItem('rsa_feed_terms_v1') === '1'; } catch (_) { return false; } });
+  const [feedTermsOpen, setFeedTermsOpen] = useState(false);
+  const acceptFeedTerms = (v) => { setFeedTermsAccepted(v); try { if (v) localStorage.setItem('rsa_feed_terms_v1', '1'); else localStorage.removeItem('rsa_feed_terms_v1'); } catch (_) {} };
+  const [feedSingleBusy, setFeedSingleBusy] = useState(null); // product link currently generating (single)
+  const [feedGroupBy, setFeedGroupBy] = useState('category'); // Level-1 grouping axis: 'category' | 'brand'
+  const [feedOpenGroup, setFeedOpenGroup] = useState(null);   // opened group key (drill-down) | null = Level 1
+  // Sticky feed: restore the last ingested catalog on mount (survives refresh, 24h TTL).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('rsa_feed_cache_v1');
+      if (!raw) return;
+      const c = JSON.parse(raw);
+      if (c && c.result && c.result.products && c.result.products.length && (Date.now() - (c.ts || 0) < 86400000)) {
+        setFeedResult(c.result); if (c.source) setFeedSource(c.source);
+      }
+    } catch (_) {}
+  }, []);
+
+  // ── Bulk Feed B-path: build a full ad (RSA + Meta + storyboard) from a feed product
+  // record — NO scrape (feed image_link + copy fed directly). Returns an entry-shaped
+  // snapshot the overview can replay. Isolated; single-URL flow + original endpoints untouched.
+  // Self-contained video render for the FEED path (runway/kling only). Pure async — takes all
+  // inputs as args and writes NO single-view state, so the single flow and the future bulk loop
+  // both call it. One infra-failover (runway↔kling), then poll to completion. Returns { videoUrl } | { error }.
+  const renderFeedVideo = async ({ engine, imageUrl, storyboard, videoPrompt, language, logoUrl, brand }) => {
+    if (!imageUrl || !videoPrompt) return { error: 'missing image or prompt' };
+    const img = String(imageUrl).replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://');
+    const apiFor = (e) => e === 'runway' ? '/api/runway' : '/api/kling';
+    const backupFor = (e) => e === 'kling' ? 'runway' : 'kling';
+    // Feed videos stay clean: no brand overlay, no intro/outro text (matches the feed path's no-overlay rule).
+    const body = { imageUrl: img, storyboard: storyboard || [], prompt: videoPrompt, language: language || 'English', brand: brand || '', logoUrl: logoUrl || null, overlayIntro: '', overlayOutro: '' };
+    const createOn = async (e) => {
+      try {
+        const rr = await fetch(apiFor(e), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!rr.ok && rr.status >= 500) return { infraFail: true, d: { error: 'HTTP ' + rr.status } };
+        const d = await rr.json().catch(() => ({}));
+        return { infraFail: false, d };
+      } catch (netErr) { return { infraFail: true, d: { error: netErr.message } }; }
+    };
+    let used = engine === 'runway' ? 'runway' : 'kling';
+    let a = await createOn(used);
+    if (a.infraFail) { used = backupFor(used); a = await createOn(used); }   // one silent failover on infra fail
+    const d = (a && a.d) || {};
+    if (d.gated) return { error: 'gated' };
+    if (a.infraFail || d.error || (!d.videoUrl && !d.requestId && !d.taskId)) return { error: (d && d.error) || 'video create failed' };
+    if (d.videoUrl) return { videoUrl: d.videoUrl, engine: used };
+    const pollId = d.requestId || d.taskId;
+    const pollKey = d.taskId ? 'taskId' : 'requestId';
+    const api = apiFor(used);
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 144; i++) {                 // 144 × 5s = up to 12 min (matches the manual path's cap)
+      await sleep(5000);
+      try {
+        const pr = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', [pollKey]: pollId }) });
+        const pd = await pr.json();
+        if (pd.videoUrl) return { videoUrl: pd.videoUrl, engine: used };
+        if (pd.status === 'FAILED' || pd.status === 'CANCELLED') return { error: 'render ' + pd.status };
+      } catch (_) { /* transient poll error — keep trying */ }
+    }
+    return { error: 'render timed out' };
+  };
+
+  const generateFromProduct = async (product, hooks = {}) => {
+    const link = (product && product.link) || '';
+    const title = (product && product.title) || '';
+    const description = (product && product.description) || '';
+    const language = (feedResult && feedResult.language) || 'English'; // feed URL locale (/de-de→German, /da-dk→Danish) or GMC tag; English when undetectable
+    const images = Array.isArray(product && product.images) ? product.images : ((product && product.image) ? [product.image] : []);
+
+    // 1) Google RSA — /api/generate (feed-built prompt; same proxy the single-URL flow uses)
+    let rsaRow = makeRow(Date.now());
+    rsaRow.finalUrl = link;
+    try {
+      const rsaPrompt = "You are a Google Ads expert. Generate RSA ad copy.\nCURRENT YEAR: " + new Date().getFullYear()
+        + "\nURL: " + link + "\nPRODUCT: " + title + "\nPRODUCT DESCRIPTION: " + description
+        + "\nBRAND: " + ((product && product.brand) || '') + "\nCATEGORY: " + ((product && product.productType) || '')
+        + "\nOUTPUT LANGUAGE: " + language + "\nCRITICAL: Write ALL copy in " + language
+        + ".\n\nReturn ONLY valid JSON, no markdown:\n{\n  \"campaign\": \"name\",\n  \"adGroup\": \"name\",\n  \"headlines\": [\"h1\", 15 total],\n  \"descriptions\": [\"d1\",\"d2\",\"d3\",\"d4\"],\n  \"path1\": \"p1\",\n  \"path2\": \"p2\"\n}\nRules: Headlines max 30 chars each, exactly 15, unique. Descriptions 80-90 chars each, exactly 4, complete sentences ending with punctuation. path1/path2 max 15 chars.";
+      const rsaRes = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}),
+          ...(isSignedIn && session ? { 'x-clerk-session': await session.getToken() } : {}),
+        },
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, messages: [{ role: 'user', content: rsaPrompt }] }),
+      });
+      const rsaData = await rsaRes.json();
+      const rsaText = (rsaData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+      const rsaMatch = rsaText.replace(/```json|```/g, '').trim().match(/\{[\s\S]*\}/);
+      if (rsaMatch) {
+        const pr = JSON.parse(rsaMatch[0]);
+        rsaRow.campaign = pr.campaign || '';
+        rsaRow.adGroup = pr.adGroup || '';
+        rsaRow.headlines = Array.from({ length: NUM_HL }, (_, j) => ({ text: (pr.headlines && pr.headlines[j] ? pr.headlines[j] : '').slice(0, HL_LIMIT), pin: '' }));
+        rsaRow.descriptions = Array.from({ length: NUM_DESC }, (_, j) => ({ text: smartTrimDesc(pr.descriptions && pr.descriptions[j] ? pr.descriptions[j] : ''), pin: '' }));
+        rsaRow.path1 = (pr.path1 || '').slice(0, PATH_LIMIT);
+        rsaRow.path2 = (pr.path2 || '').slice(0, PATH_LIMIT);
+      }
+    } catch (_) {}
+    if (hooks.onRsa) hooks.onRsa(rsaRow);
+
+    // 2) Meta — /api/generate-meta-feed (feed images + copy, no scrape). Built into metaResult
+    //    exactly like the single-URL flow does from /api/generate-meta.
+    let metaResult = null; let carouselCardTexts = [];
+    try {
+      const metaRes = await fetch('/api/generate-meta-feed', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: { link, title, description, images, image: (product && product.image), brand: (product && product.brand), productType: (product && product.productType) }, language }),
+      });
+      const metaData = await metaRes.json();
+      if (metaData && (metaData.primaryTexts || metaData.headlines)) {
+        const initialImageUrl = metaData.heroProductImage || metaData.imageUrl || null;
+        const initialVariations = [metaData.heroProductImage, ...(metaData.allImages || []), metaData.secondaryImage, metaData.tertiaryImage]
+          .filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx).slice(0, 16);
+        const hlV = metaData.headlines || []; const dV = metaData.descriptions || [];
+        carouselCardTexts = Array.from({ length: 5 }, (_, i) => ({ headline: hlV[i] || hlV[i % Math.max(hlV.length, 1)] || '', desc: dV[i % Math.max(dV.length, 1)] || '' }));
+        metaResult = { ...metaData, imageUrl: (initialImageUrl || '').replace(/^http:/, 'https:'), imageVariations: initialVariations };
+      }
+    } catch (_) {}
+    if (hooks.onMeta) hooks.onMeta(metaResult, carouselCardTexts);
+
+    // Unified video routing (same rule the rich flow will adopt):
+    //   lifestyle/model/portrait signal → Runway; else environment background → Runway;
+    //   else solid background (any colour) → Kling Scene Reveal.
+    const heroImg = images[0] || (product && product.image) || null;
+    let engine = 'kling';
+    try {
+      if (detectVideoEngine(heroImg) === 'runway') {
+        engine = 'runway';
+      } else if (heroImg) {
+        const bgRes = await fetch('/api/detect-bg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: heroImg }) });
+        const bg = await bgRes.json();
+        if (bg && bg.bgEngine === 'runway') engine = 'runway';
+      }
+    } catch (_) { engine = 'kling'; }
+
+    // Scene pick (automated flow): classify the product's vertical → best-fitting scenery.
+    // Isolated /api/pick-scene; feeds generate-tiktok's existing `scene` param. Null → generic backdrop.
+    let feedScene = null;
+    try {
+      const scRes = await fetch('/api/pick-scene', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: { title, description, productType: (product && product.productType) || '', brand: (product && product.brand) || '' } }),
+      });
+      const scData = await scRes.json();
+      if (scData && scData.ok && scData.scene) feedScene = scData.scene;
+    } catch (_) {}
+
+    // 3) Video storyboard — /api/generate-tiktok (feed copy, routed engine, picked scene, no template)
+    let tiktokResult = null;
+    try {
+      const tkRes = await fetch('/api/generate-tiktok', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: link, language, videoEngine: engine, archetype: 'scene_reveal', scene: feedScene || undefined, pageContent: (title + '\n' + description), productDescription: description }),
+      });
+      const tkData = await tkRes.json();
+      if (tkData && !tkData.error) tiktokResult = tkData;
+    } catch (_) {}
+    if (hooks.onStoryboard) hooks.onStoryboard(tiktokResult, engine);
+
+    // 4) Video — render it now (no manual stopping point). Routed engine + feed hero image.
+    let videoUrl = null;
+    if (tiktokResult && tiktokResult.videoPrompt && heroImg) {
+      if (hooks.onVideoStart) hooks.onVideoStart(engine);
+      const faviconUrl = (() => { try { return 'https://www.google.com/s2/favicons?domain=' + new URL(link).hostname + '&sz=128'; } catch (_) { return null; } })();
+      const vr = await renderFeedVideo({ engine, imageUrl: heroImg, storyboard: tiktokResult.storyboard, videoPrompt: tiktokResult.videoPrompt, language, logoUrl: faviconUrl, brand: (tiktokResult.brand || (product && product.brand) || '') });
+      if (vr && vr.videoUrl) videoUrl = vr.videoUrl;
+      if (hooks.onVideo) hooks.onVideo(videoUrl, vr && vr.error);
+    } else {
+      if (hooks.onVideo) hooks.onVideo(null);
+    }
+
+    return {
+      url: link, rows: [rsaRow], metaResult, carouselCardTexts, tiktokResult,
+      engine, archetype: 'scene_reveal', videoUrl,
+      brand: (tiktokResult && tiktokResult.brand) || (product && product.brand) || '',
+      title, thumb: (metaResult && metaResult.heroProductImage) || (product && product.image) || null,
+      _feed: true,
+    };
+  };
+
+  // Restore a feed snapshot into the overview cards (mirrors replayCombined), including the
+  // rendered video when the snapshot carries one.
+  const restoreFeedEntry = (entry) => {
+    try {
+      setViewMode('overview');
+      setGenerated(false);
+      setRows([makeRow(1)]); setActiveRow(0);
+      setMetaResult(null); setTiktokResult(null); setTiktokVideoUrl(null); setTiktokVideoLoading(false);
+      setUrl(entry.url || '');
+      try { const _d = new URL(entry.url || '').hostname; if (_d) { setPmaxLogo('https://www.google.com/s2/favicons?domain=' + _d + '&sz=128'); setPmaxLogoSource('favicon'); setPmaxLogoDomain(_d.replace(/^www\./, '')); } } catch (_) {}
+      if (entry.rows && entry.rows.length) { setRows(entry.rows); setActiveRow(0); setGenerated(true); }
+      if (entry.metaResult) {
+        setMetaResult(entry.metaResult); setMetaError(''); setGenerateMeta(true);
+        setCarouselCardTexts(entry.carouselCardTexts || []); setCarouselImages([]); setActiveImageVariant(0);
+      }
+      if (entry.tiktokResult) {
+        setTiktokResult(entry.tiktokResult); setGenerateTiktok(true);
+        if (entry.engine) { setVideoEngine(entry.engine); videoEngineRef.current = entry.engine; }
+        if (entry.archetype) { setVideoArchetype(entry.archetype); videoSelArchetypeRef.current = entry.archetype; }
+      }
+      if (entry.videoUrl) setTiktokVideoUrl(entry.videoUrl);
+    } catch (e) { console.error('[restore-feed-entry]', e.message); }
+  };
+
+  // Single feed product → full B-path generation with spinners, then restore into the overview.
+  const runFeedSingle = async (product) => {
+    if (!product || !product.link || feedSingleBusy) return;
+    setFeedSingleBusy(product.link);
+    setFeedOpen(false);
+    setViewMode('overview');
+    setUrl(product.link);
+    try { const _d = new URL(product.link).hostname; setPmaxLogo('https://www.google.com/s2/favicons?domain=' + _d + '&sz=128'); setPmaxLogoSource('favicon'); setPmaxLogoDomain(_d.replace(/^www\./, '')); } catch (_) {}
+    setError(''); setGenerated(false);
+    setRows([makeRow(1)]); setActiveRow(0);
+    setMetaResult(null); setTiktokResult(null); setTiktokVideoUrl(null); setTiktokVideoLoading(false);
+    setGenerateMeta(true); setGenerateTiktok(true);
+    setLoading(true); setMetaLoading(true); setTiktokLoading(true);
+    try {
+      await generateFromProduct(product, {
+        // Progressive reveal — mirror the single-URL flow: Google paints first, then Meta,
+        // storyboard last (its "building" indicator shows while the user reads the Meta ad).
+        onRsa: (row) => { setRows([row]); setActiveRow(0); setGenerated(true); setLoading(false); },
+        onMeta: (meta, cards) => {
+          if (meta) { setMetaResult(meta); setMetaError(''); setCarouselCardTexts(cards || []); setCarouselImages([]); setActiveImageVariant(0); }
+          setMetaLoading(false);
+        },
+        onStoryboard: (tk, eng) => {
+          if (tk) { const e = eng || 'kling'; setTiktokResult(tk); setVideoEngine(e); videoEngineRef.current = e; setVideoArchetype('scene_reveal'); videoSelArchetypeRef.current = 'scene_reveal'; }
+          setTiktokLoading(false);
+        },
+        // No stopping point: the storyboard flows straight into the rendered video.
+        onVideoStart: () => { setTiktokVideoUrl(null); setTiktokVideoLoading(true); },
+        onVideo: (videoUrl) => { if (videoUrl) setTiktokVideoUrl(videoUrl); setTiktokVideoLoading(false); },
+      });
+    } catch (e) {
+      setError('Feed ad generation failed — ' + (e && e.message));
+    } finally {
+      setLoading(false); setMetaLoading(false); setTiktokLoading(false); setFeedSingleBusy(null);
+    }
+  };
+
+  // Multi-product B-path batch (headless): loops generateFromProduct per selected product and
+  // writes each result into feedOutputs (the staging buffer) WITHOUT painting the single view.
+  // Sequential for now — the per-item time this reveals sizes the concurrency tuning later.
+  const runFeedBatchB = async (picks) => {
+    if (!picks || !picks.length || feedBatchBusy) return;
+    setFeedBatchBusy(true);
+    setFeedSel({});
+    setFeedView('outputs');
+    setFeedOutputs(prev => {
+      const n = { ...prev };
+      for (const p of picks) n[p.link] = { status: 'generating', title: p.title || '', thumb: p.image || null, engine: null, videoUrl: null, link: p.link };
+      return n;
+    });
+    for (const p of picks) {
+      try {
+        const snap = await generateFromProduct(p, {
+          onMeta: (meta) => { if (meta && meta.imageUrl) setFeedOutputs(prev => (prev[p.link] ? { ...prev, [p.link]: { ...prev[p.link], thumb: meta.imageUrl } } : prev)); },
+        });
+        setFeedOutputs(prev => ({ ...prev, [p.link]: {
+          status: 'ready', snapshot: snap,
+          title: snap.title || p.title || '',
+          thumb: (snap.metaResult && snap.metaResult.imageUrl) || snap.thumb || p.image || null,
+          engine: snap.engine, videoUrl: snap.videoUrl || null, link: p.link,
+        } }));
+      } catch (e) {
+        setFeedOutputs(prev => ({ ...prev, [p.link]: { ...(prev[p.link] || { link: p.link, title: p.title || '' }), status: 'failed', error: (e && e.message) || 'failed' } }));
+      }
+    }
+    setFeedBatchBusy(false);
+  };
+  const fetchFeed = async () => {
+    const s = (feedSource || '').trim();
+    if (!s) { setFeedError('Enter a Shopify store URL or a Google Merchant feed URL.'); return; }
+    if (!feedTermsAccepted) { setFeedError('Please accept the Product Feed Upload Terms to upload a feed.'); return; }
+    if (feedBatchBusy || feedSingleBusy) return; // a generation run is in progress
+    setFeedLoading(true); setFeedError(''); setFeedResult(null); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
+    try {
+      const r = await fetch('/api/feed-ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: s, limit: 1000 }) });
+      const d = await r.json();
+      if (d && d.ok) { setFeedResult(d); try { localStorage.setItem('rsa_feed_cache_v1', JSON.stringify({ source: s, result: d, ts: Date.now() })); } catch (_) {} if (!d.products || !d.products.length) setFeedError('No products found in this feed.'); }
+      else setFeedError((d && d.error) || 'Could not read this feed.');
+    } catch (e) { setFeedError('Feed request failed — please try again.'); }
+    finally { setFeedLoading(false); }
+  };
+  // Clear feed: flush the loaded catalog, selection, grouping, outputs and sticky cache → empty loader.
+  const clearFeed = () => {
+    setFeedResult(null); setFeedSource(''); setFeedError('');
+    setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
+    setFeedView('products'); setFeedOutputs({});
+    acceptFeedTerms(false); // re-require terms acceptance for the next (possibly different-client) feed
+    try { localStorage.removeItem('rsa_feed_cache_v1'); } catch (_) {}
+  };
   // ── Personas Builder: UGC source selector (Phase 1) ──
   const [ugcData, setUgcData] = useState(null);           // { detected, providers, images } | null
   const [ugcScanLoading, setUgcScanLoading] = useState(false);
@@ -2710,7 +3090,7 @@ function RSAStudio() {
       const r = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
       const d = await r.json();
       const ugc = d.ugc || { detected: false, providers: [], images: [] };
-      setUgcData(ugc); setUgcAdLang(d.language || '');
+      setUgcData(ugc); setUgcAdLang(d.language || ''); ugcScanHostRef.current = ugcHostOf(url);
       if (!ugc.detected) setUgcError('No UGC gallery detected on this site yet.');
       else if (!ugc.images || ugc.images.length === 0) setUgcError('UGC widget found (' + (ugc.providers || []).join(', ') + ') but no images could be loaded.');
     } catch (e) { setUgcError('Scan failed — please try again.'); }
@@ -2894,6 +3274,23 @@ function RSAStudio() {
       }, 5000);
       videoPollRef.current = iv;
     } catch (e) { setRecipeError('Video generation failed — please try again.'); setTiktokVideoLoading(false); }
+  };
+  // ── UGC library reset on domain change (isolated helper) ──────────────────
+  // The scanned UGC gallery (ugcData) + everything derived from it must not leak
+  // between domains — an agency client on site B must not see site A's creators.
+  // Stamp the library with the host it was scanned for; wipe it when a generation
+  // run starts on a different host. Same host (incl. www. and locale-path variants
+  // like /de-de vs /fr-fr) keeps the library.
+  const ugcScanHostRef = useRef('');
+  const ugcHostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./i, '').toLowerCase(); } catch (_) { return ''; } };
+  const resetUgcLibrary = () => {
+    setUgcData(null); setUgcError(''); setUgcPicked(null); setUgcCaptionOn(false); setUgcAdLang('');
+    setUgcShot(''); setUgcSavedMsg('');
+    setUgcAdResult(null); setUgcAdError('');
+    setUgcVidUrl(null); setUgcVidError('');
+    setUgcHeroSrc(null); setUgcSentMsg('');
+    if (ugcVidPollRef.current) { clearInterval(ugcVidPollRef.current); ugcVidPollRef.current = null; }
+    ugcScanHostRef.current = '';
   };
   const [csVertical, setCsVertical] = useState('beauty');
   const [csTemplates, setCsTemplates] = useState([]); // selected template ids (multi-select)
@@ -3124,6 +3521,16 @@ function RSAStudio() {
     setScanError("");
   };
 
+  // Bulk Feed → existing batch engine: once selected feed products are staged into batchUrls,
+  // kick off the (Google-RSA) batch run. The effect fires after state commits, so
+  // runBatchGeneration reads the fresh queue — no stale closure.
+  useEffect(() => {
+    if (!feedBatchPending) return;
+    if (!batchUrls.some(b => b.selected)) return;
+    setFeedBatchPending(false);
+    runBatchGeneration();
+  }, [feedBatchPending, batchUrls]);
+
   // ── Centralised "New URL" reset ──────────────────────────────────────────
   // Clears state across ALL tabs (RSA, Meta, TikTok) so nothing leaks between
   // sessions. Called from both signed-in and non-signed-in New URL buttons.
@@ -3156,6 +3563,7 @@ function RSAStudio() {
     // TikTok / video / UGC
     setGenerateTiktok(false); setTiktokResult(null); setTiktokVideoUrl(null); setUgcVideoUrl(null);
     setGenerateMeta(false);
+    resetUgcLibrary();
   };
 
   const seedPmaxImages = async (srcUrl) => {
@@ -3310,6 +3718,9 @@ Rules:
     }
 
     setLoading(true); setError("");
+    // New-domain run → wipe the UGC library so one client's creators never leak onto
+    // another client's domain. Same host keeps it (re-run / different product page).
+    if (ugcScanHostRef.current && ugcHostOf(url) !== ugcScanHostRef.current) resetUgcLibrary();
     // Clear ALL previous outputs up front so stale ads don't linger on the overview.
     setGooglePreviewFormat('rsa'); // snap the Google card back to RSA (PMax is opt-in per URL)
     setPublishConfirm(null);
@@ -4858,9 +5269,238 @@ STRICT rules:
                 </div>
                 <div style={{ fontSize: 12.5, color: "#5a6b80", lineHeight: 1.5 }}>Generate coordinated multi-ad campaigns — a uniform set of creatives that share your brand's story arc across formats and moments.</div>
               </div>
+              {/* Bulk Feed — Phase 1 (feed ingestion preview) */}
+              <div onClick={() => { setFeedOpen(true); }} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(45,212,191,0.3)", background: "linear-gradient(135deg,rgba(45,212,191,0.10),rgba(16,185,129,0.06))", cursor: "pointer", position: "relative" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#5eead4" }}>▦ Bulk Feed</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "#5eead4", background: "rgba(45,212,191,0.15)", border: "1px solid rgba(45,212,191,0.35)", borderRadius: 6, padding: "2px 8px" }}>BETA</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Ingest your whole catalog from a Shopify store or Google Merchant feed and turn it into ads in bulk — built for high-volume seasons and agencies.</div>
+                <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#2dd4bf" }}>Connect a feed →</div>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Bulk Feed panel (Phase 1 preview) */}
+        {feedOpen && (
+          <div onClick={() => setFeedOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 640, maxHeight: "85vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(45,212,191,0.3)", borderRadius: 16, padding: 26 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>▦ Bulk Feed <span style={{ fontSize: 11, fontWeight: 800, color: "#5eead4" }}>· preview</span></span>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {feedResult && feedResult.products && feedResult.products.length > 0 && (
+                    <button onClick={clearFeed} disabled={feedBatchBusy || !!feedSingleBusy} title={(feedBatchBusy || feedSingleBusy) ? 'Generation in progress — please wait' : 'Clear the loaded feed and start fresh'} style={{ padding: "5px 12px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: (feedBatchBusy || feedSingleBusy) ? "default" : "pointer", border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.3)", color: (feedBatchBusy || feedSingleBusy) ? "#5a6b80" : "#9db0c7", whiteSpace: "nowrap" }}>Clear feed</button>
+                  )}
+                  <button onClick={() => setFeedOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                </div>
+              </div>
+              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify store URL or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <input value={feedSource} onChange={e => setFeedSource(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
+                <button onClick={fetchFeed} disabled={feedLoading || !feedTermsAccepted || feedBatchBusy || !!feedSingleBusy} title={!feedTermsAccepted ? 'Accept the Product Feed Upload Terms to continue' : ((feedBatchBusy || feedSingleBusy) ? 'Generation in progress — please wait' : '')} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "default" : "pointer", background: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, fontSize: 12, color: feedTermsAccepted ? "#5a6b80" : "#9db0c7", lineHeight: 1.45 }}>
+                <input type="checkbox" checked={feedTermsAccepted} disabled={feedTermsAccepted} onChange={e => acceptFeedTerms(e.target.checked)} title={feedTermsAccepted ? 'Accepted — use Clear feed to reset' : ''} style={{ width: 15, height: 15, cursor: feedTermsAccepted ? "default" : "pointer", marginTop: 1, flexShrink: 0, opacity: feedTermsAccepted ? 0.5 : 1 }} />
+                <span>I have read and agree to the <button onClick={() => setFeedTermsOpen(true)} style={{ background: "none", border: "none", padding: 0, color: "#5eead4", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontSize: 12 }}>Product Feed Upload Terms</button>.</span>
+              </div>
+              {feedError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 12 }}>{feedError}</div>}
+              {feedResult && feedResult.products && feedResult.products.length > 0 && (() => {
+                const all = feedResult.products;
+
+                // ── Grouping (Level 1): category = top segment of productType, or brand ──
+                const catOf = (p) => ((p.productType || '').split(/\s*>\s*/)[0].trim()) || 'Uncategorized';
+                const brandOf = (p) => ((p.brand || '').trim()) || 'Unbranded';
+                const keyOf = (p) => feedGroupBy === 'brand' ? brandOf(p) : catOf(p);
+                const residual = feedGroupBy === 'brand' ? 'Unbranded' : 'Uncategorized';
+                const groupMap = new Map();
+                for (const p of all) {
+                  const k = keyOf(p);
+                  let g = groupMap.get(k);
+                  if (!g) { g = { key: k, count: 0, image: null }; groupMap.set(k, g); }
+                  g.count++;
+                  if (!g.image && p.image) g.image = p.image;
+                }
+                const groups = [...groupMap.values()].sort((a, b) =>
+                  a.key === residual ? 1 : b.key === residual ? -1 : (b.count - a.count || a.key.localeCompare(b.key))
+                );
+
+                // Level-2 set: products in the opened group, then the on-sale / in-stock filter.
+                const inGroup = feedOpenGroup ? all.filter(p => keyOf(p) === feedOpenGroup) : [];
+                const shown = inGroup.filter(p => {
+                  if (feedFilter === 'onsale') return !!p.onSale;
+                  if (feedFilter === 'instock') return p.availability === 'in_stock';
+                  return true;
+                });
+                const shownLinks = shown.filter(p => p.link).map(p => p.link);
+                const selCount = shownLinks.filter(l => feedSel[l]).length;
+                const allShownSelected = shownLinks.length > 0 && selCount === shownLinks.length;
+                const toggleAllShown = () => setFeedSel(prev => { const n = { ...prev }; if (allShownSelected) { shownLinks.forEach(l => { delete n[l]; }); } else { shownLinks.forEach(l => { n[l] = true; }); } return n; });
+                const runFeedBatch = () => {
+                  const picks = shown.filter(p => p.link && feedSel[p.link]);
+                  if (!picks.length) return;
+                  runFeedBatchB(picks); // B-path headless batch → outputs staging buffer (retires the old a2 scrape batch)
+                };
+
+                // ── OUTPUTS VIEW: batch staging buffer (flip side of the product selector) ──
+                if (feedView === 'outputs') {
+                  const outs = Object.values(feedOutputs);
+                  const readyCount = outs.filter(o => o.status === 'ready').length;
+                  return (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                      <button onClick={() => setFeedView('products')} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#9db0c7" }}>← Products</button>
+                      <div style={{ fontSize: 11, color: "#7e92a8" }}>{outs.length} output{outs.length === 1 ? '' : 's'} · {readyCount} ready{feedBatchBusy ? ' · generating…' : ''}</div>
+                    </div>
+                    {outs.length === 0 ? (
+                      <div style={{ fontSize: 12, color: "#7e92a8", padding: "16px 0", textAlign: "center" }}>No outputs yet — select products and hit Generate.</div>
+                    ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+                      {outs.map(o => {
+                        const isReady = o.status === 'ready';
+                        return (
+                        <button key={o.link} onClick={() => { if (isReady && o.snapshot) { restoreFeedEntry(o.snapshot); setFeedOpen(false); } }} disabled={!isReady} title={o.title || ''} style={{ textAlign: "left", padding: 0, borderRadius: 10, overflow: "hidden", cursor: isReady ? "pointer" : "default", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", opacity: isReady ? 1 : 0.75 }}>
+                          <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
+                            {o.thumb ? <img src={o.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                            {o.videoUrl ? <span style={{ position: "absolute", top: 6, right: 6, fontSize: 10, fontWeight: 800, color: "white", background: "rgba(139,92,246,0.92)", borderRadius: 5, padding: "2px 6px" }}>▶ video</span> : null}
+                            {!isReady ? <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15,23,42,0.55)", fontSize: 11, fontWeight: 800, color: o.status === 'failed' ? "#fca5a5" : "#5eead4" }}>{o.status === 'failed' ? '✕ failed' : 'generating…'}</div> : null}
+                          </div>
+                          <div style={{ padding: "8px 10px" }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.title || '(untitled)'}</div>
+                            <div style={{ fontSize: 10.5, color: "#7e92a8", marginTop: 1 }}>{isReady ? ((o.engine === 'runway' ? 'Runway' : 'Kling') + ' · ready') : (o.status === 'failed' ? 'failed' : 'building…')}</div>
+                          </div>
+                        </button>
+                        );
+                      })}
+                    </div>
+                    )}
+                    <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Click a ready output to review it in the full editor and publish, then come back here for the next. Outputs stay for this session.</div>
+                  </>
+                  );
+                }
+
+                // ── LEVEL 1: category / brand tiles (one image per group → light DOM) ──
+                if (!feedOpenGroup) {
+                  return (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 11, color: "#7e92a8" }}>
+                        Source: <b style={{ color: "#5eead4" }}>{feedResult.source === 'gmc' ? 'Google Merchant' : 'Shopify'}</b> · {groups.length} {feedGroupBy === 'brand' ? 'brands' : 'categories'} · {all.length} products{typeof feedResult.count === 'number' && feedResult.count > all.length ? (' (' + feedResult.count + ' in feed)') : ''}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {Object.keys(feedOutputs).length > 0 && (
+                          <button onClick={() => setFeedView('outputs')} style={{ padding: "5px 12px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.14)", color: "#c4b5fd", whiteSpace: "nowrap" }}>◳ Outputs ({Object.keys(feedOutputs).length})</button>
+                        )}
+                        {['category', 'brand'].map(g => (
+                          <button key={g} onClick={() => setFeedGroupBy(g)} style={{ padding: "5px 12px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", textTransform: "capitalize", border: "1px solid " + (feedGroupBy === g ? "rgba(45,212,191,0.5)" : "rgba(255,255,255,0.12)"), background: feedGroupBy === g ? "rgba(45,212,191,0.12)" : "rgba(0,0,0,0.3)", color: feedGroupBy === g ? "#5eead4" : "#9db0c7" }}>{g}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+                      {groups.map(g => (
+                        <button key={g.key} onClick={() => { setFeedOpenGroup(g.key); setFeedFilter('all'); }} title={g.key} style={{ textAlign: "left", padding: 0, borderRadius: 10, overflow: "hidden", cursor: "pointer", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                          <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden" }}>
+                            {g.image ? <img src={g.image} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                          </div>
+                          <div style={{ padding: "8px 10px" }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.key}</div>
+                            <div style={{ fontSize: 10.5, color: "#7e92a8", marginTop: 1 }}>{g.count} product{g.count === 1 ? '' : 's'}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Pick a {feedGroupBy === 'brand' ? 'brand' : 'category'} to see its products, then generate ads per item (or select several). Thumbnails load only for the group you open, so large catalogs stay fast.</div>
+                  </>
+                  );
+                }
+
+                // ── LEVEL 2: products within the opened group ──
+                return (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+                    <button onClick={() => { setFeedOpenGroup(null); setFeedFilter('all'); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#9db0c7" }}>← {feedGroupBy === 'brand' ? 'Brands' : 'Categories'}</button>
+                    <div style={{ fontSize: 11, color: "#7e92a8", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <b style={{ color: "#5eead4" }}>{feedOpenGroup}</b> · showing {shown.length} of {inGroup.length}
+                    </div>
+                    {Object.keys(feedOutputs).length > 0 && (
+                      <button onClick={() => setFeedView('outputs')} style={{ padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 8, cursor: "pointer", border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.14)", color: "#c4b5fd", whiteSpace: "nowrap" }}>◳ Outputs ({Object.keys(feedOutputs).length})</button>
+                    )}
+                    <select value={feedFilter} onChange={e => setFeedFilter(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.14)", fontSize: 12, cursor: "pointer" }}>
+                      <option value="all">All products</option>
+                      <option value="onsale">On offer</option>
+                      <option value="instock">In stock</option>
+                    </select>
+                  </div>
+                  {shownLinks.length > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, padding: "8px 10px", borderRadius: 8, background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.2)", flexWrap: "wrap" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#9db0c7", cursor: "pointer" }}>
+                        <input type="checkbox" checked={allShownSelected} onChange={toggleAllShown} style={{ width: 15, height: 15, cursor: "pointer" }} />
+                        Select all shown{selCount > 0 ? (' · ' + selCount + ' selected') : ''}
+                      </label>
+                      <button onClick={runFeedBatch} disabled={selCount === 0 || feedBatchBusy} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (selCount === 0 || feedBatchBusy) ? "default" : "pointer", background: (selCount === 0 || feedBatchBusy) ? "rgba(99,102,241,0.35)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{feedBatchBusy ? 'Generating…' : ('⚡ Generate ' + (selCount || '') + ' selected →')}</button>
+                    </div>
+                  )}
+                  {shown.length === 0 ? (
+                    <div style={{ fontSize: 12, color: "#7e92a8", padding: "16px 0", textAlign: "center" }}>No products match this filter.</div>
+                  ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {shown.map((p, i) => (
+                      <div key={p.id || i} style={{ display: "flex", gap: 12, padding: 12, borderRadius: 10, border: "1px solid " + (p.link && feedSel[p.link] ? "rgba(139,92,246,0.5)" : "rgba(255,255,255,0.08)"), background: (p.link && feedSel[p.link]) ? "rgba(139,92,246,0.06)" : "rgba(255,255,255,0.02)" }}>
+                        {p.link ? <input type="checkbox" checked={!!feedSel[p.link]} onChange={() => setFeedSel(prev => { const n = { ...prev }; if (n[p.link]) { delete n[p.link]; } else { n[p.link] = true; } return n; })} style={{ alignSelf: "center", width: 15, height: 15, cursor: "pointer", flexShrink: 0 }} /> : null}
+                        <div style={{ width: 64, height: 64, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#1e293b" }}>
+                          {p.image ? <img src={p.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title || '(untitled)'}</div>
+                          <div style={{ fontSize: 11, color: "#9db0c7", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            {p.price ? (
+                              <span>
+                                {p.onSale && p.regularPrice ? <span style={{ color: "#6b7a8d", textDecoration: "line-through", marginRight: 4 }}>{p.regularPrice}{p.currency ? (' ' + p.currency) : ''}</span> : null}
+                                <b style={{ color: p.onSale ? "#5eead4" : "#e2e8f0" }}>{p.price}{p.currency ? (' ' + p.currency) : ''}</b>
+                              </span>
+                            ) : <span style={{ color: "#5a6b80" }}>no price</span>}
+                            {p.onSale ? <span style={{ fontSize: 9, fontWeight: 800, color: "#06281f", background: "#5eead4", borderRadius: 4, padding: "1px 5px" }}>SALE</span> : null}
+                            {p.brand ? <span>· {p.brand}</span> : null}
+                            {p.availability ? <span>· {String(p.availability).replace(/_/g, ' ')}</span> : null}
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                            {['title', 'description', 'image', 'price', 'brand', 'gtin'].map(f => (
+                              <span key={f} style={{ fontSize: 9.5, fontWeight: 700, padding: "1px 6px", borderRadius: 5, color: (p.fields && p.fields[f]) ? "#5eead4" : "#5a6b80", background: (p.fields && p.fields[f]) ? "rgba(45,212,191,0.12)" : "rgba(255,255,255,0.03)", border: "1px solid " + ((p.fields && p.fields[f]) ? "rgba(45,212,191,0.3)" : "rgba(255,255,255,0.06)") }}>{(p.fields && p.fields[f]) ? '✓' : '○'} {f}</span>
+                            ))}
+                          </div>
+                        </div>
+                        {p.link ? (
+                        <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                          <button onClick={() => runFeedSingle(p)} disabled={!!feedSingleBusy} title="Generate this product's ads from the feed (no scrape)" style={{ padding: "8px 12px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: feedSingleBusy ? "default" : "pointer", background: feedSingleBusy ? "rgba(99,102,241,0.4)" : ((selCount === 1 && feedSel[p.link]) ? "linear-gradient(135deg,#6366f1,#0ea5e9)" : "linear-gradient(135deg,#8b5cf6,#6366f1)"), color: "white", whiteSpace: "nowrap" }}>{feedSingleBusy === p.link ? "Generating…" : "✨ Generate →"}</button>
+                        </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                  )}
+                  <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Tick several products and hit <b style={{ color: "#a9b6c7" }}>⚡ Generate selected</b> to batch-build the full Google + Meta + video for each — they collect on the <b style={{ color: "#c4b5fd" }}>◳ Outputs</b> page. Or <b style={{ color: "#a9b6c7" }}>✨ Generate</b> a single product to jump straight into its editor.</div>
+                </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {feedTermsOpen && (
+          <div onClick={() => setFeedTermsOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2100, padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 680, maxHeight: "85vh", display: "flex", flexDirection: "column", background: "#0f172a", border: "1px solid rgba(45,212,191,0.3)", borderRadius: 16, padding: 26 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
+                <span style={{ fontSize: 16, fontWeight: 900, color: "white" }}>Product Feed Upload Terms</span>
+                <button onClick={() => setFeedTermsOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+              </div>
+              <div style={{ flex: 1, overflowY: "auto", fontSize: 12, lineHeight: 1.6, color: "#c4d1e0", whiteSpace: "pre-wrap" }}>{FEED_TERMS_TEXT}</div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16, flexShrink: 0 }}>
+                <button onClick={() => setFeedTermsOpen(false)} style={{ padding: "9px 16px", fontSize: 12.5, fontWeight: 700, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "none", color: "#9db0c7", cursor: "pointer" }}>Close</button>
+                <button onClick={() => { acceptFeedTerms(true); setFeedTermsOpen(false); }} style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f" }}>Accept &amp; close</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Creative Studio panel */}
         {showCreativeStudio && isPro && (() => {
