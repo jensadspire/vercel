@@ -3064,6 +3064,7 @@ function RSAStudio() {
     const meta = snap.metaResult || null;
     const channels = {
       google: row ? {
+        campaign: row.campaign || '', adGroup: row.adGroup || '',
         headlines: (row.headlines || []).map(h => (h && h.text) || h || '').filter(Boolean),
         descriptions: (row.descriptions || []).map(d => (d && d.text) || d || '').filter(Boolean),
         path1: row.path1 || '', path2: row.path2 || '', finalUrl: row.finalUrl || snap.url,
@@ -3103,6 +3104,68 @@ function RSAStudio() {
     }
   };
   const discardFeedOutput = (link) => setFeedOutputs(prev => { const n = { ...prev }; delete n[link]; return n; });
+
+  // ── Ad Library (Vault) — reads /api/creatives. Separate from the ★ Saved Library (showLibrary). ──
+  const [showVault, setShowVault] = useState(false);
+  const [vaultItems, setVaultItems] = useState([]);
+  const [vaultLoading, setVaultLoading] = useState(false);
+  const [vaultError, setVaultError] = useState('');
+  const [vaultStatus, setVaultStatus] = useState('all');  // all | unpublished | published
+  const [vaultSort, setVaultSort] = useState('date');      // date | score
+  const [vaultBusy, setVaultBusy] = useState(null);        // id with an action in flight
+  const [vaultConfirm, setVaultConfirm] = useState(null);  // id pending remove-confirm
+
+  const vaultHeaders = async () => {
+    const token = (isSignedIn && session) ? await session.getToken() : null;
+    return { 'Content-Type': 'application/json', ...(isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}), ...(token ? { 'x-clerk-session': token } : {}) };
+  };
+  const fetchVault = async () => {
+    setVaultLoading(true); setVaultError('');
+    try {
+      const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'list' }) });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && Array.isArray(data.creatives)) setVaultItems(data.creatives);
+      else setVaultError((data && data.error) || 'Could not load the library.');
+    } catch (_) { setVaultError('Library request failed — please try again.'); }
+    finally { setVaultLoading(false); }
+  };
+  const openVault = () => { setShowVault(true); setVaultConfirm(null); fetchVault(); };
+
+  // Rebuild the view-mode snapshot from a stored Creative (inverse of the Save mapping).
+  const rebuildFromCreative = (c) => {
+    const ch = c.channels || {}; const g = ch.google || {}; const m = ch.meta || {}; const v = ch.video || {};
+    const row = makeRow(1);
+    row.finalUrl = g.finalUrl || c.productUrl || '';
+    row.campaign = g.campaign || ''; row.adGroup = g.adGroup || '';
+    row.path1 = g.path1 || ''; row.path2 = g.path2 || '';
+    row.headlines = Array.from({ length: NUM_HL }, (_, i) => ({ text: (g.headlines && g.headlines[i]) || '', pin: '' }));
+    row.descriptions = Array.from({ length: NUM_DESC }, (_, i) => ({ text: (g.descriptions && g.descriptions[i]) || '', pin: '' }));
+    const metaResult = (m && (m.imageUrl || (m.primaryTexts && m.primaryTexts.length))) ? { ...m, imageUrl: m.imageUrl || '', imageVariations: m.imageVariations || [] } : null;
+    const tiktokResult = (v && (v.videoPrompt || (v.storyboard && v.storyboard.length))) ? { storyboard: v.storyboard || [], videoPrompt: v.videoPrompt || '', brand: '' } : null;
+    return { url: c.productUrl, rows: [row], metaResult, carouselCardTexts: (m && m.carouselCardTexts) || [], tiktokResult, engine: c.engine, archetype: c.archetype || 'scene_reveal', videoUrl: (v && v.url) || null };
+  };
+  const openVaultItem = async (card) => {
+    if (!card || !card.id) return;
+    setVaultBusy(card.id);
+    try {
+      const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: card.id }) });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.creative) { restoreFeedEntry(rebuildFromCreative(data.creative)); setShowVault(false); }
+      else setVaultError((data && data.error) || 'Could not open this ad.');
+    } catch (_) { setVaultError('Could not open this ad.'); }
+    finally { setVaultBusy(null); }
+  };
+  const removeVaultItem = async (id) => {
+    setVaultBusy(id);
+    try {
+      const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'delete', id }) });
+      if (res.ok) setVaultItems(prev => prev.filter(x => x.id !== id));
+    } catch (_) {} finally { setVaultBusy(null); setVaultConfirm(null); }
+  };
+  const setVaultScore = (id, score) => {
+    setVaultItems(prev => prev.map(x => x.id === id ? { ...x, score } : x)); // optimistic
+    vaultHeaders().then(h => fetch('/api/creatives', { method: 'POST', headers: h, body: JSON.stringify({ action: 'setScore', id, score }) }).catch(() => {}));
+  };
 
   const fetchFeed = async () => {
     const s = (feedSource || '').trim();
@@ -5328,6 +5391,15 @@ STRICT rules:
                 <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Ingest your whole catalog from a Shopify store or Google Merchant feed and turn it into ads in bulk — built for high-volume seasons and agencies.</div>
                 <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#2dd4bf" }}>Connect a feed →</div>
               </div>
+              {/* Ad Library (Vault) */}
+              <div onClick={openVault} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(99,102,241,0.3)", background: "linear-gradient(135deg,rgba(99,102,241,0.10),rgba(139,92,246,0.06))", cursor: "pointer", position: "relative" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#a5b4fc" }}>◳ Ad Library</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "#a5b4fc", background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 6, padding: "2px 8px" }}>NEW</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Your saved ads — the full Google + Meta + video set for each, organised and scored, ready to reopen, publish or reuse.</div>
+                <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#818cf8" }}>Open your library →</div>
+              </div>
             </div>
           </div>
         </div>
@@ -5560,6 +5632,93 @@ STRICT rules:
             </div>
           </div>
         )}
+
+        {showVault && (() => {
+          const items = vaultItems
+            .filter(it => vaultStatus === 'all' ? true : (it.publishStatus || 'unpublished') === vaultStatus)
+            .slice()
+            .sort((a, b) => vaultSort === 'score'
+              ? (((b.score ?? -1) - (a.score ?? -1)) || (new Date(b.savedAt || b.createdAt) - new Date(a.savedAt || a.createdAt)))
+              : (new Date(b.savedAt || b.createdAt) - new Date(a.savedAt || a.createdAt)));
+          const fmtDate = (s) => { try { return new Date(s).toLocaleDateString(); } catch (_) { return ''; } };
+          const engLabel = (e) => e === 'runway' ? 'Runway' : (e === 'kling' ? 'Kling' : (e || ''));
+          const selStyle = { padding: "6px 10px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.14)", fontSize: 12, cursor: "pointer" };
+          const emptyStyle = { fontSize: 12.5, color: "#7e92a8", padding: "40px 0", textAlign: "center" };
+          const chip = (bg, col, bd) => ({ fontSize: 9.5, fontWeight: 800, color: col, background: bg, border: "1px solid " + bd, borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" });
+          return (
+          <div onClick={() => setShowVault(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 940, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "#0f172a", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16, padding: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>◳ Ad Library <span style={{ fontSize: 12, fontWeight: 800, color: "#a5b4fc" }}>· {vaultItems.length} saved</span></span>
+                <button onClick={() => setShowVault(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap", flexShrink: 0 }}>
+                <select value={vaultStatus} onChange={e => setVaultStatus(e.target.value)} style={selStyle}>
+                  <option value="all">All</option>
+                  <option value="unpublished">Unpublished</option>
+                  <option value="published">Published</option>
+                </select>
+                <select value={vaultSort} onChange={e => setVaultSort(e.target.value)} style={selStyle}>
+                  <option value="date">Newest first</option>
+                  <option value="score">Top score</option>
+                </select>
+                <button onClick={fetchVault} disabled={vaultLoading} style={{ padding: "6px 12px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", cursor: vaultLoading ? "default" : "pointer" }}>{vaultLoading ? 'Loading…' : '↻ Refresh'}</button>
+              </div>
+              {vaultError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10, flexShrink: 0 }}>{vaultError}</div>}
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                {vaultLoading && !items.length ? (
+                  <div style={emptyStyle}>Loading your library…</div>
+                ) : items.length === 0 ? (
+                  <div style={emptyStyle}>No saved ads yet — hit <b style={{ color: "#5eead4" }}>Save</b> on a generated ad to build your library.</div>
+                ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 12 }}>
+                  {items.map(it => {
+                    const busy = vaultBusy === it.id;
+                    return (
+                    <div key={it.id} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", display: "flex", flexDirection: "column" }}>
+                      <div onClick={() => openVaultItem(it)} title="Open in the editor" style={{ cursor: "pointer", position: "relative" }}>
+                        <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
+                          {it.thumb ? <img src={it.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                          {it.hasVideo ? <span style={{ position: "absolute", top: 6, right: 6, ...chip("rgba(139,92,246,0.92)", "white", "transparent") }}>▶ video</span> : null}
+                          {typeof it.score === 'number' ? <span style={{ position: "absolute", top: 6, left: 6, fontSize: 11, fontWeight: 900, color: "#06281f", background: "#fbbf24", borderRadius: 6, padding: "2px 7px" }}>{it.score}/10</span> : null}
+                        </div>
+                      </div>
+                      <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.productTitle || '(untitled)'}</div>
+                        <div style={{ fontSize: 10.5, color: "#7e92a8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{[it.domain, engLabel(it.engine), fmtDate(it.savedAt)].filter(Boolean).join(' · ')}</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          <span style={chip((it.publishStatus === 'published') ? "rgba(16,185,129,0.14)" : "rgba(255,255,255,0.04)", (it.publishStatus === 'published') ? "#34d399" : "#9db0c7", (it.publishStatus === 'published') ? "rgba(16,185,129,0.4)" : "rgba(255,255,255,0.1)")}>{it.publishStatus === 'published' ? 'Published' : 'Unpublished'}</span>
+                          {it.promo ? <span style={chip("rgba(45,212,191,0.14)", "#5eead4", "rgba(45,212,191,0.4)")}>SALE</span> : null}
+                          {it.personaUsed ? <span style={chip("rgba(139,92,246,0.14)", "#c4b5fd", "rgba(139,92,246,0.4)")}>Persona</span> : null}
+                          {it.language && it.language !== 'English' ? <span style={chip("rgba(255,255,255,0.04)", "#9db0c7", "rgba(255,255,255,0.1)")}>{it.language}</span> : null}
+                          {it.version ? <span style={chip("rgba(255,255,255,0.04)", "#9db0c7", "rgba(255,255,255,0.1)")}>v{it.version}</span> : null}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                          <label style={{ fontSize: 10.5, color: "#7e92a8" }}>Score</label>
+                          <select value={it.score ?? ''} onChange={e => setVaultScore(it.id, e.target.value === '' ? null : Number(e.target.value))} style={{ ...selStyle, padding: "3px 6px", fontSize: 11 }}>
+                            <option value="">–</option>
+                            {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
+                          </select>
+                        </div>
+                        <div style={{ display: "flex", gap: 6, marginTop: "auto" }}>
+                          <button onClick={() => openVaultItem(it)} disabled={busy} style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{busy ? '…' : 'Open'}</button>
+                          {vaultConfirm === it.id ? (
+                            <button onClick={() => removeVaultItem(it.id)} disabled={busy} style={{ padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(248,113,113,0.5)", background: "rgba(248,113,113,0.15)", color: "#fca5a5", whiteSpace: "nowrap" }}>Sure?</button>
+                          ) : (
+                            <button onClick={() => setVaultConfirm(it.id)} disabled={busy} title="Remove from library" style={{ padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", whiteSpace: "nowrap" }}>Remove</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+                )}
+              </div>
+            </div>
+          </div>
+          );
+        })()}
 
         {/* Creative Studio panel */}
         {showCreativeStudio && isPro && (() => {

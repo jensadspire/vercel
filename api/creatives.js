@@ -58,6 +58,14 @@ function clerkUserId(req) {
 
 const str = (v, n) => (v === undefined || v === null ? '' : String(v)).slice(0, n);
 
+// Clamp a user score to an integer 0–10, or null when cleared/invalid.
+function clampScore(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(10, n));
+}
+
 function domainOf(url) {
   try { return new URL(url).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; }
 }
@@ -171,6 +179,10 @@ export default async function handler(req, res) {
         archetype: str(body.archetype, 60) || (existing && existing.archetype) || '',
         scene: str(body.scene, 800) || (existing && existing.scene) || '',
 
+        // user score (1–10, set in the Library; null = unrated)
+        score: body.score !== undefined ? clampScore(body.score) : (existing ? (existing.score ?? null) : null),
+        scoredAt: existing ? (existing.scoredAt || null) : null,
+
         // content bundle (URLs + copy; not filtered on)
         channels: body.channels || (existing && existing.channels) || {},
 
@@ -229,6 +241,19 @@ export default async function handler(req, res) {
       if (!doc) return res.status(404).json({ error: 'Not found.' });
       if (doc.ownerId !== ownerId) return res.status(403).json({ error: 'Not your ad.' }); // owner-only for now
       return res.status(200).json({ creative: doc });
+    }
+
+    // ── SET SCORE (1–10, or null to clear) — lightweight patch, no re-index ────
+    if (action === 'setScore') {
+      if (!body.id) return res.status(400).json({ error: 'id required.' });
+      const raw = await redis('GET', `creative:${body.id}`);
+      const doc = raw ? JSON.parse(raw) : null;
+      if (!doc) return res.status(404).json({ error: 'Not found.' });
+      if (doc.ownerId !== ownerId) return res.status(403).json({ error: 'Not your ad.' });
+      doc.score = clampScore(body.score);
+      doc.scoredAt = new Date().toISOString();
+      await redis('SET', `creative:${body.id}`, JSON.stringify(doc));
+      return res.status(200).json({ id: body.id, score: doc.score });
     }
 
     // ── DELETE (remove from the library) ───────────────────────────────────────
