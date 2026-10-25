@@ -978,7 +978,7 @@ The Product Feed Provider’s use of The AI Ad Studio is subject to (i) the appl
 In connection with The AI Ad Studio, (i) The Product Feed Provider will comply with the AI Ad Studio’s Privacy Policy available at https://www.theaiad.studio/privacy (as modified from time to time) and (ii) to the extent applicable, The AI Ad Studio and The Product Feed Provider agree to the The AI Ad Studio Data Controller Data Protection Terms at https://www.theaiad.studio/privacy/data-controller-terms (“Data Protection Terms”). The AI Ad Studio will not modify the Data Protection Terms, except as expressly permitted under the Data Protection Terms.
 
 4. The Product Feed Provider Content:
-THe Product Feed Provider hereby grants to The AI Ad Studio an irrevocable, worldwide, royalty-free license to use Content (to the extent protected by intellectual property rights) in connection with The AI Ad Studio’s or its Affiliates’ products and services for the maximum duration of such intellectual property rights under applicable law.
+The Product Feed Provider hereby grants to The AI Ad Studio an irrevocable, worldwide, royalty-free license to use Content (to the extent protected by intellectual property rights) in connection with The AI Ad Studio’s or its Affiliates’ products and services for the maximum duration of such intellectual property rights under applicable law.
 The Product Feed Provider agrees that The AI Ad Studio may sublicense these rights to its Affiliates and contractors performing services for The AI Ad Studio or its Affiliates and to The AI Ad Studio’s or its Affiliates’ users so they can use such Content in connection with or as the foundation for using The AI Ad Studio’s or its Affiliates’ products and services.
 If Content submitted by The Product Feed Provider contains URLs or similar content, The Product Feed Provider hereby grants to The AI Ad Studio the right to, access, index, cache or crawl the URL(s) and the content available through such URL(s) (“Destinations”).
 For example, The AI Ad Studio may utilize an automated software program to retrieve and analyze websites associated with such URLs. The Product Feed Provider agrees that any content collected by The AI Ad Studio or its Affiliates from Destinations will be considered Content and treated as such in accordance with these Terms.
@@ -993,7 +993,7 @@ Product Feed Provider represents and warrants that:
 it holds, and will maintain, the rights to grant the licenses and permissions set forth in Section 4,
 it will not provide any Content that violates Policies, applicable law or any applicable privacy policies, or infringes any third party intellectual property rights, it has all necessary rights and consents to make available to The AI Ad Studio any information collected from or about an individual that is subject to protection under applicable data privacy or data protection laws or regulations and the information and authorizations provided by The Product Feed Provider (including all necessary product-related disclosures required to display The Product Feed Provider offers) are and will remain complete, correct and current.
 The parties’ only warranties under these Terms are expressly set out in this Section 6 (Warranties).
-Subject to Section 7(b) (Exceptions to Limitations), the parties disclaim all conditions, warranties, and other terms not expressly set out in these Terms (including any implied warranties of Product Feed Providerability or fitness for a particular purpose).
+Subject to Section 7(b) (Exceptions to Limitations), the parties disclaim all conditions, warranties, and other terms not expressly set out in these Terms (including any implied warranties of merchantability or fitness for a particular purpose).
 
 7. Limitation of Liability:
 In this Section 7 (Limitation of Liability), “Liability” means any liability, whether under contract, tort (including negligence), or otherwise, and whether or not foreseeable or contemplated by the parties.
@@ -1024,7 +1024,7 @@ If these Terms are translated into any other language, to the fullest extent per
 13. Miscellaneous:
 (a) Subject to Section 7(b)(ii), these Terms are the parties’ entire agreement relating to their subject matter and supersede any prior or contemporaneous agreements on those subjects. (b) The Product Feed Provider may not make any public statement regarding the relationship contemplated by these Terms (except when required by law). (c) Except for modifications to the Terms by The AI Ad Studio under Section 10, any amendment to these Terms must be agreed to by both parties and must expressly state that it is amending these Terms. (d) All notices of termination or breach must be in writing and addressed to the other party’s Legal Department (or if it is not known if the other party has a Legal Department then to the other party's primary contact or other address on file).
 Emails are written notices. The email address for notices being sent to The AI Ad Studio’s Legal Department is aiadstudio@adspire.de. All other notices to The Product Feed Provider will be in writing and sent to an email address associated with The Product Feed Provider’s account. All other notices to The AI Ad Studio will be in writing and addressed to the Product Feed Provider’s primary contact at The AI Ad Studio or other methods made available by The AI Ad Studio. Notice will be treated as given on receipt, as confirmed by written or electronic means. These notice requirements do not apply to legal service of process, which is instead governed by applicable law. (e) Neither party will be treated as having waived any rights by not exercising (or by delaying the exercise of) any rights under these Terms. (f) If any provision of these Terms is found unenforceable, that provision will be severed and the balance of the Terms will remain in full force and effect. (g) Neither party may assign any of its rights or obligations under these Terms without the written consent of the other party, except to an affiliate but only where (I) the assignee agrees in writing to be bound by these Terms, (II) the assigning party remains liable for obligations under these Terms if the assignee defaults on them, and (III) the assigning party has notified the other party of the assignment.
-Any other attempt to transfer or assign is void. (h) There are no third-party beneficiaries to these Terms. (i) These Terms do not create any agency, partnership, joint venture or employment relationship among the parties. (j) Sections 1, 4, 6-9 (inclusive) and 11-13 (inclusive) will survive expiration or termination of these Terms. (j) No party or its Affiliates are liable for failure or delay in performance to the extent caused by circumstances beyond its reasonable control.`;
+Any other attempt to transfer or assign is void. (h) There are no third-party beneficiaries to these Terms. (i) These Terms do not create any agency, partnership, joint venture or employment relationship among the parties. (j) Sections 1, 4, 6-9 (inclusive) and 11-13 (inclusive) will survive expiration or termination of these Terms. (k) No party or its Affiliates are liable for failure or delay in performance to the extent caused by circumstances beyond its reasonable control.`;
 
 const CS_VERTICALS = {
   beauty: {
@@ -3067,6 +3067,13 @@ function RSAStudio() {
       else setFeedError((d && d.error) || 'Could not read this feed.');
     } catch (e) { setFeedError('Feed request failed — please try again.'); }
     finally { setFeedLoading(false); }
+  };
+  // Clear feed: flush the loaded catalog, selection, grouping, outputs and sticky cache → empty loader.
+  const clearFeed = () => {
+    setFeedResult(null); setFeedSource(''); setFeedError('');
+    setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
+    setFeedView('products'); setFeedOutputs({});
+    try { localStorage.removeItem('rsa_feed_cache_v1'); } catch (_) {}
   };
   // ── Personas Builder: UGC source selector (Phase 1) ──
   const [ugcData, setUgcData] = useState(null);           // { detected, providers, images } | null
@@ -5280,7 +5287,12 @@ STRICT rules:
             <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 640, maxHeight: "85vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(45,212,191,0.3)", borderRadius: 16, padding: 26 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>▦ Bulk Feed <span style={{ fontSize: 11, fontWeight: 800, color: "#5eead4" }}>· preview</span></span>
-                <button onClick={() => setFeedOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {feedResult && feedResult.products && feedResult.products.length > 0 && (
+                    <button onClick={clearFeed} disabled={feedBatchBusy || !!feedSingleBusy} title={(feedBatchBusy || feedSingleBusy) ? 'Generation in progress — please wait' : 'Clear the loaded feed and start fresh'} style={{ padding: "5px 12px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: (feedBatchBusy || feedSingleBusy) ? "default" : "pointer", border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.3)", color: (feedBatchBusy || feedSingleBusy) ? "#5a6b80" : "#9db0c7", whiteSpace: "nowrap" }}>Clear feed</button>
+                  )}
+                  <button onClick={() => setFeedOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                </div>
               </div>
               <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify store URL or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
