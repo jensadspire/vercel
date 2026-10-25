@@ -5424,8 +5424,7 @@ STRICT rules:
                           </div>
                           {isReady ? (
                             <div style={{ display: "flex", gap: 6, padding: "0 10px 10px" }}>
-                              <button onClick={() => approveFeedOutput(o)} disabled={o.approving || o.approved} style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (o.approving || o.approved) ? "default" : "pointer", background: o.approved ? "rgba(45,212,191,0.15)" : (o.approving ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)"), color: o.approved ? "#5eead4" : "#06281f", whiteSpace: "nowrap" }}>{o.approved ? '✓ Saved' : (o.approving ? 'Saving…' : 'Approve')}</button>
-                              <button onClick={() => discardFeedOutput(o.link)} title="Remove from this session" style={{ padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", whiteSpace: "nowrap" }}>Discard</button>
+                              <button onClick={() => approveFeedOutput(o)} disabled={o.approving || o.approved} style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (o.approving || o.approved) ? "default" : "pointer", background: o.approved ? "rgba(45,212,191,0.15)" : (o.approving ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)"), color: o.approved ? "#5eead4" : "#06281f", whiteSpace: "nowrap" }}>{o.approved ? '✓ Saved' : (o.approving ? 'Saving…' : 'Save')}</button>
                             </div>
                           ) : null}
                           {o.approveError ? <div style={{ padding: "0 10px 8px", fontSize: 10, color: "#fca5a5", lineHeight: 1.4 }}>{o.approveError}</div> : null}
