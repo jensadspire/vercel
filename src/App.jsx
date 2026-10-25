@@ -2920,14 +2920,14 @@ function RSAStudio() {
 
     // Scene pick (automated flow): classify the product's vertical → best-fitting scenery.
     // Isolated /api/pick-scene; feeds generate-tiktok's existing `scene` param. Null → generic backdrop.
-    let feedScene = null;
+    let feedScene = null; let feedVertical = '';
     try {
       const scRes = await fetch('/api/pick-scene', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product: { title, description, productType: (product && product.productType) || '', brand: (product && product.brand) || '' } }),
       });
       const scData = await scRes.json();
-      if (scData && scData.ok && scData.scene) feedScene = scData.scene;
+      if (scData && scData.ok) { if (scData.scene) feedScene = scData.scene; feedVertical = scData.vertical || ''; }
     } catch (_) {}
 
     // 3) Video storyboard — /api/generate-tiktok (feed copy, routed engine, picked scene, no template)
@@ -2957,6 +2957,8 @@ function RSAStudio() {
     return {
       url: link, rows: [rsaRow], metaResult, carouselCardTexts, tiktokResult,
       engine, archetype: 'scene_reveal', videoUrl,
+      scene: feedScene || '', vertical: feedVertical || '', language,
+      promo: !!(product && product.onSale), productType: (product && product.productType) || '',
       brand: (tiktokResult && tiktokResult.brand) || (product && product.brand) || '',
       title, thumb: (metaResult && metaResult.heroProductImage) || (product && product.image) || null,
       _feed: true,
@@ -3054,6 +3056,54 @@ function RSAStudio() {
     }
     setFeedBatchBusy(false);
   };
+  // Approve a staged output → persist it as a Creative in the library (/api/creatives save).
+  const approveFeedOutput = async (output) => {
+    const snap = output && output.snapshot;
+    if (!snap || !output.link) return;
+    const row = (snap.rows && snap.rows[0]) || null;
+    const meta = snap.metaResult || null;
+    const channels = {
+      google: row ? {
+        headlines: (row.headlines || []).map(h => (h && h.text) || h || '').filter(Boolean),
+        descriptions: (row.descriptions || []).map(d => (d && d.text) || d || '').filter(Boolean),
+        path1: row.path1 || '', path2: row.path2 || '', finalUrl: row.finalUrl || snap.url,
+      } : null,
+      meta: meta ? {
+        primaryTexts: meta.primaryTexts || [], headlines: meta.headlines || [], descriptions: meta.descriptions || [],
+        imageUrl: meta.imageUrl || '', imageVariations: meta.imageVariations || [], carouselCardTexts: snap.carouselCardTexts || [],
+      } : null,
+      video: snap.videoUrl ? {
+        url: snap.videoUrl, storyboard: (snap.tiktokResult && snap.tiktokResult.storyboard) || [],
+        videoPrompt: (snap.tiktokResult && snap.tiktokResult.videoPrompt) || '',
+      } : null,
+    };
+    const payload = {
+      action: 'save', inputSource: 'feed',
+      productUrl: snap.url, productTitle: snap.title || '',
+      engine: snap.engine || '', archetype: snap.archetype || 'scene_reveal', scene: snap.scene || '',
+      vertical: snap.vertical || '', language: snap.language || 'English', promo: !!snap.promo,
+      channels,
+    };
+    setFeedOutputs(prev => prev[output.link] ? { ...prev, [output.link]: { ...prev[output.link], approving: true, approveError: null } } : prev);
+    try {
+      const token = (isSignedIn && session) ? await session.getToken() : null;
+      const res = await fetch('/api/creatives', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}), ...(token ? { 'x-clerk-session': token } : {}) },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.id) {
+        setFeedOutputs(prev => prev[output.link] ? { ...prev, [output.link]: { ...prev[output.link], approved: true, approving: false, creativeId: data.id } } : prev);
+      } else {
+        setFeedOutputs(prev => prev[output.link] ? { ...prev, [output.link]: { ...prev[output.link], approving: false, approveError: (data && data.error) || ('Approve failed (' + res.status + ')') } } : prev);
+      }
+    } catch (_) {
+      setFeedOutputs(prev => prev[output.link] ? { ...prev, [output.link]: { ...prev[output.link], approving: false, approveError: 'Approve failed — please try again.' } } : prev);
+    }
+  };
+  const discardFeedOutput = (link) => setFeedOutputs(prev => { const n = { ...prev }; delete n[link]; return n; });
+
   const fetchFeed = async () => {
     const s = (feedSource || '').trim();
     if (!s) { setFeedError('Enter a Shopify store URL or a Google Merchant feed URL.'); return; }
@@ -5359,17 +5409,27 @@ STRICT rules:
                       {outs.map(o => {
                         const isReady = o.status === 'ready';
                         return (
-                        <button key={o.link} onClick={() => { if (isReady && o.snapshot) { restoreFeedEntry(o.snapshot); setFeedOpen(false); } }} disabled={!isReady} title={o.title || ''} style={{ textAlign: "left", padding: 0, borderRadius: 10, overflow: "hidden", cursor: isReady ? "pointer" : "default", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", opacity: isReady ? 1 : 0.75 }}>
-                          <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
-                            {o.thumb ? <img src={o.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
-                            {o.videoUrl ? <span style={{ position: "absolute", top: 6, right: 6, fontSize: 10, fontWeight: 800, color: "white", background: "rgba(139,92,246,0.92)", borderRadius: 5, padding: "2px 6px" }}>▶ video</span> : null}
-                            {!isReady ? <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15,23,42,0.55)", fontSize: 11, fontWeight: 800, color: o.status === 'failed' ? "#fca5a5" : "#5eead4" }}>{o.status === 'failed' ? '✕ failed' : 'generating…'}</div> : null}
+                        <div key={o.link} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid " + (o.approved ? "rgba(45,212,191,0.4)" : "rgba(255,255,255,0.08)"), background: "rgba(255,255,255,0.02)", opacity: isReady ? 1 : 0.75, display: "flex", flexDirection: "column" }}>
+                          <div onClick={() => { if (isReady && o.snapshot) { restoreFeedEntry(o.snapshot); setFeedOpen(false); } }} title={isReady ? 'Open in the editor' : (o.title || '')} style={{ cursor: isReady ? "pointer" : "default" }}>
+                            <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
+                              {o.thumb ? <img src={o.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                              {o.videoUrl ? <span style={{ position: "absolute", top: 6, right: 6, fontSize: 10, fontWeight: 800, color: "white", background: "rgba(139,92,246,0.92)", borderRadius: 5, padding: "2px 6px" }}>▶ video</span> : null}
+                              {o.approved ? <span style={{ position: "absolute", top: 6, left: 6, fontSize: 10, fontWeight: 800, color: "#06281f", background: "#5eead4", borderRadius: 5, padding: "2px 6px" }}>✓ saved</span> : null}
+                              {!isReady ? <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15,23,42,0.55)", fontSize: 11, fontWeight: 800, color: o.status === 'failed' ? "#fca5a5" : "#5eead4" }}>{o.status === 'failed' ? '✕ failed' : 'generating…'}</div> : null}
+                            </div>
+                            <div style={{ padding: "8px 10px 6px" }}>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.title || '(untitled)'}</div>
+                              <div style={{ fontSize: 10.5, color: "#7e92a8", marginTop: 1 }}>{isReady ? ((o.engine === 'runway' ? 'Runway' : 'Kling') + ' · ready') : (o.status === 'failed' ? 'failed' : 'building…')}</div>
+                            </div>
                           </div>
-                          <div style={{ padding: "8px 10px" }}>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.title || '(untitled)'}</div>
-                            <div style={{ fontSize: 10.5, color: "#7e92a8", marginTop: 1 }}>{isReady ? ((o.engine === 'runway' ? 'Runway' : 'Kling') + ' · ready') : (o.status === 'failed' ? 'failed' : 'building…')}</div>
-                          </div>
-                        </button>
+                          {isReady ? (
+                            <div style={{ display: "flex", gap: 6, padding: "0 10px 10px" }}>
+                              <button onClick={() => approveFeedOutput(o)} disabled={o.approving || o.approved} style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (o.approving || o.approved) ? "default" : "pointer", background: o.approved ? "rgba(45,212,191,0.15)" : (o.approving ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)"), color: o.approved ? "#5eead4" : "#06281f", whiteSpace: "nowrap" }}>{o.approved ? '✓ Saved' : (o.approving ? 'Saving…' : 'Approve')}</button>
+                              <button onClick={() => discardFeedOutput(o.link)} title="Remove from this session" style={{ padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", whiteSpace: "nowrap" }}>Discard</button>
+                            </div>
+                          ) : null}
+                          {o.approveError ? <div style={{ padding: "0 10px 8px", fontSize: 10, color: "#fca5a5", lineHeight: 1.4 }}>{o.approveError}</div> : null}
+                        </div>
                         );
                       })}
                     </div>
