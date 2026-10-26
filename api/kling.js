@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   const falKey = process.env.FAL_API_KEY;
   if (!falKey) return res.status(500).json({ error: 'FAL_API_KEY not configured' });
 
-  const { imageUrl, storyboard, prompt, language = 'English', brand = '', logoUrl = null, overlayIntro = '', overlayOutro = '', action = 'create', requestId } = req.body || {};
+  const { imageUrl, storyboard, prompt, language = 'English', brand = '', logoUrl = null, overlayIntro = '', overlayOutro = '', action = 'create', requestId, matchAspect = false } = req.body || {};
   const authHeaders = { 'Authorization': `Key ${falKey}` };
   const jsonHeaders = { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' };
 
@@ -126,6 +126,7 @@ export default async function handler(req, res) {
     // flattens when the image actually has transparency; fails open to the
     // original image if sharp/flatten errors (never blocks generation).
     let imageData = imageUrl;
+    let klingAspect = '9:16'; // default; set from the source below when matchAspect is on
     try {
       const imgRes = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' } });
       if (imgRes.ok) {
@@ -134,6 +135,10 @@ export default async function handler(req, res) {
         try {
           const sharp = (await import('sharp')).default;
           const meta = await sharp(buf).metadata();
+          if (matchAspect && meta.width && meta.height) {
+            const r = meta.width / meta.height;
+            klingAspect = r >= 1.15 ? '16:9' : (r <= 0.87 ? '9:16' : '1:1'); // wide / tall / square
+          }
           if (meta.hasAlpha) {
             buf = await sharp(buf).flatten({ background: '#ffffff' }).png().toBuffer();
             ct = 'image/png';
@@ -155,7 +160,7 @@ export default async function handler(req, res) {
         prompt: videoPrompt,
         negative_prompt: negativePrompt,
         duration: '10',
-        aspect_ratio: '9:16',
+        aspect_ratio: klingAspect,
         cfg_scale: 0.7,
         generate_audio: false,
       }),
