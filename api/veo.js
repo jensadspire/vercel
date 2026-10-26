@@ -76,7 +76,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { imageUrl, prompt, action = 'create', requestId, audio = false } = req.body || {};
+  const { imageUrl, prompt, action = 'create', requestId, audio = false, matchAspect = false } = req.body || {};
 
   const safeJson = async (r) => {
     try { const t = await r.text(); return t && t.trim() ? JSON.parse(t) : {}; }
@@ -157,6 +157,7 @@ export default async function handler(req, res) {
 
     // Fetch product image → base64 (flatten alpha → white, like kling.js).
     let imageB64 = null, imageMime = 'image/jpeg';
+    let veoAspect = '9:16'; // default (social); flipped to 16:9 below when matchAspect + wide source
     try {
       const imgRes = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' }, signal: AbortSignal.timeout(10000) });
       if (imgRes.ok) {
@@ -166,14 +167,19 @@ export default async function handler(req, res) {
           const sharp = (await import('sharp')).default;
           const meta = await sharp(buf).metadata();
           console.log('[veo] SOURCE image dims:', meta.width + 'x' + meta.height, '| aspect:', (meta.width/meta.height).toFixed(3), '| hasAlpha:', meta.hasAlpha);
-          // Crop/fit to 9:16 (720x1280) so VEO outputs full-frame 9:16 (no black bars from square/other sources).
+          // Aspect-matching (gated): wide sources → 16:9, else 9:16 (VEO supports only these two).
+          const srcRatio = (meta.width && meta.height) ? meta.width / meta.height : null;
+          const landscape = matchAspect && srcRatio && srcRatio >= 1.15;
+          veoAspect = landscape ? '16:9' : '9:16';
+          const fitW = landscape ? 1280 : 720, fitH = landscape ? 720 : 1280;
+          // Crop/fit to the chosen frame so VEO outputs full-frame (no black bars from mismatched sources).
           const fitted = await sharp(buf)
             .flatten({ background: '#ffffff' })
-            .resize(720, 1280, { fit: 'cover', position: 'centre' })
+            .resize(fitW, fitH, { fit: 'cover', position: 'centre' })
             .jpeg({ quality: 90 })
             .toBuffer();
           imageB64 = fitted.toString('base64'); imageMime = 'image/jpeg';
-          console.log('[veo] fitted source to 720x1280 (cover)');
+          console.log('[veo] fitted source to ' + fitW + 'x' + fitH + ' (cover), aspect', veoAspect);
         } catch (e) { console.error('[veo] fit-to-916 failed (fail-open to original):', e.message); imageB64 = buf.toString('base64'); imageMime = ct || 'image/jpeg'; }
       }
     } catch (e) { console.error('[veo] image fetch failed:', e.message); }
@@ -189,7 +195,7 @@ export default async function handler(req, res) {
         parameters: {
           sampleCount: 1,
           durationSeconds: parseInt(process.env.VEO_DURATION || '8', 10),
-          aspectRatio: '9:16',
+          aspectRatio: veoAspect,
           enhancePrompt: (process.env.VEO_ENHANCE || 'on') !== 'off',
           generateAudio: audio === true, // default OFF for cost; frontend opts in per render
         },
