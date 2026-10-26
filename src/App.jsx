@@ -3168,10 +3168,55 @@ function RSAStudio() {
   const [vaultJobs, setVaultJobs] = useState([]);          // in-flight overnight batches (progress readout)
   const [vaultBusy, setVaultBusy] = useState(null);        // id with an action in flight
   const [vaultConfirm, setVaultConfirm] = useState(null);  // id pending remove-confirm
+  const [vaultSavedKey, setVaultSavedKey] = useState(null); // combo key of the single output saved to the Vault
+  const [vaultSaving, setVaultSaving] = useState(false);    // star→Vault save in flight
 
   const vaultHeaders = async () => {
     const token = (isSignedIn && session) ? await session.getToken() : null;
     return { 'Content-Type': 'application/json', ...(isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}), ...(token ? { 'x-clerk-session': token } : {}) };
+  };
+  // Star → Ad Library: save the live single-output ad (Google + Meta + Video) as ONE creative in
+  // /api/creatives — the same durable store the feed path writes to. Mirrors approveFeedOutput but
+  // reads the live overview state instead of a feed snapshot.
+  const isCurrentVaultSaved = () => vaultSavedKey !== null && vaultSavedKey === currentCombinedId();
+  const saveCurrentToVault = async () => {
+    if (!isSignedIn || !user?.id) { setShowAuthModal(true); return; }
+    if (vaultSaving || isCurrentVaultSaved()) return;
+    const row = (generated && rows && rows.length) ? rows[0] : null;
+    const meta = metaResult || null;
+    const videoUrl = tiktokVideoUrl || null;
+    const channels = {
+      google: row ? {
+        campaign: row.campaign || '', adGroup: row.adGroup || '',
+        headlines: (row.headlines || []).map(h => (h && h.text) || h || '').filter(Boolean),
+        descriptions: (row.descriptions || []).map(d => (d && d.text) || d || '').filter(Boolean),
+        path1: row.path1 || '', path2: row.path2 || '', finalUrl: row.finalUrl || url,
+      } : null,
+      meta: meta ? {
+        primaryTexts: meta.primaryTexts || [], headlines: meta.headlines || [], descriptions: meta.descriptions || [],
+        imageUrl: meta.imageUrl || '', imageVariations: meta.imageVariations || [], carouselCardTexts: carouselCardTexts || [],
+      } : null,
+      video: videoUrl ? {
+        url: videoUrl, storyboard: (tiktokResult && tiktokResult.storyboard) || [],
+        videoPrompt: (tiktokResult && tiktokResult.videoPrompt) || '',
+      } : null,
+    };
+    if (!channels.google && !channels.meta && !channels.video) return; // nothing generated yet
+    const payload = {
+      action: 'save', inputSource: 'url',
+      productUrl: (lastGeneratedUrlRef.current || url || ''), productTitle: (pageMeta && pageMeta.title) || '',
+      engine: videoEngineRef.current || '', archetype: videoSelArchetypeRef.current || 'scene_reveal', scene: '',
+      vertical: '', language: (pageMeta && pageMeta.language) || 'English', promo: false,
+      channels,
+    };
+    setVaultSaving(true);
+    try {
+      const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify(payload) });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.id) { setVaultSavedKey(currentCombinedId()); }
+      else { alert((data && data.error) || ('Could not save to your Library (' + res.status + ').')); }
+    } catch (_) { alert('Could not reach the Library — please try again.'); }
+    finally { setVaultSaving(false); }
   };
   const fetchVault = async () => {
     setVaultLoading(true); setVaultError('');
@@ -5197,7 +5242,7 @@ STRICT rules:
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
                   <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
                   <span title="Ships the selected formats to Google Ads — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startGooglePublishChain(); }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
@@ -5289,7 +5334,7 @@ STRICT rules:
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#0866FF", fontWeight: 700 }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
                   <span title="Ships the selected Meta formats to Meta Ads Manager — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startMetaPublishChain(); }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
@@ -5351,7 +5396,7 @@ STRICT rules:
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span onClick={(e) => { e.stopPropagation(); if (!isSignedIn) { setShowAuthModal(true); return; } setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
                   <span onClick={(e) => { e.stopPropagation();
                     if (!isSignedIn) { setShowAuthModal(true); return; }
                     if (!metaConn.connected) { triggerMetaConnect(); return; }
