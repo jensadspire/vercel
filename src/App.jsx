@@ -3204,7 +3204,7 @@ function RSAStudio() {
     if (!channels.google && !channels.meta && !channels.video) return; // nothing generated yet
     const payload = {
       action: 'save', inputSource: 'url',
-      productUrl: (lastGeneratedUrlRef.current || url || ''), productTitle: (pageMeta && pageMeta.title) || '',
+      productUrl: (lastGeneratedUrlRef.current || url || ''), productTitle: (pageMeta && (pageMeta.title || pageMeta.h1 || pageMeta.siteName)) || (row && row.campaign) || '',
       engine: videoEngineRef.current || '', archetype: videoSelArchetypeRef.current || 'scene_reveal', scene: '',
       vertical: '', language: (pageMeta && pageMeta.language) || 'English', promo: false,
       channels,
