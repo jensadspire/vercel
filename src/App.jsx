@@ -5481,13 +5481,15 @@ STRICT rules:
                   return true;
                 });
                 const shownLinks = shown.filter(p => p.link).map(p => p.link);
-                const selCount = shownLinks.filter(l => feedSel[l]).length;
+                const selCount = shownLinks.filter(l => feedSel[l]).length;                  // selected in THIS group (drives "select all shown")
                 const allShownSelected = shownLinks.length > 0 && selCount === shownLinks.length;
                 const toggleAllShown = () => setFeedSel(prev => { const n = { ...prev }; if (allShownSelected) { shownLinks.forEach(l => { delete n[l]; }); } else { shownLinks.forEach(l => { n[l] = true; }); } return n; });
+                const allSelectedPicks = all.filter(p => p.link && feedSel[p.link]);          // GLOBAL selection — every category/brand, not just the open group
+                const totalSelCount = allSelectedPicks.length;
+                const otherSelCount = totalSelCount - selCount;                               // selected outside the open group
                 const runFeedBatch = () => {
-                  const picks = shown.filter(p => p.link && feedSel[p.link]);
-                  if (!picks.length) return;
-                  runFeedBatchB(picks); // B-path headless batch → outputs staging buffer (retires the old a2 scrape batch)
+                  if (!allSelectedPicks.length) return;
+                  runFeedBatchB(allSelectedPicks); // fire the whole cross-category selection → outputs staging buffer
                 };
 
                 // ── OUTPUTS VIEW: batch staging buffer (flip side of the product selector) ──
@@ -5588,13 +5590,17 @@ STRICT rules:
                       <option value="instock">In stock</option>
                     </select>
                   </div>
-                  {shownLinks.length > 0 && (
+                  {(shownLinks.length > 0 || totalSelCount > 0) && (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, padding: "8px 10px", borderRadius: 8, background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.2)", flexWrap: "wrap" }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#9db0c7", cursor: "pointer" }}>
-                        <input type="checkbox" checked={allShownSelected} onChange={toggleAllShown} style={{ width: 15, height: 15, cursor: "pointer" }} />
-                        Select all shown{selCount > 0 ? (' · ' + selCount + ' selected') : ''}
-                      </label>
-                      <button onClick={runFeedBatch} disabled={selCount === 0 || feedBatchBusy} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (selCount === 0 || feedBatchBusy) ? "default" : "pointer", background: (selCount === 0 || feedBatchBusy) ? "rgba(99,102,241,0.35)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{feedBatchBusy ? 'Generating…' : ('⚡ Generate ' + (selCount || '') + ' selected →')}</button>
+                      {shownLinks.length > 0 ? (
+                        <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#9db0c7", cursor: "pointer" }}>
+                          <input type="checkbox" checked={allShownSelected} onChange={toggleAllShown} style={{ width: 15, height: 15, cursor: "pointer" }} />
+                          Select all shown{totalSelCount > 0 ? (' · ' + totalSelCount + ' selected' + (otherSelCount > 0 ? (' (' + otherSelCount + ' in other ' + (feedGroupBy === 'brand' ? 'brands' : 'categories') + ')') : '')) : ''}
+                        </label>
+                      ) : (
+                        <span style={{ fontSize: 11.5, color: "#9db0c7" }}>{totalSelCount} selected across {feedGroupBy === 'brand' ? 'brands' : 'categories'}</span>
+                      )}
+                      <button onClick={runFeedBatch} disabled={totalSelCount === 0 || feedBatchBusy} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (totalSelCount === 0 || feedBatchBusy) ? "default" : "pointer", background: (totalSelCount === 0 || feedBatchBusy) ? "rgba(99,102,241,0.35)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{feedBatchBusy ? 'Generating…' : ('⚡ Generate ' + (totalSelCount || '') + ' selected →')}</button>
                     </div>
                   )}
                   {shown.length === 0 ? (
