@@ -10,6 +10,16 @@ const RUNWAY_API = 'https://api.dev.runwayml.com/v1';
 const MAX_BASE64_BYTES = 4 * 1024 * 1024; // 4MB encoded limit (safe under 5MB)
 import { labelAndStore } from './_ai-label.js';
 
+// Pick the gen4.5 output ratio closest to the source image's aspect (nearest in log-space).
+// Supported: 1584:672, 1280:720, 1104:832, 960:960, 832:1104, 720:1280.
+function pickRunwayRatio(r) {
+  if (!r || !Number.isFinite(r) || r <= 0) return '720:1280';
+  const options = [[1584/672,'1584:672'],[1280/720,'1280:720'],[1104/832,'1104:832'],[960/960,'960:960'],[832/1104,'832:1104'],[720/1280,'720:1280']];
+  let best = '720:1280', bestDiff = Infinity;
+  for (const [ar, label] of options) { const d = Math.abs(Math.log(r) - Math.log(ar)); if (d < bestDiff) { bestDiff = d; best = label; } }
+  return best;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -20,7 +30,7 @@ export default async function handler(req, res) {
   const runwayKey = process.env.RUNWAY_API_KEY;
   if (!runwayKey) return res.status(500).json({ error: 'Runway API key not configured' });
 
-  const { imageUrl, prompt, duration = 10, action = 'create', taskId } = req.body || {};
+  const { imageUrl, prompt, duration = 10, action = 'create', taskId, matchAspect = false, ratio: ratioOverride } = req.body || {};
 
   try {
     // ── Poll ─────────────────────────────────────────────────────────────────
@@ -59,6 +69,7 @@ export default async function handler(req, res) {
     const motionPrompt = (prompt || 'Smooth cinematic camera movement, professional product advertisement').slice(0, 1000);
 
     let promptImage;
+    let srcRatio = null; // source aspect (width/height), filled from sharp metadata below when available
 
     if (imageUrl.startsWith('data:')) {
       // Already a data URI — check size
@@ -93,6 +104,7 @@ export default async function handler(req, res) {
         try {
           const sharp = (await import('sharp')).default;
           const meta = await sharp(imgBuffer).metadata();
+          if (meta.width && meta.height) srcRatio = meta.width / meta.height;
           if (meta.hasAlpha || contentType === 'image/webp') {
             imgBuffer = await sharp(imgBuffer).flatten({ background: '#ffffff' }).jpeg({ quality: 90 }).toBuffer();
             contentType = 'image/jpeg';
@@ -143,7 +155,7 @@ export default async function handler(req, res) {
         promptImage,
         promptText: motionPrompt,
         duration,
-        ratio: '720:1280',
+        ratio: ratioOverride || (matchAspect ? pickRunwayRatio(srcRatio) : '720:1280'),
         watermark: false,
       }),
     });

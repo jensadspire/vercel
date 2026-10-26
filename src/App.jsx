@@ -2839,7 +2839,7 @@ function RSAStudio() {
     const apiFor = (e) => e === 'runway' ? '/api/runway' : '/api/kling';
     const backupFor = (e) => e === 'kling' ? 'runway' : 'kling';
     // Feed videos stay clean: no brand overlay, no intro/outro text (matches the feed path's no-overlay rule).
-    const body = { imageUrl: img, storyboard: storyboard || [], prompt: videoPrompt, language: language || 'English', brand: brand || '', logoUrl: logoUrl || null, overlayIntro: '', overlayOutro: '' };
+    const body = { imageUrl: img, storyboard: storyboard || [], prompt: videoPrompt, language: language || 'English', brand: brand || '', logoUrl: logoUrl || null, overlayIntro: '', overlayOutro: '', matchAspect: true };
     const createOn = async (e) => {
       try {
         const rr = await fetch(apiFor(e), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

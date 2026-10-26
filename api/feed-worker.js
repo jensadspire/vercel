@@ -210,7 +210,7 @@ const backupEngine = (e) => e === 'kling' ? 'runway' : 'kling';
 async function kickVideo({ engine, imageUrl, storyboard, videoPrompt, language, logoUrl, brand }) {
   if (!imageUrl || !videoPrompt) return { error: 'missing image or prompt' };
   const img = String(imageUrl).replace(/^http:\/\//, 'https://').replace(/^\/\//, 'https://');
-  const body = { imageUrl: img, storyboard: storyboard || [], prompt: videoPrompt, language: language || 'English', brand: brand || '', logoUrl: logoUrl || null, overlayIntro: '', overlayOutro: '' };
+  const body = { imageUrl: img, storyboard: storyboard || [], prompt: videoPrompt, language: language || 'English', brand: brand || '', logoUrl: logoUrl || null, overlayIntro: '', overlayOutro: '', matchAspect: true };
   const createOn = async (e) => {
     try {
       const rr = await fetch(`${BASE}${apiForEngine(e)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
