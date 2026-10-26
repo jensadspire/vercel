@@ -2807,7 +2807,7 @@ function RSAStudio() {
       const c = JSON.parse(raw);
       if (c && c.outputs && (Date.now() - (c.ts || 0) < 86400000)) {
         const keys = Object.keys(c.outputs);
-        if (keys.length) setFeedOutputs(c.outputs);
+        if (keys.length) { setFeedOutputs(c.outputs); setFeedView('outputs'); }
       }
     } catch (_) {}
   }, []);
