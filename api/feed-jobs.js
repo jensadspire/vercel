@@ -182,6 +182,7 @@ export default async function handler(req, res) {
         agencyId: body.agencyId || null,
         status: runAt ? 'scheduled' : 'queued', // queued = ready to enqueue (bite 3); scheduled = waits for its runAt (bite 5)
         source: str(body.source, 300) || domainOf(picks[0] && picks[0].link) || '',
+        language: str(body.language, 40) || 'English', // feed locale (de/da/…) → the worker generates copy in it
         runAt,
         options: {
           engine: str(body.engine, 40) || '',                // '' = let generateFromProduct pick as today

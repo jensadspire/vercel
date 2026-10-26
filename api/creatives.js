@@ -80,6 +80,7 @@ function tagKeys(ownerId, c) {
   };
   add('domain', c.domain);
   add('status', c.publishStatus);          // published | unpublished
+  add('review', c.status);                 // approved | pending_review (overnight batch destination)
   add('engine', c.engine);
   add('vertical', c.vertical);
   add('language', c.language);
@@ -99,13 +100,16 @@ function toCard(doc) {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-clerk-session, x-admin-key');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-clerk-session, x-admin-key, x-feed-worker-secret');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Auth — the Library is a signed-in feature.
-  const ownerId = clerkUserId(req);
-  if (!ownerId) return res.status(401).json({ error: 'Sign in required.' });
+  // Auth — the Library is a signed-in feature. Two paths: a trusted server worker (overnight batch,
+  // no browser session) presenting x-feed-worker-secret + an explicit ownerId, or a signed-in user.
+  const workerSecret = req.headers['x-feed-worker-secret'] || '';
+  const isWorker = !!process.env.FEED_WORKER_SECRET && workerSecret === process.env.FEED_WORKER_SECRET;
+  const ownerId = isWorker ? (req.body && req.body.ownerId) || null : clerkUserId(req);
+  if (!ownerId) return res.status(401).json({ error: isWorker ? 'Worker write requires ownerId.' : 'Sign in required.' });
 
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
     return res.status(503).json({ error: 'Storage temporarily unavailable — please try again shortly.' });
@@ -212,6 +216,7 @@ export default async function handler(req, res) {
       const filterKeys = [];
       if (f.domain)   filterKeys.push(`${base}:domain:${lc(f.domain)}`);
       if (f.status)   filterKeys.push(`${base}:status:${lc(f.status)}`);
+      if (f.review)   filterKeys.push(`${base}:review:${lc(f.review)}`);
       if (f.engine)   filterKeys.push(`${base}:engine:${lc(f.engine)}`);
       if (f.vertical) filterKeys.push(`${base}:vertical:${lc(f.vertical)}`);
       if (f.language) filterKeys.push(`${base}:language:${lc(f.language)}`);
