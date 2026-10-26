@@ -2781,6 +2781,8 @@ function RSAStudio() {
   const [feedView, setFeedView] = useState('products');   // 'products' | 'outputs' (batch staging buffer)
   const [feedOutputs, setFeedOutputs] = useState({});     // { [link]: { status:'generating'|'ready'|'failed', snapshot, title, thumb, engine, videoUrl, link } }
   const [feedBatchBusy, setFeedBatchBusy] = useState(false);
+  const [feedLeaveBusy, setFeedLeaveBusy] = useState(false);   // "Generate & leave" (overnight job) in flight
+  const [feedLeaveMsg, setFeedLeaveMsg] = useState('');        // confirmation / error after queuing an overnight job
   const [feedTermsAccepted, setFeedTermsAccepted] = useState(() => { try { return localStorage.getItem('rsa_feed_terms_v1') === '1'; } catch (_) { return false; } });
   const [feedTermsOpen, setFeedTermsOpen] = useState(false);
   const acceptFeedTerms = (v) => { setFeedTermsAccepted(v); try { if (v) localStorage.setItem('rsa_feed_terms_v1', '1'); else localStorage.removeItem('rsa_feed_terms_v1'); } catch (_) {} };
@@ -3126,6 +3128,30 @@ function RSAStudio() {
       }
     } catch (_) {
       setFeedOutputs(prev => prev[output.link] ? { ...prev, [output.link]: { ...prev[output.link], approving: false, approveError: 'Approve failed — please try again.' } } : prev);
+    }
+  };
+  // "Generate & leave": hand the selected products to the server-side batch worker (overnight / walk-away).
+  // Creates a job (/api/feed-jobs) then starts the chain (/api/feed-worker). Finished ads land in the
+  // Library as 'pending_review', so the browser can close. Signed-in only (a job needs an owner).
+  const runFeedLeave = async (picks) => {
+    if (!picks || !picks.length || feedLeaveBusy) return;
+    if (!isSignedIn) { setFeedLeaveMsg('Sign in to run an overnight batch.'); return; }
+    setFeedLeaveBusy(true); setFeedLeaveMsg('');
+    try {
+      const token = (isSignedIn && session) ? await session.getToken() : null;
+      const headers = { 'Content-Type': 'application/json', ...(isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}), ...(token ? { 'x-clerk-session': token } : {}) };
+      const createRes = await fetch('/api/feed-jobs', { method: 'POST', headers, body: JSON.stringify({ action: 'create', picks, language: (feedResult && feedResult.language) || 'English', source: feedSource || '' }) });
+      const createData = await createRes.json().catch(() => ({}));
+      if (!createRes.ok || !createData.id) { setFeedLeaveMsg((createData && createData.error) || ('Could not queue the batch (' + createRes.status + ').')); setFeedLeaveBusy(false); return; }
+      const startRes = await fetch('/api/feed-worker', { method: 'POST', headers, body: JSON.stringify({ phase: 'start', jobId: createData.id }) });
+      const startData = await startRes.json().catch(() => ({}));
+      if (!startRes.ok || !startData.ok) { setFeedLeaveMsg((startData && startData.error) || ('Queued but could not start (' + startRes.status + ').')); setFeedLeaveBusy(false); return; }
+      setFeedSel({});
+      setFeedLeaveMsg('\u2713 ' + picks.length + ' ad' + (picks.length === 1 ? '' : 's') + ' queued — they\'ll appear in your Library as they finish. You can safely close this tab.');
+    } catch (_) {
+      setFeedLeaveMsg('Could not reach the batch service — please try again.');
+    } finally {
+      setFeedLeaveBusy(false);
     }
   };
   const discardFeedOutput = (link) => setFeedOutputs(prev => { const n = { ...prev }; delete n[link]; return n; });
@@ -5600,8 +5626,16 @@ STRICT rules:
                       ) : (
                         <span style={{ fontSize: 11.5, color: "#9db0c7" }}>{totalSelCount} selected across {feedGroupBy === 'brand' ? 'brands' : 'categories'}</span>
                       )}
-                      <button onClick={runFeedBatch} disabled={totalSelCount === 0 || feedBatchBusy} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (totalSelCount === 0 || feedBatchBusy) ? "default" : "pointer", background: (totalSelCount === 0 || feedBatchBusy) ? "rgba(99,102,241,0.35)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{feedBatchBusy ? 'Generating…' : ('⚡ Generate ' + (totalSelCount || '') + ' selected →')}</button>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        {isSignedIn && (
+                          <button onClick={() => runFeedLeave(allSelectedPicks)} disabled={totalSelCount === 0 || feedLeaveBusy || feedBatchBusy} title="Generate on the server and come back later — results land in your Library. You can close the tab." style={{ padding: "7px 12px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(45,212,191,0.5)", cursor: (totalSelCount === 0 || feedLeaveBusy || feedBatchBusy) ? "default" : "pointer", background: "rgba(45,212,191,0.14)", color: "#5eead4", whiteSpace: "nowrap", opacity: (totalSelCount === 0 || feedLeaveBusy || feedBatchBusy) ? 0.5 : 1 }}>{feedLeaveBusy ? 'Queuing…' : '🌙 Generate & leave'}</button>
+                        )}
+                        <button onClick={runFeedBatch} disabled={totalSelCount === 0 || feedBatchBusy} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (totalSelCount === 0 || feedBatchBusy) ? "default" : "pointer", background: (totalSelCount === 0 || feedBatchBusy) ? "rgba(99,102,241,0.35)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{feedBatchBusy ? 'Generating…' : ('⚡ Generate ' + (totalSelCount || '') + ' selected →')}</button>
+                      </div>
                     </div>
+                  )}
+                  {feedLeaveMsg && (
+                    <div style={{ fontSize: 11, color: feedLeaveMsg.charAt(0) === '\u2713' ? "#5eead4" : "#fca5a5", marginBottom: 12, padding: "8px 10px", borderRadius: 8, background: feedLeaveMsg.charAt(0) === '\u2713' ? "rgba(45,212,191,0.08)" : "rgba(252,165,165,0.08)", border: "1px solid " + (feedLeaveMsg.charAt(0) === '\u2713' ? "rgba(45,212,191,0.25)" : "rgba(252,165,165,0.25)"), lineHeight: 1.45 }}>{feedLeaveMsg}</div>
                   )}
                   {shown.length === 0 ? (
                     <div style={{ fontSize: 12, color: "#7e92a8", padding: "16px 0", textAlign: "center" }}>No products match this filter.</div>

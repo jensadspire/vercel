@@ -30,6 +30,7 @@ export const config = { api: { bodyParser: { sizeLimit: '8mb' } } };
 
 const WORKER_SECRET = process.env.FEED_WORKER_SECRET || '';
 const BASE = process.env.PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+const QSTASH_URL = (process.env.QSTASH_URL || 'https://qstash.upstash.io').replace(/\/+$/, '');
 
 const FIRST_POLL_DELAY = 60;   // s before the first render poll (most renders need ≥1 min)
 const POLL_INTERVAL    = 15;   // s between subsequent polls
@@ -91,7 +92,7 @@ async function enqueue(phase, payload, delaySeconds) {
     'Upstash-Forward-x-feed-worker-secret': WORKER_SECRET,
   };
   if (delaySeconds > 0) headers['Upstash-Delay'] = `${Math.round(delaySeconds)}s`;
-  const res = await fetch(`https://qstash.upstash.io/v2/publish/${dest}`, {
+  const res = await fetch(`${QSTASH_URL}/v2/publish/${dest}`, {
     method: 'POST', headers, body: JSON.stringify({ phase, ...payload }),
   });
   if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`QStash ${res.status} ${t.slice(0, 160)}`); }
