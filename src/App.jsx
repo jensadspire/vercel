@@ -3199,6 +3199,13 @@ function RSAStudio() {
     const t = setInterval(() => { fetchVaultJobs(); fetchVault(); }, 12000);
     return () => clearInterval(t);
   }, [showVault, vaultJobs]);
+  // Keep the Bulk Feed card's batch-progress badge fresh on the home view (poll jobs while signed in).
+  useEffect(() => {
+    if (!isSignedIn) return;
+    fetchVaultJobs();
+    const t = setInterval(fetchVaultJobs, 30000);
+    return () => clearInterval(t);
+  }, [isSignedIn]);
 
   // Rebuild the view-mode snapshot from a stored Creative (inverse of the Save mapping).
   const rebuildFromCreative = (c) => {
@@ -5460,6 +5467,12 @@ STRICT rules:
                 </div>
                 <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Ingest your whole catalog from a Shopify store or Google Merchant feed and turn it into ads in bulk — built for high-volume seasons and agencies.</div>
                 <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#2dd4bf" }}>Connect a feed →</div>
+                {(() => {
+                  const active = vaultJobs.filter(j => j && (j.status === 'scheduled' || j.status === 'queued' || j.status === 'running'));
+                  const n = active.reduce((s, j) => { const c = j.counts || {}; return s + Math.max(0, (c.total || 0) - (c.done || 0) - (c.failed || 0)); }, 0);
+                  if (!n) return null;
+                  return <div onClick={(e) => { e.stopPropagation(); openVault(); }} title="View batch progress in your Library" style={{ marginTop: 10, fontSize: 11, fontWeight: 800, color: "#c4b5fd", background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.35)", borderRadius: 8, padding: "6px 10px", display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>🌙 {n} ad{n === 1 ? '' : 's'} in progress · view →</div>;
+                })()}
               </div>
               {/* Ad Library (Vault) */}
               <div onClick={openVault} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(99,102,241,0.3)", background: "linear-gradient(135deg,rgba(99,102,241,0.10),rgba(139,92,246,0.06))", cursor: "pointer", position: "relative" }}>
