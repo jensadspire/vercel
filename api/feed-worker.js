@@ -81,7 +81,7 @@ async function itemUpdate(jobId, link, patch) {
 }
 
 // Schedule a delayed call to ourselves via QStash (the chain's clock).
-async function enqueue(phase, payload, delaySeconds) {
+async function enqueue(phase, payload, delaySeconds, notBefore) {
   const token = process.env.QSTASH_TOKEN;
   if (!token || !BASE) throw new Error('QStash/base URL not configured');
   const dest = `${BASE}/api/feed-worker`;
@@ -91,7 +91,8 @@ async function enqueue(phase, payload, delaySeconds) {
     'Upstash-Method': 'POST',
     'Upstash-Forward-x-feed-worker-secret': WORKER_SECRET,
   };
-  if (delaySeconds > 0) headers['Upstash-Delay'] = `${Math.round(delaySeconds)}s`;
+  if (notBefore && notBefore > 0) headers['Upstash-Not-Before'] = String(Math.floor(notBefore));
+  else if (delaySeconds > 0) headers['Upstash-Delay'] = `${Math.round(delaySeconds)}s`;
   const res = await fetch(`${QSTASH_URL}/v2/publish/${dest}`, {
     method: 'POST', headers, body: JSON.stringify({ phase, ...payload }),
   });
@@ -291,8 +292,10 @@ export default async function handler(req, res) {
       if (job.ownerId !== ownerId) return res.status(403).json({ error: 'Not your job.' });
       if (job.status === 'cancelled' || job.status === 'done') return res.status(200).json({ ok: true, status: job.status });
       if (!process.env.QSTASH_TOKEN || !BASE) return res.status(503).json({ error: 'Batch worker not configured (QStash / base URL).' });
-      await enqueue('a', { jobId: job.id, index: 0 }, 0);
-      return res.status(200).json({ ok: true, started: job.id, total: (job.items || []).length });
+      let notBefore = 0;
+      if (job.runAt) { const t = new Date(job.runAt).getTime(); if (Number.isFinite(t) && t > Date.now() + 5000) notBefore = Math.floor(t / 1000); }
+      await enqueue('a', { jobId: job.id, index: 0 }, 0, notBefore);
+      return res.status(200).json({ ok: true, started: job.id, total: (job.items || []).length, scheduledFor: notBefore ? job.runAt : null });
     }
 
     // Internal phases require the worker secret.

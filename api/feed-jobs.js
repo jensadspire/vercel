@@ -94,12 +94,13 @@ function rollup(job) {
   const items = job.items || [];
   const done = items.filter(i => i.status === 'ready').length;
   const failed = items.filter(i => i.status === 'failed').length;
+  const generating = items.filter(i => i.status === 'generating').length;
   job.counts = { total: items.length, done, failed };
   if (job.status === 'cancelled') return job; // cancelled is terminal — never overwritten by rollup
   const terminal = done + failed;
   if (terminal >= items.length && items.length > 0) {
     job.status = failed >= items.length ? 'failed' : 'done'; // all-failed = failed, otherwise done (counts tell the rest)
-  } else if (terminal > 0) {
+  } else if (terminal > 0 || generating > 0) {
     job.status = 'running';
   }
   return job;

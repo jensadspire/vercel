@@ -2783,6 +2783,7 @@ function RSAStudio() {
   const [feedBatchBusy, setFeedBatchBusy] = useState(false);
   const [feedLeaveBusy, setFeedLeaveBusy] = useState(false);   // "Generate & leave" (overnight job) in flight
   const [feedLeaveMsg, setFeedLeaveMsg] = useState('');        // confirmation / error after queuing an overnight job
+  const [feedLeaveAt, setFeedLeaveAt] = useState('');          // optional schedule time (datetime-local) for "Generate & leave"
   const [feedTermsAccepted, setFeedTermsAccepted] = useState(() => { try { return localStorage.getItem('rsa_feed_terms_v1') === '1'; } catch (_) { return false; } });
   const [feedTermsOpen, setFeedTermsOpen] = useState(false);
   const acceptFeedTerms = (v) => { setFeedTermsAccepted(v); try { if (v) localStorage.setItem('rsa_feed_terms_v1', '1'); else localStorage.removeItem('rsa_feed_terms_v1'); } catch (_) {} };
@@ -3133,21 +3134,22 @@ function RSAStudio() {
   // "Generate & leave": hand the selected products to the server-side batch worker (overnight / walk-away).
   // Creates a job (/api/feed-jobs) then starts the chain (/api/feed-worker). Finished ads land in the
   // Library as 'pending_review', so the browser can close. Signed-in only (a job needs an owner).
-  const runFeedLeave = async (picks) => {
+  const runFeedLeave = async (picks, at) => {
     if (!picks || !picks.length || feedLeaveBusy) return;
     if (!isSignedIn) { setFeedLeaveMsg('Sign in to run an overnight batch.'); return; }
+    const runAtISO = (() => { if (!at) return null; const t = new Date(at).getTime(); return (Number.isFinite(t) && t > Date.now()) ? new Date(t).toISOString() : null; })();
     setFeedLeaveBusy(true); setFeedLeaveMsg('');
     try {
       const token = (isSignedIn && session) ? await session.getToken() : null;
       const headers = { 'Content-Type': 'application/json', ...(isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}), ...(token ? { 'x-clerk-session': token } : {}) };
-      const createRes = await fetch('/api/feed-jobs', { method: 'POST', headers, body: JSON.stringify({ action: 'create', picks, language: (feedResult && feedResult.language) || 'English', source: feedSource || '' }) });
+      const createRes = await fetch('/api/feed-jobs', { method: 'POST', headers, body: JSON.stringify({ action: 'create', picks, language: (feedResult && feedResult.language) || 'English', source: feedSource || '', runAt: runAtISO }) });
       const createData = await createRes.json().catch(() => ({}));
       if (!createRes.ok || !createData.id) { setFeedLeaveMsg((createData && createData.error) || ('Could not queue the batch (' + createRes.status + ').')); setFeedLeaveBusy(false); return; }
       const startRes = await fetch('/api/feed-worker', { method: 'POST', headers, body: JSON.stringify({ phase: 'start', jobId: createData.id }) });
       const startData = await startRes.json().catch(() => ({}));
       if (!startRes.ok || !startData.ok) { setFeedLeaveMsg((startData && startData.error) || ('Queued but could not start (' + startRes.status + ').')); setFeedLeaveBusy(false); return; }
       setFeedSel({});
-      setFeedLeaveMsg('\u2713 ' + picks.length + ' ad' + (picks.length === 1 ? '' : 's') + ' queued — they\'ll appear in your Library as they finish. You can safely close this tab.');
+      setFeedLeaveMsg('\u2713 ' + picks.length + ' ad' + (picks.length === 1 ? '' : 's') + (runAtISO ? (' scheduled for ' + new Date(runAtISO).toLocaleString() + ' — they\'ll appear in your Library after they run.') : ' queued — they\'ll appear in your Library as they finish. You can safely close this tab.'));
     } catch (_) {
       setFeedLeaveMsg('Could not reach the batch service — please try again.');
     } finally {
@@ -5644,7 +5646,10 @@ STRICT rules:
                       )}
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         {isSignedIn && (
-                          <button onClick={() => runFeedLeave(allSelectedPicks)} disabled={totalSelCount === 0 || feedLeaveBusy || feedBatchBusy} title="Generate on the server and come back later — results land in your Library. You can close the tab." style={{ padding: "7px 12px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(45,212,191,0.5)", cursor: (totalSelCount === 0 || feedLeaveBusy || feedBatchBusy) ? "default" : "pointer", background: "rgba(45,212,191,0.14)", color: "#5eead4", whiteSpace: "nowrap", opacity: (totalSelCount === 0 || feedLeaveBusy || feedBatchBusy) ? 0.5 : 1 }}>{feedLeaveBusy ? 'Queuing…' : '🌙 Generate & leave'}</button>
+                          <>
+                            <input type="datetime-local" value={feedLeaveAt} onChange={e => setFeedLeaveAt(e.target.value)} title="Optional — schedule this batch for later (leave empty to run now)" style={{ padding: "5px 7px", fontSize: 11, borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.14)", colorScheme: "dark" }} />
+                            <button onClick={() => runFeedLeave(allSelectedPicks, feedLeaveAt)} disabled={totalSelCount === 0 || feedLeaveBusy || feedBatchBusy} title="Generate on the server and come back later — results land in your Library. You can close the tab." style={{ padding: "7px 12px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(45,212,191,0.5)", cursor: (totalSelCount === 0 || feedLeaveBusy || feedBatchBusy) ? "default" : "pointer", background: "rgba(45,212,191,0.14)", color: "#5eead4", whiteSpace: "nowrap", opacity: (totalSelCount === 0 || feedLeaveBusy || feedBatchBusy) ? 0.5 : 1 }}>{feedLeaveBusy ? 'Queuing…' : (feedLeaveAt ? '🌙 Schedule →' : '🌙 Generate & leave')}</button>
+                          </>
                         )}
                         <button onClick={runFeedBatch} disabled={totalSelCount === 0 || feedBatchBusy} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (totalSelCount === 0 || feedBatchBusy) ? "default" : "pointer", background: (totalSelCount === 0 || feedBatchBusy) ? "rgba(99,102,241,0.35)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{feedBatchBusy ? 'Generating…' : ('⚡ Generate ' + (totalSelCount || '') + ' selected →')}</button>
                       </div>
@@ -5758,7 +5763,7 @@ STRICT rules:
                 const inflight = Math.max(0, (c.total || 0) - (c.done || 0) - (c.failed || 0));
                 return (
                 <div key={j.id} style={{ fontSize: 11.5, fontWeight: 700, color: "#c4b5fd", marginBottom: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(139,92,246,0.10)", border: "1px solid rgba(139,92,246,0.3)", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                  🌙 Overnight batch · {c.total} ad{c.total === 1 ? '' : 's'} · {c.done} done{c.failed ? ' · ' + c.failed + ' failed' : ''} · {j.status === 'scheduled' ? 'scheduled' : inflight + ' generating…'}
+                  🌙 Overnight batch · {c.total} ad{c.total === 1 ? '' : 's'} · {c.done} done{c.failed ? ' · ' + c.failed + ' failed' : ''} · {j.status === 'scheduled' ? ('scheduled' + (j.runAt ? ' for ' + new Date(j.runAt).toLocaleString() : '')) : inflight + ' generating…'}
                 </div>
                 );
               })}
