@@ -2799,6 +2799,31 @@ function RSAStudio() {
     } catch (_) {}
   }, []);
 
+  // Staging safety net: restore the Outputs buffer on mount (24h TTL, mirrors rsa_feed_cache_v1).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('rsa_feed_outputs_v1');
+      if (!raw) return;
+      const c = JSON.parse(raw);
+      if (c && c.outputs && (Date.now() - (c.ts || 0) < 86400000)) {
+        const keys = Object.keys(c.outputs);
+        if (keys.length) setFeedOutputs(c.outputs);
+      }
+    } catch (_) {}
+  }, []);
+
+  // Staging safety net: persist ready outputs on change (ready-only, transient flags stripped, cap 60).
+  useEffect(() => {
+    try {
+      const ready = Object.entries(feedOutputs).filter(([, o]) => o && o.status === 'ready');
+      if (!ready.length) return; // only clearFeed/new fetch empties the buffer — it wipes the key itself.
+      const capped = ready.slice(-60);
+      const out = {};
+      for (const [link, o] of capped) { const { approving, approveError, ...keep } = o; out[link] = keep; }
+      localStorage.setItem('rsa_feed_outputs_v1', JSON.stringify({ ts: Date.now(), outputs: out }));
+    } catch (_) {}
+  }, [feedOutputs]);
+
   // ── Bulk Feed B-path: build a full ad (RSA + Meta + storyboard) from a feed product
   // record — NO scrape (feed image_link + copy fed directly). Returns an entry-shaped
   // snapshot the overview can replay. Isolated; single-URL flow + original endpoints untouched.
@@ -3188,6 +3213,7 @@ function RSAStudio() {
     setFeedView('products'); setFeedOutputs({});
     acceptFeedTerms(false); // re-require terms acceptance for the next (possibly different-client) feed
     try { localStorage.removeItem('rsa_feed_cache_v1'); } catch (_) {}
+    try { localStorage.removeItem('rsa_feed_outputs_v1'); } catch (_) {}
   };
   // ── Personas Builder: UGC source selector (Phase 1) ──
   const [ugcData, setUgcData] = useState(null);           // { detected, providers, images } | null
@@ -5505,7 +5531,7 @@ STRICT rules:
                       })}
                     </div>
                     )}
-                    <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Click a ready output to review it in the full editor and publish, then come back here for the next. Outputs stay for this session.</div>
+                    <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Click a ready output to review it in the full editor and publish, then come back here for the next. Kept in your browser for 24h — Save to your Library to keep permanently.</div>
                   </>
                   );
                 }
