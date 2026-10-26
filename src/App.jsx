@@ -3163,6 +3163,7 @@ function RSAStudio() {
   const [vaultError, setVaultError] = useState('');
   const [vaultStatus, setVaultStatus] = useState('all');  // all | unpublished | published
   const [vaultSort, setVaultSort] = useState('date');      // date | score
+  const [vaultJobs, setVaultJobs] = useState([]);          // in-flight overnight batches (progress readout)
   const [vaultBusy, setVaultBusy] = useState(null);        // id with an action in flight
   const [vaultConfirm, setVaultConfirm] = useState(null);  // id pending remove-confirm
 
@@ -3180,7 +3181,22 @@ function RSAStudio() {
     } catch (_) { setVaultError('Library request failed — please try again.'); }
     finally { setVaultLoading(false); }
   };
-  const openVault = () => { setShowVault(true); setVaultConfirm(null); fetchVault(); };
+  const fetchVaultJobs = async () => {
+    try {
+      const res = await fetch('/api/feed-jobs', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'list' }) });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && Array.isArray(data.jobs)) setVaultJobs(data.jobs);
+    } catch (_) {}
+  };
+  const openVault = () => { setShowVault(true); setVaultConfirm(null); fetchVault(); fetchVaultJobs(); };
+  // While the Library is open and a batch is still running, poll jobs + items so finished ads appear live.
+  useEffect(() => {
+    if (!showVault) return;
+    const active = vaultJobs.some(j => j && (j.status === 'queued' || j.status === 'running' || j.status === 'scheduled'));
+    if (!active) return;
+    const t = setInterval(() => { fetchVaultJobs(); fetchVault(); }, 12000);
+    return () => clearInterval(t);
+  }, [showVault, vaultJobs]);
 
   // Rebuild the view-mode snapshot from a stored Creative (inverse of the Save mapping).
   const rebuildFromCreative = (c) => {
@@ -5701,7 +5717,13 @@ STRICT rules:
 
         {showVault && (() => {
           const items = vaultItems
-            .filter(it => vaultStatus === 'all' ? true : (it.publishStatus || 'unpublished') === vaultStatus)
+            .filter(it => {
+              if (vaultStatus === 'all') return true;
+              if (vaultStatus === 'pending') return it.status === 'pending_review';
+              if (vaultStatus === 'published') return (it.publishStatus || 'unpublished') === 'published';
+              if (vaultStatus === 'unpublished') return (it.publishStatus || 'unpublished') === 'unpublished' && it.status !== 'pending_review';
+              return true;
+            })
             .slice()
             .sort((a, b) => vaultSort === 'score'
               ? (((b.score ?? -1) - (a.score ?? -1)) || (new Date(b.savedAt || b.createdAt) - new Date(a.savedAt || a.createdAt)))
@@ -5715,12 +5737,13 @@ STRICT rules:
           <div onClick={() => setShowVault(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
             <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 940, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "#0f172a", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16, padding: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
-                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>◳ Ad Library <span style={{ fontSize: 12, fontWeight: 800, color: "#a5b4fc" }}>· {vaultItems.length} saved</span></span>
+                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>◳ Ad Library <span style={{ fontSize: 12, fontWeight: 800, color: "#a5b4fc" }}>· {vaultItems.length} saved{(() => { const p = vaultItems.filter(it => it.status === 'pending_review').length; return p ? ' · ' + p + ' pending' : ''; })()}</span></span>
                 <button onClick={() => setShowVault(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap", flexShrink: 0 }}>
                 <select value={vaultStatus} onChange={e => setVaultStatus(e.target.value)} style={selStyle}>
                   <option value="all">All</option>
+                  <option value="pending">Pending review</option>
                   <option value="unpublished">Unpublished</option>
                   <option value="published">Published</option>
                 </select>
@@ -5730,6 +5753,15 @@ STRICT rules:
                 </select>
                 <button onClick={fetchVault} disabled={vaultLoading} style={{ padding: "6px 12px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", cursor: vaultLoading ? "default" : "pointer" }}>{vaultLoading ? 'Loading…' : '↻ Refresh'}</button>
               </div>
+              {vaultJobs.filter(j => j && (j.status === 'queued' || j.status === 'running' || j.status === 'scheduled')).map(j => {
+                const c = j.counts || { total: 0, done: 0, failed: 0 };
+                const inflight = Math.max(0, (c.total || 0) - (c.done || 0) - (c.failed || 0));
+                return (
+                <div key={j.id} style={{ fontSize: 11.5, fontWeight: 700, color: "#c4b5fd", marginBottom: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(139,92,246,0.10)", border: "1px solid rgba(139,92,246,0.3)", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  🌙 Overnight batch · {c.total} ad{c.total === 1 ? '' : 's'} · {c.done} done{c.failed ? ' · ' + c.failed + ' failed' : ''} · {j.status === 'scheduled' ? 'scheduled' : inflight + ' generating…'}
+                </div>
+                );
+              })}
               {vaultError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10, flexShrink: 0 }}>{vaultError}</div>}
               <div style={{ flex: 1, overflowY: "auto" }}>
                 {vaultLoading && !items.length ? (
@@ -5753,7 +5785,9 @@ STRICT rules:
                         <div style={{ fontSize: 12.5, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.productTitle || '(untitled)'}</div>
                         <div style={{ fontSize: 10.5, color: "#7e92a8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{[it.domain, engLabel(it.engine), fmtDate(it.savedAt)].filter(Boolean).join(' · ')}</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                          <span style={chip((it.publishStatus === 'published') ? "rgba(16,185,129,0.14)" : "rgba(255,255,255,0.04)", (it.publishStatus === 'published') ? "#34d399" : "#9db0c7", (it.publishStatus === 'published') ? "rgba(16,185,129,0.4)" : "rgba(255,255,255,0.1)")}>{it.publishStatus === 'published' ? 'Published' : 'Unpublished'}</span>
+                          {it.status === 'pending_review'
+                            ? <span style={chip("rgba(251,191,36,0.14)", "#fbbf24", "rgba(251,191,36,0.4)")}>⏳ Pending review</span>
+                            : <span style={chip((it.publishStatus === 'published') ? "rgba(16,185,129,0.14)" : "rgba(255,255,255,0.04)", (it.publishStatus === 'published') ? "#34d399" : "#9db0c7", (it.publishStatus === 'published') ? "rgba(16,185,129,0.4)" : "rgba(255,255,255,0.1)")}>{it.publishStatus === 'published' ? 'Published' : 'Unpublished'}</span>}
                           {it.promo ? <span style={chip("rgba(45,212,191,0.14)", "#5eead4", "rgba(45,212,191,0.4)")}>SALE</span> : null}
                           {it.personaUsed ? <span style={chip("rgba(139,92,246,0.14)", "#c4b5fd", "rgba(139,92,246,0.4)")}>Persona</span> : null}
                           {it.language && it.language !== 'English' ? <span style={chip("rgba(255,255,255,0.04)", "#9db0c7", "rgba(255,255,255,0.1)")}>{it.language}</span> : null}
