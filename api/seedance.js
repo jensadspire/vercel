@@ -72,7 +72,7 @@ export default async function handler(req, res) {
         const rawVideoUrl = result.video?.url || result.video_url || null;
         console.log('[seedance] COMPLETED - rawVideoUrl:', rawVideoUrl, '| seed:', result.seed);
 
-        if (!rawVideoUrl) return res.status(200).json({ status: 'COMPLETED', videoUrl: null, seed: result.seed ?? null });
+        if (!rawVideoUrl) return res.status(200).json({ status: 'COMPLETED', videoUrl: null, seed: result.seed ?? null, raw: JSON.stringify(result).slice(0, 1000) });
 
         // EU AI Act: shared label+store stage (fail-open), same as the other engines.
         const { url: videoUrl, labelled } = await labelAndStore(rawVideoUrl, 'seedance');
