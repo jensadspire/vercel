@@ -28,6 +28,8 @@ import { labelAndStore } from './_ai-label.js';
 
 const SEEDANCE_STD  = 'bytedance/seedance-2.0/reference-to-video';
 const SEEDANCE_FAST = 'bytedance/seedance-2.0/fast/reference-to-video';
+const SEEDANCE_IMG      = 'bytedance/seedance-2.0/image-to-video';
+const SEEDANCE_IMG_FAST = 'bytedance/seedance-2.0/fast/image-to-video';
 const SEEDANCE_BASE = 'bytedance/seedance-2.0'; // queue base for status/result polling
 
 export const config = { api: { bodyParser: { sizeLimit: '6mb' } } };
@@ -45,7 +47,7 @@ export default async function handler(req, res) {
   const {
     imageUrls, prompt,
     duration = '8', resolution = '720p', aspectRatio = '9:16',
-    generateAudio = false, seed, fast = false,
+    generateAudio = false, seed, fast = false, mode = 'reference',
     action = 'create', requestId, statusUrl, responseUrl,
   } = req.body || {};
 
@@ -97,17 +99,29 @@ export default async function handler(req, res) {
     if (!prompt || !String(prompt).trim()) return res.status(400).json({ error: 'prompt required' });
     if (imageUrls.length > 9) return res.status(400).json({ error: 'Seedance accepts at most 9 reference images.' });
 
-    const body = {
-      prompt: String(prompt).slice(0, 5000),
-      image_urls: imageUrls.slice(0, 9),
-      resolution,
-      duration: String(duration),
-      aspect_ratio: aspectRatio,
-      generate_audio: !!generateAudio,
-      ...(Number.isInteger(seed) ? { seed } : {}),
-    };
+    const isImageMode = mode === 'image';
+    const body = isImageMode
+      ? {
+          prompt: String(prompt).slice(0, 5000),
+          image_url: imageUrls[0],                 // animate this frame directly — identity-preserving, lighter moderation
+          resolution,
+          duration: String(duration),
+          aspect_ratio: aspectRatio,
+          generate_audio: !!generateAudio,
+          ...(Number.isInteger(seed) ? { seed } : {}),
+        }
+      : {
+          prompt: String(prompt).slice(0, 5000),
+          image_urls: imageUrls.slice(0, 9),
+          resolution,
+          duration: String(duration),
+          aspect_ratio: aspectRatio,
+          generate_audio: !!generateAudio,
+          ...(Number.isInteger(seed) ? { seed } : {}),
+        };
 
-    const submitRes = await fetch(`https://queue.fal.run/${fast ? SEEDANCE_FAST : SEEDANCE_STD}`, {
+    const slug = isImageMode ? (fast ? SEEDANCE_IMG_FAST : SEEDANCE_IMG) : (fast ? SEEDANCE_FAST : SEEDANCE_STD);
+    const submitRes = await fetch(`https://queue.fal.run/${slug}`, {
       method: 'POST', headers: jsonHeaders, body: JSON.stringify(body),
     });
     const submitData = await safeJson(submitRes);
