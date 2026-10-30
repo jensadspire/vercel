@@ -3490,6 +3490,17 @@ function RSAStudio() {
     setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
   };
+  const recreateOnPersona = (it) => {
+    if (!it) return;
+    setSeqProductUrl(it.thumb || '');
+    const prod = it.productTitle ? (it.productTitle + ' ') : '';
+    setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
+    setSeqResults([]); setSeqMsg(''); setSeqErr('');
+    setSeqName(it.productTitle ? (it.productTitle + ' — persona') : '');
+    setSeqPersona(null);
+    setShowVault(false);
+    openSeqBuilder();
+  };
   // ── UGC ad generation (slice 3) — self-contained; branded flow untouched ──
   const [ugcAdResult, setUgcAdResult] = useState(null);   // generate-meta-ugc response | null
   const [ugcAdLoading, setUgcAdLoading] = useState(false);
@@ -6076,6 +6087,7 @@ STRICT rules:
                             {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
                           </select>
                         </div>
+                        <button onClick={() => recreateOnPersona(it)} disabled={busy} title="Feature this product on one of your saved personas" style={{ padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#f59e0b)", color: "white", marginTop: 2 }}>✨ Recreate on a persona</button>
                         <div style={{ display: "flex", gap: 6, marginTop: "auto" }}>
                           <button onClick={() => openVaultItem(it)} disabled={busy} style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{busy ? '…' : 'Open'}</button>
                           {vaultConfirm === it.id ? (
