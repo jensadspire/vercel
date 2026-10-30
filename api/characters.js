@@ -143,6 +143,11 @@ export default async function handler(req, res) {
         seedImageUrl: body.seedImageUrl || (existing && existing.seedImageUrl) || null,
         thumbnailUrl: body.thumbnailUrl || (existing && existing.thumbnailUrl) || null,
 
+        // Seedance (BytePlus) asset reference — links this library character to its authorized asset:// id,
+        // so one saved persona can feed many ad-templates. Set after asset-library ingest reaches Active.
+        seedanceAssetUri: body.seedanceAssetUri || (existing && existing.seedanceAssetUri) || null,
+        seedanceGroupId:  body.seedanceGroupId  || (existing && existing.seedanceGroupId)  || null,
+
         // derived — managed by the creatives hook (Step 3)
         videoCount: existing ? (existing.videoCount || 0) : 0,
         lastUsedAt: existing ? (existing.lastUsedAt || null) : null,
