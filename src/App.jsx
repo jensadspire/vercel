@@ -3380,6 +3380,48 @@ function RSAStudio() {
       setCharLib(prev => Array.isArray(prev) ? prev.filter(c => c.id !== id) : prev);
     } catch (_) {}
   };
+  // ── Synthetic Persona creator (generate face → mint asset:// → save to library) ──
+  const [synPrompt, setSynPrompt] = useState('');
+  const [synAspect, setSynAspect] = useState('3:4');
+  const [synName, setSynName] = useState('');
+  const [synImg, setSynImg] = useState('');
+  const [synBusy, setSynBusy] = useState(false);
+  const [synStage, setSynStage] = useState('');
+  const [synErr, setSynErr] = useState('');
+  const [synMsg, setSynMsg] = useState('');
+  const generatePersona = async () => {
+    if (!synPrompt.trim()) { setSynErr('Describe the persona first.'); return; }
+    setSynBusy(true); setSynErr(''); setSynMsg(''); setSynImg(''); setSynStage('Generating face…');
+    try {
+      const d = await fetch('/api/persona-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'flux', aspectRatio: synAspect, prompt: synPrompt }) }).then(r => r.json());
+      if (d && d.imageUrl) { setSynImg(d.imageUrl); setSynStage(''); }
+      else { setSynErr(d && d.error ? d.error : 'Generation failed.'); setSynStage(''); }
+    } catch (_) { setSynErr('Generation failed — please try again.'); setSynStage(''); }
+    finally { setSynBusy(false); }
+  };
+  const saveSyntheticPersona = async () => {
+    if (!synImg) { setSynErr('Generate a persona first.'); return; }
+    setSynBusy(true); setSynErr(''); setSynMsg('');
+    try {
+      setSynStage('Minting asset (ingesting)…');
+      const ing = await fetch('/api/seedance-asset-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'ingest', subject: (synName.trim() || 'Persona'), imageUrl: synImg }) }).then(r => r.json());
+      if (!ing || !ing.assetId) { setSynErr(ing && ing.error ? ('Ingest failed: ' + ing.error) : 'Ingest failed.'); setSynStage(''); setSynBusy(false); return; }
+      setSynStage('Authorizing (moderation)…');
+      let status = 'Processing', tries = 0;
+      while (status !== 'Active' && status !== 'Failed' && tries < 40) {
+        await new Promise(function (res) { setTimeout(res, 3000); });
+        const st = await fetch('/api/seedance-asset-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'assetStatus', assetId: ing.assetId }) }).then(r => r.json());
+        status = (st && st.status) ? st.status : status; tries++;
+      }
+      if (status !== 'Active') { setSynErr('Asset did not reach Active (status: ' + status + ').'); setSynStage(''); setSynBusy(false); return; }
+      setSynStage('Saving to library…');
+      const body = { action: 'save', source: 'synthetic', type: 'Synthetic', shot: 'other', name: synName.trim() || 'Synthetic persona', thumbnailUrl: synImg, seedImageUrl: synImg, referenceImages: [synImg], seedanceAssetUri: ing.assetUri, seedanceGroupId: ing.groupId || null };
+      const d = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
+      if (d && d.character) { setSynMsg('✓ Saved to your library'); setSynImg(''); setSynPrompt(''); setSynName(''); setSynStage(''); if (charLib !== null) loadCharLibrary(); }
+      else { setSynErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); setSynStage(''); }
+    } catch (_) { setSynErr('Save failed — please try again.'); setSynStage(''); }
+    finally { setSynBusy(false); }
+  };
   // ── UGC ad generation (slice 3) — self-contained; branded flow untouched ──
   const [ugcAdResult, setUgcAdResult] = useState(null);   // generate-meta-ugc response | null
   const [ugcAdLoading, setUgcAdLoading] = useState(false);
@@ -6049,6 +6091,34 @@ STRICT rules:
                     </div>
                     );
                   })()}
+                </div>
+
+                {/* 2a · Create a synthetic persona (generate → mint asset → library) */}
+                <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.06)", marginBottom: 20 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e2e8f0", marginBottom: 2 }}>Create a synthetic persona</div>
+                  <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>Describe an <strong style={{ color: "#c4b5fd" }}>invented</strong> character — not a real person. We generate the face, authorize it as a reusable asset, and add it to your library for sequential ads.</div>
+                  <textarea value={synPrompt} onChange={function (e) { setSynPrompt(e.target.value); }} placeholder="e.g. A 26-year-old woman, wavy dark-blonde hair, friendly natural smile, minimal makeup, plain cream t-shirt, soft studio background." rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", fontSize: 12, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 8 }} />
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+                    <input value={synName} onChange={function (e) { setSynName(e.target.value); }} placeholder="Persona name (optional)" style={{ flex: "1 1 140px", minWidth: 0, padding: "7px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                    <select value={synAspect} onChange={function (e) { setSynAspect(e.target.value); }} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                      <option value="3:4">Portrait 3:4</option>
+                      <option value="9:16">Vertical 9:16</option>
+                      <option value="1:1">Square 1:1</option>
+                    </select>
+                  </div>
+                  <button onClick={generatePersona} disabled={synBusy} style={{ padding: "8px 14px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", cursor: synBusy ? "default" : "pointer", background: synBusy ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{(synBusy && !synImg) ? "⟳ Working…" : (synImg ? "↻ Regenerate" : "✨ Generate persona")}</button>
+                  {synStage ? <div style={{ fontSize: 11, color: "#fbbf24", marginTop: 10 }}>⟳ {synStage}</div> : null}
+                  {synErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginTop: 10, lineHeight: 1.4 }}>{synErr}</div> : null}
+                  {synMsg ? <div style={{ fontSize: 11, color: "#34d399", marginTop: 10 }}>{synMsg}</div> : null}
+                  {synImg ? (
+                    <div style={{ marginTop: 12, display: "flex", gap: 12 }}>
+                      <img src={synImg} alt="" style={{ width: 110, borderRadius: 10, background: "#1e293b", flexShrink: 0, alignSelf: "flex-start" }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 10.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>Happy with the face? Save it — we authorize it as a reusable asset (~10–20s moderation) and add it to your library.</div>
+                        <button onClick={saveSyntheticPersona} disabled={synBusy} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: synBusy ? "default" : "pointer", background: synBusy ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>{synBusy ? "Working…" : "＋ Save to library"}</button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* 2b · Your character library */}
