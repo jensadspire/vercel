@@ -3422,6 +3422,74 @@ function RSAStudio() {
     } catch (_) { setSynErr('Save failed — please try again.'); setSynStage(''); }
     finally { setSynBusy(false); }
   };
+  // ── Sequential Ad Builder (persona + product → multi-shot videos → save/reuse template) ──
+  const [seqOpen, setSeqOpen] = useState(false);
+  const [seqPersona, setSeqPersona] = useState(null);
+  const [seqProductUrl, setSeqProductUrl] = useState('');
+  const [seqShots, setSeqShots] = useState(['']);
+  const [seqRatio, setSeqRatio] = useState('9:16');
+  const [seqDuration, setSeqDuration] = useState(5);
+  const [seqBusy, setSeqBusy] = useState(false);
+  const [seqResults, setSeqResults] = useState([]);
+  const [seqErr, setSeqErr] = useState('');
+  const [seqName, setSeqName] = useState('');
+  const [seqMsg, setSeqMsg] = useState('');
+  const [seqTemplates, setSeqTemplates] = useState(null);
+  const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); };
+  const loadSeqTemplates = async () => {
+    try {
+      const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list' }) }).then(r => r.json());
+      setSeqTemplates(Array.isArray(d.templates) ? d.templates : []);
+    } catch (_) { setSeqTemplates([]); }
+  };
+  const generateSequence = async () => {
+    if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
+    const shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+    if (!shots.length) { setSeqErr('Add at least one shot prompt.'); return; }
+    setSeqBusy(true); setSeqErr(''); setSeqMsg('');
+    const refs = [seqPersona.seedanceAssetUri].concat(seqProductUrl.trim() ? [seqProductUrl.trim()] : []);
+    setSeqResults(shots.map(function (p) { return { prompt: p, status: 'running', videoUrl: '' }; }));
+    try {
+      const tasks = await Promise.all(shots.map(function (p) {
+        return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create', imageUrls: refs, prompt: p, ratio: seqRatio, duration: seqDuration }) }).then(r => r.json()).then(function (d) { return d.taskId || null; });
+      }));
+      let done = false, tries = 0;
+      while (!done && tries < 80) {
+        await new Promise(function (res) { setTimeout(res, 5000); });
+        const polled = await Promise.all(tasks.map(function (t) {
+          if (!t) return Promise.resolve({ status: 'failed', videoUrl: '' });
+          return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', taskId: t }) }).then(r => r.json());
+        }));
+        setSeqResults(shots.map(function (p, i) { const r = polled[i] || {}; return { prompt: p, status: r.status || 'running', videoUrl: r.videoUrl || '' }; }));
+        done = polled.every(function (r) { return r && (r.status === 'succeeded' || r.status === 'failed'); });
+        tries++;
+      }
+    } catch (_) { setSeqErr('Generation failed — please try again.'); }
+    finally { setSeqBusy(false); }
+  };
+  const saveSeqTemplate = async () => {
+    if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
+    const shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+    if (!shots.length) { setSeqErr('Add at least one shot prompt.'); return; }
+    setSeqMsg(''); setSeqErr('');
+    try {
+      const firstVid = (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
+      const body = { action: 'save', name: seqName.trim() || (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template'), assetUri: seqPersona.seedanceAssetUri, characterId: seqPersona.id || null, prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: 'seedance-byteplus', thumbnailUrl: seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null, lastVideoUrl: firstVid };
+      const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
+      if (d && d.template) { setSeqMsg('✓ Saved as template'); if (seqTemplates !== null) loadSeqTemplates(); }
+      else { setSeqErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
+    } catch (_) { setSeqErr('Save failed — please try again.'); }
+  };
+  const loadSeqTemplate = (t) => {
+    if (!t) return;
+    const persona = (Array.isArray(charLib) ? charLib.find(function (c) { return c.seedanceAssetUri && (c.id === t.characterId || c.seedanceAssetUri === t.assetUri); }) : null)
+      || (t.assetUri ? { id: t.characterId || null, name: t.name || 'Persona', seedanceAssetUri: t.assetUri, thumbnailUrl: t.thumbnailUrl || null } : null);
+    setSeqPersona(persona);
+    setSeqShots((t.shots && t.shots.length) ? t.shots : [t.prompt || '']);
+    setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
+    setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
+    setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
+  };
   // ── UGC ad generation (slice 3) — self-contained; branded flow untouched ──
   const [ugcAdResult, setUgcAdResult] = useState(null);   // generate-meta-ugc response | null
   const [ugcAdLoading, setUgcAdLoading] = useState(false);
@@ -5538,13 +5606,14 @@ STRICT rules:
                   <div onClick={(e) => { e.stopPropagation(); setUpgradeFeature('creative-studio'); setShowUpgradeModal(true); }} style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#fbbf24", cursor: "pointer" }}>Upgrade to Pro to unlock →</div>
                 )}
               </div>
-              {/* Sequential Ad Builder — coming soon */}
-              <div style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px dashed rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.02)" }}>
+              {/* Sequential Ad Builder */}
+              <div onClick={() => { if (isPro) { openSeqBuilder(); } else { setUpgradeFeature('sequential-ad-builder'); setShowUpgradeModal(true); } }} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(245,158,11,0.3)", background: "linear-gradient(135deg,rgba(245,158,11,0.10),rgba(239,68,68,0.06))", cursor: "pointer", position: "relative" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: "#7e92a8" }}>⚡ Sequential Ad Builder</span>
-                  <span style={{ fontSize: 10, color: "#4a5568" }}>coming soon</span>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#fbbf24" }}>⚡ Sequential Ad Builder</span>
+                  {!isPro && <span style={{ fontSize: 10, fontWeight: 800, color: "#fbbf24", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", borderRadius: 6, padding: "2px 8px" }}>🔒 PRO</span>}
                 </div>
-                <div style={{ fontSize: 12.5, color: "#5a6b80", lineHeight: 1.5 }}>Generate coordinated multi-ad campaigns — a uniform set of creatives that share your brand's story arc across formats and moments.</div>
+                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Feature a saved persona across a coordinated set of videos — same character, multiple scenes, optionally wearing your product. Save the setup as a reusable template.</div>
+                <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#f59e0b" }}>{isPro ? 'Open the builder →' : 'Upgrade to Pro to unlock →'}</div>
               </div>
               {/* Bulk Feed — Phase 1 (feed ingestion preview) */}
               <div onClick={() => { setFeedOpen(true); }} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(45,212,191,0.3)", background: "linear-gradient(135deg,rgba(45,212,191,0.10),rgba(16,185,129,0.06))", cursor: "pointer", position: "relative" }}>
@@ -5573,6 +5642,108 @@ STRICT rules:
             </div>
           </div>
         </div>
+
+        {/* Sequential Ad Builder panel */}
+        {seqOpen && (
+          <div onClick={() => setSeqOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 680, maxHeight: "88vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 16, padding: 26 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>⚡ Sequential Ad Builder</span>
+                <button onClick={() => setSeqOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+              </div>
+              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Pick a saved persona, optionally feature a product, and describe each shot. We generate the set with one consistent character.</div>
+
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>1 · Choose persona</div>
+              {charLib === null ? <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 16 }}>Loading your personas…</div> : (() => {
+                const personas = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
+                if (personas.length === 0) return <div style={{ fontSize: 11, color: "#5a6b80", marginBottom: 16 }}>No synthetic personas yet — create one in Creative Studio → Personas first.</div>;
+                return (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16, maxHeight: 190, overflowY: "auto" }}>
+                    {personas.map(function (c) {
+                      const on = seqPersona && seqPersona.id === c.id;
+                      return (
+                        <div key={c.id} onClick={() => setSeqPersona(c)} style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: on ? "2px solid #f59e0b" : "2px solid rgba(255,255,255,0.06)" }}>
+                          <div style={{ position: "relative", aspectRatio: "1" }}>
+                            <img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} />
+                            {on && <div style={{ position: "absolute", top: 3, right: 3, width: 16, height: 16, borderRadius: "50%", background: "#f59e0b", color: "#1a1206", fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>✓</div>}
+                          </div>
+                          <div style={{ padding: "3px 5px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Feature a product <span style={{ color: "#5a6b80", fontWeight: 600 }}>· optional</span></div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+                <input value={seqProductUrl} onChange={e => setSeqProductUrl(e.target.value)} placeholder="Product image URL (packshot — no person in it)" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                {seqProductUrl.trim() ? <img src={seqProductUrl.trim()} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, background: "#1e293b" }} /> : null}
+              </div>
+
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>3 · Shots <span style={{ color: "#5a6b80", fontWeight: 600 }}>· one video each</span></div>
+              {seqShots.map(function (s, i) {
+                return (
+                  <div key={i} style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                    <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Shot " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={2} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical" }} />
+                    {seqShots.length > 1 ? <button onClick={() => setSeqShots(seqShots.filter(function (_, j) { return j !== i; }))} style={{ padding: "0 10px", fontSize: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#fca5a5", cursor: "pointer" }}>×</button> : null}
+                  </div>
+                );
+              })}
+              {seqShots.length < 4 ? <button onClick={() => setSeqShots(seqShots.concat(['']))} style={{ fontSize: 11, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 11px", cursor: "pointer" }}>＋ Add shot</button> : null}
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14, marginBottom: 16 }}>
+                <select value={seqRatio} onChange={e => setSeqRatio(e.target.value)} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                  <option value="9:16">9:16</option><option value="1:1">1:1</option><option value="16:9">16:9</option>
+                </select>
+                <select value={seqDuration} onChange={e => setSeqDuration(Number(e.target.value))} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                  <option value={5}>5s</option><option value={8}>8s</option><option value={10}>10s</option>
+                </select>
+                <button onClick={generateSequence} disabled={seqBusy} style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: seqBusy ? "rgba(245,158,11,0.4)" : "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>{seqBusy ? "⟳ Generating…" : "🎬 Generate sequence"}</button>
+              </div>
+              {seqErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginBottom: 12 }}>{seqErr}</div> : null}
+
+              {seqResults.length > 0 ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 16 }}>
+                  {seqResults.map(function (r, i) {
+                    return (
+                      <div key={i} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", padding: 8 }}>
+                        {r.videoUrl ? <video src={r.videoUrl} controls playsInline style={{ width: "100%", borderRadius: 8, background: "#000", display: "block" }} /> : <div style={{ aspectRatio: "9/16", display: "flex", alignItems: "center", justifyContent: "center", color: r.status === 'failed' ? "#fca5a5" : "#fbbf24", fontSize: 11, background: "rgba(0,0,0,0.3)", borderRadius: 8 }}>{r.status === 'failed' ? 'failed' : '⟳ rendering…'}</div>}
+                        <div style={{ fontSize: 9.5, color: "#7e92a8", marginTop: 5 }}>Shot {i + 1}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              <div style={{ paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Save as template</div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                  <input value={seqName} onChange={e => setSeqName(e.target.value)} placeholder="Template name" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                  <button onClick={saveSeqTemplate} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>Save template</button>
+                </div>
+                {seqMsg ? <div style={{ fontSize: 11, color: "#34d399", marginBottom: 8 }}>{seqMsg}</div> : null}
+                <button onClick={() => { if (seqTemplates === null) loadSeqTemplates(); else setSeqTemplates(null); }} style={{ fontSize: 11, fontWeight: 700, color: "#c4b5fd", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 11px", cursor: "pointer" }}>📁 {seqTemplates === null ? "Show saved templates" : "Hide"}</button>
+                {seqTemplates !== null ? (
+                  seqTemplates.length === 0 ? <div style={{ fontSize: 11, color: "#5a6b80", marginTop: 8 }}>No templates yet.</div> : (
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                      {seqTemplates.map(function (t) {
+                        const nShots = (t.shots && t.shots.length) || 1;
+                        return (
+                          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                            {t.thumbnailUrl ? <img src={t.thumbnailUrl} alt="" style={{ width: 28, height: 28, borderRadius: 5, objectFit: "cover", background: "#1e293b" }} /> : null}
+                            <div style={{ flex: 1, minWidth: 0, fontSize: 11, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name || "Template"} <span style={{ color: "#5a6b80" }}>· {nShots} shot{nShots === 1 ? "" : "s"}</span></div>
+                            <button onClick={() => loadSeqTemplate(t)} style={{ padding: "4px 10px", fontSize: 10.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Load</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                ) : null}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bulk Feed panel (Phase 1 preview) */}
         {feedOpen && (

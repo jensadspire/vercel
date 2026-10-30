@@ -104,6 +104,7 @@ export default async function handler(req, res) {
         // the ad formula
         prompt:  str(body.prompt, 5000) || (existing && existing.prompt) || '',
         garmentUrls: garments,
+        shots: Array.isArray(body.shots) ? body.shots.slice(0, 8).map(function (s) { return String(s).slice(0, 5000); }) : ((existing && existing.shots) || []),
         ratio:    body.ratio    || (existing && existing.ratio)    || '9:16',
         duration: Number.isFinite(body.duration) ? body.duration : (existing ? existing.duration : 5),
         engine:   body.engine   || (existing && existing.engine)   || 'seedance-byteplus',
