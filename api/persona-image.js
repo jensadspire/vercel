@@ -19,6 +19,9 @@
 const BASE = process.env.PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
 const FLUX_SLUG = 'fal-ai/flux-pro/v1.1';
 const SEEDREAM_SLUG = 'fal-ai/bytedance/seedream/v4/text-to-image';
+// Stacked anti-text clause: forbidding text AND asserting blank/unbranded surfaces works far better than
+// a bare "no text" — the model otherwise fills label-shaped areas by reflex. Appended unless allowText.
+const NOTEXT = ' No text, no letters, no numbers, no logos, no signage, no writing or captions anywhere; blank unbranded labels and clean plain surfaces; no printed text or logos on clothing; no watermark.';
 
 export const config = { api: { bodyParser: { sizeLimit: '6mb' } } };
 
@@ -45,8 +48,9 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { model = 'flux', prompt, aspectRatio = '3:4', seed } = req.body || {};
+  const { model = 'flux', prompt, aspectRatio = '3:4', seed, allowText = false } = req.body || {};
   if (!prompt || !String(prompt).trim()) return res.status(400).json({ error: 'prompt required' });
+  const genPrompt = String(prompt).slice(0, 4600) + (allowText ? '' : NOTEXT);
 
   try {
     // ── Imagen: reuse the existing /api/imagen (text-to-image → Blob) ──
@@ -54,7 +58,7 @@ export default async function handler(req, res) {
       if (!BASE) return res.status(500).json({ error: 'PUBLIC_BASE_URL not set (needed to reach /api/imagen)' });
       const r = await fetch(`${BASE}/api/imagen`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, aspectRatio }),
+        body: JSON.stringify({ prompt: genPrompt, aspectRatio }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.imageUrl) return res.status(500).json({ error: (d && d.error) || 'Imagen failed', model: 'imagen' });
@@ -69,10 +73,10 @@ export default async function handler(req, res) {
     let slug, body;
     if (model === 'flux') {
       slug = FLUX_SLUG;
-      body = { prompt: String(prompt).slice(0, 5000), image_size: fluxSize(aspectRatio), num_images: 1, output_format: 'png', ...(Number.isInteger(seed) ? { seed } : {}) };
+      body = { prompt: genPrompt, image_size: fluxSize(aspectRatio), num_images: 1, output_format: 'png', ...(Number.isInteger(seed) ? { seed } : {}) };
     } else if (model === 'seedream') {
       slug = SEEDREAM_SLUG;
-      body = { prompt: String(prompt).slice(0, 5000), image_size: seedreamSize(aspectRatio), num_images: 1, ...(Number.isInteger(seed) ? { seed } : {}) };
+      body = { prompt: genPrompt, image_size: seedreamSize(aspectRatio), num_images: 1, ...(Number.isInteger(seed) ? { seed } : {}) };
     } else {
       return res.status(400).json({ error: `Unknown model: ${model} (use flux | seedream | imagen)` });
     }
