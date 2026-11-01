@@ -26,6 +26,16 @@
 import RunwayML from '@runwayml/sdk';
 import { addAiLabelViaRendi } from './_ai-label.js';
 
+// Pick the gen4.5 output ratio closest to the source image's aspect (nearest in log-space).
+// Supported: 1584:672, 1280:720, 1104:832, 960:960, 832:1104, 720:1280.
+function pickRunwayRatio(r) {
+  if (!r || !Number.isFinite(r) || r <= 0) return '720:1280';
+  const options = [[1584/672,'1584:672'],[1280/720,'1280:720'],[1104/832,'1104:832'],[960/960,'960:960'],[832/1104,'832:1104'],[720/1280,'720:1280']];
+  let best = '720:1280', bestDiff = Infinity;
+  for (const [ar, label] of options) { const d = Math.abs(Math.log(r) - Math.log(ar)); if (d < bestDiff) { bestDiff = d; best = label; } }
+  return best;
+}
+
 const RECIPE_VERSION = '2026-06';
 const RATIO = '720:1280'; // 9:16 TikTok-native
 const RECIPE_MONTHLY_LIMIT = 10;              // gens per user per calendar month
@@ -92,6 +102,8 @@ export default async function handler(req, res) {
     productInfo,
     userConcept,
     duration,
+    matchAspect = false,
+    ratio: ratioOverride,
   } = req.body || {};
 
   try {
@@ -226,6 +238,20 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── Optional aspect-matching — size the recipe to the source image (gated) ──
+    let chosenRatio = ratioOverride || RATIO;
+    if (!ratioOverride && matchAspect) {
+      try {
+        const ir = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' }, signal: AbortSignal.timeout(10000) });
+        if (ir.ok) {
+          const buf = Buffer.from(await ir.arrayBuffer());
+          const sharp = (await import('sharp')).default;
+          const meta = await sharp(buf).metadata();
+          if (meta.width && meta.height) chosenRatio = pickRunwayRatio(meta.width / meta.height);
+        }
+      } catch (e) { console.error('[recipe] aspect measure failed (fail-open to default):', e.message); }
+    }
+
     // ── Call Runway (create) ──────────────────────────────────────────────────
     let task;
     if (mode === 'ugc') {
@@ -237,7 +263,7 @@ export default async function handler(req, res) {
         ...(productInfo ? { productInfo: String(productInfo).slice(0, 2500) } : {}),
         ...(userConcept ? { userConcept: String(userConcept).slice(0, 3500) } : {}),
         ...(duration ? { duration } : {}),
-        ratio: RATIO,
+        ratio: chosenRatio,
       });
     } else {
       const imgs = (Array.isArray(productImages) && productImages.length ? productImages : [imageUrl])
@@ -249,7 +275,7 @@ export default async function handler(req, res) {
         ...(productInfo ? { productInfo: String(productInfo).slice(0, 2500) } : {}),
         ...(userConcept ? { userConcept: String(userConcept).slice(0, 3500) } : {}),
         ...(duration ? { duration } : {}),
-        ratio: RATIO,
+        ratio: chosenRatio,
       });
     }
 

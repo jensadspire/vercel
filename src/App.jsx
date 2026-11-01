@@ -2781,6 +2781,9 @@ function RSAStudio() {
   const [feedView, setFeedView] = useState('products');   // 'products' | 'outputs' (batch staging buffer)
   const [feedOutputs, setFeedOutputs] = useState({});     // { [link]: { status:'generating'|'ready'|'failed', snapshot, title, thumb, engine, videoUrl, link } }
   const [feedBatchBusy, setFeedBatchBusy] = useState(false);
+  const [feedLeaveBusy, setFeedLeaveBusy] = useState(false);   // "Generate & leave" (overnight job) in flight
+  const [feedLeaveMsg, setFeedLeaveMsg] = useState('');        // confirmation / error after queuing an overnight job
+  const [feedLeaveAt, setFeedLeaveAt] = useState('');          // optional schedule time (datetime-local) for "Generate & leave"
   const [feedTermsAccepted, setFeedTermsAccepted] = useState(() => { try { return localStorage.getItem('rsa_feed_terms_v1') === '1'; } catch (_) { return false; } });
   const [feedTermsOpen, setFeedTermsOpen] = useState(false);
   const acceptFeedTerms = (v) => { setFeedTermsAccepted(v); try { if (v) localStorage.setItem('rsa_feed_terms_v1', '1'); else localStorage.removeItem('rsa_feed_terms_v1'); } catch (_) {} };
@@ -2799,6 +2802,31 @@ function RSAStudio() {
     } catch (_) {}
   }, []);
 
+  // Staging safety net: restore the Outputs buffer on mount (24h TTL, mirrors rsa_feed_cache_v1).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('rsa_feed_outputs_v1');
+      if (!raw) return;
+      const c = JSON.parse(raw);
+      if (c && c.outputs && (Date.now() - (c.ts || 0) < 86400000)) {
+        const keys = Object.keys(c.outputs);
+        if (keys.length) { setFeedOutputs(c.outputs); setFeedView('outputs'); }
+      }
+    } catch (_) {}
+  }, []);
+
+  // Staging safety net: persist ready outputs on change (ready-only, transient flags stripped, cap 60).
+  useEffect(() => {
+    try {
+      const ready = Object.entries(feedOutputs).filter(([, o]) => o && o.status === 'ready');
+      if (!ready.length) return; // only clearFeed/new fetch empties the buffer — it wipes the key itself.
+      const capped = ready.slice(-60);
+      const out = {};
+      for (const [link, o] of capped) { const { approving, approveError, ...keep } = o; out[link] = keep; }
+      localStorage.setItem('rsa_feed_outputs_v1', JSON.stringify({ ts: Date.now(), outputs: out }));
+    } catch (_) {}
+  }, [feedOutputs]);
+
   // ── Bulk Feed B-path: build a full ad (RSA + Meta + storyboard) from a feed product
   // record — NO scrape (feed image_link + copy fed directly). Returns an entry-shaped
   // snapshot the overview can replay. Isolated; single-URL flow + original endpoints untouched.
@@ -2811,7 +2839,7 @@ function RSAStudio() {
     const apiFor = (e) => e === 'runway' ? '/api/runway' : '/api/kling';
     const backupFor = (e) => e === 'kling' ? 'runway' : 'kling';
     // Feed videos stay clean: no brand overlay, no intro/outro text (matches the feed path's no-overlay rule).
-    const body = { imageUrl: img, storyboard: storyboard || [], prompt: videoPrompt, language: language || 'English', brand: brand || '', logoUrl: logoUrl || null, overlayIntro: '', overlayOutro: '' };
+    const body = { imageUrl: img, storyboard: storyboard || [], prompt: videoPrompt, language: language || 'English', brand: brand || '', logoUrl: logoUrl || null, overlayIntro: '', overlayOutro: '', matchAspect: true };
     const createOn = async (e) => {
       try {
         const rr = await fetch(apiFor(e), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -2920,14 +2948,14 @@ function RSAStudio() {
 
     // Scene pick (automated flow): classify the product's vertical → best-fitting scenery.
     // Isolated /api/pick-scene; feeds generate-tiktok's existing `scene` param. Null → generic backdrop.
-    let feedScene = null;
+    let feedScene = null; let feedVertical = '';
     try {
       const scRes = await fetch('/api/pick-scene', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product: { title, description, productType: (product && product.productType) || '', brand: (product && product.brand) || '' } }),
       });
       const scData = await scRes.json();
-      if (scData && scData.ok && scData.scene) feedScene = scData.scene;
+      if (scData && scData.ok) { if (scData.scene) feedScene = scData.scene; feedVertical = scData.vertical || ''; }
     } catch (_) {}
 
     // 3) Video storyboard — /api/generate-tiktok (feed copy, routed engine, picked scene, no template)
@@ -2957,6 +2985,8 @@ function RSAStudio() {
     return {
       url: link, rows: [rsaRow], metaResult, carouselCardTexts, tiktokResult,
       engine, archetype: 'scene_reveal', videoUrl,
+      scene: feedScene || '', vertical: feedVertical || '', language,
+      promo: !!(product && product.onSale), productType: (product && product.productType) || '',
       brand: (tiktokResult && tiktokResult.brand) || (product && product.brand) || '',
       title, thumb: (metaResult && metaResult.heroProductImage) || (product && product.image) || null,
       _feed: true,
@@ -3054,6 +3084,210 @@ function RSAStudio() {
     }
     setFeedBatchBusy(false);
   };
+  // Approve a staged output → persist it as a Creative in the library (/api/creatives save).
+  const approveFeedOutput = async (output) => {
+    const snap = output && output.snapshot;
+    if (!snap || !output.link) return;
+    const row = (snap.rows && snap.rows[0]) || null;
+    const meta = snap.metaResult || null;
+    const channels = {
+      google: row ? {
+        campaign: row.campaign || '', adGroup: row.adGroup || '',
+        headlines: (row.headlines || []).map(h => (h && h.text) || h || '').filter(Boolean),
+        descriptions: (row.descriptions || []).map(d => (d && d.text) || d || '').filter(Boolean),
+        path1: row.path1 || '', path2: row.path2 || '', finalUrl: row.finalUrl || snap.url,
+      } : null,
+      meta: meta ? {
+        primaryTexts: meta.primaryTexts || [], headlines: meta.headlines || [], descriptions: meta.descriptions || [],
+        imageUrl: meta.imageUrl || '', imageVariations: meta.imageVariations || [], carouselCardTexts: snap.carouselCardTexts || [],
+      } : null,
+      video: snap.videoUrl ? {
+        url: snap.videoUrl, storyboard: (snap.tiktokResult && snap.tiktokResult.storyboard) || [],
+        videoPrompt: (snap.tiktokResult && snap.tiktokResult.videoPrompt) || '',
+      } : null,
+    };
+    const payload = {
+      action: 'save', inputSource: 'feed',
+      productUrl: snap.url, productTitle: snap.title || '',
+      engine: snap.engine || '', archetype: snap.archetype || 'scene_reveal', scene: snap.scene || '',
+      vertical: snap.vertical || '', language: snap.language || 'English', promo: !!snap.promo,
+      channels,
+    };
+    setFeedOutputs(prev => prev[output.link] ? { ...prev, [output.link]: { ...prev[output.link], approving: true, approveError: null } } : prev);
+    try {
+      const token = (isSignedIn && session) ? await session.getToken() : null;
+      const res = await fetch('/api/creatives', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}), ...(token ? { 'x-clerk-session': token } : {}) },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.id) {
+        setFeedOutputs(prev => prev[output.link] ? { ...prev, [output.link]: { ...prev[output.link], approved: true, approving: false, creativeId: data.id } } : prev);
+      } else {
+        setFeedOutputs(prev => prev[output.link] ? { ...prev, [output.link]: { ...prev[output.link], approving: false, approveError: (data && data.error) || ('Approve failed (' + res.status + ')') } } : prev);
+      }
+    } catch (_) {
+      setFeedOutputs(prev => prev[output.link] ? { ...prev, [output.link]: { ...prev[output.link], approving: false, approveError: 'Approve failed — please try again.' } } : prev);
+    }
+  };
+  // "Generate & leave": hand the selected products to the server-side batch worker (overnight / walk-away).
+  // Creates a job (/api/feed-jobs) then starts the chain (/api/feed-worker). Finished ads land in the
+  // Library as 'pending_review', so the browser can close. Signed-in only (a job needs an owner).
+  const runFeedLeave = async (picks, at) => {
+    if (!picks || !picks.length || feedLeaveBusy) return;
+    if (!isSignedIn) { setFeedLeaveMsg('Sign in to run an overnight batch.'); return; }
+    const runAtISO = (() => { if (!at) return null; const t = new Date(at).getTime(); return (Number.isFinite(t) && t > Date.now()) ? new Date(t).toISOString() : null; })();
+    setFeedLeaveBusy(true); setFeedLeaveMsg('');
+    try {
+      const token = (isSignedIn && session) ? await session.getToken() : null;
+      const headers = { 'Content-Type': 'application/json', ...(isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}), ...(token ? { 'x-clerk-session': token } : {}) };
+      const createRes = await fetch('/api/feed-jobs', { method: 'POST', headers, body: JSON.stringify({ action: 'create', picks, language: (feedResult && feedResult.language) || 'English', source: feedSource || '', runAt: runAtISO }) });
+      const createData = await createRes.json().catch(() => ({}));
+      if (!createRes.ok || !createData.id) { setFeedLeaveMsg((createData && createData.error) || ('Could not queue the batch (' + createRes.status + ').')); setFeedLeaveBusy(false); return; }
+      const startRes = await fetch('/api/feed-worker', { method: 'POST', headers, body: JSON.stringify({ phase: 'start', jobId: createData.id }) });
+      const startData = await startRes.json().catch(() => ({}));
+      if (!startRes.ok || !startData.ok) { setFeedLeaveMsg((startData && startData.error) || ('Queued but could not start (' + startRes.status + ').')); setFeedLeaveBusy(false); return; }
+      setFeedSel({});
+      setFeedLeaveMsg('\u2713 ' + picks.length + ' ad' + (picks.length === 1 ? '' : 's') + (runAtISO ? (' scheduled for ' + new Date(runAtISO).toLocaleString() + ' — they\'ll appear in your Library after they run.') : ' queued — they\'ll appear in your Library as they finish. You can safely close this tab.'));
+    } catch (_) {
+      setFeedLeaveMsg('Could not reach the batch service — please try again.');
+    } finally {
+      setFeedLeaveBusy(false);
+    }
+  };
+  const discardFeedOutput = (link) => setFeedOutputs(prev => { const n = { ...prev }; delete n[link]; return n; });
+
+  // ── Ad Library (Vault) — reads /api/creatives. Separate from the ★ Saved Library (showLibrary). ──
+  const [showVault, setShowVault] = useState(false);
+  const [vaultItems, setVaultItems] = useState([]);
+  const [vaultLoading, setVaultLoading] = useState(false);
+  const [vaultError, setVaultError] = useState('');
+  const [vaultStatus, setVaultStatus] = useState('all');  // all | unpublished | published
+  const [vaultSort, setVaultSort] = useState('date');      // date | score
+  const [vaultJobs, setVaultJobs] = useState([]);          // in-flight overnight batches (progress readout)
+  const [vaultBusy, setVaultBusy] = useState(null);        // id with an action in flight
+  const [vaultConfirm, setVaultConfirm] = useState(null);  // id pending remove-confirm
+  const [vaultSavedKey, setVaultSavedKey] = useState(null); // combo key of the single output saved to the Vault
+  const [vaultSaving, setVaultSaving] = useState(false);    // star→Vault save in flight
+
+  const vaultHeaders = async () => {
+    const token = (isSignedIn && session) ? await session.getToken() : null;
+    return { 'Content-Type': 'application/json', ...(isAdmin ? { 'x-admin-key': import.meta.env.VITE_ADMIN_KEY } : {}), ...(token ? { 'x-clerk-session': token } : {}) };
+  };
+  // Star → Ad Library: save the live single-output ad (Google + Meta + Video) as ONE creative in
+  // /api/creatives — the same durable store the feed path writes to. Mirrors approveFeedOutput but
+  // reads the live overview state instead of a feed snapshot.
+  const isCurrentVaultSaved = () => vaultSavedKey !== null && vaultSavedKey === currentCombinedId();
+  const saveCurrentToVault = async () => {
+    if (!isSignedIn || !user?.id) { setShowAuthModal(true); return; }
+    if (vaultSaving || isCurrentVaultSaved()) return;
+    const row = (generated && rows && rows.length) ? rows[0] : null;
+    const meta = metaResult || null;
+    const videoUrl = tiktokVideoUrl || null;
+    const channels = {
+      google: row ? {
+        campaign: row.campaign || '', adGroup: row.adGroup || '',
+        headlines: (row.headlines || []).map(h => (h && h.text) || h || '').filter(Boolean),
+        descriptions: (row.descriptions || []).map(d => (d && d.text) || d || '').filter(Boolean),
+        path1: row.path1 || '', path2: row.path2 || '', finalUrl: row.finalUrl || url,
+      } : null,
+      meta: meta ? {
+        primaryTexts: meta.primaryTexts || [], headlines: meta.headlines || [], descriptions: meta.descriptions || [],
+        imageUrl: meta.imageUrl || '', imageVariations: meta.imageVariations || [], carouselCardTexts: carouselCardTexts || [],
+      } : null,
+      video: videoUrl ? {
+        url: videoUrl, storyboard: (tiktokResult && tiktokResult.storyboard) || [],
+        videoPrompt: (tiktokResult && tiktokResult.videoPrompt) || '',
+      } : null,
+    };
+    if (!channels.google && !channels.meta && !channels.video) return; // nothing generated yet
+    const payload = {
+      action: 'save', inputSource: 'url',
+      productUrl: (lastGeneratedUrlRef.current || url || ''), productTitle: (pageMeta && (pageMeta.title || pageMeta.h1 || pageMeta.siteName)) || (row && row.campaign) || '',
+      engine: videoEngineRef.current || '', archetype: videoSelArchetypeRef.current || 'scene_reveal', scene: '',
+      vertical: '', language: (pageMeta && pageMeta.language) || 'English', promo: false,
+      channels,
+    };
+    setVaultSaving(true);
+    try {
+      const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify(payload) });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.id) { setVaultSavedKey(currentCombinedId()); }
+      else { alert((data && data.error) || ('Could not save to your Library (' + res.status + ').')); }
+    } catch (_) { alert('Could not reach the Library — please try again.'); }
+    finally { setVaultSaving(false); }
+  };
+  const fetchVault = async () => {
+    setVaultLoading(true); setVaultError('');
+    try {
+      const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'list' }) });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && Array.isArray(data.creatives)) setVaultItems(data.creatives);
+      else setVaultError((data && data.error) || 'Could not load the library.');
+    } catch (_) { setVaultError('Library request failed — please try again.'); }
+    finally { setVaultLoading(false); }
+  };
+  const fetchVaultJobs = async () => {
+    try {
+      const res = await fetch('/api/feed-jobs', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'list' }) });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && Array.isArray(data.jobs)) setVaultJobs(data.jobs);
+    } catch (_) {}
+  };
+  const openVault = () => { setShowVault(true); setVaultConfirm(null); fetchVault(); fetchVaultJobs(); };
+  // While the Library is open and a batch is still running, poll jobs + items so finished ads appear live.
+  useEffect(() => {
+    if (!showVault) return;
+    const active = vaultJobs.some(j => j && (j.status === 'queued' || j.status === 'running' || j.status === 'scheduled'));
+    if (!active) return;
+    const t = setInterval(() => { fetchVaultJobs(); fetchVault(); }, 12000);
+    return () => clearInterval(t);
+  }, [showVault, vaultJobs]);
+  // Keep the Bulk Feed card's batch-progress badge fresh on the home view (poll jobs while signed in).
+  useEffect(() => {
+    if (!isSignedIn) return;
+    fetchVaultJobs();
+    const t = setInterval(fetchVaultJobs, 30000);
+    return () => clearInterval(t);
+  }, [isSignedIn]);
+
+  // Rebuild the view-mode snapshot from a stored Creative (inverse of the Save mapping).
+  const rebuildFromCreative = (c) => {
+    const ch = c.channels || {}; const g = ch.google || {}; const m = ch.meta || {}; const v = ch.video || {};
+    const row = makeRow(1);
+    row.finalUrl = g.finalUrl || c.productUrl || '';
+    row.campaign = g.campaign || ''; row.adGroup = g.adGroup || '';
+    row.path1 = g.path1 || ''; row.path2 = g.path2 || '';
+    row.headlines = Array.from({ length: NUM_HL }, (_, i) => ({ text: (g.headlines && g.headlines[i]) || '', pin: '' }));
+    row.descriptions = Array.from({ length: NUM_DESC }, (_, i) => ({ text: (g.descriptions && g.descriptions[i]) || '', pin: '' }));
+    const metaResult = (m && (m.imageUrl || (m.primaryTexts && m.primaryTexts.length))) ? { ...m, imageUrl: m.imageUrl || '', imageVariations: m.imageVariations || [] } : null;
+    const tiktokResult = (v && (v.videoPrompt || (v.storyboard && v.storyboard.length))) ? { storyboard: v.storyboard || [], videoPrompt: v.videoPrompt || '', brand: '' } : null;
+    return { url: c.productUrl, rows: [row], metaResult, carouselCardTexts: (m && m.carouselCardTexts) || [], tiktokResult, engine: c.engine, archetype: c.archetype || 'scene_reveal', videoUrl: (v && v.url) || null };
+  };
+  const openVaultItem = async (card) => {
+    if (!card || !card.id) return;
+    setVaultBusy(card.id);
+    try {
+      const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: card.id }) });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.creative) { restoreFeedEntry(rebuildFromCreative(data.creative)); setShowVault(false); }
+      else setVaultError((data && data.error) || 'Could not open this ad.');
+    } catch (_) { setVaultError('Could not open this ad.'); }
+    finally { setVaultBusy(null); }
+  };
+  const removeVaultItem = async (id) => {
+    setVaultBusy(id);
+    try {
+      const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'delete', id }) });
+      if (res.ok) setVaultItems(prev => prev.filter(x => x.id !== id));
+    } catch (_) {} finally { setVaultBusy(null); setVaultConfirm(null); }
+  };
+  const setVaultScore = (id, score) => {
+    setVaultItems(prev => prev.map(x => x.id === id ? { ...x, score } : x)); // optimistic
+    vaultHeaders().then(h => fetch('/api/creatives', { method: 'POST', headers: h, body: JSON.stringify({ action: 'setScore', id, score }) }).catch(() => {}));
+  };
+
   const fetchFeed = async () => {
     const s = (feedSource || '').trim();
     if (!s) { setFeedError('Enter a Shopify store URL or a Google Merchant feed URL.'); return; }
@@ -3075,6 +3309,7 @@ function RSAStudio() {
     setFeedView('products'); setFeedOutputs({});
     acceptFeedTerms(false); // re-require terms acceptance for the next (possibly different-client) feed
     try { localStorage.removeItem('rsa_feed_cache_v1'); } catch (_) {}
+    try { localStorage.removeItem('rsa_feed_outputs_v1'); } catch (_) {}
   };
   // ── Personas Builder: UGC source selector (Phase 1) ──
   const [ugcData, setUgcData] = useState(null);           // { detected, providers, images } | null
@@ -3144,6 +3379,127 @@ function RSAStudio() {
       await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'delete', id: id }) });
       setCharLib(prev => Array.isArray(prev) ? prev.filter(c => c.id !== id) : prev);
     } catch (_) {}
+  };
+  // ── Synthetic Persona creator (generate face → mint asset:// → save to library) ──
+  const [synPrompt, setSynPrompt] = useState('');
+  const [synAspect, setSynAspect] = useState('3:4');
+  const [synName, setSynName] = useState('');
+  const [synImg, setSynImg] = useState('');
+  const [synBusy, setSynBusy] = useState(false);
+  const [synStage, setSynStage] = useState('');
+  const [synErr, setSynErr] = useState('');
+  const [synMsg, setSynMsg] = useState('');
+  const generatePersona = async () => {
+    if (!synPrompt.trim()) { setSynErr('Describe the persona first.'); return; }
+    setSynBusy(true); setSynErr(''); setSynMsg(''); setSynImg(''); setSynStage('Generating face…');
+    try {
+      const d = await fetch('/api/persona-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'flux', aspectRatio: synAspect, prompt: synPrompt }) }).then(r => r.json());
+      if (d && d.imageUrl) { setSynImg(d.imageUrl); setSynStage(''); }
+      else { setSynErr(d && d.error ? d.error : 'Generation failed.'); setSynStage(''); }
+    } catch (_) { setSynErr('Generation failed — please try again.'); setSynStage(''); }
+    finally { setSynBusy(false); }
+  };
+  const saveSyntheticPersona = async () => {
+    if (!synImg) { setSynErr('Generate a persona first.'); return; }
+    setSynBusy(true); setSynErr(''); setSynMsg('');
+    try {
+      setSynStage('Minting asset (ingesting)…');
+      const ing = await fetch('/api/seedance-asset-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'ingest', subject: (synName.trim() || 'Persona'), imageUrl: synImg }) }).then(r => r.json());
+      if (!ing || !ing.assetId) { setSynErr(ing && ing.error ? ('Ingest failed: ' + ing.error) : 'Ingest failed.'); setSynStage(''); setSynBusy(false); return; }
+      setSynStage('Authorizing (moderation)…');
+      let status = 'Processing', tries = 0;
+      while (status !== 'Active' && status !== 'Failed' && tries < 40) {
+        await new Promise(function (res) { setTimeout(res, 3000); });
+        const st = await fetch('/api/seedance-asset-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'assetStatus', assetId: ing.assetId }) }).then(r => r.json());
+        status = (st && st.status) ? st.status : status; tries++;
+      }
+      if (status !== 'Active') { setSynErr('Asset did not reach Active (status: ' + status + ').'); setSynStage(''); setSynBusy(false); return; }
+      setSynStage('Saving to library…');
+      const body = { action: 'save', source: 'synthetic', type: 'Synthetic', shot: 'other', name: synName.trim() || 'Synthetic persona', thumbnailUrl: synImg, seedImageUrl: synImg, referenceImages: [synImg], seedanceAssetUri: ing.assetUri, seedanceGroupId: ing.groupId || null };
+      const d = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
+      if (d && d.character) { setSynMsg('✓ Saved to your library'); setSynImg(''); setSynPrompt(''); setSynName(''); setSynStage(''); if (charLib !== null) loadCharLibrary(); }
+      else { setSynErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); setSynStage(''); }
+    } catch (_) { setSynErr('Save failed — please try again.'); setSynStage(''); }
+    finally { setSynBusy(false); }
+  };
+  // ── Sequential Ad Builder (persona + product → multi-shot videos → save/reuse template) ──
+  const [seqOpen, setSeqOpen] = useState(false);
+  const [seqPersona, setSeqPersona] = useState(null);
+  const [seqProductUrl, setSeqProductUrl] = useState('');
+  const [seqShots, setSeqShots] = useState(['']);
+  const [seqRatio, setSeqRatio] = useState('9:16');
+  const [seqDuration, setSeqDuration] = useState(5);
+  const [seqBusy, setSeqBusy] = useState(false);
+  const [seqResults, setSeqResults] = useState([]);
+  const [seqErr, setSeqErr] = useState('');
+  const [seqName, setSeqName] = useState('');
+  const [seqMsg, setSeqMsg] = useState('');
+  const [seqTemplates, setSeqTemplates] = useState(null);
+  const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); };
+  const loadSeqTemplates = async () => {
+    try {
+      const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list' }) }).then(r => r.json());
+      setSeqTemplates(Array.isArray(d.templates) ? d.templates : []);
+    } catch (_) { setSeqTemplates([]); }
+  };
+  const generateSequence = async () => {
+    if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
+    const shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+    if (!shots.length) { setSeqErr('Add at least one shot prompt.'); return; }
+    setSeqBusy(true); setSeqErr(''); setSeqMsg('');
+    const refs = [seqPersona.seedanceAssetUri].concat(seqProductUrl.trim() ? [seqProductUrl.trim()] : []);
+    setSeqResults(shots.map(function (p) { return { prompt: p, status: 'running', videoUrl: '' }; }));
+    try {
+      const tasks = await Promise.all(shots.map(function (p) {
+        return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create', imageUrls: refs, prompt: p, ratio: seqRatio, duration: seqDuration }) }).then(r => r.json()).then(function (d) { return d.taskId || null; });
+      }));
+      let done = false, tries = 0;
+      while (!done && tries < 80) {
+        await new Promise(function (res) { setTimeout(res, 5000); });
+        const polled = await Promise.all(tasks.map(function (t) {
+          if (!t) return Promise.resolve({ status: 'failed', videoUrl: '' });
+          return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', taskId: t }) }).then(r => r.json());
+        }));
+        setSeqResults(shots.map(function (p, i) { const r = polled[i] || {}; return { prompt: p, status: r.status || 'running', videoUrl: r.videoUrl || '' }; }));
+        done = polled.every(function (r) { return r && (r.status === 'succeeded' || r.status === 'failed'); });
+        tries++;
+      }
+    } catch (_) { setSeqErr('Generation failed — please try again.'); }
+    finally { setSeqBusy(false); }
+  };
+  const saveSeqTemplate = async () => {
+    if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
+    const shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+    if (!shots.length) { setSeqErr('Add at least one shot prompt.'); return; }
+    setSeqMsg(''); setSeqErr('');
+    try {
+      const firstVid = (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
+      const body = { action: 'save', name: seqName.trim() || (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template'), assetUri: seqPersona.seedanceAssetUri, characterId: seqPersona.id || null, prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: 'seedance-byteplus', thumbnailUrl: seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null, lastVideoUrl: firstVid };
+      const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
+      if (d && d.template) { setSeqMsg('✓ Saved as template'); if (seqTemplates !== null) loadSeqTemplates(); }
+      else { setSeqErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
+    } catch (_) { setSeqErr('Save failed — please try again.'); }
+  };
+  const loadSeqTemplate = (t) => {
+    if (!t) return;
+    const persona = (Array.isArray(charLib) ? charLib.find(function (c) { return c.seedanceAssetUri && (c.id === t.characterId || c.seedanceAssetUri === t.assetUri); }) : null)
+      || (t.assetUri ? { id: t.characterId || null, name: t.name || 'Persona', seedanceAssetUri: t.assetUri, thumbnailUrl: t.thumbnailUrl || null } : null);
+    setSeqPersona(persona);
+    setSeqShots((t.shots && t.shots.length) ? t.shots : [t.prompt || '']);
+    setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
+    setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
+    setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
+  };
+  const recreateOnPersona = (it) => {
+    if (!it) return;
+    setSeqProductUrl(it.thumb || '');
+    const prod = it.productTitle ? (it.productTitle + ' ') : '';
+    setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
+    setSeqResults([]); setSeqMsg(''); setSeqErr('');
+    setSeqName(it.productTitle ? (it.productTitle + ' — persona') : '');
+    setSeqPersona(null);
+    setShowVault(false);
+    openSeqBuilder();
   };
   // ── UGC ad generation (slice 3) — self-contained; branded flow untouched ──
   const [ugcAdResult, setUgcAdResult] = useState(null);   // generate-meta-ugc response | null
@@ -5007,7 +5363,7 @@ STRICT rules:
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
                   <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
                   <span title="Ships the selected formats to Google Ads — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startGooglePublishChain(); }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
@@ -5099,7 +5455,7 @@ STRICT rules:
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#0866FF", fontWeight: 700 }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
                   <span title="Ships the selected Meta formats to Meta Ads Manager — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startMetaPublishChain(); }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
@@ -5161,7 +5517,7 @@ STRICT rules:
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span onClick={(e) => { e.stopPropagation(); if (!isSignedIn) { setShowAuthModal(true); return; } setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToLibrary(); }} title="Save all outputs to library" style={{ fontSize: 14, color: "#f59e0b", cursor: "pointer", lineHeight: 1 }}>{isCurrentSaved() ? "★" : "☆"}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
                   <span onClick={(e) => { e.stopPropagation();
                     if (!isSignedIn) { setShowAuthModal(true); return; }
                     if (!metaConn.connected) { triggerMetaConnect(); return; }
@@ -5261,13 +5617,14 @@ STRICT rules:
                   <div onClick={(e) => { e.stopPropagation(); setUpgradeFeature('creative-studio'); setShowUpgradeModal(true); }} style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#fbbf24", cursor: "pointer" }}>Upgrade to Pro to unlock →</div>
                 )}
               </div>
-              {/* Sequential Ad Builder — coming soon */}
-              <div style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px dashed rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.02)" }}>
+              {/* Sequential Ad Builder */}
+              <div onClick={() => { if (isPro) { openSeqBuilder(); } else { setUpgradeFeature('sequential-ad-builder'); setShowUpgradeModal(true); } }} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(245,158,11,0.3)", background: "linear-gradient(135deg,rgba(245,158,11,0.10),rgba(239,68,68,0.06))", cursor: "pointer", position: "relative" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: "#7e92a8" }}>⚡ Sequential Ad Builder</span>
-                  <span style={{ fontSize: 10, color: "#4a5568" }}>coming soon</span>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#fbbf24" }}>⚡ Sequential Ad Builder</span>
+                  {!isPro && <span style={{ fontSize: 10, fontWeight: 800, color: "#fbbf24", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", borderRadius: 6, padding: "2px 8px" }}>🔒 PRO</span>}
                 </div>
-                <div style={{ fontSize: 12.5, color: "#5a6b80", lineHeight: 1.5 }}>Generate coordinated multi-ad campaigns — a uniform set of creatives that share your brand's story arc across formats and moments.</div>
+                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Feature a saved persona across a coordinated set of videos — same character, multiple scenes, optionally wearing your product. Save the setup as a reusable template.</div>
+                <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#f59e0b" }}>{isPro ? 'Open the builder →' : 'Upgrade to Pro to unlock →'}</div>
               </div>
               {/* Bulk Feed — Phase 1 (feed ingestion preview) */}
               <div onClick={() => { setFeedOpen(true); }} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(45,212,191,0.3)", background: "linear-gradient(135deg,rgba(45,212,191,0.10),rgba(16,185,129,0.06))", cursor: "pointer", position: "relative" }}>
@@ -5277,10 +5634,127 @@ STRICT rules:
                 </div>
                 <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Ingest your whole catalog from a Shopify store or Google Merchant feed and turn it into ads in bulk — built for high-volume seasons and agencies.</div>
                 <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#2dd4bf" }}>Connect a feed →</div>
+                {(() => {
+                  const active = vaultJobs.filter(j => j && (j.status === 'scheduled' || j.status === 'queued' || j.status === 'running'));
+                  const n = active.reduce((s, j) => { const c = j.counts || {}; return s + Math.max(0, (c.total || 0) - (c.done || 0) - (c.failed || 0)); }, 0);
+                  if (!n) return null;
+                  return <div onClick={(e) => { e.stopPropagation(); openVault(); }} title="View batch progress in your Library" style={{ marginTop: 10, fontSize: 11, fontWeight: 800, color: "#c4b5fd", background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.35)", borderRadius: 8, padding: "6px 10px", display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>🌙 {n} ad{n === 1 ? '' : 's'} in progress · view →</div>;
+                })()}
+              </div>
+              {/* Ad Library (Vault) */}
+              <div onClick={openVault} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(99,102,241,0.3)", background: "linear-gradient(135deg,rgba(99,102,241,0.10),rgba(139,92,246,0.06))", cursor: "pointer", position: "relative" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#a5b4fc" }}>◳ Ad Library</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "#a5b4fc", background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 6, padding: "2px 8px" }}>NEW</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Your saved ads — the full Google + Meta + video set for each, organised and scored, ready to reopen, publish or reuse.</div>
+                <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#818cf8" }}>Open your library →</div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Sequential Ad Builder panel */}
+        {seqOpen && (
+          <div onClick={() => setSeqOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 680, maxHeight: "88vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 16, padding: 26 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>⚡ Sequential Ad Builder</span>
+                <button onClick={() => setSeqOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+              </div>
+              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Pick a saved persona, optionally feature a product, and describe each shot. We generate the set with one consistent character.</div>
+
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>1 · Choose persona</div>
+              {charLib === null ? <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 16 }}>Loading your personas…</div> : (() => {
+                const personas = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
+                if (personas.length === 0) return <div style={{ fontSize: 11, color: "#5a6b80", marginBottom: 16 }}>No synthetic personas yet — create one in Creative Studio → Personas first.</div>;
+                return (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16, maxHeight: 190, overflowY: "auto" }}>
+                    {personas.map(function (c) {
+                      const on = seqPersona && seqPersona.id === c.id;
+                      return (
+                        <div key={c.id} onClick={() => setSeqPersona(c)} style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: on ? "2px solid #f59e0b" : "2px solid rgba(255,255,255,0.06)" }}>
+                          <div style={{ position: "relative", aspectRatio: "1" }}>
+                            <img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} />
+                            {on && <div style={{ position: "absolute", top: 3, right: 3, width: 16, height: 16, borderRadius: "50%", background: "#f59e0b", color: "#1a1206", fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>✓</div>}
+                          </div>
+                          <div style={{ padding: "3px 5px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Feature a product <span style={{ color: "#5a6b80", fontWeight: 600 }}>· optional</span></div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+                <input value={seqProductUrl} onChange={e => setSeqProductUrl(e.target.value)} placeholder="Product image URL (packshot — no person in it)" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                {seqProductUrl.trim() ? <img src={seqProductUrl.trim()} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, background: "#1e293b" }} /> : null}
+              </div>
+
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>3 · Shots <span style={{ color: "#5a6b80", fontWeight: 600 }}>· one video each</span></div>
+              {seqShots.map(function (s, i) {
+                return (
+                  <div key={i} style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                    <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Shot " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={2} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical" }} />
+                    {seqShots.length > 1 ? <button onClick={() => setSeqShots(seqShots.filter(function (_, j) { return j !== i; }))} style={{ padding: "0 10px", fontSize: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#fca5a5", cursor: "pointer" }}>×</button> : null}
+                  </div>
+                );
+              })}
+              {seqShots.length < 4 ? <button onClick={() => setSeqShots(seqShots.concat(['']))} style={{ fontSize: 11, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 11px", cursor: "pointer" }}>＋ Add shot</button> : null}
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14, marginBottom: 16 }}>
+                <select value={seqRatio} onChange={e => setSeqRatio(e.target.value)} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                  <option value="9:16">9:16</option><option value="1:1">1:1</option><option value="16:9">16:9</option>
+                </select>
+                <select value={seqDuration} onChange={e => setSeqDuration(Number(e.target.value))} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                  <option value={5}>5s</option><option value={8}>8s</option><option value={10}>10s</option>
+                </select>
+                <button onClick={generateSequence} disabled={seqBusy} style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: seqBusy ? "rgba(245,158,11,0.4)" : "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>{seqBusy ? "⟳ Generating…" : "🎬 Generate sequence"}</button>
+              </div>
+              {seqErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginBottom: 12 }}>{seqErr}</div> : null}
+
+              {seqResults.length > 0 ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 16 }}>
+                  {seqResults.map(function (r, i) {
+                    return (
+                      <div key={i} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", padding: 8 }}>
+                        {r.videoUrl ? <video src={r.videoUrl} controls playsInline style={{ width: "100%", borderRadius: 8, background: "#000", display: "block" }} /> : <div style={{ aspectRatio: "9/16", display: "flex", alignItems: "center", justifyContent: "center", color: r.status === 'failed' ? "#fca5a5" : "#fbbf24", fontSize: 11, background: "rgba(0,0,0,0.3)", borderRadius: 8 }}>{r.status === 'failed' ? 'failed' : '⟳ rendering…'}</div>}
+                        <div style={{ fontSize: 9.5, color: "#7e92a8", marginTop: 5 }}>Shot {i + 1}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              <div style={{ paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Save as template</div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                  <input value={seqName} onChange={e => setSeqName(e.target.value)} placeholder="Template name" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                  <button onClick={saveSeqTemplate} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>Save template</button>
+                </div>
+                {seqMsg ? <div style={{ fontSize: 11, color: "#34d399", marginBottom: 8 }}>{seqMsg}</div> : null}
+                <button onClick={() => { if (seqTemplates === null) loadSeqTemplates(); else setSeqTemplates(null); }} style={{ fontSize: 11, fontWeight: 700, color: "#c4b5fd", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 11px", cursor: "pointer" }}>📁 {seqTemplates === null ? "Show saved templates" : "Hide"}</button>
+                {seqTemplates !== null ? (
+                  seqTemplates.length === 0 ? <div style={{ fontSize: 11, color: "#5a6b80", marginTop: 8 }}>No templates yet.</div> : (
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                      {seqTemplates.map(function (t) {
+                        const nShots = (t.shots && t.shots.length) || 1;
+                        return (
+                          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                            {t.thumbnailUrl ? <img src={t.thumbnailUrl} alt="" style={{ width: 28, height: 28, borderRadius: 5, objectFit: "cover", background: "#1e293b" }} /> : null}
+                            <div style={{ flex: 1, minWidth: 0, fontSize: 11, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name || "Template"} <span style={{ color: "#5a6b80" }}>· {nShots} shot{nShots === 1 ? "" : "s"}</span></div>
+                            <button onClick={() => loadSeqTemplate(t)} style={{ padding: "4px 10px", fontSize: 10.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Load</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                ) : null}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bulk Feed panel (Phase 1 preview) */}
         {feedOpen && (
@@ -5300,8 +5774,8 @@ STRICT rules:
                 <input value={feedSource} onChange={e => setFeedSource(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
                 <button onClick={fetchFeed} disabled={feedLoading || !feedTermsAccepted || feedBatchBusy || !!feedSingleBusy} title={!feedTermsAccepted ? 'Accept the Product Feed Upload Terms to continue' : ((feedBatchBusy || feedSingleBusy) ? 'Generation in progress — please wait' : '')} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "default" : "pointer", background: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
               </div>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, fontSize: 12, color: feedTermsAccepted ? "#5a6b80" : "#9db0c7", lineHeight: 1.45 }}>
-                <input type="checkbox" checked={feedTermsAccepted} disabled={feedTermsAccepted} onChange={e => acceptFeedTerms(e.target.checked)} title={feedTermsAccepted ? 'Accepted — use Clear feed to reset' : ''} style={{ width: 15, height: 15, cursor: feedTermsAccepted ? "default" : "pointer", marginTop: 1, flexShrink: 0, opacity: feedTermsAccepted ? 0.5 : 1 }} />
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, fontSize: 12, color: (feedLoading || feedResult) ? "#5a6b80" : "#9db0c7", lineHeight: 1.45 }}>
+                <input type="checkbox" checked={feedTermsAccepted} disabled={!!(feedLoading || feedResult)} onChange={e => acceptFeedTerms(e.target.checked)} title={(feedLoading || feedResult) ? 'Locked while a feed is loaded — use Clear feed to reset' : ''} style={{ width: 15, height: 15, cursor: (feedLoading || feedResult) ? "default" : "pointer", marginTop: 1, flexShrink: 0, opacity: (feedLoading || feedResult) ? 0.5 : 1 }} />
                 <span>I have read and agree to the <button onClick={() => setFeedTermsOpen(true)} style={{ background: "none", border: "none", padding: 0, color: "#5eead4", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontSize: 12 }}>Product Feed Upload Terms</button>.</span>
               </div>
               {feedError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 12 }}>{feedError}</div>}
@@ -5333,13 +5807,15 @@ STRICT rules:
                   return true;
                 });
                 const shownLinks = shown.filter(p => p.link).map(p => p.link);
-                const selCount = shownLinks.filter(l => feedSel[l]).length;
+                const selCount = shownLinks.filter(l => feedSel[l]).length;                  // selected in THIS group (drives "select all shown")
                 const allShownSelected = shownLinks.length > 0 && selCount === shownLinks.length;
                 const toggleAllShown = () => setFeedSel(prev => { const n = { ...prev }; if (allShownSelected) { shownLinks.forEach(l => { delete n[l]; }); } else { shownLinks.forEach(l => { n[l] = true; }); } return n; });
+                const allSelectedPicks = all.filter(p => p.link && feedSel[p.link]);          // GLOBAL selection — every category/brand, not just the open group
+                const totalSelCount = allSelectedPicks.length;
+                const otherSelCount = totalSelCount - selCount;                               // selected outside the open group
                 const runFeedBatch = () => {
-                  const picks = shown.filter(p => p.link && feedSel[p.link]);
-                  if (!picks.length) return;
-                  runFeedBatchB(picks); // B-path headless batch → outputs staging buffer (retires the old a2 scrape batch)
+                  if (!allSelectedPicks.length) return;
+                  runFeedBatchB(allSelectedPicks); // fire the whole cross-category selection → outputs staging buffer
                 };
 
                 // ── OUTPUTS VIEW: batch staging buffer (flip side of the product selector) ──
@@ -5359,22 +5835,31 @@ STRICT rules:
                       {outs.map(o => {
                         const isReady = o.status === 'ready';
                         return (
-                        <button key={o.link} onClick={() => { if (isReady && o.snapshot) { restoreFeedEntry(o.snapshot); setFeedOpen(false); } }} disabled={!isReady} title={o.title || ''} style={{ textAlign: "left", padding: 0, borderRadius: 10, overflow: "hidden", cursor: isReady ? "pointer" : "default", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", opacity: isReady ? 1 : 0.75 }}>
-                          <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
-                            {o.thumb ? <img src={o.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
-                            {o.videoUrl ? <span style={{ position: "absolute", top: 6, right: 6, fontSize: 10, fontWeight: 800, color: "white", background: "rgba(139,92,246,0.92)", borderRadius: 5, padding: "2px 6px" }}>▶ video</span> : null}
-                            {!isReady ? <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15,23,42,0.55)", fontSize: 11, fontWeight: 800, color: o.status === 'failed' ? "#fca5a5" : "#5eead4" }}>{o.status === 'failed' ? '✕ failed' : 'generating…'}</div> : null}
+                        <div key={o.link} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid " + (o.approved ? "rgba(45,212,191,0.4)" : "rgba(255,255,255,0.08)"), background: "rgba(255,255,255,0.02)", opacity: isReady ? 1 : 0.75, display: "flex", flexDirection: "column" }}>
+                          <div onClick={() => { if (isReady && o.snapshot) { restoreFeedEntry(o.snapshot); setFeedOpen(false); } }} title={isReady ? 'Open in the editor' : (o.title || '')} style={{ cursor: isReady ? "pointer" : "default" }}>
+                            <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
+                              {o.thumb ? <img src={o.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                              {o.videoUrl ? <span style={{ position: "absolute", top: 6, right: 6, fontSize: 10, fontWeight: 800, color: "white", background: "rgba(139,92,246,0.92)", borderRadius: 5, padding: "2px 6px" }}>▶ video</span> : null}
+                              {o.approved ? <span style={{ position: "absolute", top: 6, left: 6, fontSize: 10, fontWeight: 800, color: "#06281f", background: "#5eead4", borderRadius: 5, padding: "2px 6px" }}>✓ saved</span> : null}
+                              {!isReady ? <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15,23,42,0.55)", fontSize: 11, fontWeight: 800, color: o.status === 'failed' ? "#fca5a5" : "#5eead4" }}>{o.status === 'failed' ? '✕ failed' : 'generating…'}</div> : null}
+                            </div>
+                            <div style={{ padding: "8px 10px 6px" }}>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.title || '(untitled)'}</div>
+                              <div style={{ fontSize: 10.5, color: "#7e92a8", marginTop: 1 }}>{isReady ? ((o.engine === 'runway' ? 'Runway' : 'Kling') + ' · ready') : (o.status === 'failed' ? 'failed' : 'building…')}</div>
+                            </div>
                           </div>
-                          <div style={{ padding: "8px 10px" }}>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.title || '(untitled)'}</div>
-                            <div style={{ fontSize: 10.5, color: "#7e92a8", marginTop: 1 }}>{isReady ? ((o.engine === 'runway' ? 'Runway' : 'Kling') + ' · ready') : (o.status === 'failed' ? 'failed' : 'building…')}</div>
-                          </div>
-                        </button>
+                          {isReady ? (
+                            <div style={{ display: "flex", gap: 6, padding: "0 10px 10px" }}>
+                              <button onClick={() => approveFeedOutput(o)} disabled={o.approving || o.approved} style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (o.approving || o.approved) ? "default" : "pointer", background: o.approved ? "rgba(45,212,191,0.15)" : (o.approving ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)"), color: o.approved ? "#5eead4" : "#06281f", whiteSpace: "nowrap" }}>{o.approved ? '✓ Saved' : (o.approving ? 'Saving…' : 'Save')}</button>
+                            </div>
+                          ) : null}
+                          {o.approveError ? <div style={{ padding: "0 10px 8px", fontSize: 10, color: "#fca5a5", lineHeight: 1.4 }}>{o.approveError}</div> : null}
+                        </div>
                         );
                       })}
                     </div>
                     )}
-                    <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Click a ready output to review it in the full editor and publish, then come back here for the next. Outputs stay for this session.</div>
+                    <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 14, lineHeight: 1.5 }}>Click a ready output to review it in the full editor and publish, then come back here for the next. Kept in your browser for 24h — Save to your Library to keep permanently.</div>
                   </>
                   );
                 }
@@ -5431,14 +5916,29 @@ STRICT rules:
                       <option value="instock">In stock</option>
                     </select>
                   </div>
-                  {shownLinks.length > 0 && (
+                  {(shownLinks.length > 0 || totalSelCount > 0) && (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, padding: "8px 10px", borderRadius: 8, background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.2)", flexWrap: "wrap" }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#9db0c7", cursor: "pointer" }}>
-                        <input type="checkbox" checked={allShownSelected} onChange={toggleAllShown} style={{ width: 15, height: 15, cursor: "pointer" }} />
-                        Select all shown{selCount > 0 ? (' · ' + selCount + ' selected') : ''}
-                      </label>
-                      <button onClick={runFeedBatch} disabled={selCount === 0 || feedBatchBusy} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (selCount === 0 || feedBatchBusy) ? "default" : "pointer", background: (selCount === 0 || feedBatchBusy) ? "rgba(99,102,241,0.35)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{feedBatchBusy ? 'Generating…' : ('⚡ Generate ' + (selCount || '') + ' selected →')}</button>
+                      {shownLinks.length > 0 ? (
+                        <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#9db0c7", cursor: "pointer" }}>
+                          <input type="checkbox" checked={allShownSelected} onChange={toggleAllShown} style={{ width: 15, height: 15, cursor: "pointer" }} />
+                          Select all shown{totalSelCount > 0 ? (' · ' + totalSelCount + ' selected' + (otherSelCount > 0 ? (' (' + otherSelCount + ' in other ' + (feedGroupBy === 'brand' ? 'brands' : 'categories') + ')') : '')) : ''}
+                        </label>
+                      ) : (
+                        <span style={{ fontSize: 11.5, color: "#9db0c7" }}>{totalSelCount} selected across {feedGroupBy === 'brand' ? 'brands' : 'categories'}</span>
+                      )}
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        {isSignedIn && (
+                          <>
+                            <input type="datetime-local" value={feedLeaveAt} onChange={e => setFeedLeaveAt(e.target.value)} title="Optional — schedule this batch for later (leave empty to run now)" style={{ padding: "5px 7px", fontSize: 11, borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.14)", colorScheme: "dark" }} />
+                            <button onClick={() => runFeedLeave(allSelectedPicks, feedLeaveAt)} disabled={totalSelCount === 0 || feedLeaveBusy || feedBatchBusy} title="Generate on the server and come back later — results land in your Library. You can close the tab." style={{ padding: "7px 12px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(45,212,191,0.5)", cursor: (totalSelCount === 0 || feedLeaveBusy || feedBatchBusy) ? "default" : "pointer", background: "rgba(45,212,191,0.14)", color: "#5eead4", whiteSpace: "nowrap", opacity: (totalSelCount === 0 || feedLeaveBusy || feedBatchBusy) ? 0.5 : 1 }}>{feedLeaveBusy ? 'Queuing…' : (feedLeaveAt ? '🌙 Schedule →' : '🌙 Generate & leave')}</button>
+                          </>
+                        )}
+                        <button onClick={runFeedBatch} disabled={totalSelCount === 0 || feedBatchBusy} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (totalSelCount === 0 || feedBatchBusy) ? "default" : "pointer", background: (totalSelCount === 0 || feedBatchBusy) ? "rgba(99,102,241,0.35)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{feedBatchBusy ? 'Generating…' : ('⚡ Generate ' + (totalSelCount || '') + ' selected →')}</button>
+                      </div>
                     </div>
+                  )}
+                  {feedLeaveMsg && (
+                    <div style={{ fontSize: 11, color: feedLeaveMsg.charAt(0) === '\u2713' ? "#5eead4" : "#fca5a5", marginBottom: 12, padding: "8px 10px", borderRadius: 8, background: feedLeaveMsg.charAt(0) === '\u2713' ? "rgba(45,212,191,0.08)" : "rgba(252,165,165,0.08)", border: "1px solid " + (feedLeaveMsg.charAt(0) === '\u2713' ? "rgba(45,212,191,0.25)" : "rgba(252,165,165,0.25)"), lineHeight: 1.45 }}>{feedLeaveMsg}</div>
                   )}
                   {shown.length === 0 ? (
                     <div style={{ fontSize: 12, color: "#7e92a8", padding: "16px 0", textAlign: "center" }}>No products match this filter.</div>
@@ -5501,6 +6001,112 @@ STRICT rules:
             </div>
           </div>
         )}
+
+        {showVault && (() => {
+          const items = vaultItems
+            .filter(it => {
+              if (vaultStatus === 'all') return true;
+              if (vaultStatus === 'pending') return it.status === 'pending_review';
+              if (vaultStatus === 'published') return (it.publishStatus || 'unpublished') === 'published';
+              if (vaultStatus === 'unpublished') return (it.publishStatus || 'unpublished') === 'unpublished' && it.status !== 'pending_review';
+              return true;
+            })
+            .slice()
+            .sort((a, b) => vaultSort === 'score'
+              ? (((b.score ?? -1) - (a.score ?? -1)) || (new Date(b.savedAt || b.createdAt) - new Date(a.savedAt || a.createdAt)))
+              : (new Date(b.savedAt || b.createdAt) - new Date(a.savedAt || a.createdAt)));
+          const fmtDate = (s) => { try { return new Date(s).toLocaleDateString(); } catch (_) { return ''; } };
+          const engLabel = (e) => e === 'runway' ? 'Runway' : (e === 'kling' ? 'Kling' : (e || ''));
+          const selStyle = { padding: "6px 10px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.14)", fontSize: 12, cursor: "pointer" };
+          const emptyStyle = { fontSize: 12.5, color: "#7e92a8", padding: "40px 0", textAlign: "center" };
+          const chip = (bg, col, bd) => ({ fontSize: 9.5, fontWeight: 800, color: col, background: bg, border: "1px solid " + bd, borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" });
+          return (
+          <div onClick={() => setShowVault(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 940, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "#0f172a", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16, padding: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>◳ Ad Library <span style={{ fontSize: 12, fontWeight: 800, color: "#a5b4fc" }}>· {vaultItems.length} saved{(() => { const p = vaultItems.filter(it => it.status === 'pending_review').length; return p ? ' · ' + p + ' pending' : ''; })()}</span></span>
+                <button onClick={() => setShowVault(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap", flexShrink: 0 }}>
+                <select value={vaultStatus} onChange={e => setVaultStatus(e.target.value)} style={selStyle}>
+                  <option value="all">All</option>
+                  <option value="pending">Pending review</option>
+                  <option value="unpublished">Unpublished</option>
+                  <option value="published">Published</option>
+                </select>
+                <select value={vaultSort} onChange={e => setVaultSort(e.target.value)} style={selStyle}>
+                  <option value="date">Newest first</option>
+                  <option value="score">Top score</option>
+                </select>
+                <button onClick={fetchVault} disabled={vaultLoading} style={{ padding: "6px 12px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", cursor: vaultLoading ? "default" : "pointer" }}>{vaultLoading ? 'Loading…' : '↻ Refresh'}</button>
+              </div>
+              {vaultJobs.filter(j => j && (j.status === 'queued' || j.status === 'running' || j.status === 'scheduled')).map(j => {
+                const c = j.counts || { total: 0, done: 0, failed: 0 };
+                const inflight = Math.max(0, (c.total || 0) - (c.done || 0) - (c.failed || 0));
+                return (
+                <div key={j.id} style={{ fontSize: 11.5, fontWeight: 700, color: "#c4b5fd", marginBottom: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(139,92,246,0.10)", border: "1px solid rgba(139,92,246,0.3)", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  🌙 Overnight batch · {c.total} ad{c.total === 1 ? '' : 's'} · {c.done} done{c.failed ? ' · ' + c.failed + ' failed' : ''} · {j.status === 'scheduled' ? ('scheduled' + (j.runAt ? ' for ' + new Date(j.runAt).toLocaleString() : '')) : inflight + ' generating…'}
+                </div>
+                );
+              })}
+              {vaultError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10, flexShrink: 0 }}>{vaultError}</div>}
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                {vaultLoading && !items.length ? (
+                  <div style={emptyStyle}>Loading your library…</div>
+                ) : items.length === 0 ? (
+                  <div style={emptyStyle}>No saved ads yet — hit <b style={{ color: "#5eead4" }}>Save</b> on a generated ad to build your library.</div>
+                ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 12 }}>
+                  {items.map(it => {
+                    const busy = vaultBusy === it.id;
+                    return (
+                    <div key={it.id} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", display: "flex", flexDirection: "column" }}>
+                      <div onClick={() => openVaultItem(it)} title="Open in the editor" style={{ cursor: "pointer", position: "relative" }}>
+                        <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
+                          {it.thumb ? <img src={it.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                          {it.hasVideo ? <span style={{ position: "absolute", top: 6, right: 6, ...chip("rgba(139,92,246,0.92)", "white", "transparent") }}>▶ video</span> : null}
+                          {typeof it.score === 'number' ? <span style={{ position: "absolute", top: 6, left: 6, fontSize: 11, fontWeight: 900, color: "#06281f", background: "#fbbf24", borderRadius: 6, padding: "2px 7px" }}>{it.score}/10</span> : null}
+                        </div>
+                      </div>
+                      <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.productTitle || '(untitled)'}</div>
+                        <div style={{ fontSize: 10.5, color: "#7e92a8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{[it.domain, engLabel(it.engine), fmtDate(it.savedAt)].filter(Boolean).join(' · ')}</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {it.status === 'pending_review'
+                            ? <span style={chip("rgba(251,191,36,0.14)", "#fbbf24", "rgba(251,191,36,0.4)")}>⏳ Pending review</span>
+                            : <span style={chip((it.publishStatus === 'published') ? "rgba(16,185,129,0.14)" : "rgba(255,255,255,0.04)", (it.publishStatus === 'published') ? "#34d399" : "#9db0c7", (it.publishStatus === 'published') ? "rgba(16,185,129,0.4)" : "rgba(255,255,255,0.1)")}>{it.publishStatus === 'published' ? 'Published' : 'Unpublished'}</span>}
+                          {it.promo ? <span style={chip("rgba(45,212,191,0.14)", "#5eead4", "rgba(45,212,191,0.4)")}>SALE</span> : null}
+                          {it.personaUsed ? <span style={chip("rgba(139,92,246,0.14)", "#c4b5fd", "rgba(139,92,246,0.4)")}>Persona</span> : null}
+                          {it.language && it.language !== 'English' ? <span style={chip("rgba(255,255,255,0.04)", "#9db0c7", "rgba(255,255,255,0.1)")}>{it.language}</span> : null}
+                          {it.version ? <span style={chip("rgba(255,255,255,0.04)", "#9db0c7", "rgba(255,255,255,0.1)")}>v{it.version}</span> : null}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                          <label style={{ fontSize: 10.5, color: "#7e92a8" }}>Score</label>
+                          <select value={it.score ?? ''} onChange={e => setVaultScore(it.id, e.target.value === '' ? null : Number(e.target.value))} style={{ ...selStyle, padding: "3px 6px", fontSize: 11 }}>
+                            <option value="">–</option>
+                            {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
+                          </select>
+                        </div>
+                        <button onClick={() => recreateOnPersona(it)} disabled={busy} title="Feature this product on one of your saved personas" style={{ padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#f59e0b)", color: "white", marginTop: 2 }}>✨ Recreate on a persona</button>
+                        <div style={{ display: "flex", gap: 6, marginTop: "auto" }}>
+                          <button onClick={() => openVaultItem(it)} disabled={busy} style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{busy ? '…' : 'Open'}</button>
+                          {vaultConfirm === it.id ? (
+                            <button onClick={() => removeVaultItem(it.id)} disabled={busy} style={{ padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(248,113,113,0.5)", background: "rgba(248,113,113,0.15)", color: "#fca5a5", whiteSpace: "nowrap" }}>Sure?</button>
+                          ) : (
+                            <button onClick={() => setVaultConfirm(it.id)} disabled={busy} title="Remove from library" style={{ padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", whiteSpace: "nowrap" }}>Remove</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+                )}
+              </div>
+            </div>
+          </div>
+          );
+        })()}
 
         {/* Creative Studio panel */}
         {showCreativeStudio && isPro && (() => {
@@ -5668,6 +6274,34 @@ STRICT rules:
                     </div>
                     );
                   })()}
+                </div>
+
+                {/* 2a · Create a synthetic persona (generate → mint asset → library) */}
+                <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.06)", marginBottom: 20 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e2e8f0", marginBottom: 2 }}>Create a synthetic persona</div>
+                  <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>Describe an <strong style={{ color: "#c4b5fd" }}>invented</strong> character — not a real person. We generate the face, authorize it as a reusable asset, and add it to your library for sequential ads.</div>
+                  <textarea value={synPrompt} onChange={function (e) { setSynPrompt(e.target.value); }} placeholder="e.g. A 26-year-old woman, wavy dark-blonde hair, friendly natural smile, minimal makeup, plain cream t-shirt, soft studio background." rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", fontSize: 12, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 8 }} />
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+                    <input value={synName} onChange={function (e) { setSynName(e.target.value); }} placeholder="Persona name (optional)" style={{ flex: "1 1 140px", minWidth: 0, padding: "7px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                    <select value={synAspect} onChange={function (e) { setSynAspect(e.target.value); }} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                      <option value="3:4">Portrait 3:4</option>
+                      <option value="9:16">Vertical 9:16</option>
+                      <option value="1:1">Square 1:1</option>
+                    </select>
+                  </div>
+                  <button onClick={generatePersona} disabled={synBusy} style={{ padding: "8px 14px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", cursor: synBusy ? "default" : "pointer", background: synBusy ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{(synBusy && !synImg) ? "⟳ Working…" : (synImg ? "↻ Regenerate" : "✨ Generate persona")}</button>
+                  {synStage ? <div style={{ fontSize: 11, color: "#fbbf24", marginTop: 10 }}>⟳ {synStage}</div> : null}
+                  {synErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginTop: 10, lineHeight: 1.4 }}>{synErr}</div> : null}
+                  {synMsg ? <div style={{ fontSize: 11, color: "#34d399", marginTop: 10 }}>{synMsg}</div> : null}
+                  {synImg ? (
+                    <div style={{ marginTop: 12, display: "flex", gap: 12 }}>
+                      <img src={synImg} alt="" style={{ width: 110, borderRadius: 10, background: "#1e293b", flexShrink: 0, alignSelf: "flex-start" }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 10.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>Happy with the face? Save it — we authorize it as a reusable asset (~10–20s moderation) and add it to your library.</div>
+                        <button onClick={saveSyntheticPersona} disabled={synBusy} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: synBusy ? "default" : "pointer", background: synBusy ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>{synBusy ? "Working…" : "＋ Save to library"}</button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* 2b · Your character library */}
