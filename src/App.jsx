@@ -3417,7 +3417,7 @@ function RSAStudio() {
       setSynStage('Saving to library…');
       const body = { action: 'save', source: 'synthetic', type: 'Synthetic', shot: 'other', name: synName.trim() || 'Synthetic persona', thumbnailUrl: synImg, seedImageUrl: synImg, referenceImages: [synImg], seedanceAssetUri: ing.assetUri, seedanceGroupId: ing.groupId || null };
       const d = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
-      if (d && d.character) { setSynMsg('✓ Saved to your library'); setSynImg(''); setSynPrompt(''); setSynName(''); setSynStage(''); if (charLib !== null) loadCharLibrary(); }
+      if (d && d.character) { setSynMsg(seqReturn ? '✓ Saved — now use “Return to your ad” above' : '✓ Saved to your library'); if (seqReturn) setSeqPersona(d.character); setSynImg(''); setSynPrompt(''); setSynName(''); setSynStage(''); if (charLib !== null) loadCharLibrary(); }
       else { setSynErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); setSynStage(''); }
     } catch (_) { setSynErr('Save failed — please try again.'); setSynStage(''); }
     finally { setSynBusy(false); }
@@ -3435,6 +3435,7 @@ function RSAStudio() {
   const [seqName, setSeqName] = useState('');
   const [seqMsg, setSeqMsg] = useState('');
   const [seqTemplates, setSeqTemplates] = useState(null);
+  const [seqReturn, setSeqReturn] = useState(false);
   const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); };
   const loadSeqTemplates = async () => {
     try {
@@ -5669,7 +5670,7 @@ STRICT rules:
                 const personas = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
                 return (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16, maxHeight: 190, overflowY: "auto" }}>
-                    <div onClick={() => { setSeqOpen(false); setShowCreativeStudio(true); }} title="Create a new synthetic persona" style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: "2px dashed #3a4a74", background: "#13213f" }}>
+                    <div onClick={() => { setSeqOpen(false); setShowCreativeStudio(true); setSeqReturn(true); }} title="Create a new synthetic persona" style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: "2px dashed #3a4a74", background: "#13213f" }}>
                       <div style={{ position: "relative", aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <span style={{ fontSize: 46, color: "#6b82b8", lineHeight: 1 }}>☺</span>
                         <div style={{ position: "absolute", bottom: 4, right: 4, width: 18, height: 18, borderRadius: "50%", background: "#8b5cf6", color: "white", fontSize: 13, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</div>
@@ -6284,6 +6285,7 @@ STRICT rules:
 
                 {/* 2a · Create a synthetic persona (generate → mint asset → library) */}
                 <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.06)", marginBottom: 20 }}>
+                  {seqReturn ? <div onClick={() => { setShowCreativeStudio(false); setSeqOpen(true); setSeqReturn(false); }} title="Go back to the ad you were building" style={{ cursor: "pointer", marginBottom: 12, padding: "9px 12px", borderRadius: 8, border: "1px solid rgba(245,158,11,0.45)", background: "rgba(245,158,11,0.12)", color: "#fbbf24", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 15 }}>←</span><span>Return to your ad{seqPersona ? " — persona ready" : ""}</span></div> : null}
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e2e8f0", marginBottom: 2 }}>Create a synthetic persona</div>
                   <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>Describe an <strong style={{ color: "#c4b5fd" }}>invented</strong> character — not a real person. We generate the face, authorize it as a reusable asset, and add it to your library for sequential ads.</div>
                   <textarea value={synPrompt} onChange={function (e) { setSynPrompt(e.target.value); }} placeholder="e.g. A 26-year-old woman, wavy dark-blonde hair, friendly natural smile, minimal makeup, plain cream t-shirt, soft studio background." rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", fontSize: 12, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 8 }} />
