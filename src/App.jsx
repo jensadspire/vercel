@@ -11502,7 +11502,7 @@ STRICT rules:
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={() => setImagenStep(3)} style={{ flex: 1, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8, background: "rgba(255,255,255,0.04)", color: "#7e92a8", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}>← Regenerate</button>
-                    <button onClick={() => { setMetaResult(prev => ({ ...prev, imageUrl: imagenPreview })); setImagenOpen(false); }} style={{ flex: 2, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8, background: "linear-gradient(135deg,#059669,#10b981)", color: "white", border: "none", cursor: "pointer" }}>✓ Use this image</button>
+                    <button onClick={() => { setMetaResult(prev => ({ ...prev, imageUrl: imagenPreview })); tiktokSourceImageRef.current = imagenPreview; setImagenOpen(false); }} style={{ flex: 2, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8, background: "linear-gradient(135deg,#059669,#10b981)", color: "white", border: "none", cursor: "pointer" }}>✓ Use this image</button>
                   </div>
                 </div>
               )}
