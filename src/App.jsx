@@ -3158,7 +3158,7 @@ function RSAStudio() {
   };
   const discardFeedOutput = (link) => setFeedOutputs(prev => { const n = { ...prev }; delete n[link]; return n; });
 
-  // ── Ad Library (Vault) — reads /api/creatives. Separate from the ★ Saved Library (showLibrary). ──
+  // ── Ad Library (Vault) — reads /api/creatives. Separate from the ★ Favourites (showLibrary). ──
   const [showVault, setShowVault] = useState(false);
   const [vaultItems, setVaultItems] = useState([]);
   const [vaultLoading, setVaultLoading] = useState(false);
@@ -5105,7 +5105,7 @@ STRICT rules:
           }}>
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>★ Saved Library</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>★ Favourites</div>
                 <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>{library.length} saved output{library.length !== 1 ? 's' : ''} — click Replay to reload</div>
               </div>
               <button onClick={() => setShowLibrary(false)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 20, cursor: 'pointer' }}>✕</button>
@@ -5367,7 +5367,7 @@ STRICT rules:
                   <span title="Ships the selected formats to Google Ads — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startGooglePublishChain(); }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
-            ) : (<><div style={iconBar}>{GoogleG}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>Your Google ad will appear here.</div></>)}
+            ) : (<><div style={iconBar}>{GoogleG}</div><div style={{ margin: "auto 0", padding: "0 24px 24px", textAlign: "center" }}><div style={{ fontSize: 12, color: "#4a5568" }}>Your Google ad will appear here.</div>{loading ? <div style={{ fontSize: 12, color: "#6366f1", marginTop: 6 }}>⟳ Generating…</div> : null}</div></>)}
           </div>
 
           {/* Meta */}
@@ -5459,7 +5459,7 @@ STRICT rules:
                   <span title="Ships the selected Meta formats to Meta Ads Manager — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startMetaPublishChain(); }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
-            ) : (<><div style={iconBar}>{MetaMark}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div></>)}
+            ) : (<><div style={iconBar}>{MetaMark}</div><div style={{ margin: "auto 0", padding: "0 24px 24px", textAlign: "center" }}><div style={{ fontSize: 12, color: "#4a5568" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div>{(loading && generateMeta) ? <div style={{ fontSize: 12, color: "#6366f1", marginTop: 6 }}>⟳ Generating…</div> : null}</div></>)}
           </div>
 
           {/* Video */}
@@ -5667,9 +5667,15 @@ STRICT rules:
               <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>1 · Choose persona</div>
               {charLib === null ? <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 16 }}>Loading your personas…</div> : (() => {
                 const personas = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
-                if (personas.length === 0) return <div style={{ fontSize: 11, color: "#5a6b80", marginBottom: 16 }}>No synthetic personas yet — create one in Creative Studio → Personas first.</div>;
                 return (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16, maxHeight: 190, overflowY: "auto" }}>
+                    <div onClick={() => { setSeqOpen(false); setShowCreativeStudio(true); }} title="Create a new synthetic persona" style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: "2px dashed #3a4a74", background: "#13213f" }}>
+                      <div style={{ position: "relative", aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: 46, color: "#6b82b8", lineHeight: 1 }}>☺</span>
+                        <div style={{ position: "absolute", bottom: 4, right: 4, width: 18, height: 18, borderRadius: "50%", background: "#8b5cf6", color: "white", fontSize: 13, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</div>
+                      </div>
+                      <div style={{ padding: "3px 5px 5px", fontSize: 9, color: "#9db0c7", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>New persona</div>
+                    </div>
                     {personas.map(function (c) {
                       const on = seqPersona && seqPersona.id === c.id;
                       return (
@@ -11062,7 +11068,7 @@ STRICT rules:
           }}>
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>★ Saved Library</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>★ Favourites</div>
                 <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>{library.length} saved output{library.length !== 1 ? 's' : ''} — click Replay to reload</div>
               </div>
               <button onClick={() => setShowLibrary(false)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 20, cursor: 'pointer' }}>✕</button>
