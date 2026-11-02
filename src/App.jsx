@@ -3290,7 +3290,7 @@ function RSAStudio() {
 
   const fetchFeed = async () => {
     const s = (feedSource || '').trim();
-    if (!s) { setFeedError('Enter a Shopify or WooCommerce store URL, or a Google Merchant feed URL.'); return; }
+    if (!s) { setFeedError('Enter a Shopify, WooCommerce or Wix store URL, or a Google Merchant feed URL.'); return; }
     if (!feedTermsAccepted) { setFeedError('Please accept the Product Feed Upload Terms to upload a feed.'); return; }
     if (feedBatchBusy || feedSingleBusy) return; // a generation run is in progress
     setFeedLoading(true); setFeedError(''); setFeedResult(null); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
@@ -5633,7 +5633,7 @@ STRICT rules:
                   <span style={{ fontSize: 15, fontWeight: 800, color: "#5eead4" }}>▦ Bulk Feed</span>
                   <span style={{ fontSize: 10, fontWeight: 800, color: "#5eead4", background: "rgba(45,212,191,0.15)", border: "1px solid rgba(45,212,191,0.35)", borderRadius: 6, padding: "2px 8px" }}>BETA</span>
                 </div>
-                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Ingest your whole catalog from a Shopify or WooCommerce store or a Google Merchant feed and turn it into ads in bulk — built for high-volume seasons and agencies.</div>
+                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Ingest your whole catalog from a Shopify, WooCommerce or Wix store or a Google Merchant feed and turn it into ads in bulk — built for high-volume seasons and agencies.</div>
                 <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#2dd4bf" }}>Connect a feed →</div>
                 {(() => {
                   const active = vaultJobs.filter(j => j && (j.status === 'scheduled' || j.status === 'queued' || j.status === 'running'));
@@ -5776,7 +5776,7 @@ STRICT rules:
                   <button onClick={() => setFeedOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
                 </div>
               </div>
-              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify or WooCommerce store URL, or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
+              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify or WooCommerce store URL, a Wix shop-page URL, or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <input value={feedSource} onChange={e => setFeedSource(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
                 <button onClick={fetchFeed} disabled={feedLoading || !feedTermsAccepted || feedBatchBusy || !!feedSingleBusy} title={!feedTermsAccepted ? 'Accept the Product Feed Upload Terms to continue' : ((feedBatchBusy || feedSingleBusy) ? 'Generation in progress — please wait' : '')} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "default" : "pointer", background: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
@@ -5877,7 +5877,7 @@ STRICT rules:
                   <>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
                       <div style={{ fontSize: 11, color: "#7e92a8" }}>
-                        Source: <b style={{ color: "#5eead4" }}>{feedResult.source === 'gmc' ? 'Google Merchant' : (feedResult.source === 'woocommerce' ? 'WooCommerce' : 'Shopify')}</b> · {groups.length} {feedGroupBy === 'brand' ? 'brands' : 'categories'} · {all.length} products{typeof feedResult.count === 'number' && feedResult.count > all.length ? (' (' + feedResult.count + ' in feed)') : ''}
+                        Source: <b style={{ color: "#5eead4" }}>{feedResult.source === 'gmc' ? 'Google Merchant' : (feedResult.source === 'woocommerce' ? 'WooCommerce' : (feedResult.source === 'wix' ? 'Wix' : 'Shopify'))}</b> · {groups.length} {feedGroupBy === 'brand' ? 'brands' : 'categories'} · {all.length} products{typeof feedResult.count === 'number' && feedResult.count > all.length ? (' (' + feedResult.count + ' in feed)') : ''}
                       </div>
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         {Object.keys(feedOutputs).length > 0 && (
