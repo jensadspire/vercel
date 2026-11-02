@@ -3423,6 +3423,21 @@ function RSAStudio() {
     finally { setSynBusy(false); }
   };
   // ── Sequential Ad Builder (persona + product → multi-shot videos → save/reuse template) ──
+  // Funnel objectives (mirror api/_ad-schema.js — same ids the store indexes & filters on).
+  const SEQ_OBJECTIVES = [
+    { id: 'awareness', label: 'Awareness', color: '#38bdf8' },
+    { id: 'engagement', label: 'Engagement', color: '#a78bfa' },
+    { id: 'retargeting', label: 'Retargeting', color: '#f59e0b' },
+    { id: 'conversion', label: 'Conversion', color: '#34d399' },
+  ];
+  const seqObjMeta = (id) => SEQ_OBJECTIVES.find(function (o) { return o.id === id; }) || SEQ_OBJECTIVES[0];
+  const seqDefaultObjective = (i, total) => {
+    if (total <= 1) return 'awareness';
+    if (i <= 0) return 'awareness';
+    if (i >= total - 1) return 'conversion';
+    if (total >= 4 && i === total - 2) return 'retargeting';
+    return 'engagement';
+  };
   const [seqOpen, setSeqOpen] = useState(false);
   const [seqPersona, setSeqPersona] = useState(null);
   const [seqProductUrl, setSeqProductUrl] = useState('');
@@ -3436,6 +3451,8 @@ function RSAStudio() {
   const [seqMsg, setSeqMsg] = useState('');
   const [seqTemplates, setSeqTemplates] = useState(null);
   const [seqReturn, setSeqReturn] = useState(false);
+  const [seqShotObjectives, setSeqShotObjectives] = useState(['awareness']);
+  const [seqPromo, setSeqPromo] = useState(false);
   const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); };
   const loadSeqTemplates = async () => {
     try {
@@ -3470,12 +3487,14 @@ function RSAStudio() {
   };
   const saveSeqTemplate = async () => {
     if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
-    const shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+    const _pairs = seqShots.map(function (s, i) { return { p: String(s || '').trim(), o: (seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length)) }; }).filter(function (x) { return x.p; });
+    const shots = _pairs.map(function (x) { return x.p; });
+    const shotObjectives = _pairs.map(function (x) { return x.o; });
     if (!shots.length) { setSeqErr('Add at least one shot prompt.'); return; }
     setSeqMsg(''); setSeqErr('');
     try {
       const firstVid = (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
-      const body = { action: 'save', name: seqName.trim() || (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template'), assetUri: seqPersona.seedanceAssetUri, characterId: seqPersona.id || null, prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: 'seedance-byteplus', thumbnailUrl: seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null, lastVideoUrl: firstVid };
+      const body = { action: 'save', name: seqName.trim() || (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template'), assetUri: seqPersona.seedanceAssetUri, characterId: seqPersona.id || null, prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: 'seedance-byteplus', thumbnailUrl: seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null, lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
       if (d && d.template) { setSeqMsg('✓ Saved as template'); if (seqTemplates !== null) loadSeqTemplates(); }
       else { setSeqErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
@@ -3486,7 +3505,10 @@ function RSAStudio() {
     const persona = (Array.isArray(charLib) ? charLib.find(function (c) { return c.seedanceAssetUri && (c.id === t.characterId || c.seedanceAssetUri === t.assetUri); }) : null)
       || (t.assetUri ? { id: t.characterId || null, name: t.name || 'Persona', seedanceAssetUri: t.assetUri, thumbnailUrl: t.thumbnailUrl || null } : null);
     setSeqPersona(persona);
-    setSeqShots((t.shots && t.shots.length) ? t.shots : [t.prompt || '']);
+    const _shots = (t.shots && t.shots.length) ? t.shots : [t.prompt || ''];
+    setSeqShots(_shots);
+    setSeqShotObjectives((Array.isArray(t.shotObjectives) && t.shotObjectives.length) ? t.shotObjectives.slice(0, _shots.length) : _shots.map(function (_s, i) { return seqDefaultObjective(i, _shots.length); }));
+    setSeqPromo(!!t.promo);
     setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
     setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
@@ -3496,6 +3518,7 @@ function RSAStudio() {
     setSeqProductUrl(it.thumb || '');
     const prod = it.productTitle ? (it.productTitle + ' ') : '';
     setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
+    setSeqShotObjectives(['awareness']); setSeqPromo(false);
     setSeqResults([]); setSeqMsg(''); setSeqErr('');
     setSeqName(it.productTitle ? (it.productTitle + ' — persona') : '');
     setSeqPersona(null);
@@ -5700,15 +5723,47 @@ STRICT rules:
               </div>
 
               <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>3 · Shots <span style={{ color: "#5a6b80", fontWeight: 600 }}>· one video each</span></div>
+              {seqShots.length > 0 ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginBottom: 10, padding: "7px 9px", borderRadius: 9, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <span style={{ fontSize: 9, color: "#5a6b80", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 3 }}>Funnel</span>
+                  {seqShots.map(function (_s, i) {
+                    const o = seqObjMeta(seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length));
+                    return (
+                      <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        {i > 0 ? <span style={{ color: "#3a4a64", fontSize: 11 }}>→</span> : null}
+                        <span style={{ padding: "2px 8px", fontSize: 9.5, fontWeight: 800, borderRadius: 999, background: o.color + "22", color: o.color, border: "1px solid " + o.color + "55" }}>{o.label}</span>
+                      </span>
+                    );
+                  })}
+                  {seqPromo ? <span style={{ marginLeft: 6, padding: "2px 8px", fontSize: 9.5, fontWeight: 800, borderRadius: 999, background: "rgba(236,72,153,0.16)", color: "#f472b6", border: "1px solid rgba(236,72,153,0.5)" }}>⍟ Promo</span> : null}
+                </div>
+              ) : null}
               {seqShots.map(function (s, i) {
+                const objId = seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length);
                 return (
-                  <div key={i} style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                    <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Shot " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={2} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical" }} />
-                    {seqShots.length > 1 ? <button onClick={() => setSeqShots(seqShots.filter(function (_, j) { return j !== i; }))} style={{ padding: "0 10px", fontSize: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#fca5a5", cursor: "pointer" }}>×</button> : null}
+                  <div key={i} style={{ marginBottom: 10, padding: 8, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Shot " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={2} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical" }} />
+                      {seqShots.length > 1 ? <button onClick={() => { setSeqShots(seqShots.filter(function (_, j) { return j !== i; })); setSeqShotObjectives(seqShotObjectives.filter(function (_, j) { return j !== i; })); }} style={{ padding: "0 10px", fontSize: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#fca5a5", cursor: "pointer" }}>×</button> : null}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 9, color: "#5a6b80", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 2 }}>Objective</span>
+                      {SEQ_OBJECTIVES.map(function (o) {
+                        const on = o.id === objId;
+                        return (
+                          <button key={o.id} onClick={() => { const n = seqShotObjectives.slice(); while (n.length < seqShots.length) n.push(seqDefaultObjective(n.length, seqShots.length)); n[i] = o.id; setSeqShotObjectives(n); }} title={o.label} style={{ padding: "3px 9px", fontSize: 10, fontWeight: 800, borderRadius: 999, cursor: "pointer", border: on ? ("1px solid " + o.color) : "1px solid rgba(255,255,255,0.12)", background: on ? (o.color + "22") : "rgba(0,0,0,0.25)", color: on ? o.color : "#7e92a8" }}>{o.label}</button>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
-              {seqShots.length < 4 ? <button onClick={() => setSeqShots(seqShots.concat(['']))} style={{ fontSize: 11, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 11px", cursor: "pointer" }}>＋ Add shot</button> : null}
+              {seqShots.length < 4 ? <button onClick={() => { setSeqShots(seqShots.concat([''])); setSeqShotObjectives(seqShotObjectives.concat([seqDefaultObjective(seqShots.length, seqShots.length + 1)])); }} style={{ fontSize: 11, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 11px", cursor: "pointer" }}>＋ Add shot</button> : null}
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: 10, fontSize: 10.5, cursor: "pointer", verticalAlign: "middle" }}>
+                <input type="checkbox" checked={seqPromo} onChange={e => setSeqPromo(e.target.checked)} style={{ width: 13, height: 13, cursor: "pointer" }} />
+                <span style={{ color: seqPromo ? "#f472b6" : "#9db0c7", fontWeight: 700 }}>⍟ Promo / sale</span>
+                <span style={{ color: "#5a6b80" }}>· sideline flag, any stage</span>
+              </label>
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14, marginBottom: 16 }}>
                 <select value={seqRatio} onChange={e => setSeqRatio(e.target.value)} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
