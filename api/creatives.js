@@ -23,6 +23,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { normalizeAdMeta } from './_ad-schema.js';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '4mb' } }, // the channels bundle (copy + URLs) is bigger than a character doc
@@ -86,6 +87,8 @@ function tagKeys(ownerId, c) {
   add('language', c.language);
   add('promo', c.promo ? 1 : 0);           // always indexed (0/1)
   add('persona', c.personaUsed ? 1 : 0);   // always indexed (0/1)
+  add('objective', c.objective);           // funnel stage (awareness|engagement|retargeting|conversion), null = unindexed
+  if (Array.isArray(c.tags)) for (const t of c.tags) add('tag', t);  // open clustering dimension
   return keys;
 }
 
@@ -137,6 +140,11 @@ export default async function handler(req, res) {
 
       const now = new Date().toISOString();
       const productUrl = str(body.productUrl, 1000);
+      const adMeta = normalizeAdMeta({
+        objective:   body.objective   !== undefined ? body.objective   : (existing && existing.objective),
+        tags:        body.tags        !== undefined ? body.tags        : (existing && existing.tags),
+        performance: body.performance !== undefined ? body.performance : (existing && existing.performance),
+      });
       const doc = {
         // identity & lineage
         id,
@@ -192,6 +200,13 @@ export default async function handler(req, res) {
 
         // derived (Phase 3)
         perfRollup: existing ? (existing.perfRollup || {}) : {},
+
+        // classification + unified performance slot (shared _ad-schema.js). performance stays
+        // empty until the read-API lands, then populates with no reshape; perfRollup above is
+        // the older placeholder, superseded by performance and safe to retire later.
+        objective: adMeta.objective,
+        tags: adMeta.tags,
+        performance: adMeta.performance,
       };
 
       if (!doc.productUrl) return res.status(400).json({ error: 'productUrl is required.' });
@@ -222,6 +237,8 @@ export default async function handler(req, res) {
       if (f.language) filterKeys.push(`${base}:language:${lc(f.language)}`);
       if (f.promo    !== undefined) filterKeys.push(`${base}:promo:${f.promo ? 1 : 0}`);
       if (f.persona  !== undefined) filterKeys.push(`${base}:persona:${f.persona ? 1 : 0}`);
+      if (f.objective) filterKeys.push(`${base}:objective:${lc(f.objective)}`);
+      if (f.tag)       filterKeys.push(`${base}:tag:${lc(f.tag)}`);
 
       let ids;
       if (filterKeys.length === 1)    ids = await redis('SMEMBERS', filterKeys[0]);
