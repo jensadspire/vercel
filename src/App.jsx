@@ -6152,6 +6152,7 @@ STRICT rules:
                             <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
                               {t.thumbnailUrl ? <img src={t.thumbnailUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
                               <span style={{ position: "absolute", top: 6, left: 6, fontSize: 9.5, fontWeight: 800, color: "#1a1206", background: "rgba(245,158,11,0.92)", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" }}>★ Template</span>
+                              <span title="Use for sequential ads" style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, color: "#fbbf24", background: "rgba(0,0,0,0.55)", borderRadius: 6, border: "1px solid rgba(245,158,11,0.5)", cursor: "default" }}>⤵</span>
                             </div>
                             <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
                               <div style={{ fontSize: 12.5, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name || '(untitled template)'}</div>
