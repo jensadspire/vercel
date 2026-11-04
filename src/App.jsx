@@ -3456,7 +3456,52 @@ function RSAStudio() {
   const [seqShotObjectives, setSeqShotObjectives] = useState(['awareness']);
   const [seqPromo, setSeqPromo] = useState(false);
   const [seqPersonaOpen, setSeqPersonaOpen] = useState(false);
+  const [seqMarket, setSeqMarket] = useState('auto');
+  const [seqInteraction, setSeqInteraction] = useState('auto');
+  const [seqAutoBusy, setSeqAutoBusy] = useState(null);   // null | shot index | -1 (all)
+  const [seqShotMeta, setSeqShotMeta] = useState([]);      // per-shot { market, interactionMode } from the generator
   const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); };
+  const seqStoryCtx = (objective) => {
+    let title = String(seqName || '').trim();
+    const dash = title.lastIndexOf(' — ');
+    if (dash > 0) { const tail = title.slice(dash + 3).toLowerCase(); if (tail === 'persona' || tail === 'sequence') title = title.slice(0, dash).trim(); }
+    return {
+      action: 'shot', objective: objective,
+      persona: seqPersona ? { name: seqPersona.name || null } : null,
+      usePersona: !!seqPersona,
+      product: { title: title || undefined, imageUrl: seqProductUrl.trim() || undefined },
+      url: seqProductUrl.trim() || undefined,
+      market: seqMarket === 'auto' ? undefined : seqMarket,
+      interactionMode: seqInteraction === 'auto' ? undefined : seqInteraction,
+      promo: seqPromo, ratio: seqRatio,
+    };
+  };
+  const autoWriteShot = async (i) => {
+    const objective = seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length);
+    setSeqAutoBusy(i); setSeqErr('');
+    try {
+      const d = await fetch('/api/seq-storyboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seqStoryCtx(objective)) }).then(r => r.json());
+      if (d && d.shot && d.shot.prompt) {
+        const ns = seqShots.slice(); ns[i] = d.shot.prompt; setSeqShots(ns);
+        const nm = seqShotMeta.slice(); nm[i] = { market: d.shot.market, interactionMode: d.shot.interactionMode }; setSeqShotMeta(nm);
+      } else { setSeqErr((d && d.error) ? ('Auto-write failed: ' + d.error) : 'Auto-write failed.'); }
+    } catch (_) { setSeqErr('Auto-write failed — please try again.'); }
+    finally { setSeqAutoBusy(null); }
+  };
+  const autoWriteAll = async () => {
+    if (!seqShots.length) return;
+    setSeqAutoBusy(-1); setSeqErr('');
+    try {
+      const results = await Promise.all(seqShots.map(function (_s, i) {
+        const objective = seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length);
+        return fetch('/api/seq-storyboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seqStoryCtx(objective)) }).then(r => r.json()).catch(function () { return null; });
+      }));
+      const ns = seqShots.slice(); const nm = seqShotMeta.slice();
+      results.forEach(function (d, i) { if (d && d.shot && d.shot.prompt) { ns[i] = d.shot.prompt; nm[i] = { market: d.shot.market, interactionMode: d.shot.interactionMode }; } });
+      setSeqShots(ns); setSeqShotMeta(nm);
+    } catch (_) { setSeqErr('Auto-write failed — please try again.'); }
+    finally { setSeqAutoBusy(null); }
+  };
   const loadSeqTemplates = async () => {
     try {
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list' }) }).then(r => r.json());
@@ -3519,7 +3564,7 @@ function RSAStudio() {
     const _shots = (t.shots && t.shots.length) ? t.shots : [t.prompt || ''];
     setSeqShots(_shots);
     setSeqShotObjectives((Array.isArray(t.shotObjectives) && t.shotObjectives.length) ? t.shotObjectives.slice(0, _shots.length) : _shots.map(function (_s, i) { return seqDefaultObjective(i, _shots.length); }));
-    setSeqPromo(!!t.promo);
+    setSeqPromo(!!t.promo); setSeqShotMeta([]);
     setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
     setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
@@ -3529,7 +3574,7 @@ function RSAStudio() {
     setSeqProductUrl(it.thumb || '');
     const prod = it.productTitle ? (it.productTitle + ' ') : '';
     setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
-    setSeqShotObjectives(['awareness']); setSeqPromo(false);
+    setSeqShotObjectives(['awareness']); setSeqPromo(false); setSeqShotMeta([]);
     setSeqResults([]); setSeqMsg(''); setSeqErr('');
     setSeqName(it.productTitle ? (it.productTitle + ' — persona') : '');
     setSeqPersona(null);
@@ -5773,13 +5818,37 @@ STRICT rules:
                   {seqPromo ? <span style={{ marginLeft: 6, padding: "2px 8px", fontSize: 9.5, fontWeight: 800, borderRadius: 999, background: "rgba(236,72,153,0.16)", color: "#f472b6", border: "1px solid rgba(236,72,153,0.5)" }}>⍟ Promo</span> : null}
                 </div>
               ) : null}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                <span style={{ fontSize: 9, color: "#5a6b80", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Flavour</span>
+                <select value={seqMarket} onChange={e => setSeqMarket(e.target.value)} title="Market / local flavour" style={{ padding: "5px 7px", fontSize: 10.5, borderRadius: 7, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                  <option value="auto">Market: Auto</option>
+                  <option value="scandinavia">Scandinavia</option>
+                  <option value="uk">UK</option>
+                  <option value="germany">Central EU</option>
+                  <option value="france">France</option>
+                  <option value="italy">Italy</option>
+                  <option value="spain">Spain</option>
+                  <option value="netherlands">Netherlands</option>
+                  <option value="us">US</option>
+                </select>
+                <select value={seqInteraction} onChange={e => setSeqInteraction(e.target.value)} title="How the persona meets the product" style={{ padding: "5px 7px", fontSize: 10.5, borderRadius: 7, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                  <option value="auto">Interaction: Auto</option>
+                  <option value="wear">Wear</option>
+                  <option value="use">Use</option>
+                  <option value="consume">Consume</option>
+                  <option value="operate">Operate</option>
+                  <option value="present">Present</option>
+                </select>
+                <button onClick={autoWriteAll} disabled={seqAutoBusy !== null} title="Auto-write every shot from its objective" style={{ marginLeft: "auto", padding: "5px 12px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "none", cursor: seqAutoBusy !== null ? "default" : "pointer", background: seqAutoBusy !== null ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{seqAutoBusy === -1 ? "⟳ Writing…" : "✨ Auto-write all"}</button>
+              </div>
               {seqShots.map(function (s, i) {
                 const objId = seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length);
+                const meta = seqShotMeta[i] || null;
                 return (
                   <div key={i} style={{ marginBottom: 10, padding: 8, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Shot " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={2} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical" }} />
-                      {seqShots.length > 1 ? <button onClick={() => { setSeqShots(seqShots.filter(function (_, j) { return j !== i; })); setSeqShotObjectives(seqShotObjectives.filter(function (_, j) { return j !== i; })); }} style={{ padding: "0 10px", fontSize: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#fca5a5", cursor: "pointer" }}>×</button> : null}
+                      {seqShots.length > 1 ? <button onClick={() => { setSeqShots(seqShots.filter(function (_, j) { return j !== i; })); setSeqShotObjectives(seqShotObjectives.filter(function (_, j) { return j !== i; })); setSeqShotMeta(seqShotMeta.filter(function (_, j) { return j !== i; })); }} style={{ padding: "0 10px", fontSize: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#fca5a5", cursor: "pointer" }}>×</button> : null}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 9, color: "#5a6b80", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 2 }}>Objective</span>
@@ -5789,7 +5858,15 @@ STRICT rules:
                           <button key={o.id} onClick={() => { const n = seqShotObjectives.slice(); while (n.length < seqShots.length) n.push(seqDefaultObjective(n.length, seqShots.length)); n[i] = o.id; setSeqShotObjectives(n); }} title={o.label} style={{ padding: "3px 9px", fontSize: 10, fontWeight: 800, borderRadius: 999, cursor: "pointer", border: on ? ("1px solid " + o.color) : "1px solid rgba(255,255,255,0.12)", background: on ? (o.color + "22") : "rgba(0,0,0,0.25)", color: on ? o.color : "#7e92a8" }}>{o.label}</button>
                         );
                       })}
+                      <button onClick={() => autoWriteShot(i)} disabled={seqAutoBusy !== null} title="Auto-write this shot's storyboard from its objective" style={{ marginLeft: "auto", padding: "3px 10px", fontSize: 10, fontWeight: 800, borderRadius: 999, cursor: seqAutoBusy !== null ? "default" : "pointer", border: "none", background: (seqAutoBusy === i) ? "rgba(139,92,246,0.5)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{seqAutoBusy === i ? "⟳" : "✨ Auto-write"}</button>
                     </div>
+                    {meta ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 8.5, color: "#5a6b80", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Inferred</span>
+                        <span style={{ padding: "1px 7px", fontSize: 9, fontWeight: 700, borderRadius: 999, background: "rgba(56,189,248,0.14)", color: "#7dd3fc", border: "1px solid rgba(56,189,248,0.4)" }}>{meta.market === 'default' ? 'neutral scene' : (meta.market + ' scene')}</span>
+                        {meta.interactionMode ? <span style={{ padding: "1px 7px", fontSize: 9, fontWeight: 700, borderRadius: 999, background: "rgba(167,139,250,0.14)", color: "#c4b5fd", border: "1px solid rgba(167,139,250,0.4)" }}>{meta.interactionMode} mode</span> : null}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
