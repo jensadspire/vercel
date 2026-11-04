@@ -3170,6 +3170,8 @@ function RSAStudio() {
   const [vaultConfirm, setVaultConfirm] = useState(null);  // id pending remove-confirm
   const [vaultSavedKey, setVaultSavedKey] = useState(null); // combo key of the single output saved to the Vault
   const [vaultSaving, setVaultSaving] = useState(false);    // star→Vault save in flight
+  const [vaultTab, setVaultTab] = useState('ads');          // 'ads' (creatives) | 'templates' (ad-templates)
+  const [seqTplConfirm, setSeqTplConfirm] = useState(null); // template id pending remove-confirm (Library)
 
   const vaultHeaders = async () => {
     const token = (isSignedIn && session) ? await session.getToken() : null;
@@ -3235,7 +3237,7 @@ function RSAStudio() {
       if (res.ok && Array.isArray(data.jobs)) setVaultJobs(data.jobs);
     } catch (_) {}
   };
-  const openVault = () => { setShowVault(true); setVaultConfirm(null); fetchVault(); fetchVaultJobs(); };
+  const openVault = () => { setShowVault(true); setVaultConfirm(null); fetchVault(); fetchVaultJobs(); loadSeqTemplates(); };
   // While the Library is open and a batch is still running, poll jobs + items so finished ads appear live.
   useEffect(() => {
     if (!showVault) return;
@@ -3459,6 +3461,14 @@ function RSAStudio() {
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list' }) }).then(r => r.json());
       setSeqTemplates(Array.isArray(d.templates) ? d.templates : []);
     } catch (_) { setSeqTemplates([]); }
+  };
+  const deleteSeqTemplate = async (id) => {
+    if (!id) return;
+    try {
+      await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'delete', id: id }) });
+      setSeqTplConfirm(null);
+      loadSeqTemplates();
+    } catch (_) {}
   };
   const generateSequence = async () => {
     if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
@@ -5668,7 +5678,7 @@ STRICT rules:
               {/* Ad Library (Vault) */}
               <div onClick={openVault} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(99,102,241,0.3)", background: "linear-gradient(135deg,rgba(99,102,241,0.10),rgba(139,92,246,0.06))", cursor: "pointer", position: "relative" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: "#a5b4fc" }}>◳ Ad Library</span>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#a5b4fc" }}>◳ Library</span>
                   <span style={{ fontSize: 10, fontWeight: 800, color: "#a5b4fc", background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 6, padding: "2px 8px" }}>NEW</span>
                 </div>
                 <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Your saved ads — the full Google + Meta + video set for each, organised and scored, ready to reopen, publish or reuse.</div>
@@ -5790,10 +5800,10 @@ STRICT rules:
               ) : null}
 
               <div style={{ paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Save as template</div>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Save as template to library</div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
                   <input value={seqName} onChange={e => setSeqName(e.target.value)} placeholder="Template name" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
-                  <button onClick={saveSeqTemplate} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>Save template</button>
+                  <button onClick={saveSeqTemplate} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>Save to library</button>
                 </div>
                 {seqMsg ? <div style={{ fontSize: 11, color: "#34d399", marginBottom: 8 }}>{seqMsg}</div> : null}
                 <button onClick={() => { if (seqTemplates === null) loadSeqTemplates(); else setSeqTemplates(null); }} style={{ fontSize: 11, fontWeight: 700, color: "#c4b5fd", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 11px", cursor: "pointer" }}>📁 {seqTemplates === null ? "Show saved templates" : "Hide"}</button>
@@ -6086,9 +6096,20 @@ STRICT rules:
           <div onClick={() => setShowVault(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
             <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 940, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "#0f172a", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16, padding: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
-                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>◳ Ad Library <span style={{ fontSize: 12, fontWeight: 800, color: "#a5b4fc" }}>· {vaultItems.length} saved{(() => { const p = vaultItems.filter(it => it.status === 'pending_review').length; return p ? ' · ' + p + ' pending' : ''; })()}</span></span>
+                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>◳ Library <span style={{ fontSize: 12, fontWeight: 800, color: "#a5b4fc" }}>· {vaultTab === 'templates' ? ((Array.isArray(seqTemplates) ? seqTemplates.length : 0) + ' template' + ((Array.isArray(seqTemplates) ? seqTemplates.length : 0) === 1 ? '' : 's')) : (vaultItems.length + ' saved' + (() => { const p = vaultItems.filter(it => it.status === 'pending_review').length; return p ? ' · ' + p + ' pending' : ''; })())}</span></span>
                 <button onClick={() => setShowVault(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
               </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, flexShrink: 0 }}>
+                {[{ id: 'ads', label: 'Saved ads' }, { id: 'templates', label: 'Template ads' }].map(function (tb) {
+                  const on = vaultTab === tb.id;
+                  const cnt = tb.id === 'templates' ? (Array.isArray(seqTemplates) ? seqTemplates.length : 0) : vaultItems.length;
+                  return (
+                    <button key={tb.id} onClick={() => setVaultTab(tb.id)} style={{ padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 9, cursor: "pointer", border: on ? "1px solid rgba(99,102,241,0.6)" : "1px solid rgba(255,255,255,0.1)", background: on ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.02)", color: on ? "#c7d2fe" : "#9db0c7" }}>{tb.label} <span style={{ color: on ? "#a5b4fc" : "#5a6b80", fontWeight: 700 }}>· {cnt}</span></button>
+                  );
+                })}
+                <div style={{ marginLeft: "auto", fontSize: 11, color: "#5a6b80", maxWidth: 240, textAlign: "right", lineHeight: 1.35 }}>{vaultTab === 'templates' ? 'Sequence leaders — a fixed persona, set to open a funnel.' : 'Reusable single ads.'}</div>
+              </div>
+              {vaultTab === 'ads' ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap", flexShrink: 0 }}>
                 <select value={vaultStatus} onChange={e => setVaultStatus(e.target.value)} style={selStyle}>
                   <option value="all">All</option>
@@ -6102,6 +6123,11 @@ STRICT rules:
                 </select>
                 <button onClick={fetchVault} disabled={vaultLoading} style={{ padding: "6px 12px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", cursor: vaultLoading ? "default" : "pointer" }}>{vaultLoading ? 'Loading…' : '↻ Refresh'}</button>
               </div>
+              ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexShrink: 0 }}>
+                <button onClick={loadSeqTemplates} style={{ padding: "6px 12px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", cursor: "pointer" }}>↻ Refresh</button>
+              </div>
+              )}
               {vaultJobs.filter(j => j && (j.status === 'queued' || j.status === 'running' || j.status === 'scheduled')).map(j => {
                 const c = j.counts || { total: 0, done: 0, failed: 0 };
                 const inflight = Math.max(0, (c.total || 0) - (c.done || 0) - (c.failed || 0));
@@ -6113,7 +6139,49 @@ STRICT rules:
               })}
               {vaultError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10, flexShrink: 0 }}>{vaultError}</div>}
               <div style={{ flex: 1, overflowY: "auto" }}>
-                {vaultLoading && !items.length ? (
+                {vaultTab === 'templates' ? (
+                  (seqTemplates === null || (Array.isArray(seqTemplates) && seqTemplates.length === 0)) ? (
+                    <div style={emptyStyle}>{seqTemplates === null ? 'Loading templates…' : 'No template ads yet — build a sequence lead in the Sequential Ad Builder, then use “Save as template to library”.'}</div>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 12 }}>
+                      {seqTemplates.map(function (t) {
+                        const nShots = (t.shots && t.shots.length) || 1;
+                        const objs = Array.isArray(t.shotObjectives) ? t.shotObjectives : [];
+                        return (
+                          <div key={t.id} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid rgba(245,158,11,0.25)", background: "rgba(245,158,11,0.04)", display: "flex", flexDirection: "column" }}>
+                            <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
+                              {t.thumbnailUrl ? <img src={t.thumbnailUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                              <span style={{ position: "absolute", top: 6, left: 6, fontSize: 9.5, fontWeight: 800, color: "#1a1206", background: "rgba(245,158,11,0.92)", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" }}>★ Template</span>
+                            </div>
+                            <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                              <div style={{ fontSize: 12.5, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name || '(untitled template)'}</div>
+                              <div style={{ fontSize: 10.5, color: "#7e92a8" }}>{nShots + ' shot' + (nShots === 1 ? '' : 's') + (t.promo ? ' · SALE' : '')}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap" }}>
+                                {(objs.length ? objs : ['awareness']).slice(0, 4).map(function (oid, k) {
+                                  const o = seqObjMeta(oid);
+                                  return (
+                                    <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                      {k > 0 ? <span style={{ color: "#3a4a64", fontSize: 10 }}>→</span> : null}
+                                      <span style={{ padding: "1px 6px", fontSize: 9, fontWeight: 800, borderRadius: 999, background: o.color + "22", color: o.color, border: "1px solid " + o.color + "55" }}>{o.label}</span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                              <button onClick={() => { loadSeqTemplate(t); setShowVault(false); openSeqBuilder(); }} style={{ padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", marginTop: 2 }}>⚡ Load into builder</button>
+                              <div style={{ display: "flex", gap: 6, marginTop: "auto" }}>
+                                {seqTplConfirm === t.id ? (
+                                  <button onClick={() => deleteSeqTemplate(t.id)} style={{ flex: 1, padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(248,113,113,0.5)", background: "rgba(248,113,113,0.15)", color: "#fca5a5" }}>Sure?</button>
+                                ) : (
+                                  <button onClick={() => setSeqTplConfirm(t.id)} style={{ flex: 1, padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#9db0c7" }}>Remove</button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                ) : (vaultLoading && !items.length) ? (
                   <div style={emptyStyle}>Loading your library…</div>
                 ) : items.length === 0 ? (
                   <div style={emptyStyle}>No saved ads yet — hit <b style={{ color: "#5eead4" }}>Save</b> on a generated ad to build your library.</div>
