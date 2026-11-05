@@ -3561,7 +3561,7 @@ function RSAStudio() {
   const loadSeqTemplate = (t) => {
     if (!t) return;
     const persona = (Array.isArray(charLib) ? charLib.find(function (c) { return c.seedanceAssetUri && (c.id === t.characterId || c.seedanceAssetUri === t.assetUri); }) : null)
-      || (t.assetUri ? { id: t.characterId || null, name: t.name || 'Persona', seedanceAssetUri: t.assetUri, thumbnailUrl: t.thumbnailUrl || null } : null);
+      || (t.assetUri ? { id: t.characterId || null, name: 'Lead persona', seedanceAssetUri: t.assetUri, thumbnailUrl: t.thumbnailUrl || null } : null);
     setSeqPersona(persona);
     const _shots = (t.shots && t.shots.length) ? t.shots : [t.prompt || ''];
     setSeqShots(_shots);
@@ -5755,27 +5755,25 @@ STRICT rules:
                 </div>
               ) : null}
 
-              {/* Lead ad — the opening video, 80% width */}
+              {/* Lead ad — the opening video (height-capped so the controls stay in view) */}
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-                <div style={{ width: "80%" }}>
-                  {seqPersona ? (
-                    <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(245,158,11,0.35)", background: "#0b1322" }}>
-                      {seqLeadVideo ? (
-                        <video src={seqLeadVideo} controls playsInline style={{ width: "100%", display: "block", background: "#000" }} />
-                      ) : (
-                        <img src={seqPersona.thumbnailUrl || seqPersona.seedImageUrl} alt="" style={{ width: "100%", display: "block", aspectRatio: "1", objectFit: "cover" }} />
-                      )}
-                      <span style={{ position: "absolute", top: 8, left: 8, fontSize: 10.5, fontWeight: 800, color: "#1a1206", background: "rgba(245,158,11,0.92)", borderRadius: 6, padding: "2px 8px" }}>★ Template</span>
-                      <span title="Use for sequential ads" style={{ position: "absolute", top: 8, right: 8, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, color: "#fbbf24", background: "rgba(0,0,0,0.55)", borderRadius: 7, border: "1px solid rgba(245,158,11,0.5)" }}>⤵</span>
-                      <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ position: "absolute", bottom: 8, right: 8, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#c4b5fd", cursor: "pointer" }}>Change lead</button>
-                    </div>
-                  ) : (
-                    <div style={{ borderRadius: 14, border: "1px dashed rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.04)", aspectRatio: "16 / 9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center", padding: 16 }}>
-                      <div style={{ fontSize: 12.5, color: "#9db0c7", maxWidth: 360, lineHeight: 1.45 }}>Load a saved <strong style={{ color: "#fbbf24" }}>template ad</strong> as your sequence lead.</div>
-                      <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", cursor: "pointer" }}>⤵ Browse template ads</button>
-                    </div>
-                  )}
-                </div>
+                {seqPersona ? (
+                  <div style={{ position: "relative", display: "inline-block", maxWidth: "58%", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(245,158,11,0.35)", background: "#0b1322", lineHeight: 0 }}>
+                    {seqLeadVideo ? (
+                      <video src={seqLeadVideo} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", background: "#000" }} />
+                    ) : (
+                      <img src={seqPersona.thumbnailUrl || seqPersona.seedImageUrl} alt="" style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto" }} />
+                    )}
+                    <span style={{ position: "absolute", top: 10, left: 10, fontSize: 15, fontWeight: 800, color: "#1a1206", background: "rgba(245,158,11,0.92)", borderRadius: 9, padding: "4px 12px", lineHeight: 1.1 }}>★ Template</span>
+                    <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} title="Use for sequential ads — load another template" style={{ position: "absolute", top: 10, right: 10, width: 42, height: 42, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 900, color: "#fbbf24", background: "rgba(0,0,0,0.6)", borderRadius: 11, border: "1px solid rgba(245,158,11,0.6)", cursor: "pointer", lineHeight: 1 }}>⤵</button>
+                    <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ position: "absolute", bottom: 10, right: 10, padding: "6px 12px", fontSize: 11, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#c4b5fd", cursor: "pointer", lineHeight: 1.1 }}>Change lead</button>
+                  </div>
+                ) : (
+                  <div style={{ width: "58%", borderRadius: 14, border: "1px dashed rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.04)", aspectRatio: "16 / 9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center", padding: 16 }}>
+                    <div style={{ fontSize: 12.5, color: "#9db0c7", maxWidth: 360, lineHeight: 1.45 }}>Load a saved <strong style={{ color: "#fbbf24" }}>template ad</strong> as your sequence lead.</div>
+                    <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", cursor: "pointer" }}>⤵ Browse template ads</button>
+                  </div>
+                )}
               </div>
 
               {/* Attribute satellites — the levers for the next video */}
