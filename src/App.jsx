@@ -3460,6 +3460,8 @@ function RSAStudio() {
   const [seqInteraction, setSeqInteraction] = useState('auto');
   const [seqAutoBusy, setSeqAutoBusy] = useState(null);   // null | shot index | -1 (all)
   const [seqShotMeta, setSeqShotMeta] = useState([]);      // per-shot { market, interactionMode } from the generator
+  const [seqLeadVideo, setSeqLeadVideo] = useState(null);  // loaded template's opening video (shown at the top)
+  const [seqSaveOpen, setSeqSaveOpen] = useState(false);   // header "Save as template" bar toggle
   const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); };
   const seqStoryCtx = (objective) => {
     let title = String(seqName || '').trim();
@@ -3564,7 +3566,7 @@ function RSAStudio() {
     const _shots = (t.shots && t.shots.length) ? t.shots : [t.prompt || ''];
     setSeqShots(_shots);
     setSeqShotObjectives((Array.isArray(t.shotObjectives) && t.shotObjectives.length) ? t.shotObjectives.slice(0, _shots.length) : _shots.map(function (_s, i) { return seqDefaultObjective(i, _shots.length); }));
-    setSeqPromo(!!t.promo); setSeqShotMeta([]);
+    setSeqPromo(!!t.promo); setSeqShotMeta([]); setSeqLeadVideo(t.lastVideoUrl || null);
     setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
     setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
@@ -3574,7 +3576,7 @@ function RSAStudio() {
     setSeqProductUrl(it.thumb || '');
     const prod = it.productTitle ? (it.productTitle + ' ') : '';
     setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
-    setSeqShotObjectives(['awareness']); setSeqPromo(false); setSeqShotMeta([]);
+    setSeqShotObjectives(['awareness']); setSeqPromo(false); setSeqShotMeta([]); setSeqLeadVideo(null);
     setSeqResults([]); setSeqMsg(''); setSeqErr('');
     setSeqName(it.productTitle ? (it.productTitle + ' — persona') : '');
     setSeqPersona(null);
@@ -5737,109 +5739,117 @@ STRICT rules:
         {/* Sequential Ad Builder panel */}
         {seqOpen && (
           <div onClick={() => setSeqOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
-            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 680, maxHeight: "88vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 16, padding: 26 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 860, maxHeight: "88vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 16, padding: 26 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>⚡ Sequential Ad Builder</span>
-                <button onClick={() => setSeqOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => setSeqSaveOpen(function (v) { return !v; })} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 800, borderRadius: 8, cursor: "pointer", border: "1px solid rgba(16,185,129,0.4)", background: seqSaveOpen ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.03)", color: "#6ee7b7" }}>💾 Save as template</button>
+                  <button onClick={() => setSeqOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                </div>
               </div>
-              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Start from a template ad in your Library — or build a lead ad here. Persona and objective ride along as the ad's attributes.</div>
-
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>1 · Lead ad</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: 10, borderRadius: 10, border: "1px solid rgba(245,158,11,0.2)", background: "rgba(245,158,11,0.04)" }}>
-                {seqPersona ? (
-                  <>
-                    <img src={seqPersona.thumbnailUrl || seqPersona.seedImageUrl} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", background: "#1e293b", flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{seqName || (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Your lead ad')}</div>
-                      <div style={{ fontSize: 10.5, color: "#9db0c7" }}>{'Persona: ' + (seqPersona.name || 'character') + ' · ' + (seqShots.filter(function (s) { return String(s || '').trim(); }).length || 1) + ' shot' + ((seqShots.filter(function (s) { return String(s || '').trim(); }).length || 1) === 1 ? '' : 's')}</div>
-                    </div>
-                    <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.3)", color: "#c4b5fd", cursor: "pointer", whiteSpace: "nowrap" }}>Change lead</button>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ flex: 1, fontSize: 11.5, color: "#9db0c7", lineHeight: 1.45 }}>Load a saved <strong style={{ color: "#fbbf24" }}>template ad</strong> as your sequence lead, or start a fresh one below.</div>
-                    <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ padding: "7px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", cursor: "pointer", whiteSpace: "nowrap" }}>⤵ Browse template ads</button>
-                  </>
-                )}
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em" }}>Persona <span style={{ color: "#5a6b80", fontWeight: 600 }}>· the character this ad carries</span></span>
-                {seqPersona ? <button onClick={() => setSeqPersonaOpen(function (v) { return !v; })} style={{ fontSize: 10.5, fontWeight: 700, color: "#c4b5fd", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 7, padding: "4px 10px", cursor: "pointer" }}>{seqPersonaOpen ? "Hide" : "Change persona"}</button> : null}
-              </div>
-              {(seqPersonaOpen || !seqPersona) ? (
-              charLib === null ? <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 16 }}>Loading your personas…</div> : (() => {
-                const personas = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
-                return (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16, maxHeight: 190, overflowY: "auto" }}>
-                    <div onClick={() => { setSeqOpen(false); setShowCreativeStudio(true); setSeqReturn(true); loadCharLibrary(); }} title="Create a new synthetic persona" style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: "2px dashed #3a4a74", background: "#13213f" }}>
-                      <div style={{ position: "relative", aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: 46, color: "#6b82b8", lineHeight: 1 }}>☺</span>
-                        <div style={{ position: "absolute", bottom: 4, right: 4, width: 18, height: 18, borderRadius: "50%", background: "#8b5cf6", color: "white", fontSize: 13, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</div>
-                      </div>
-                      <div style={{ padding: "3px 5px 5px", fontSize: 9, color: "#9db0c7", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>New persona</div>
-                    </div>
-                    {personas.map(function (c) {
-                      const on = seqPersona && seqPersona.id === c.id;
-                      return (
-                        <div key={c.id} onClick={() => { setSeqPersona(c); setSeqPersonaOpen(false); }} style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: on ? "2px solid #f59e0b" : "2px solid rgba(255,255,255,0.06)" }}>
-                          <div style={{ position: "relative", aspectRatio: "1" }}>
-                            <img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} />
-                            {on && <div style={{ position: "absolute", top: 3, right: 3, width: 16, height: 16, borderRadius: "50%", background: "#f59e0b", color: "#1a1206", fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>✓</div>}
-                          </div>
-                          <div style={{ padding: "3px 5px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()
+              {seqSaveOpen ? (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, padding: 10, borderRadius: 10, border: "1px solid rgba(16,185,129,0.25)", background: "rgba(16,185,129,0.05)" }}>
+                  <input value={seqName} onChange={e => setSeqName(e.target.value)} placeholder="Template name" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                  <button onClick={saveSeqTemplate} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white", whiteSpace: "nowrap" }}>Save to library</button>
+                  {seqMsg ? <span style={{ fontSize: 10.5, color: "#34d399", whiteSpace: "nowrap" }}>{seqMsg}</span> : null}
+                </div>
               ) : null}
 
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Feature a product <span style={{ color: "#5a6b80", fontWeight: 600 }}>· optional</span></div>
+              {/* Lead ad — the opening video, 80% width */}
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                <div style={{ width: "80%" }}>
+                  {seqPersona ? (
+                    <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(245,158,11,0.35)", background: "#0b1322" }}>
+                      {seqLeadVideo ? (
+                        <video src={seqLeadVideo} controls playsInline style={{ width: "100%", display: "block", background: "#000" }} />
+                      ) : (
+                        <img src={seqPersona.thumbnailUrl || seqPersona.seedImageUrl} alt="" style={{ width: "100%", display: "block", aspectRatio: "1", objectFit: "cover" }} />
+                      )}
+                      <span style={{ position: "absolute", top: 8, left: 8, fontSize: 10.5, fontWeight: 800, color: "#1a1206", background: "rgba(245,158,11,0.92)", borderRadius: 6, padding: "2px 8px" }}>★ Template</span>
+                      <span title="Use for sequential ads" style={{ position: "absolute", top: 8, right: 8, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, color: "#fbbf24", background: "rgba(0,0,0,0.55)", borderRadius: 7, border: "1px solid rgba(245,158,11,0.5)" }}>⤵</span>
+                      <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ position: "absolute", bottom: 8, right: 8, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#c4b5fd", cursor: "pointer" }}>Change lead</button>
+                    </div>
+                  ) : (
+                    <div style={{ borderRadius: 14, border: "1px dashed rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.04)", aspectRatio: "16 / 9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center", padding: 16 }}>
+                      <div style={{ fontSize: 12.5, color: "#9db0c7", maxWidth: 360, lineHeight: 1.45 }}>Load a saved <strong style={{ color: "#fbbf24" }}>template ad</strong> as your sequence lead.</div>
+                      <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", cursor: "pointer" }}>⤵ Browse template ads</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Attribute satellites — the levers for the next video */}
+              <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                <button onClick={() => setSeqPersonaOpen(function (v) { return !v; })} title="Persona — the character this ad carries" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", fontSize: 11, fontWeight: 700, borderRadius: 999, cursor: "pointer", border: seqPersonaOpen ? "1px solid rgba(245,158,11,0.6)" : "1px solid rgba(255,255,255,0.14)", background: seqPersonaOpen ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.03)", color: "#e2e8f0" }}>
+                  {seqPersona ? <img src={seqPersona.thumbnailUrl || seqPersona.seedImageUrl} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} /> : <span>👤</span>}
+                  <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.04em" }}>Persona</span>
+                  <span>{seqPersona ? (seqPersona.name || 'Character') : 'Choose'}</span>
+                </button>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.03)" }}>
+                  <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 1 }}>Objective</span>
+                  {seqShots.map(function (_s, i) {
+                    const o = seqObjMeta(seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length));
+                    return (
+                      <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                        {i > 0 ? <span style={{ color: "#3a4a64", fontSize: 10 }}>→</span> : null}
+                        <span style={{ padding: "1px 7px", fontSize: 9, fontWeight: 800, borderRadius: 999, background: o.color + "22", color: o.color, border: "1px solid " + o.color + "55" }}>{o.label}</span>
+                      </span>
+                    );
+                  })}
+                  {seqPromo ? <span style={{ marginLeft: 3, padding: "1px 7px", fontSize: 9, fontWeight: 800, borderRadius: 999, background: "rgba(236,72,153,0.16)", color: "#f472b6", border: "1px solid rgba(236,72,153,0.5)" }}>⍟</span> : null}
+                </div>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 11px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.03)" }}>
+                  <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.04em" }}>Market</span>
+                  <select value={seqMarket} onChange={e => setSeqMarket(e.target.value)} style={{ padding: "2px 4px", fontSize: 10.5, borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#e2e8f0" }}>
+                    <option value="auto">Auto</option><option value="scandinavia">Scandinavia</option><option value="uk">UK</option><option value="germany">Central EU</option><option value="france">France</option><option value="italy">Italy</option><option value="spain">Spain</option><option value="netherlands">Netherlands</option><option value="us">US</option>
+                  </select>
+                </label>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 11px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.03)" }}>
+                  <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.04em" }}>Interaction</span>
+                  <select value={seqInteraction} onChange={e => setSeqInteraction(e.target.value)} style={{ padding: "2px 4px", fontSize: 10.5, borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#e2e8f0" }}>
+                    <option value="auto">Auto</option><option value="wear">Wear</option><option value="use">Use</option><option value="consume">Consume</option><option value="operate">Operate</option><option value="present">Present</option>
+                  </select>
+                </label>
+              </div>
+
+              {seqPersonaOpen ? (
+                charLib === null ? <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 16 }}>Loading your personas…</div> : (() => {
+                  const personas = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
+                  return (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 16, maxHeight: 200, overflowY: "auto" }}>
+                      <div onClick={() => { setSeqOpen(false); setShowCreativeStudio(true); setSeqReturn(true); loadCharLibrary(); }} title="Create a new synthetic persona" style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: "2px dashed #3a4a74", background: "#13213f" }}>
+                        <div style={{ position: "relative", aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <span style={{ fontSize: 40, color: "#6b82b8", lineHeight: 1 }}>☺</span>
+                          <div style={{ position: "absolute", bottom: 4, right: 4, width: 18, height: 18, borderRadius: "50%", background: "#8b5cf6", color: "white", fontSize: 13, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</div>
+                        </div>
+                        <div style={{ padding: "3px 5px 5px", fontSize: 9, color: "#9db0c7", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>New persona</div>
+                      </div>
+                      {personas.map(function (c) {
+                        const on = seqPersona && seqPersona.id === c.id;
+                        return (
+                          <div key={c.id} onClick={() => { setSeqPersona(c); setSeqPersonaOpen(false); setSeqLeadVideo(null); }} style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: on ? "2px solid #f59e0b" : "2px solid rgba(255,255,255,0.06)" }}>
+                            <div style={{ position: "relative", aspectRatio: "1" }}>
+                              <img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} />
+                              {on && <div style={{ position: "absolute", top: 3, right: 3, width: 16, height: 16, borderRadius: "50%", background: "#f59e0b", color: "#1a1206", fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>✓</div>}
+                            </div>
+                            <div style={{ padding: "3px 5px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              ) : null}
+
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Product <span style={{ color: "#5a6b80", fontWeight: 600 }}>· optional</span></div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
                 <input value={seqProductUrl} onChange={e => setSeqProductUrl(e.target.value)} placeholder="Product image URL (packshot — no person in it)" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
                 {seqProductUrl.trim() ? <img src={seqProductUrl.trim()} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, background: "#1e293b" }} /> : null}
               </div>
 
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>3 · Shots <span style={{ color: "#5a6b80", fontWeight: 600 }}>· one video each</span></div>
-              {seqShots.length > 0 ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginBottom: 10, padding: "7px 9px", borderRadius: 9, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                  <span style={{ fontSize: 9, color: "#5a6b80", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 3 }}>Funnel</span>
-                  {seqShots.map(function (_s, i) {
-                    const o = seqObjMeta(seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length));
-                    return (
-                      <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        {i > 0 ? <span style={{ color: "#3a4a64", fontSize: 11 }}>→</span> : null}
-                        <span style={{ padding: "2px 8px", fontSize: 9.5, fontWeight: 800, borderRadius: 999, background: o.color + "22", color: o.color, border: "1px solid " + o.color + "55" }}>{o.label}</span>
-                      </span>
-                    );
-                  })}
-                  {seqPromo ? <span style={{ marginLeft: 6, padding: "2px 8px", fontSize: 9.5, fontWeight: 800, borderRadius: 999, background: "rgba(236,72,153,0.16)", color: "#f472b6", border: "1px solid rgba(236,72,153,0.5)" }}>⍟ Promo</span> : null}
-                </div>
-              ) : null}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                <span style={{ fontSize: 9, color: "#5a6b80", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Flavour</span>
-                <select value={seqMarket} onChange={e => setSeqMarket(e.target.value)} title="Market / local flavour" style={{ padding: "5px 7px", fontSize: 10.5, borderRadius: 7, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
-                  <option value="auto">Market: Auto</option>
-                  <option value="scandinavia">Scandinavia</option>
-                  <option value="uk">UK</option>
-                  <option value="germany">Central EU</option>
-                  <option value="france">France</option>
-                  <option value="italy">Italy</option>
-                  <option value="spain">Spain</option>
-                  <option value="netherlands">Netherlands</option>
-                  <option value="us">US</option>
-                </select>
-                <select value={seqInteraction} onChange={e => setSeqInteraction(e.target.value)} title="How the persona meets the product" style={{ padding: "5px 7px", fontSize: 10.5, borderRadius: 7, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
-                  <option value="auto">Interaction: Auto</option>
-                  <option value="wear">Wear</option>
-                  <option value="use">Use</option>
-                  <option value="consume">Consume</option>
-                  <option value="operate">Operate</option>
-                  <option value="present">Present</option>
-                </select>
-                <button onClick={autoWriteAll} disabled={seqAutoBusy !== null} title="Auto-write every shot from its objective" style={{ marginLeft: "auto", padding: "5px 12px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "none", cursor: seqAutoBusy !== null ? "default" : "pointer", background: seqAutoBusy !== null ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{seqAutoBusy === -1 ? "⟳ Writing…" : "✨ Auto-write all"}</button>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em" }}>Storyboard <span style={{ color: "#5a6b80", fontWeight: 600 }}>· one clip each</span></span>
+                <button onClick={autoWriteAll} disabled={seqAutoBusy !== null} title="Auto-write every clip from its objective" style={{ padding: "5px 12px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "none", cursor: seqAutoBusy !== null ? "default" : "pointer", background: seqAutoBusy !== null ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{seqAutoBusy === -1 ? "⟳ Writing…" : "✨ Auto-write all"}</button>
               </div>
               {seqShots.map(function (s, i) {
                 const objId = seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length);
@@ -5847,7 +5857,7 @@ STRICT rules:
                 return (
                   <div key={i} style={{ marginBottom: 10, padding: 8, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" }}>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Shot " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={2} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical" }} />
+                      <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Clip " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={2} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical" }} />
                       {seqShots.length > 1 ? <button onClick={() => { setSeqShots(seqShots.filter(function (_, j) { return j !== i; })); setSeqShotObjectives(seqShotObjectives.filter(function (_, j) { return j !== i; })); setSeqShotMeta(seqShotMeta.filter(function (_, j) { return j !== i; })); }} style={{ padding: "0 10px", fontSize: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#fca5a5", cursor: "pointer" }}>×</button> : null}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7, flexWrap: "wrap" }}>
@@ -5870,7 +5880,7 @@ STRICT rules:
                   </div>
                 );
               })}
-              {seqShots.length < 4 ? <button onClick={() => { setSeqShots(seqShots.concat([''])); setSeqShotObjectives(seqShotObjectives.concat([seqDefaultObjective(seqShots.length, seqShots.length + 1)])); }} style={{ fontSize: 11, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 11px", cursor: "pointer" }}>＋ Add shot</button> : null}
+              {seqShots.length < 4 ? <button onClick={() => { setSeqShots(seqShots.concat([''])); setSeqShotObjectives(seqShotObjectives.concat([seqDefaultObjective(seqShots.length, seqShots.length + 1)])); }} style={{ fontSize: 11, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 11px", cursor: "pointer" }}>＋ Add clip</button> : null}
               <label style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: 10, fontSize: 10.5, cursor: "pointer", verticalAlign: "middle" }}>
                 <input type="checkbox" checked={seqPromo} onChange={e => setSeqPromo(e.target.checked)} style={{ width: 13, height: 13, cursor: "pointer" }} />
                 <span style={{ color: seqPromo ? "#f472b6" : "#9db0c7", fontWeight: 700 }}>⍟ Promo / sale</span>
@@ -5894,22 +5904,14 @@ STRICT rules:
                     return (
                       <div key={i} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", padding: 8 }}>
                         {r.videoUrl ? <video src={r.videoUrl} controls playsInline style={{ width: "100%", borderRadius: 8, background: "#000", display: "block" }} /> : <div style={{ aspectRatio: "9/16", display: "flex", alignItems: "center", justifyContent: "center", color: r.status === 'failed' ? "#fca5a5" : "#fbbf24", fontSize: 11, background: "rgba(0,0,0,0.3)", borderRadius: 8 }}>{r.status === 'failed' ? 'failed' : '⟳ rendering…'}</div>}
-                        <div style={{ fontSize: 9.5, color: "#7e92a8", marginTop: 5 }}>Shot {i + 1}</div>
+                        <div style={{ fontSize: 9.5, color: "#7e92a8", marginTop: 5 }}>Clip {i + 1}</div>
                       </div>
                     );
                   })}
                 </div>
               ) : null}
 
-              <div style={{ paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Save as template to library</div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                  <input value={seqName} onChange={e => setSeqName(e.target.value)} placeholder="Template name" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
-                  <button onClick={saveSeqTemplate} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>Save to library</button>
-                </div>
-                {seqMsg ? <div style={{ fontSize: 11, color: "#34d399", marginBottom: 8 }}>{seqMsg}</div> : null}
-                <div style={{ fontSize: 10.5, color: "#5a6b80", marginTop: 4 }}>Saved templates live in your <strong style={{ color: "#a5b4fc" }}>Library → Template ads</strong> — open one with <strong style={{ color: "#fbbf24" }}>Load into builder</strong>.</div>
-              </div>
+              <div style={{ fontSize: 10, color: "#5a6b80", marginTop: 4 }}>Save this as a reusable lead with <strong style={{ color: "#6ee7b7" }}>💾 Save as template</strong> (top right) — it lands in your <strong style={{ color: "#a5b4fc" }}>Library → Template ads</strong>.</div>
             </div>
           </div>
         )}
