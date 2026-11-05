@@ -3465,6 +3465,7 @@ function RSAStudio() {
   const [seqLeadId, setSeqLeadId] = useState(null);        // loaded template id — non-null = lead loaded (append mode)
   const [seqBuildNext, setSeqBuildNext] = useState(false); // next-ad controls open (after +)
   const [seqLeadObjective, setSeqLeadObjective] = useState('awareness'); // lead's funnel stage → next default
+  const [seqSelector, setSeqSelector] = useState(null);    // expanded attribute area: persona|objective|market|interaction
   const [seqAddBusy, setSeqAddBusy] = useState(false);     // "Add to sequence" save in flight
   const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); };
   const seqNextObjective = (id) => {
@@ -5824,68 +5825,99 @@ STRICT rules:
                   <button onClick={() => { setSeqBuildNext(false); setSeqResults([]); }} style={{ fontSize: 10.5, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 7, padding: "4px 10px", cursor: "pointer" }}>✕ Cancel</button>
                 </div>
               ) : null}
-              {/* Attribute satellites — the levers for the next video */}
-              <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-                <button onClick={() => setSeqPersonaOpen(function (v) { return !v; })} title="Persona — the character this ad carries" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", fontSize: 11, fontWeight: 700, borderRadius: 999, cursor: "pointer", border: seqPersonaOpen ? "1px solid rgba(245,158,11,0.6)" : "1px solid rgba(255,255,255,0.14)", background: seqPersonaOpen ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.03)", color: "#e2e8f0" }}>
-                  {seqPersona ? <img src={seqPersona.thumbnailUrl || seqPersona.seedImageUrl} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} /> : <span>👤</span>}
-                  <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.04em" }}>Persona</span>
-                  <span>{seqPersona ? (seqPersona.name || 'Character') : 'Choose'}</span>
-                </button>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.03)" }}>
-                  <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 1 }}>Objective</span>
-                  {seqShots.map(function (_s, i) {
-                    const o = seqObjMeta(seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length));
-                    return (
-                      <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                        {i > 0 ? <span style={{ color: "#3a4a64", fontSize: 10 }}>→</span> : null}
-                        <span style={{ padding: "1px 7px", fontSize: 9, fontWeight: 800, borderRadius: 999, background: o.color + "22", color: o.color, border: "1px solid " + o.color + "55" }}>{o.label}</span>
-                      </span>
-                    );
-                  })}
-                  {seqPromo ? <span style={{ marginLeft: 3, padding: "1px 7px", fontSize: 9, fontWeight: 800, borderRadius: 999, background: "rgba(236,72,153,0.16)", color: "#f472b6", border: "1px solid rgba(236,72,153,0.5)" }}>⍟</span> : null}
-                </div>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 11px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.03)" }}>
-                  <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.04em" }}>Market</span>
-                  <select value={seqMarket} onChange={e => setSeqMarket(e.target.value)} style={{ padding: "2px 4px", fontSize: 10.5, borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#e2e8f0" }}>
-                    <option value="auto">Auto</option><option value="scandinavia">Scandinavia</option><option value="uk">UK</option><option value="germany">Central EU</option><option value="france">France</option><option value="italy">Italy</option><option value="spain">Spain</option><option value="netherlands">Netherlands</option><option value="us">US</option>
-                  </select>
-                </label>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 11px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.03)" }}>
-                  <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.04em" }}>Interaction</span>
-                  <select value={seqInteraction} onChange={e => setSeqInteraction(e.target.value)} style={{ padding: "2px 4px", fontSize: 10.5, borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#e2e8f0" }}>
-                    <option value="auto">Auto</option><option value="wear">Wear</option><option value="use">Use</option><option value="consume">Consume</option><option value="operate">Operate</option><option value="present">Present</option>
-                  </select>
-                </label>
-              </div>
-
-              {seqPersonaOpen ? (
-                charLib === null ? <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 16 }}>Loading your personas…</div> : (() => {
-                  const personas = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
-                  return (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 16, maxHeight: 200, overflowY: "auto" }}>
-                      <div onClick={() => { setSeqOpen(false); setShowCreativeStudio(true); setSeqReturn(true); loadCharLibrary(); }} title="Create a new synthetic persona" style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: "2px dashed #3a4a74", background: "#13213f" }}>
-                        <div style={{ position: "relative", aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <span style={{ fontSize: 40, color: "#6b82b8", lineHeight: 1 }}>☺</span>
-                          <div style={{ position: "absolute", bottom: 4, right: 4, width: 18, height: 18, borderRadius: "50%", background: "#8b5cf6", color: "white", fontSize: 13, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</div>
-                        </div>
-                        <div style={{ padding: "3px 5px 5px", fontSize: 9, color: "#9db0c7", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>New persona</div>
-                      </div>
-                      {personas.map(function (c) {
-                        const on = seqPersona && seqPersona.id === c.id;
+              {/* Unified attribute selectors — persona / objective / market / interaction */}
+              {(() => {
+                const personasAll = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
+                const personaBoxes = (function () {
+                  const out = []; const seen = {};
+                  if (seqPersona && seqPersona.id) { out.push(seqPersona); seen[seqPersona.id] = 1; }
+                  for (const c of personasAll) { if (out.length >= 4) break; if (!seen[c.id]) { out.push(c); seen[c.id] = 1; } }
+                  return out;
+                })();
+                const MARKET_OPTS = [{ id: 'auto', label: 'Auto' }, { id: 'scandinavia', label: 'Scandinavia' }, { id: 'uk', label: 'UK' }, { id: 'germany', label: 'Central EU' }, { id: 'us', label: 'US' }];
+                const INTERACTION_OPTS = [{ id: 'auto', label: 'Auto' }, { id: 'wear', label: 'Wear' }, { id: 'use', label: 'Use' }, { id: 'consume', label: 'Consume' }, { id: 'operate', label: 'Operate' }, { id: 'present', label: 'Present' }];
+                const curObjective = seqShotObjectives[0] || seqDefaultObjective(0, 1);
+                const marketLabel = (MARKET_OPTS.find(function (m) { return m.id === seqMarket; }) || { label: 'Auto' }).label;
+                const interactionLabel = (INTERACTION_OPTS.find(function (m) { return m.id === seqInteraction; }) || { label: 'Auto' }).label;
+                const pills = [
+                  { id: 'persona', label: 'Persona', value: seqPersona ? (seqPersona.name || 'Character') : 'Choose', img: seqPersona ? (seqPersona.thumbnailUrl || seqPersona.seedImageUrl) : null, color: null },
+                  { id: 'objective', label: 'Objective', value: seqObjMeta(curObjective).label, img: null, color: seqObjMeta(curObjective).color },
+                  { id: 'market', label: 'Market', value: marketLabel, img: null, color: null },
+                  { id: 'interaction', label: 'Interaction', value: interactionLabel, img: null, color: null },
+                ];
+                const toggle = (id) => setSeqSelector(seqSelector === id ? null : id);
+                const boxBase = { cursor: "pointer", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.03)" };
+                const boxOn = { border: "2px solid #f59e0b", background: "rgba(245,158,11,0.12)" };
+                return (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 8 }}>
+                      {pills.map(function (p) {
+                        const open = seqSelector === p.id;
                         return (
-                          <div key={c.id} onClick={() => { setSeqPersona(c); setSeqPersonaOpen(false); setSeqLeadVideo(null); }} style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: on ? "2px solid #f59e0b" : "2px solid rgba(255,255,255,0.06)" }}>
-                            <div style={{ position: "relative", aspectRatio: "1" }}>
-                              <img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} />
-                              {on && <div style={{ position: "absolute", top: 3, right: 3, width: 16, height: 16, borderRadius: "50%", background: "#f59e0b", color: "#1a1206", fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>✓</div>}
-                            </div>
-                            <div style={{ padding: "3px 5px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
-                          </div>
+                          <button key={p.id} onClick={() => toggle(p.id)} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 12, cursor: "pointer", border: open ? "1px solid rgba(245,158,11,0.6)" : "1px solid rgba(255,255,255,0.16)", background: open ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.03)", color: "#e2e8f0" }}>
+                            {p.img ? <img src={p.img} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover" }} /> : null}
+                            <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+                              <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 8.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>{p.label}</span>
+                              <span style={{ color: p.color || "#e2e8f0", fontWeight: 800, fontSize: 12 }}>{p.value}</span>
+                            </span>
+                            <span style={{ marginLeft: 2, width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 900, lineHeight: 1, color: open ? "#1a1206" : "#fbbf24", background: open ? "#f59e0b" : "rgba(245,158,11,0.18)" }}>{open ? "–" : "+"}</span>
+                          </button>
                         );
                       })}
                     </div>
-                  );
-                })()
-              ) : null}
+                    {seqSelector ? (
+                      <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.02)", display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+                        {seqSelector === 'persona' ? (
+                          <>
+                            <div onClick={() => { setSeqOpen(false); setShowCreativeStudio(true); setSeqReturn(true); loadCharLibrary(); }} title="Create a new synthetic persona" style={{ cursor: "pointer", width: 92, borderRadius: 10, overflow: "hidden", border: "1px dashed #3a4a74", background: "#13213f", textAlign: "center" }}>
+                              <div style={{ position: "relative", aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <span style={{ fontSize: 34, color: "#6b82b8", lineHeight: 1 }}>☺</span>
+                                <div style={{ position: "absolute", bottom: 4, right: 4, width: 16, height: 16, borderRadius: "50%", background: "#8b5cf6", color: "white", fontSize: 11, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</div>
+                              </div>
+                              <div style={{ padding: "3px 4px 5px", fontSize: 9, color: "#9db0c7", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>New persona</div>
+                            </div>
+                            {personaBoxes.map(function (c) {
+                              const on = seqPersona && seqPersona.id === c.id;
+                              return (
+                                <div key={c.id} onClick={() => { setSeqPersona(c); setSeqSelector(null); setSeqLeadVideo(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center" }}>
+                                  <div style={{ aspectRatio: "1" }}><img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} /></div>
+                                  <div style={{ padding: "3px 4px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
+                                </div>
+                              );
+                            })}
+                          </>
+                        ) : null}
+                        {seqSelector === 'objective' ? SEQ_OBJECTIVES.map(function (o) {
+                          const on = o.id === curObjective;
+                          return (
+                            <div key={o.id} onClick={() => { const n = seqShotObjectives.slice(); if (!n.length) n.push(o.id); else n[0] = o.id; setSeqShotObjectives(n); setSeqSelector(null); }} style={{ cursor: "pointer", width: 108, padding: "14px 8px", borderRadius: 10, textAlign: "center", border: on ? ("2px solid " + o.color) : "1px solid rgba(255,255,255,0.5)", background: on ? (o.color + "18") : "rgba(255,255,255,0.03)" }}>
+                              <div style={{ fontSize: 12.5, fontWeight: 800, color: o.color }}>{o.label}</div>
+                            </div>
+                          );
+                        }) : null}
+                        {seqSelector === 'market' ? MARKET_OPTS.map(function (m) {
+                          const on = m.id === seqMarket;
+                          return (
+                            <div key={m.id} onClick={() => { setSeqMarket(m.id); setSeqSelector(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 108, padding: "14px 8px", textAlign: "center" }}>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: on ? "#fbbf24" : "#e2e8f0" }}>{m.label}</div>
+                            </div>
+                          );
+                        }) : null}
+                        {seqSelector === 'interaction' ? INTERACTION_OPTS.map(function (m) {
+                          const on = m.id === seqInteraction;
+                          return (
+                            <div key={m.id} onClick={() => { setSeqInteraction(m.id); setSeqSelector(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 100, padding: "14px 8px", textAlign: "center" }}>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: on ? "#fbbf24" : "#e2e8f0" }}>{m.label}</div>
+                            </div>
+                          );
+                        }) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()}
+
+
 
               <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Product <span style={{ color: "#5a6b80", fontWeight: 600 }}>· optional</span></div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
