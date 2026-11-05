@@ -5834,7 +5834,7 @@ STRICT rules:
                   for (const c of personasAll) { if (out.length >= 4) break; if (!seen[c.id]) { out.push(c); seen[c.id] = 1; } }
                   return out;
                 })();
-                const MARKET_OPTS = [{ id: 'auto', label: 'Auto' }, { id: 'scandinavia', label: 'Scandinavia' }, { id: 'uk', label: 'UK' }, { id: 'germany', label: 'Central EU' }, { id: 'us', label: 'US' }];
+                const MARKET_OPTS = [{ id: 'auto', label: 'Auto', icon: '🌐' }, { id: 'scandinavia', label: 'Scandinavia', icon: '❄️' }, { id: 'uk', label: 'UK', icon: '🇬🇧' }, { id: 'germany', label: 'Central EU', icon: '🇪🇺' }, { id: 'us', label: 'US', icon: '🇺🇸' }];
                 const INTERACTION_OPTS = [{ id: 'auto', label: 'Auto' }, { id: 'wear', label: 'Wear' }, { id: 'use', label: 'Use' }, { id: 'consume', label: 'Consume' }, { id: 'operate', label: 'Operate' }, { id: 'present', label: 'Present' }];
                 const curObjective = seqShotObjectives[0] || seqDefaultObjective(0, 1);
                 const marketLabel = (MARKET_OPTS.find(function (m) { return m.id === seqMarket; }) || { label: 'Auto' }).label;
@@ -5864,6 +5864,14 @@ STRICT rules:
                           </button>
                         );
                       })}
+                      <span style={{ width: 1, alignSelf: "stretch", background: "rgba(255,255,255,0.12)", margin: "0 4px" }} />
+                      <button onClick={() => setSeqPromo(function (v) { return !v; })} title="Promo / sale — a sideline flag, not one of the funnel stages" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 12, cursor: "pointer", border: seqPromo ? "1px solid rgba(236,72,153,0.7)" : "1px solid rgba(255,255,255,0.16)", background: seqPromo ? "rgba(236,72,153,0.16)" : "rgba(255,255,255,0.03)", color: "#e2e8f0" }}>
+                        <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+                          <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 8.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>Promo</span>
+                          <span style={{ color: seqPromo ? "#f472b6" : "#e2e8f0", fontWeight: 800, fontSize: 12 }}>{seqPromo ? "On · sale" : "Off"}</span>
+                        </span>
+                        <span style={{ marginLeft: 2, width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, lineHeight: 1, color: seqPromo ? "white" : "#f472b6", background: seqPromo ? "#ec4899" : "rgba(236,72,153,0.18)" }}>⍟</span>
+                      </button>
                     </div>
                     {seqSelector ? (
                       <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.02)", display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
@@ -5898,7 +5906,8 @@ STRICT rules:
                         {seqSelector === 'market' ? MARKET_OPTS.map(function (m) {
                           const on = m.id === seqMarket;
                           return (
-                            <div key={m.id} onClick={() => { setSeqMarket(m.id); setSeqSelector(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 108, padding: "14px 8px", textAlign: "center" }}>
+                            <div key={m.id} onClick={() => { setSeqMarket(m.id); setSeqSelector(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 108, padding: "12px 8px", textAlign: "center" }}>
+                              <div style={{ fontSize: 22, lineHeight: 1, marginBottom: 4 }}>{m.icon}</div>
                               <div style={{ fontSize: 12, fontWeight: 800, color: on ? "#fbbf24" : "#e2e8f0" }}>{m.label}</div>
                             </div>
                           );
@@ -5938,15 +5947,8 @@ STRICT rules:
                       <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Clip " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={2} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical" }} />
                       {seqShots.length > 1 ? <button onClick={() => { setSeqShots(seqShots.filter(function (_, j) { return j !== i; })); setSeqShotObjectives(seqShotObjectives.filter(function (_, j) { return j !== i; })); setSeqShotMeta(seqShotMeta.filter(function (_, j) { return j !== i; })); }} style={{ padding: "0 10px", fontSize: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#fca5a5", cursor: "pointer" }}>×</button> : null}
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 9, color: "#5a6b80", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 2 }}>Objective</span>
-                      {SEQ_OBJECTIVES.map(function (o) {
-                        const on = o.id === objId;
-                        return (
-                          <button key={o.id} onClick={() => { const n = seqShotObjectives.slice(); while (n.length < seqShots.length) n.push(seqDefaultObjective(n.length, seqShots.length)); n[i] = o.id; setSeqShotObjectives(n); }} title={o.label} style={{ padding: "3px 9px", fontSize: 10, fontWeight: 800, borderRadius: 999, cursor: "pointer", border: on ? ("1px solid " + o.color) : "1px solid rgba(255,255,255,0.12)", background: on ? (o.color + "22") : "rgba(0,0,0,0.25)", color: on ? o.color : "#7e92a8" }}>{o.label}</button>
-                        );
-                      })}
-                      <button onClick={() => autoWriteShot(i)} disabled={seqAutoBusy !== null} title="Auto-write this shot's storyboard from its objective" style={{ marginLeft: "auto", padding: "3px 10px", fontSize: 10, fontWeight: 800, borderRadius: 999, cursor: seqAutoBusy !== null ? "default" : "pointer", border: "none", background: (seqAutoBusy === i) ? "rgba(139,92,246,0.5)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{seqAutoBusy === i ? "⟳" : "✨ Auto-write"}</button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      <button onClick={() => autoWriteShot(i)} disabled={seqAutoBusy !== null} title="Auto-write this shot's storyboard from its objective" style={{ padding: "3px 10px", fontSize: 10, fontWeight: 800, borderRadius: 999, cursor: seqAutoBusy !== null ? "default" : "pointer", border: "none", background: (seqAutoBusy === i) ? "rgba(139,92,246,0.5)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{seqAutoBusy === i ? "⟳" : "✨ Auto-write"}</button>
                     </div>
                     {meta ? (
                       <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, flexWrap: "wrap" }}>
@@ -5959,11 +5961,7 @@ STRICT rules:
                 );
               })}
               {seqShots.length < 4 ? <button onClick={() => { setSeqShots(seqShots.concat([''])); setSeqShotObjectives(seqShotObjectives.concat([seqDefaultObjective(seqShots.length, seqShots.length + 1)])); }} style={{ fontSize: 11, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 11px", cursor: "pointer" }}>＋ Add clip</button> : null}
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: 10, fontSize: 10.5, cursor: "pointer", verticalAlign: "middle" }}>
-                <input type="checkbox" checked={seqPromo} onChange={e => setSeqPromo(e.target.checked)} style={{ width: 13, height: 13, cursor: "pointer" }} />
-                <span style={{ color: seqPromo ? "#f472b6" : "#9db0c7", fontWeight: 700 }}>⍟ Promo / sale</span>
-                <span style={{ color: "#5a6b80" }}>· sideline flag, any stage</span>
-              </label>
+
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14, marginBottom: 16 }}>
                 <select value={seqRatio} onChange={e => setSeqRatio(e.target.value)} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
