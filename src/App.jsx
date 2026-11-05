@@ -3465,6 +3465,7 @@ function RSAStudio() {
   const [seqLeadId, setSeqLeadId] = useState(null);        // loaded template id — non-null = lead loaded (append mode)
   const [seqBuildNext, setSeqBuildNext] = useState(false); // next-ad controls open (after +)
   const [seqLeadObjective, setSeqLeadObjective] = useState('awareness'); // lead's funnel stage → next default
+  const [seqAddBusy, setSeqAddBusy] = useState(false);     // "Add to sequence" save in flight
   const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); };
   const seqNextObjective = (id) => {
     const i = SEQ_OBJECTIVES.findIndex(function (o) { return o.id === id; });
@@ -3473,6 +3474,29 @@ function RSAStudio() {
   const openNextAd = () => {
     setSeqShots(['']); setSeqShotObjectives([seqNextObjective(seqLeadObjective)]); setSeqShotMeta([]); setSeqResults([]);
     setSeqBuildNext(true);
+  };
+  const addToSequence = async () => {
+    const vid = (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
+    if (!seqLeadId || !vid) return;
+    setSeqAddBusy(true); setSeqErr('');
+    try {
+      const list = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list', filters: { sequence: seqLeadId } }) }).then(r => r.json());
+      const existing = Array.isArray(list.creatives) ? list.creatives : [];
+      const nextOrder = existing.reduce(function (m, c) { return Math.max(m, c.order || 0); }, 0) + 1;
+      const productUrl = seqProductUrl.trim() || (seqPersona && (seqPersona.thumbnailUrl || seqPersona.seedImageUrl)) || '';
+      const payload = {
+        action: 'save', sequenceId: seqLeadId, order: nextOrder,
+        objective: seqShotObjectives[0] || 'engagement', promo: seqPromo,
+        characterId: (seqPersona && seqPersona.id) || null, personaUsed: !!seqPersona,
+        productUrl: productUrl, productTitle: seqName || '',
+        engine: 'seedance-byteplus', scene: seqShots[0] || '', inputSource: 'sequence',
+        channels: { video: { url: vid } }, thumb: vid,
+      };
+      const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(payload) }).then(r => r.json());
+      if (d && (d.creative || d.id)) { setSeqMsg('✓ Added to sequence as Ad #' + (nextOrder + 1)); setSeqBuildNext(false); setSeqResults([]); }
+      else { setSeqErr(d && d.error ? ('Add failed: ' + d.error) : 'Add to sequence failed.'); }
+    } catch (_) { setSeqErr('Add to sequence failed — please try again.'); }
+    finally { setSeqAddBusy(false); }
   };
   const seqStoryCtx = (objective) => {
     let title = String(seqName || '').trim();
@@ -5792,6 +5816,7 @@ STRICT rules:
                 )}
               </div>
 
+              {(seqLeadId && !seqBuildNext && seqMsg) ? <div style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "#34d399", marginBottom: 12 }}>{seqMsg}</div> : null}
               {(!seqLeadId || seqBuildNext) ? (<>
               {seqBuildNext ? (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(139,92,246,0.3)", background: "rgba(139,92,246,0.08)" }}>
@@ -5930,6 +5955,13 @@ STRICT rules:
                       </div>
                     );
                   })}
+                </div>
+              ) : null}
+
+              {(seqBuildNext && seqResults.some(function (r) { return r.videoUrl; })) ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <button onClick={addToSequence} disabled={seqAddBusy} style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqAddBusy ? "default" : "pointer", background: seqAddBusy ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>{seqAddBusy ? "⟳ Adding…" : "＋ Add to sequence"}</button>
+                  <span style={{ fontSize: 10.5, color: "#5a6b80" }}>links this ad to your lead as the next in line</span>
                 </div>
               ) : null}
 

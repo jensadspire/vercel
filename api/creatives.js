@@ -218,6 +218,7 @@ export default async function handler(req, res) {
       await redis('SADD', `idx:creative:owner:${ownerId}`, id);
       if (doc.agencyId) await redis('SADD', `idx:creative:agency:${doc.agencyId}`, id);
       await redis('SADD', `idx:creative:root:${doc.rootId}`, id);
+      if (doc.sequenceId) await redis('SADD', `idx:creative:sequence:${doc.sequenceId}`, id);
       await Promise.all(tagKeys(ownerId, doc).map(k => redis('SADD', k, id)));
 
       return res.status(200).json({ creative: toCard(doc), id, updated: !!existing });
@@ -226,6 +227,16 @@ export default async function handler(req, res) {
     // ── LIST (owner scope; optional faceted filter) — the Library view ─────────
     if (action === 'list') {
       const f = body.filters || {};
+      // Sequence view — all linked ads for one lead, owner-scoped, ordered.
+      if (f.sequence) {
+        let sids = await redis('SMEMBERS', `idx:creative:sequence:${f.sequence}`);
+        sids = Array.isArray(sids) ? sids : [];
+        const sdocs = (await Promise.all(sids.slice(0, 100).map(id => redis('GET', `creative:${id}`))))
+          .map(r => { try { return JSON.parse(r); } catch (_) { return null; } })
+          .filter(Boolean).filter(c => c.ownerId === ownerId)
+          .sort((a, b) => (a.order || 0) - (b.order || 0)).map(toCard);
+        return res.status(200).json({ creatives: sdocs, count: sdocs.length, sequence: f.sequence });
+      }
       const base = `tag:creative:owner:${ownerId}`;
       const lc = (v) => String(v).toLowerCase();
       const filterKeys = [];
@@ -289,6 +300,7 @@ export default async function handler(req, res) {
       await redis('SREM', `idx:creative:owner:${ownerId}`, body.id);
       if (doc.agencyId) await redis('SREM', `idx:creative:agency:${doc.agencyId}`, body.id);
       await redis('SREM', `idx:creative:root:${doc.rootId || body.id}`, body.id);
+      if (doc.sequenceId) await redis('SREM', `idx:creative:sequence:${doc.sequenceId}`, body.id);
       await Promise.all(tagKeys(ownerId, doc).map(k => redis('SREM', k, body.id)));
       await redis('DEL', `creative:${body.id}`);
 
