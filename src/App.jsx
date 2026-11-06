@@ -3470,7 +3470,7 @@ function RSAStudio() {
   const [seqAddBusy, setSeqAddBusy] = useState(false);     // "Add to sequence" save in flight
   const [seqSequenceAds, setSeqSequenceAds] = useState([]); // linked ads for the loaded lead (director's view)
   const [seqActiveAd, setSeqActiveAd] = useState(null);     // rack item currently re-centered in the hero (null = lead)
-  const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); };
+  const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); if (seqLeadId) loadSequenceAds(); };
   const seqNextObjective = (id) => {
     const i = SEQ_OBJECTIVES.findIndex(function (o) { return o.id === id; });
     return SEQ_OBJECTIVES[Math.min((i < 0 ? 0 : i) + 1, SEQ_OBJECTIVES.length - 1)].id;
@@ -5861,6 +5861,9 @@ STRICT rules:
                     </div>
                     {(seqLeadId && !seqBuildNext && !seqActiveAd) ? (
                       <button onClick={openNextAd} title="Add a sequential ad" style={{ position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)", width: 48, height: 48, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 900, lineHeight: 1, color: "white", background: "linear-gradient(135deg,#f59e0b,#ef4444)", border: "3px solid #0f172a", boxShadow: "0 4px 14px rgba(0,0,0,0.45)", cursor: "pointer" }}>+</button>
+                    ) : null}
+                    {(seqLeadId && !seqActiveAd && Array.isArray(seqSequenceAds) && seqSequenceAds.length > 0) ? (
+                      <span title={"This lead has " + seqSequenceAds.length + " linked ad(s) — see the Sequence rack above"} style={{ position: "absolute", bottom: 10, left: 10, fontSize: 11, fontWeight: 800, color: "white", background: "rgba(99,102,241,0.92)", borderRadius: 8, padding: "3px 9px", lineHeight: 1.1 }}>{"🎬 +" + seqSequenceAds.length}</span>
                     ) : null}
                   </div>
                 ) : (
