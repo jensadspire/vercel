@@ -3464,6 +3464,15 @@ function RSAStudio() {
   const [seqLeadVideo, setSeqLeadVideo] = useState(null);  // loaded template's opening video (shown at the top)
   const [seqSaveOpen, setSeqSaveOpen] = useState(false);   // header "Save as template" bar toggle
   const [seqLastLead, setSeqLastLead] = useState(function () { try { var s = localStorage.getItem('seq:lastLead'); return s ? JSON.parse(s) : null; } catch (_) { return null; } }); // most recent project → "Continue your story"
+  // ── Sequence → Meta video-story publish (isolated: only calls /api/meta-publish) ──
+  const [seqPubOpen, setSeqPubOpen] = useState(false);     // publish panel open
+  const [seqPubSel, setSeqPubSel] = useState(null);        // selection map {key:true}; null = all
+  const [seqPubDest, setSeqPubDest] = useState('');        // landing/destination URL (clicks go here)
+  const [seqPubHeadline, setSeqPubHeadline] = useState(''); // shared ad headline (max 40)
+  const [seqPubPrimary, setSeqPubPrimary] = useState('');  // shared ad primary text
+  const [seqPubBusy, setSeqPubBusy] = useState(false);     // chained publish in flight
+  const [seqPubProgress, setSeqPubProgress] = useState(''); // "Publishing 2 of 3…"
+  const [seqPubResult, setSeqPubResult] = useState(null);  // { ok, total, done, failures[], adsManagerUrl, error }
   const [seqLeadId, setSeqLeadId] = useState(null);        // loaded template id — non-null = lead loaded (append mode)
   const [seqBuildNext, setSeqBuildNext] = useState(false); // next-ad controls open (after +)
   const [seqLeadObjective, setSeqLeadObjective] = useState('awareness'); // lead's funnel stage → next default
@@ -3518,6 +3527,70 @@ function RSAStudio() {
       else { setSeqErr(d && d.error ? ('Add failed: ' + d.error) : 'Add to sequence failed.'); }
     } catch (_) { setSeqErr('Add to sequence failed — please try again.'); }
     finally { setSeqAddBusy(false); }
+  };
+  // Ordered ads of the current story: lead first, then linked ads by order.
+  const seqStoryAds = () => {
+    const lead = { key: 'lead', n: 1, kind: 'lead', objective: seqLeadObjective, videoUrl: seqLeadVideo || null, label: 'Ad #1 · Lead' };
+    const linked = (Array.isArray(seqSequenceAds) ? seqSequenceAds : [])
+      .slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); })
+      .map(function (a) { return { key: a.id, n: (a.order || 0) + 1, kind: 'linked', objective: a.objective, videoUrl: (a.channels && a.channels.video && a.channels.video.url) || a.thumb || null, label: 'Ad #' + ((a.order || 0) + 1) }; });
+    return [lead].concat(linked);
+  };
+  const openSeqPub = () => {
+    const prod = String(seqProductUrl || '').trim();
+    setSeqPubDest(/^https?:\/\//i.test(prod) ? prod : '');
+    setSeqPubHeadline((((metaResult && metaResult.headlines && metaResult.headlines[0]) || String(seqName || '').replace(/ — (persona|sequence)$/i, '')) || '').slice(0, 40));
+    setSeqPubPrimary((metaResult && metaResult.primaryTexts && metaResult.primaryTexts[0]) || '');
+    setSeqPubSel(null); setSeqPubResult(null); setSeqPubProgress('');
+    setSeqPubOpen(true);
+  };
+  // Chained publish: first video creates campaign + ad set; the rest join it via existingAdSetId,
+  // so the whole story lands in ONE ad set. All ads PAUSED (meta-publish default).
+  const publishSeqStory = async () => {
+    const all = seqStoryAds();
+    const sel = all.filter(function (a) { return a.videoUrl && (seqPubSel === null || seqPubSel[a.key]); });
+    const dest = String(seqPubDest || '').trim();
+    if (!sel.length) { setSeqPubResult({ ok: false, total: 0, done: 0, failures: [], error: 'Select at least one ad with a video.' }); return; }
+    if (!/^https?:\/\//i.test(dest)) { setSeqPubResult({ ok: false, total: sel.length, done: 0, failures: [], error: 'Enter a valid destination URL (https://…).' }); return; }
+    setSeqPubBusy(true); setSeqPubResult(null);
+    const targeting = { countries: targetCountries, ageMin: targetAgeMin, ageMax: targetAgeMax, placements: targetPlacements, dailyBudget: targetBudget };
+    const headline = String(seqPubHeadline || '').trim();
+    const primary = String(seqPubPrimary || '').trim();
+    const campaignName = 'AI Ad Studio — Story — ' + new Date().toLocaleDateString();
+    let campaignId = null, adSetId = null, adsManagerUrl = null, done = 0;
+    const failures = [];
+    for (let i = 0; i < sel.length; i++) {
+      const ad = sel[i];
+      setSeqPubProgress('Publishing ' + (i + 1) + ' of ' + sel.length + '…');
+      try {
+        const r = await fetch('/api/meta-publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(isSignedIn && session ? { 'x-clerk-session': await session.getToken() } : {}) },
+          body: JSON.stringify({
+            headline: headline, primaryText: primary, description: '',
+            videoUrl: ad.videoUrl, destinationUrl: dest,
+            adName: 'AI Ad Studio — Story — ' + ad.label + (ad.objective ? (' · ' + ad.objective) : ''),
+            campaignName: campaignName,
+            format: 'video',
+            existingCampaignId: campaignId, existingAdSetId: adSetId,
+            targeting: adSetId ? null : targeting,
+          }),
+        });
+        const d = await r.json();
+        if (d && d.success) {
+          done++;
+          if (!campaignId) campaignId = d.campaignId;
+          if (!adSetId) adSetId = d.adSetId;
+          if (!adsManagerUrl) adsManagerUrl = d.adsManagerUrl;
+        } else {
+          failures.push({ ad: ad.label, error: (d && d.error) || 'Publish failed' });
+        }
+      } catch (e) {
+        failures.push({ ad: ad.label, error: (e && e.message) || 'Network error' });
+      }
+    }
+    setSeqPubProgress(''); setSeqPubBusy(false);
+    setSeqPubResult({ ok: failures.length === 0 && done > 0, total: sel.length, done: done, failures: failures, adsManagerUrl: adsManagerUrl });
   };
   const seqStoryCtx = (objective) => {
     let title = String(seqName || '').trim();
@@ -5845,6 +5918,59 @@ STRICT rules:
                         <span style={{ fontSize: 9.5, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.04em" }}>Add ad</span>
                       </button>
                     </span>
+                  </div>
+                );
+              })() : null}
+              {(seqLeadId && Array.isArray(seqSequenceAds) && seqSequenceAds.length > 0) ? (
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+                  <button onClick={openSeqPub} title="Publish this sequence as a Meta video story" style={{ padding: "7px 16px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#1877f2,#0ea5e9)", color: "white" }}>🎬 Publish story to Meta</button>
+                </div>
+              ) : null}
+              {seqPubOpen ? (() => {
+                const all = seqStoryAds();
+                const isSel = (k) => (seqPubSel === null ? true : !!seqPubSel[k]);
+                const toggle = (k) => setSeqPubSel(function (prev) { const base = prev === null ? all.reduce(function (m, a) { m[a.key] = true; return m; }, {}) : { ...prev }; base[k] = !base[k]; return base; });
+                const selCount = all.filter(function (a) { return a.videoUrl && isSel(a.key); }).length;
+                return (
+                  <div onClick={() => { if (!seqPubBusy) setSeqPubOpen(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2100, padding: 24 }}>
+                    <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "86vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(24,119,242,0.35)", borderRadius: 16, padding: 24 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                        <span style={{ fontSize: 16, fontWeight: 900, color: "white" }}>🎬 Publish story to Meta</span>
+                        <button onClick={() => { if (!seqPubBusy) setSeqPubOpen(false); }} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                      </div>
+                      {seqPubResult ? (
+                        <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, border: "1px solid " + (seqPubResult.ok ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.4)"), background: seqPubResult.ok ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)" }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 800, color: seqPubResult.ok ? "#34d399" : "#f87171", marginBottom: seqPubResult.adsManagerUrl ? 6 : 0 }}>{seqPubResult.error ? seqPubResult.error : (seqPubResult.done + ' of ' + seqPubResult.total + ' published' + (seqPubResult.ok ? ' into one ad set · paused.' : (' · ' + seqPubResult.failures.length + ' failed.')))}</div>
+                          {seqPubResult.adsManagerUrl ? <a href={seqPubResult.adsManagerUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, fontWeight: 700, color: "#60a5fa" }}>Open in Ads Manager →</a> : null}
+                          {(seqPubResult.failures && seqPubResult.failures.length) ? <div style={{ marginTop: 6, fontSize: 10.5, color: "#fca5a5" }}>{seqPubResult.failures.map(function (f, i) { return <div key={i}>{f.ad}: {f.error}</div>; })}</div> : null}
+                        </div>
+                      ) : null}
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>Ads in this story <span style={{ color: "#5a6b80", fontWeight: 600 }}>· {selCount} selected</span></div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                        {all.map(function (a) {
+                          const om = seqObjMeta(a.objective || 'awareness');
+                          return (
+                            <label key={a.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.25)", cursor: a.videoUrl ? "pointer" : "not-allowed", opacity: a.videoUrl ? 1 : 0.5 }}>
+                              <input type="checkbox" disabled={!a.videoUrl || seqPubBusy} checked={!!a.videoUrl && isSel(a.key)} onChange={() => toggle(a.key)} style={{ cursor: "pointer" }} />
+                              {a.videoUrl ? <video src={a.videoUrl} muted style={{ width: 24, height: 32, objectFit: "cover", borderRadius: 4, background: "#000" }} /> : <div style={{ width: 24, height: 32, borderRadius: 4, background: "#1e293b" }} />}
+                              <span style={{ display: "inline-flex", flexDirection: "column", lineHeight: 1.15 }}>
+                                <span style={{ fontSize: 11.5, fontWeight: 800, color: "#e2e8f0" }}>{a.label}</span>
+                                <span style={{ fontSize: 10, fontWeight: 700, color: om.color }}>{om.label}{a.videoUrl ? "" : " · no video"}</span>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>Destination URL <span style={{ color: "#5a6b80", fontWeight: 600 }}>· where clicks go</span></div>
+                      <input value={seqPubDest} onChange={e => setSeqPubDest(e.target.value)} placeholder="https://yourshop.com/product" disabled={seqPubBusy} style={{ width: "100%", boxSizing: "border-box", padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 12 }} />
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>Ad copy <span style={{ color: "#5a6b80", fontWeight: 600 }}>· shared across these video ads</span></div>
+                      <input value={seqPubHeadline} onChange={e => setSeqPubHeadline(e.target.value)} maxLength={40} placeholder="Headline (max 40)" disabled={seqPubBusy} style={{ width: "100%", boxSizing: "border-box", padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 8 }} />
+                      <textarea value={seqPubPrimary} onChange={e => setSeqPubPrimary(e.target.value)} rows={2} placeholder="Primary text" disabled={seqPubBusy} style={{ width: "100%", boxSizing: "border-box", padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 14 }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        <button onClick={publishSeqStory} disabled={seqPubBusy || selCount === 0} style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (seqPubBusy || selCount === 0) ? "default" : "pointer", background: (seqPubBusy || selCount === 0) ? "rgba(24,119,242,0.4)" : "linear-gradient(135deg,#1877f2,#0ea5e9)", color: "white" }}>{seqPubBusy ? (seqPubProgress || "Publishing…") : ("🎬 Publish " + selCount + " video" + (selCount === 1 ? "" : "s"))}</button>
+                        <span style={{ fontSize: 10.5, color: "#5a6b80" }}>Created paused — no spend until you activate in Ads Manager.</span>
+                      </div>
+                    </div>
                   </div>
                 );
               })() : null}
