@@ -3447,6 +3447,7 @@ function RSAStudio() {
   const [seqRatio, setSeqRatio] = useState('9:16');
   const [seqDuration, setSeqDuration] = useState(5);
   const [seqBusy, setSeqBusy] = useState(false);
+  const seqResultsRef = useRef(null);
   const [seqResults, setSeqResults] = useState([]);
   const [seqErr, setSeqErr] = useState('');
   const [seqName, setSeqName] = useState('');
@@ -3561,6 +3562,7 @@ function RSAStudio() {
     setSeqBusy(true); setSeqErr(''); setSeqMsg('');
     const refs = [seqPersona.seedanceAssetUri].concat(seqProductUrl.trim() ? [seqProductUrl.trim()] : []);
     setSeqResults(shots.map(function (p) { return { prompt: p, status: 'running', videoUrl: '' }; }));
+    setTimeout(function () { try { if (seqResultsRef.current) seqResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {} }, 60);
     try {
       const tasks = await Promise.all(shots.map(function (p) {
         return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create', imageUrls: refs, prompt: p, ratio: seqRatio, duration: seqDuration }) }).then(r => r.json()).then(function (d) { return d.taskId || null; });
@@ -5960,7 +5962,7 @@ STRICT rules:
                   </div>
                 );
               })}
-              {seqShots.length < 4 ? <button onClick={() => { setSeqShots(seqShots.concat([''])); setSeqShotObjectives(seqShotObjectives.concat([seqDefaultObjective(seqShots.length, seqShots.length + 1)])); }} style={{ fontSize: 11, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 11px", cursor: "pointer" }}>＋ Add clip</button> : null}
+              {false && seqShots.length < 4 ? <button onClick={() => { setSeqShots(seqShots.concat([''])); setSeqShotObjectives(seqShotObjectives.concat([seqDefaultObjective(seqShots.length, seqShots.length + 1)])); }} style={{ fontSize: 11, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 11px", cursor: "pointer" }}>＋ Add clip</button> : null}
 
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14, marginBottom: 16 }}>
@@ -5976,7 +5978,7 @@ STRICT rules:
               {seqErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginBottom: 12 }}>{seqErr}</div> : null}
 
               {seqResults.length > 0 ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 16 }}>
+                <div ref={seqResultsRef} style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 16 }}>
                   {seqResults.map(function (r, i) {
                     return (
                       <div key={i} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", padding: 8 }}>
