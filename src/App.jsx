@@ -5891,7 +5891,7 @@ STRICT rules:
                       }
                       if (!seqContinueTarget) return null;
                       return (
-                        <button onClick={() => { loadSeqTemplate(seqContinueTarget); openNextAd(); }} title="Pick up your most recent sequence and add the next ad" style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.12)", color: "#c4b5fd", cursor: "pointer" }}>↪ Continue your story{seqContinueTarget.name ? (" · " + seqContinueTarget.name) : ""}</button>
+                        <button onClick={() => { loadSeqTemplate(seqContinueTarget); openNextAd(); }} title={"Continue: " + (seqContinueTarget.name || "your most recent sequence")} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#10b981,#059669)", color: "white", cursor: "pointer" }}>↪ Continue your story</button>
                       );
                     })()}
                   </div>
