@@ -5836,6 +5836,13 @@ STRICT rules:
                         </span>
                       );
                     })}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: "#3a4a64", fontSize: 12 }}>→</span>
+                      <button data-id="rack-plus-tile" onClick={() => { setSeqActiveAd(null); openNextAd(); }} title="Build the next ad in this sequence" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, cursor: "pointer", border: "1px dashed rgba(245,158,11,0.55)", background: "rgba(245,158,11,0.06)" }}>
+                        <span style={{ fontSize: 20, fontWeight: 900, color: "#fbbf24", lineHeight: 1 }}>+</span>
+                        <span style={{ fontSize: 9.5, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.04em" }}>Add ad</span>
+                      </button>
+                    </span>
                   </div>
                 );
               })() : null}
