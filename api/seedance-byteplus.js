@@ -39,7 +39,7 @@ export default async function handler(req, res) {
   const {
     action = 'create',
     imageUrls, prompt, model, ratio = '9:16', duration = 5, resolution, generateAudio = false, mode = 'reference',
-    taskId,
+    taskId, overlayText,
   } = req.body || {};
 
   const headers = { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
       const rawVideoUrl = d?.content?.video_url || d?.data?.content?.video_url || d?.video_url || null;
       if (status === 'succeeded' || rawVideoUrl) {
         if (!rawVideoUrl) return res.status(200).json({ status: 'succeeded', videoUrl: null, raw: JSON.stringify(d).slice(0, 800) });
-        const { url: videoUrl, labelled } = await labelAndStore(rawVideoUrl, 'seedance');
+        const { url: videoUrl, labelled } = await labelAndStore(rawVideoUrl, 'seedance', { overlayText });
         if (!labelled) console.error('[ai-label] Delivering UNLABELLED Seedance(byteplus) video (Rendi unavailable)');
         return res.status(200).json({ status: 'succeeded', videoUrl, labelled });
       }

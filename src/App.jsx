@@ -3468,6 +3468,7 @@ function RSAStudio() {
   const [seqLeadObjective, setSeqLeadObjective] = useState('awareness'); // lead's funnel stage → next default
   const [seqSelector, setSeqSelector] = useState(null);    // expanded attribute area: persona|objective|market|interaction
   const [seqAddBusy, setSeqAddBusy] = useState(false);     // "Add to sequence" save in flight
+  const [seqOfferText, setSeqOfferText] = useState('');    // promo offer copy burned onto the video
   const [seqSequenceAds, setSeqSequenceAds] = useState([]); // linked ads for the loaded lead (director's view)
   const [seqActiveAd, setSeqActiveAd] = useState(null);     // rack item currently re-centered in the hero (null = lead)
   const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); if (seqLeadId) loadSequenceAds(); };
@@ -3589,7 +3590,7 @@ function RSAStudio() {
         await new Promise(function (res) { setTimeout(res, 5000); });
         const polled = await Promise.all(tasks.map(function (t) {
           if (!t) return Promise.resolve({ status: 'failed', videoUrl: '' });
-          return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', taskId: t }) }).then(r => r.json());
+          return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', taskId: t, overlayText: (seqPromo && seqOfferText.trim()) ? seqOfferText.trim() : undefined }) }).then(r => r.json());
         }));
         setSeqResults(shots.map(function (p, i) { const r = polled[i] || {}; return { prompt: p, status: r.status || 'running', videoUrl: r.videoUrl || '' }; }));
         done = polled.every(function (r) { return r && (r.status === 'succeeded' || r.status === 'failed'); });
@@ -5985,6 +5986,12 @@ STRICT rules:
 
 
 
+              {seqPromo ? (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#f472b6", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>⍟ Promo offer <span style={{ color: "#5a6b80", fontWeight: 600 }}>· burned onto the video</span></div>
+                  <input value={seqOfferText} onChange={e => setSeqOfferText(e.target.value)} maxLength={40} placeholder="e.g. Now €49 · 20% OFF · Limited time" style={{ width: "100%", boxSizing: "border-box", padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(236,72,153,0.4)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                </div>
+              ) : null}
               <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Product <span style={{ color: "#5a6b80", fontWeight: 600 }}>· optional</span></div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
                 <input value={seqProductUrl} onChange={e => setSeqProductUrl(e.target.value)} placeholder="Product image URL (packshot — no person in it)" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
