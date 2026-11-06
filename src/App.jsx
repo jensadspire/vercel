@@ -3653,7 +3653,8 @@ function RSAStudio() {
       const ns = seqShots.slice(); const nm = seqShotMeta.slice();
       results.forEach(function (d, i) { if (d && d.shot && d.shot.prompt) { ns[i] = d.shot.prompt; nm[i] = { market: d.shot.market, interactionMode: d.shot.interactionMode }; } });
       setSeqShots(ns); setSeqShotMeta(nm);
-    } catch (_) { setSeqErr('Auto-write failed — please try again.'); }
+      return ns;
+    } catch (_) { setSeqErr('Auto-write failed — please try again.'); return seqShots.slice(); }
     finally { setSeqAutoBusy(null); }
   };
   const loadSeqTemplates = async () => {
@@ -3672,8 +3673,9 @@ function RSAStudio() {
   };
   const generateSequence = async () => {
     if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
-    const shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
-    if (!shots.length) { setSeqErr('Add at least one shot prompt.'); return; }
+    let shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+    if (!shots.length) { const _written = await autoWriteAll(); shots = (_written || []).map(function (s) { return String(s || '').trim(); }).filter(Boolean); }
+    if (!shots.length) { setSeqErr('Could not write a storyboard — please try again.'); return; }
     setSeqBusy(true); setSeqErr(''); setSeqMsg('');
     const refs = [seqPersona.seedanceAssetUri].concat(seqProductUrl.trim() ? [seqProductUrl.trim()] : []);
     setSeqResults(shots.map(function (p) { return { prompt: p, status: 'running', videoUrl: '' }; }));
@@ -6234,7 +6236,7 @@ STRICT rules:
                 return (
                   <div key={i} style={{ marginBottom: 10, padding: 8, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" }}>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Clip " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={2} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical" }} />
+                      <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Clip " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={4} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", minHeight: 76 }} />
                       {seqShots.length > 1 ? <button onClick={() => { setSeqShots(seqShots.filter(function (_, j) { return j !== i; })); setSeqShotObjectives(seqShotObjectives.filter(function (_, j) { return j !== i; })); setSeqShotMeta(seqShotMeta.filter(function (_, j) { return j !== i; })); }} style={{ padding: "0 10px", fontSize: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#fca5a5", cursor: "pointer" }}>×</button> : null}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -6267,22 +6269,23 @@ STRICT rules:
               {seqErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginBottom: 12 }}>{seqErr}</div> : null}
 
               {seqResults.length > 0 ? (
-                <div ref={seqResultsRef} style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 16 }}>
-                  {seqResults.map(function (r, i) {
-                    return (
-                      <div key={i} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", padding: 8 }}>
-                        {r.videoUrl ? <video src={r.videoUrl} controls playsInline style={{ width: "100%", borderRadius: 8, background: "#000", display: "block" }} /> : <div style={{ aspectRatio: "9/16", display: "flex", alignItems: "center", justifyContent: "center", color: r.status === 'failed' ? "#fca5a5" : "#fbbf24", fontSize: 11, background: "rgba(0,0,0,0.3)", borderRadius: 8 }}>{r.status === 'failed' ? 'failed' : '⟳ rendering…'}</div>}
-                        <div style={{ fontSize: 9.5, color: "#7e92a8", marginTop: 5 }}>Clip {i + 1}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {(seqBuildNext && seqResults.some(function (r) { return r.videoUrl; })) ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                  <button onClick={addToSequence} disabled={seqAddBusy} style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqAddBusy ? "default" : "pointer", background: seqAddBusy ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>{seqAddBusy ? "⟳ Adding…" : "＋ Add to sequence"}</button>
-                  <span style={{ fontSize: 10.5, color: "#5a6b80" }}>links this ad to your lead as the next in line</span>
+                <div ref={seqResultsRef} style={{ marginBottom: 16 }}>
+                  {(seqBuildNext && seqResults.some(function (r) { return r.videoUrl; })) ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, padding: "8px 11px", borderRadius: 10, border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.08)" }}>
+                      <button onClick={addToSequence} disabled={seqAddBusy} style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqAddBusy ? "default" : "pointer", background: seqAddBusy ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg,#10b981,#059669)", color: "white", whiteSpace: "nowrap" }}>{seqAddBusy ? "⟳ Adding…" : "＋ Add to sequence"}</button>
+                      <span style={{ fontSize: 10.5, color: "#6ee7b7" }}>links this ad to your lead as the next in line — don't forget this step</span>
+                    </div>
+                  ) : null}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+                    {seqResults.map(function (r, i) {
+                      return (
+                        <div key={i} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", padding: 8 }}>
+                          {r.videoUrl ? <video src={r.videoUrl} controls playsInline style={{ width: "100%", borderRadius: 8, background: "#000", display: "block" }} /> : <div style={{ aspectRatio: "9/16", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "rgba(0,0,0,0.3)", borderRadius: 8 }}>{r.status === 'failed' ? <span style={{ color: "#fca5a5", fontSize: 11, fontWeight: 700 }}>failed</span> : (<><VideoProgressBars /><span style={{ color: "#8b7bc7", fontSize: 10, fontWeight: 600 }}>rendering…</span></>)}</div>}
+                          <div style={{ fontSize: 9.5, color: "#7e92a8", marginTop: 5 }}>Clip {i + 1}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : null}
 
