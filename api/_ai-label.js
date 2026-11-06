@@ -32,12 +32,13 @@ const RENDI_429_WAIT_MS = 20000;   // wait between 429 retries (Rendi quota is p
 // Sanitize + escape a short promo string for ffmpeg drawtext (fail-safe: capped, one line).
 function escapeDrawtext(s) {
   if (!s) return '';
+  // NOTE: with expansion=none on the drawtext, % { } are literal — do NOT escape %
+  // (escaping it as \% triggers ffmpeg's "Stray %" and drops the whole text layer).
   return String(s).trim().slice(0, 40)
     .replace(/[\r\n]+/g, ' ')
     .replace(/\\/g, '\\\\')
-    .replace(/:/g, '\\:')
-    .replace(/%/g, '\\%')
-    .replace(/'/g, "\\'");
+    .replace(/'/g, "\\'")
+    .replace(/:/g, '\\:');
 }
 
 /**
@@ -64,8 +65,8 @@ export async function addAiLabelViaRendi(videoUrl, overlayText) {
   const promo = escapeDrawtext(overlayText);
   if (promo) {
     filters.push(
-      "drawtext=text='" + promo + "':" +
-      "fontcolor=white:fontsize=h/15:box=1:boxcolor=0xF59E0B@0.92:boxborderw=18:" +
+      "drawtext=expansion=none:text='" + promo + "':" +
+      "fontcolor=white:fontsize=h/26:box=1:boxcolor=0xF59E0B@0.92:boxborderw=18:" +
       "x=(w-tw)/2:y=h-th-h/7"
     );
   }
