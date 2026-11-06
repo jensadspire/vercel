@@ -3472,6 +3472,7 @@ function RSAStudio() {
   const [seqPubPrimary, setSeqPubPrimary] = useState('');  // (legacy) manual primary — kept for the fallback destination field only
   const [seqOriginMeta, setSeqOriginMeta] = useState(null); // original ad's Meta copy (variations) reused for the story
   const [seqOriginUrl, setSeqOriginUrl] = useState('');     // original ad's real landing URL (click destination)
+  const [seqOriginSnap, setSeqOriginSnap] = useState(null); // original ad's full viewer snapshot (Google+Meta) for "View"
   const [seqPubUseMetaCopy, setSeqPubUseMetaCopy] = useState(false); // false = video variation [1], true = Meta copy [0]
   const [seqPubBusy, setSeqPubBusy] = useState(false);     // chained publish in flight
   const [seqPubProgress, setSeqPubProgress] = useState(''); // "Publishing 2 of 3…"
@@ -3559,6 +3560,12 @@ function RSAStudio() {
   };
   // Chained publish: first video creates campaign + ad set; the rest join it via existingAdSetId,
   // so the whole story lands in ONE ad set. All ads PAUSED (meta-publish default).
+  // Flip to the front-page 3-ad viewer: original (stale) Google + Meta + this sequence video.
+  const viewSeqAd = (videoUrl) => {
+    const s = seqOriginSnap || {};
+    restoreFeedEntry({ url: seqOriginUrl || s.url || '', rows: s.rows || null, metaResult: seqOriginMeta || s.metaResult || null, carouselCardTexts: s.carouselCardTexts || [], tiktokResult: s.tiktokResult || null, engine: s.engine || null, archetype: s.archetype || null, videoUrl: videoUrl || null });
+    setSeqPubOpen(false); setSeqOpen(false);
+  };
   const publishSeqStory = async () => {
     const all = seqStoryAds();
     const sel = all.filter(function (a) { return a.videoUrl && (seqPubSel === null || seqPubSel[a.key]); });
@@ -3729,8 +3736,8 @@ function RSAStudio() {
     if (!it) return;
     setSeqProductUrl(it.thumb || '');
     // List items are trimmed (no channels.meta) — fetch the FULL creative for the original copy + landing.
-    setSeqOriginMeta(null); setSeqOriginUrl(it.productUrl || '');
-    if (it.id) { (async () => { try { const _res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: it.id }) }); const _data = await _res.json().catch(() => ({})); if (_data && _data.creative) { const _o = rebuildFromCreative(_data.creative); setSeqOriginMeta((_o && _o.metaResult) || null); setSeqOriginUrl((_o && _o.url) || it.productUrl || ''); } } catch (_) {} })(); }
+    setSeqOriginMeta(null); setSeqOriginUrl(it.productUrl || ''); setSeqOriginSnap(null);
+    if (it.id) { (async () => { try { const _res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: it.id }) }); const _data = await _res.json().catch(() => ({})); if (_data && _data.creative) { const _o = rebuildFromCreative(_data.creative); setSeqOriginSnap(_o || null); setSeqOriginMeta((_o && _o.metaResult) || null); setSeqOriginUrl((_o && _o.url) || it.productUrl || ''); } } catch (_) {} })(); }
     const prod = it.productTitle ? (it.productTitle + ' ') : '';
     setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
     setSeqShotObjectives(['awareness']); setSeqPromo(false); setSeqShotMeta([]); setSeqLeadVideo(null); setSeqLeadId(null); setSeqBuildNext(false); setSeqSequenceAds([]); setSeqActiveAd(null);
@@ -5983,6 +5990,7 @@ STRICT rules:
                                 <span style={{ fontSize: 11.5, fontWeight: 800, color: "#e2e8f0" }}>{a.label}</span>
                                 <span style={{ fontSize: 10, fontWeight: 700, color: om.color }}>{om.label}{a.videoUrl ? "" : " · no video"}</span>
                               </span>
+                              {a.videoUrl ? <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); viewSeqAd(a.videoUrl); }} title="Open in the 3-ad viewer — original Google + Meta + this video" style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 10, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.12)", color: "#93c5fd", cursor: "pointer", whiteSpace: "nowrap" }}>👁 View</button> : null}
                             </label>
                           );
                         })}
