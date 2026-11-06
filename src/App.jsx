@@ -3714,6 +3714,7 @@ function RSAStudio() {
     setSeqName(it.productTitle ? (it.productTitle + ' — persona') : '');
     setSeqPersona(null);
     setShowVault(false);
+    setSeqSelector('persona'); // ultra-short: land with the persona chooser already open
     openSeqBuilder();
   };
   // ── UGC ad generation (slice 3) — self-contained; branded flow untouched ──
