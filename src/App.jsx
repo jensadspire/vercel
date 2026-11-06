@@ -3474,6 +3474,7 @@ function RSAStudio() {
   const [seqPubProgress, setSeqPubProgress] = useState(''); // "Publishing 2 of 3…"
   const [seqPubResult, setSeqPubResult] = useState(null);  // { ok, total, done, failures[], adsManagerUrl, error }
   const [seqLeadId, setSeqLeadId] = useState(null);        // loaded template id — non-null = lead loaded (append mode)
+  const [seqAutoLead, setSeqAutoLead] = useState(false);   // next generate auto-saves into the lead (Recreate-on-persona / Regenerate lead)
   const [seqBuildNext, setSeqBuildNext] = useState(false); // next-ad controls open (after +)
   const [seqLeadObjective, setSeqLeadObjective] = useState('awareness'); // lead's funnel stage → next default
   const [seqSelector, setSeqSelector] = useState(null);    // expanded attribute area: persona|objective|market|interaction
@@ -3659,7 +3660,7 @@ function RSAStudio() {
       const tasks = await Promise.all(shots.map(function (p) {
         return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create', imageUrls: refs, prompt: p, ratio: seqRatio, duration: seqDuration }) }).then(r => r.json()).then(function (d) { return d.taskId || null; });
       }));
-      let done = false, tries = 0;
+      let done = false, tries = 0, lastPolled = [];
       while (!done && tries < 80) {
         await new Promise(function (res) { setTimeout(res, 5000); });
         const polled = await Promise.all(tasks.map(function (t) {
@@ -3668,12 +3669,18 @@ function RSAStudio() {
         }));
         setSeqResults(shots.map(function (p, i) { const r = polled[i] || {}; return { prompt: p, status: r.status || 'running', videoUrl: r.videoUrl || '' }; }));
         done = polled.every(function (r) { return r && (r.status === 'succeeded' || r.status === 'failed'); });
+        lastPolled = polled;
         tries++;
+      }
+      if (seqAutoLead) {
+        const _leadVid = (lastPolled.find(function (r) { return r && r.videoUrl; }) || {}).videoUrl || null;
+        if (_leadVid) { await saveSeqTemplate(_leadVid); }
+        setSeqAutoLead(false);
       }
     } catch (_) { setSeqErr('Generation failed — please try again.'); }
     finally { setSeqBusy(false); }
   };
-  const saveSeqTemplate = async () => {
+  const saveSeqTemplate = async (videoUrlOverride) => {
     if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
     const _pairs = seqShots.map(function (s, i) { return { p: String(s || '').trim(), o: (seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length)) }; }).filter(function (x) { return x.p; });
     const shots = _pairs.map(function (x) { return x.p; });
@@ -3681,10 +3688,10 @@ function RSAStudio() {
     if (!shots.length) { setSeqErr('Add at least one shot prompt.'); return; }
     setSeqMsg(''); setSeqErr('');
     try {
-      const firstVid = (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
-      const body = { action: 'save', name: seqName.trim() || (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template'), assetUri: seqPersona.seedanceAssetUri, characterId: seqPersona.id || null, prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: 'seedance-byteplus', thumbnailUrl: seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null, lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
+      const firstVid = videoUrlOverride || (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
+      const body = { action: 'save', id: seqLeadId || undefined, name: seqName.trim() || (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template'), assetUri: seqPersona.seedanceAssetUri, characterId: seqPersona.id || null, prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: 'seedance-byteplus', thumbnailUrl: seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null, lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
-      if (d && d.template) { if (seqTemplates !== null) loadSeqTemplates(); setSeqSaveOpen(false); loadSeqTemplate(d.template); setSeqMsg('✓ Lead saved — add the next ad with the + button.'); }
+      if (d && d.template) { if (seqTemplates !== null) loadSeqTemplates(); setSeqSaveOpen(false); loadSeqTemplate(d.template); setSeqMsg(d.updated ? '✓ Lead updated.' : '✓ Lead saved — add the next ad with the + button.'); }
       else { setSeqErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
     } catch (_) { setSeqErr('Save failed — please try again.'); }
   };
@@ -3715,6 +3722,7 @@ function RSAStudio() {
     setSeqPersona(null);
     setShowVault(false);
     setSeqSelector('persona'); // ultra-short: land with the persona chooser already open
+    setSeqAutoLead(true);      // first generate on this path auto-becomes the lead
     openSeqBuilder();
   };
   // ── UGC ad generation (slice 3) — self-contained; branded flow untouched ──
@@ -5998,6 +6006,9 @@ STRICT rules:
                     </div>
                     {(seqLeadId && !seqBuildNext && !seqActiveAd) ? (
                       <button onClick={openNextAd} title="Add a sequential ad" style={{ position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)", width: 48, height: 48, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 900, lineHeight: 1, color: "white", background: "linear-gradient(135deg,#f59e0b,#ef4444)", border: "3px solid #0f172a", boxShadow: "0 4px 14px rgba(0,0,0,0.45)", cursor: "pointer" }}>+</button>
+                    ) : null}
+                    {(seqLeadId && !seqBuildNext && !seqActiveAd) ? (
+                      <button onClick={() => { setSeqAutoLead(true); generateSequence(); }} disabled={seqBusy} title="Regenerate the lead video — updates this template in place" style={{ position: "absolute", top: 10, left: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#fbbf24", cursor: seqBusy ? "default" : "pointer", lineHeight: 1.1 }}>{seqBusy ? "⟳…" : "↻ Regenerate lead"}</button>
                     ) : null}
                     {(seqLeadId && !seqActiveAd && Array.isArray(seqSequenceAds) && seqSequenceAds.length > 0) ? (
                       <span title={"This lead has " + seqSequenceAds.length + " linked ad(s) — see the Sequence rack above"} style={{ position: "absolute", bottom: 10, left: 10, fontSize: 11, fontWeight: 800, color: "white", background: "rgba(99,102,241,0.92)", borderRadius: 8, padding: "3px 9px", lineHeight: 1.1 }}>{"🎬 +" + seqSequenceAds.length}</span>
