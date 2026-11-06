@@ -3728,7 +3728,9 @@ function RSAStudio() {
   const recreateOnPersona = (it) => {
     if (!it) return;
     setSeqProductUrl(it.thumb || '');
-    try { const _o = rebuildFromCreative(it); setSeqOriginMeta((_o && _o.metaResult) || null); setSeqOriginUrl((_o && _o.url) || it.productUrl || ''); } catch (_) { setSeqOriginMeta(null); setSeqOriginUrl(it.productUrl || ''); }
+    // List items are trimmed (no channels.meta) — fetch the FULL creative for the original copy + landing.
+    setSeqOriginMeta(null); setSeqOriginUrl(it.productUrl || '');
+    if (it.id) { (async () => { try { const _res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: it.id }) }); const _data = await _res.json().catch(() => ({})); if (_data && _data.creative) { const _o = rebuildFromCreative(_data.creative); setSeqOriginMeta((_o && _o.metaResult) || null); setSeqOriginUrl((_o && _o.url) || it.productUrl || ''); } } catch (_) {} })(); }
     const prod = it.productTitle ? (it.productTitle + ' ') : '';
     setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
     setSeqShotObjectives(['awareness']); setSeqPromo(false); setSeqShotMeta([]); setSeqLeadVideo(null); setSeqLeadId(null); setSeqBuildNext(false); setSeqSequenceAds([]); setSeqActiveAd(null);
