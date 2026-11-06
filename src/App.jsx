@@ -6004,7 +6004,15 @@ STRICT rules:
                   </div>
                 ) : (
                   <div style={{ width: "58%", borderRadius: 14, border: "1px dashed rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.04)", aspectRatio: "16 / 9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center", padding: 16 }}>
-                    <div style={{ fontSize: 12.5, color: "#9db0c7", maxWidth: 360, lineHeight: 1.45 }}>Load a saved <strong style={{ color: "#fbbf24" }}>template ad</strong> as your sequence lead, or build one below.</div>
+                    {String(seqProductUrl || '').trim() ? (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <div style={{ fontSize: 12.5, color: "#e2e8f0", maxWidth: 360, lineHeight: 1.45 }}>New product — <strong style={{ color: "#fbbf24" }}>choose a persona</strong> to feature it, then generate your lead ad below.</div>
+                        <button onClick={() => setSeqSelector('persona')} style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", cursor: "pointer" }}>➕ Choose a persona</button>
+                        <div style={{ fontSize: 10, color: "#5a6b80", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 2 }}>or reuse an existing template</div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12.5, color: "#9db0c7", maxWidth: 360, lineHeight: 1.45 }}>Load a saved <strong style={{ color: "#fbbf24" }}>template ad</strong> as your sequence lead, or build one below.</div>
+                    )}
                     <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", cursor: "pointer" }}>⤵ Browse template ads</button>
                     {(() => {
                       const _list = Array.isArray(seqTemplates) ? seqTemplates : [];
