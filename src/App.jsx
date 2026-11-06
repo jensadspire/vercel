@@ -3469,7 +3469,10 @@ function RSAStudio() {
   const [seqPubSel, setSeqPubSel] = useState(null);        // selection map {key:true}; null = all
   const [seqPubDest, setSeqPubDest] = useState('');        // landing/destination URL (clicks go here)
   const [seqPubHeadline, setSeqPubHeadline] = useState(''); // shared ad headline (max 40)
-  const [seqPubPrimary, setSeqPubPrimary] = useState('');  // shared ad primary text
+  const [seqPubPrimary, setSeqPubPrimary] = useState('');  // (legacy) manual primary — kept for the fallback destination field only
+  const [seqOriginMeta, setSeqOriginMeta] = useState(null); // original ad's Meta copy (variations) reused for the story
+  const [seqOriginUrl, setSeqOriginUrl] = useState('');     // original ad's real landing URL (click destination)
+  const [seqPubUseMetaCopy, setSeqPubUseMetaCopy] = useState(false); // false = video variation [1], true = Meta copy [0]
   const [seqPubBusy, setSeqPubBusy] = useState(false);     // chained publish in flight
   const [seqPubProgress, setSeqPubProgress] = useState(''); // "Publishing 2 of 3…"
   const [seqPubResult, setSeqPubResult] = useState(null);  // { ok, total, done, failures[], adsManagerUrl, error }
@@ -3537,11 +3540,20 @@ function RSAStudio() {
       .map(function (a) { return { key: a.id, n: (a.order || 0) + 1, kind: 'linked', objective: a.objective, videoUrl: (a.channels && a.channels.video && a.channels.video.url) || a.thumb || null, label: 'Ad #' + ((a.order || 0) + 1) }; });
     return [lead].concat(linked);
   };
+  // Copy for the story's video ads, reused from the original ad's Meta copy (variations):
+  // [1] = the video variation (default), [0] = the Meta image-ad copy ("Use Meta copy" toggle).
+  const seqPubCopy = () => {
+    const m = seqOriginMeta || {};
+    const idx = seqPubUseMetaCopy ? 0 : 1;
+    const pick = function (arr) { return Array.isArray(arr) ? (arr[idx] || arr[0] || '') : ''; };
+    const headline = pick(m.headlines) || String(seqName || '').replace(/ — (persona|sequence)$/i, '');
+    return { headline: String(headline).slice(0, 40), primary: pick(m.primaryTexts), description: pick(m.descriptions) };
+  };
   const openSeqPub = () => {
+    setSeqPubUseMetaCopy(false);
+    const landing = String(seqOriginUrl || '').trim();
     const prod = String(seqProductUrl || '').trim();
-    setSeqPubDest(/^https?:\/\//i.test(prod) ? prod : '');
-    setSeqPubHeadline((((metaResult && metaResult.headlines && metaResult.headlines[0]) || String(seqName || '').replace(/ — (persona|sequence)$/i, '')) || '').slice(0, 40));
-    setSeqPubPrimary((metaResult && metaResult.primaryTexts && metaResult.primaryTexts[0]) || '');
+    setSeqPubDest(/^https?:\/\//i.test(landing) ? landing : (/^https?:\/\//i.test(prod) ? prod : ''));
     setSeqPubSel(null); setSeqPubResult(null); setSeqPubProgress('');
     setSeqPubOpen(true);
   };
@@ -3550,13 +3562,15 @@ function RSAStudio() {
   const publishSeqStory = async () => {
     const all = seqStoryAds();
     const sel = all.filter(function (a) { return a.videoUrl && (seqPubSel === null || seqPubSel[a.key]); });
-    const dest = String(seqPubDest || '').trim();
+    const _landing = String(seqOriginUrl || '').trim();
+    const dest = /^https?:\/\//i.test(_landing) ? _landing : String(seqPubDest || '').trim();
     if (!sel.length) { setSeqPubResult({ ok: false, total: 0, done: 0, failures: [], error: 'Select at least one ad with a video.' }); return; }
     if (!/^https?:\/\//i.test(dest)) { setSeqPubResult({ ok: false, total: sel.length, done: 0, failures: [], error: 'Enter a valid destination URL (https://…).' }); return; }
     setSeqPubBusy(true); setSeqPubResult(null);
     const targeting = { countries: targetCountries, ageMin: targetAgeMin, ageMax: targetAgeMax, placements: targetPlacements, dailyBudget: targetBudget };
-    const headline = String(seqPubHeadline || '').trim();
-    const primary = String(seqPubPrimary || '').trim();
+    const _c = seqPubCopy();
+    const headline = _c.headline;
+    const primary = _c.primary;
     const campaignName = 'AI Ad Studio — Story — ' + new Date().toLocaleDateString();
     let campaignId = null, adSetId = null, adsManagerUrl = null, done = 0;
     const failures = [];
@@ -3568,7 +3582,7 @@ function RSAStudio() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(isSignedIn && session ? { 'x-clerk-session': await session.getToken() } : {}) },
           body: JSON.stringify({
-            headline: headline, primaryText: primary, description: '',
+            headline: headline, primaryText: primary, description: _c.description || '',
             videoUrl: ad.videoUrl, destinationUrl: dest,
             adName: 'AI Ad Studio — Story — ' + ad.label + (ad.objective ? (' · ' + ad.objective) : ''),
             campaignName: campaignName,
@@ -3714,6 +3728,7 @@ function RSAStudio() {
   const recreateOnPersona = (it) => {
     if (!it) return;
     setSeqProductUrl(it.thumb || '');
+    try { const _o = rebuildFromCreative(it); setSeqOriginMeta((_o && _o.metaResult) || null); setSeqOriginUrl((_o && _o.url) || it.productUrl || ''); } catch (_) { setSeqOriginMeta(null); setSeqOriginUrl(it.productUrl || ''); }
     const prod = it.productTitle ? (it.productTitle + ' ') : '';
     setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
     setSeqShotObjectives(['awareness']); setSeqPromo(false); setSeqShotMeta([]); setSeqLeadVideo(null); setSeqLeadId(null); setSeqBuildNext(false); setSeqSequenceAds([]); setSeqActiveAd(null);
@@ -5970,11 +5985,29 @@ STRICT rules:
                           );
                         })}
                       </div>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>Destination URL <span style={{ color: "#5a6b80", fontWeight: 600 }}>· where clicks go</span></div>
-                      <input value={seqPubDest} onChange={e => setSeqPubDest(e.target.value)} placeholder="https://yourshop.com/product" disabled={seqPubBusy} style={{ width: "100%", boxSizing: "border-box", padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 12 }} />
-                      <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>Ad copy <span style={{ color: "#5a6b80", fontWeight: 600 }}>· shared across these video ads</span></div>
-                      <input value={seqPubHeadline} onChange={e => setSeqPubHeadline(e.target.value)} maxLength={40} placeholder="Headline (max 40)" disabled={seqPubBusy} style={{ width: "100%", boxSizing: "border-box", padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 8 }} />
-                      <textarea value={seqPubPrimary} onChange={e => setSeqPubPrimary(e.target.value)} rows={2} placeholder="Primary text" disabled={seqPubBusy} style={{ width: "100%", boxSizing: "border-box", padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 14 }} />
+                      {(() => {
+                        const _c = seqPubCopy();
+                        const _landing = String(seqOriginUrl || '').trim();
+                        const _hasLanding = /^https?:\/\//i.test(_landing);
+                        return (
+                          <>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                              <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em" }}>Ad copy <span style={{ color: "#5a6b80", fontWeight: 600 }}>· auto from your original ad</span></div>
+                              <button onClick={() => setSeqPubUseMetaCopy(function (v) { return !v; })} disabled={seqPubBusy} title={seqPubUseMetaCopy ? "Using the Meta ad copy — click for the video variation" : "Using the video variation — click to reuse the Meta ad copy"} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 7, cursor: seqPubBusy ? "default" : "pointer", border: "1px solid rgba(8,102,255,0.5)", background: seqPubUseMetaCopy ? "#0866FF" : "rgba(8,102,255,0.12)", color: seqPubUseMetaCopy ? "#fff" : "#60a5fa", fontSize: 10, fontWeight: 800 }}>⟲ {seqPubUseMetaCopy ? "Meta copy" : "Use Meta copy"}</button>
+                            </div>
+                            <div style={{ padding: "9px 11px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.25)", marginBottom: 12 }}>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: "#e2e8f0", marginBottom: 4 }}>{_c.headline || "—"}</div>
+                              <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.45 }}>{_c.primary ? (_c.primary.slice(0, 180) + (_c.primary.length > 180 ? "…" : "")) : "No original copy found — ad will publish with the headline only; edit in Ads Manager."}</div>
+                            </div>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>Destination <span style={{ color: "#5a6b80", fontWeight: 600 }}>· where clicks go</span></div>
+                            {_hasLanding ? (
+                              <div style={{ fontSize: 11, color: "#8ea2b8", wordBreak: "break-all", padding: "7px 11px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.25)", marginBottom: 14 }}>{_landing}</div>
+                            ) : (
+                              <input value={seqPubDest} onChange={e => setSeqPubDest(e.target.value)} placeholder="https://yourshop.com/product — add a landing page" disabled={seqPubBusy} style={{ width: "100%", boxSizing: "border-box", padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(245,158,11,0.55)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 14 }} />
+                            )}
+                          </>
+                        );
+                      })()}
                       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                         <button onClick={publishSeqStory} disabled={seqPubBusy || selCount === 0} style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (seqPubBusy || selCount === 0) ? "default" : "pointer", background: (seqPubBusy || selCount === 0) ? "rgba(24,119,242,0.4)" : "linear-gradient(135deg,#1877f2,#0ea5e9)", color: "white" }}>{seqPubBusy ? (seqPubProgress || "Publishing…") : ("🎬 Publish " + selCount + " video" + (selCount === 1 ? "" : "s"))}</button>
                         <span style={{ fontSize: 10.5, color: "#5a6b80" }}>Created paused — no spend until you activate in Ads Manager.</span>
