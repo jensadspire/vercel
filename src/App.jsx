@@ -5776,6 +5776,11 @@ STRICT rules:
                     setAdFormat("tiktok"); setViewMode("detailed"); setTimeout(() => { try { setMetaPublishFormat('video'); setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new'); setSelectedCampaignId(''); setSelectedAdSetId(''); } catch(_){} }, 80);
                   }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
+                {seqPubReturn ? (
+                  <div style={{ padding: "10px 14px", background: "#fff", borderTop: "1px solid #dadde1" }}>
+                    <button onClick={() => { setSeqPubReturn(false); setSeqOpen(true); setSeqPubOpen(true); }} style={{ width: "100%", padding: "10px 0", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#1877f2,#0ea5e9)", color: "white" }}>← Back to the sequence publish</button>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 12, minHeight: 280 }}>
@@ -5906,12 +5911,6 @@ STRICT rules:
         </div>
 
         {/* Sequential Ad Builder panel */}
-        {(seqPubReturn && !seqOpen) ? (
-          <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 2200, display: "flex", alignItems: "center", gap: 6, padding: "6px 8px 6px 12px", borderRadius: 999, background: "#0f172a", border: "1px solid rgba(24,119,242,0.5)", boxShadow: "0 6px 20px rgba(0,0,0,0.5)" }}>
-            <button onClick={() => { setSeqPubReturn(false); setSeqOpen(true); setSeqPubOpen(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", fontSize: 12, fontWeight: 800, borderRadius: 999, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#1877f2,#0ea5e9)", color: "white" }}>← Back to publish</button>
-            <button onClick={() => setSeqPubReturn(false)} title="Dismiss" style={{ background: "none", border: "none", color: "#5a6b80", fontSize: 15, cursor: "pointer", padding: "0 4px" }}>✕</button>
-          </div>
-        ) : null}
         {seqOpen && (
           <div onClick={() => setSeqOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
             <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 860, maxHeight: "88vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 16, padding: 26 }}>
