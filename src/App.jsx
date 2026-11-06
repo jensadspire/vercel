@@ -3684,7 +3684,7 @@ function RSAStudio() {
       const firstVid = (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
       const body = { action: 'save', name: seqName.trim() || (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template'), assetUri: seqPersona.seedanceAssetUri, characterId: seqPersona.id || null, prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: 'seedance-byteplus', thumbnailUrl: seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null, lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
-      if (d && d.template) { setSeqMsg('✓ Saved as template'); if (seqTemplates !== null) loadSeqTemplates(); }
+      if (d && d.template) { if (seqTemplates !== null) loadSeqTemplates(); setSeqSaveOpen(false); loadSeqTemplate(d.template); setSeqMsg('✓ Lead saved — add the next ad with the + button.'); }
       else { setSeqErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
     } catch (_) { setSeqErr('Save failed — please try again.'); }
   };
@@ -6199,7 +6199,8 @@ STRICT rules:
                 <select value={seqDuration} onChange={e => setSeqDuration(Number(e.target.value))} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
                   <option value={5}>5s</option><option value={8}>8s</option><option value={10}>10s</option>
                 </select>
-                <button onClick={generateSequence} disabled={seqBusy} style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: seqBusy ? "rgba(245,158,11,0.4)" : "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>{seqBusy ? "⟳ Generating…" : (seqBuildNext ? "🎬 Generate this ad" : "🎬 Generate sequence")}</button>
+                <button onClick={generateSequence} disabled={seqBusy} style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: seqBusy ? "rgba(245,158,11,0.4)" : "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>{seqBusy ? "⟳ Generating…" : (seqBuildNext ? "🎬 Generate this ad" : ((!seqLeadId && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? "↻ Regenerate" : "🎬 Generate sequence"))}</button>
+                {(!seqLeadId && !seqBuildNext && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? <button onClick={saveSeqTemplate} disabled={seqBusy} title="Save this as your sequence lead, then add the next ad" style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>✓ Save as lead & start sequence</button> : null}
               </div>
               </>) : null}
               {seqErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginBottom: 12 }}>{seqErr}</div> : null}
