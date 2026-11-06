@@ -6008,12 +6008,19 @@ STRICT rules:
                     <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", cursor: "pointer" }}>⤵ Browse template ads</button>
                     {(() => {
                       const _list = Array.isArray(seqTemplates) ? seqTemplates : [];
+                      const _stem = function (s) { return String(s || '').trim().toLowerCase().replace(/ — (persona|sequence)$/i, ''); };
+                      const _curProd = String(seqProductUrl || '').trim();
+                      const _curStem = _stem(seqName);
+                      const _hasCtx = !!(_curProd || _curStem);
+                      const _matches = function (t) { return !!t && ((_curProd && Array.isArray(t.garmentUrls) && t.garmentUrls.indexOf(_curProd) !== -1) || (_curStem && _stem(t.name) === _curStem)); };
                       let seqContinueTarget = null;
-                      if (seqLastLead) {
-                        const _fresh = _list.find(function (t) { return t && t.id === seqLastLead.id; });
-                        seqContinueTarget = _fresh || (_list.length ? _list[0] : seqLastLead);
-                      } else if (_list.length) {
-                        seqContinueTarget = _list[0];
+                      if (_hasCtx) {
+                        // Product context (e.g. via "Recreate on a persona"): offer Continue only if THIS
+                        // product already has a story, and point at that story — never an unrelated one.
+                        seqContinueTarget = _list.find(_matches) || (_matches(seqLastLead) ? seqLastLead : null);
+                      } else {
+                        // No product context (cold open): resume the most recent story, as before.
+                        seqContinueTarget = seqLastLead || (_list.length ? _list[0] : null);
                       }
                       if (!seqContinueTarget) return null;
                       return (
