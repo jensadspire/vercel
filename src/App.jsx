@@ -3715,7 +3715,7 @@ function RSAStudio() {
       const firstVid = videoUrlOverride || (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
       const body = { action: 'save', id: seqLeadId || undefined, name: seqName.trim() || (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template'), assetUri: seqPersona.seedanceAssetUri, characterId: seqPersona.id || null, prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: 'seedance-byteplus', thumbnailUrl: seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null, lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
-      if (d && d.template) { if (seqTemplates !== null) loadSeqTemplates(); setSeqSaveOpen(false); loadSeqTemplate(d.template); setSeqMsg(d.updated ? '✓ Lead updated.' : '✓ Lead saved — add the next ad with the + button.'); }
+      if (d && d.template) { if (seqTemplates !== null) loadSeqTemplates(); setSeqSaveOpen(false); loadSeqTemplate(d.template); try { if (d.template.id && (seqOriginMeta || seqOriginSnap)) localStorage.setItem('seq:origin:' + d.template.id, JSON.stringify({ meta: seqOriginMeta, url: seqOriginUrl, snap: seqOriginSnap })); } catch (_) {} setSeqMsg(d.updated ? '✓ Lead updated.' : '✓ Lead saved — add the next ad with the + button.'); }
       else { setSeqErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
     } catch (_) { setSeqErr('Save failed — please try again.'); }
   };
@@ -3734,6 +3734,7 @@ function RSAStudio() {
     setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
     try { localStorage.setItem('seq:lastLead', JSON.stringify(t)); } catch (_) {} setSeqLastLead(t);
+    try { if (!seqOriginMeta && t.id) { const _os = localStorage.getItem('seq:origin:' + t.id); if (_os) { const _oo = JSON.parse(_os); setSeqOriginMeta(_oo.meta || null); setSeqOriginUrl(_oo.url || (t.garmentUrls && t.garmentUrls[0]) || ''); setSeqOriginSnap(_oo.snap || null); } } } catch (_) {}
   };
   const recreateOnPersona = (it) => {
     if (!it) return;
