@@ -3472,7 +3472,7 @@ function RSAStudio() {
   const [seqOfferText, setSeqOfferText] = useState('');    // promo offer copy burned onto the video
   const [seqSequenceAds, setSeqSequenceAds] = useState([]); // linked ads for the loaded lead (director's view)
   const [seqActiveAd, setSeqActiveAd] = useState(null);     // rack item currently re-centered in the hero (null = lead)
-  const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); if (seqLeadId) loadSequenceAds(); };
+  const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); if (seqLeadId) loadSequenceAds(); loadSeqTemplates(); };
   const seqNextObjective = (id) => {
     const i = SEQ_OBJECTIVES.findIndex(function (o) { return o.id === id; });
     return SEQ_OBJECTIVES[Math.min((i < 0 ? 0 : i) + 1, SEQ_OBJECTIVES.length - 1)].id;
@@ -5880,9 +5880,20 @@ STRICT rules:
                   <div style={{ width: "58%", borderRadius: 14, border: "1px dashed rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.04)", aspectRatio: "16 / 9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center", padding: 16 }}>
                     <div style={{ fontSize: 12.5, color: "#9db0c7", maxWidth: 360, lineHeight: 1.45 }}>Load a saved <strong style={{ color: "#fbbf24" }}>template ad</strong> as your sequence lead, or build one below.</div>
                     <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", cursor: "pointer" }}>⤵ Browse template ads</button>
-                    {seqLastLead ? (
-                      <button onClick={() => { loadSeqTemplate(seqLastLead); openNextAd(); }} title="Pick up your most recent sequence and add the next ad" style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.12)", color: "#c4b5fd", cursor: "pointer" }}>↪ Continue your story{seqLastLead.name ? (" · " + seqLastLead.name) : ""}</button>
-                    ) : null}
+                    {(() => {
+                      const _list = Array.isArray(seqTemplates) ? seqTemplates : [];
+                      let seqContinueTarget = null;
+                      if (seqLastLead) {
+                        const _fresh = _list.find(function (t) { return t && t.id === seqLastLead.id; });
+                        seqContinueTarget = _fresh || (_list.length ? _list[0] : seqLastLead);
+                      } else if (_list.length) {
+                        seqContinueTarget = _list[0];
+                      }
+                      if (!seqContinueTarget) return null;
+                      return (
+                        <button onClick={() => { loadSeqTemplate(seqContinueTarget); openNextAd(); }} title="Pick up your most recent sequence and add the next ad" style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.12)", color: "#c4b5fd", cursor: "pointer" }}>↪ Continue your story{seqContinueTarget.name ? (" · " + seqContinueTarget.name) : ""}</button>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
