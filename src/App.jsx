@@ -3463,6 +3463,7 @@ function RSAStudio() {
   const [seqShotMeta, setSeqShotMeta] = useState([]);      // per-shot { market, interactionMode } from the generator
   const [seqLeadVideo, setSeqLeadVideo] = useState(null);  // loaded template's opening video (shown at the top)
   const [seqSaveOpen, setSeqSaveOpen] = useState(false);   // header "Save as template" bar toggle
+  const [seqLastLead, setSeqLastLead] = useState(function () { try { var s = localStorage.getItem('seq:lastLead'); return s ? JSON.parse(s) : null; } catch (_) { return null; } }); // most recent project → "Continue your story"
   const [seqLeadId, setSeqLeadId] = useState(null);        // loaded template id — non-null = lead loaded (append mode)
   const [seqBuildNext, setSeqBuildNext] = useState(false); // next-ad controls open (after +)
   const [seqLeadObjective, setSeqLeadObjective] = useState('awareness'); // lead's funnel stage → next default
@@ -3628,6 +3629,7 @@ function RSAStudio() {
     setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
     setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
+    try { localStorage.setItem('seq:lastLead', JSON.stringify(t)); } catch (_) {} setSeqLastLead(t);
   };
   const recreateOnPersona = (it) => {
     if (!it) return;
@@ -5801,7 +5803,7 @@ STRICT rules:
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>⚡ Sequential Ad Builder</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {!seqLeadId ? <button onClick={() => setSeqSaveOpen(function (v) { return !v; })} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 800, borderRadius: 8, cursor: "pointer", border: "1px solid rgba(16,185,129,0.4)", background: seqSaveOpen ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.03)", color: "#6ee7b7" }}>💾 Save as template</button> : null}
+                  {(!seqLeadId && Array.isArray(seqResults) && seqResults.length > 0) ? <button onClick={() => setSeqSaveOpen(function (v) { return !v; })} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 800, borderRadius: 8, cursor: "pointer", border: "1px solid rgba(16,185,129,0.4)", background: seqSaveOpen ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.03)", color: "#6ee7b7" }}>💾 Save as template</button> : null}
                   <button onClick={() => setSeqOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
                 </div>
               </div>
@@ -5878,6 +5880,9 @@ STRICT rules:
                   <div style={{ width: "58%", borderRadius: 14, border: "1px dashed rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.04)", aspectRatio: "16 / 9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center", padding: 16 }}>
                     <div style={{ fontSize: 12.5, color: "#9db0c7", maxWidth: 360, lineHeight: 1.45 }}>Load a saved <strong style={{ color: "#fbbf24" }}>template ad</strong> as your sequence lead, or build one below.</div>
                     <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", cursor: "pointer" }}>⤵ Browse template ads</button>
+                    {seqLastLead ? (
+                      <button onClick={() => { loadSeqTemplate(seqLastLead); openNextAd(); }} title="Pick up your most recent sequence and add the next ad" style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.12)", color: "#c4b5fd", cursor: "pointer" }}>↪ Continue your story{seqLastLead.name ? (" · " + seqLastLead.name) : ""}</button>
+                    ) : null}
                   </div>
                 )}
               </div>
