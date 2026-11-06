@@ -3468,6 +3468,8 @@ function RSAStudio() {
   const [seqLeadObjective, setSeqLeadObjective] = useState('awareness'); // lead's funnel stage → next default
   const [seqSelector, setSeqSelector] = useState(null);    // expanded attribute area: persona|objective|market|interaction
   const [seqAddBusy, setSeqAddBusy] = useState(false);     // "Add to sequence" save in flight
+  const [seqSequenceAds, setSeqSequenceAds] = useState([]); // linked ads for the loaded lead (director's view)
+  const [seqActiveAd, setSeqActiveAd] = useState(null);     // rack item currently re-centered in the hero (null = lead)
   const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); };
   const seqNextObjective = (id) => {
     const i = SEQ_OBJECTIVES.findIndex(function (o) { return o.id === id; });
@@ -3476,6 +3478,21 @@ function RSAStudio() {
   const openNextAd = () => {
     setSeqShots(['']); setSeqShotObjectives([seqNextObjective(seqLeadObjective)]); setSeqShotMeta([]); setSeqResults([]);
     setSeqBuildNext(true);
+  };
+  const loadSequenceAds = async (leadId) => {
+    const id = leadId || seqLeadId;
+    if (!id) { setSeqSequenceAds([]); return; }
+    try {
+      const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list', filters: { sequence: id } }) }).then(r => r.json());
+      setSeqSequenceAds(Array.isArray(d.creatives) ? d.creatives : []);
+    } catch (_) { setSeqSequenceAds([]); }
+  };
+  const reCenterAd = (ad) => {
+    if (seqBuildNext) {
+      if (!window.confirm("You are building a new ad — switch to Ad #" + ad.n + " and discard this draft?")) return;
+      setSeqBuildNext(false); setSeqResults([]);
+    }
+    setSeqActiveAd(ad.kind === 'lead' ? null : ad);
   };
   const addToSequence = async () => {
     const vid = (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
@@ -3495,7 +3512,7 @@ function RSAStudio() {
         channels: { video: { url: vid } }, thumb: vid,
       };
       const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(payload) }).then(r => r.json());
-      if (d && (d.creative || d.id)) { setSeqMsg('✓ Added to sequence as Ad #' + (nextOrder + 1)); setSeqBuildNext(false); setSeqResults([]); }
+      if (d && (d.creative || d.id)) { setSeqMsg('✓ Added to sequence as Ad #' + (nextOrder + 1)); setSeqBuildNext(false); setSeqResults([]); loadSequenceAds(); }
       else { setSeqErr(d && d.error ? ('Add failed: ' + d.error) : 'Add to sequence failed.'); }
     } catch (_) { setSeqErr('Add to sequence failed — please try again.'); }
     finally { setSeqAddBusy(false); }
@@ -3606,6 +3623,7 @@ function RSAStudio() {
     setSeqShotObjectives((Array.isArray(t.shotObjectives) && t.shotObjectives.length) ? t.shotObjectives.slice(0, _shots.length) : _shots.map(function (_s, i) { return seqDefaultObjective(i, _shots.length); }));
     setSeqPromo(!!t.promo); setSeqShotMeta([]); setSeqLeadVideo(t.lastVideoUrl || null);
     setSeqLeadId(t.id || null); setSeqBuildNext(false); setSeqLeadObjective(t.objective || (Array.isArray(t.shotObjectives) && t.shotObjectives[0]) || 'awareness');
+    setSeqActiveAd(null); loadSequenceAds(t.id || null);
     setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
     setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
@@ -3615,7 +3633,7 @@ function RSAStudio() {
     setSeqProductUrl(it.thumb || '');
     const prod = it.productTitle ? (it.productTitle + ' ') : '';
     setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
-    setSeqShotObjectives(['awareness']); setSeqPromo(false); setSeqShotMeta([]); setSeqLeadVideo(null); setSeqLeadId(null); setSeqBuildNext(false);
+    setSeqShotObjectives(['awareness']); setSeqPromo(false); setSeqShotMeta([]); setSeqLeadVideo(null); setSeqLeadId(null); setSeqBuildNext(false); setSeqSequenceAds([]); setSeqActiveAd(null);
     setSeqResults([]); setSeqMsg(''); setSeqErr('');
     setSeqName(it.productTitle ? (it.productTitle + ' — persona') : '');
     setSeqPersona(null);
@@ -5794,20 +5812,54 @@ STRICT rules:
                 </div>
               ) : null}
 
+              {(seqLeadId && Array.isArray(seqSequenceAds) && seqSequenceAds.length > 0) ? (() => {
+                const rack = [{ n: 1, video: seqLeadVideo, objective: seqLeadObjective, kind: 'lead' }].concat(
+                  seqSequenceAds.map(function (a) { return { n: (a.order || 0) + 1, video: a.thumb || null, objective: a.objective, kind: 'linked', id: a.id }; })
+                );
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 14, padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                    <span style={{ fontSize: 9, color: "#5a6b80", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 2 }}>Sequence</span>
+                    {rack.map(function (ad, idx) {
+                      const active = seqActiveAd ? (seqActiveAd.n === ad.n) : (ad.kind === 'lead');
+                      const o = seqObjMeta(ad.objective || 'awareness');
+                      return (
+                        <span key={ad.n} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          {idx > 0 ? <span style={{ color: "#3a4a64", fontSize: 12 }}>→</span> : null}
+                          <button onClick={() => reCenterAd(ad)} title={"Ad #" + ad.n} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 8, cursor: "pointer", border: active ? "1px solid rgba(245,158,11,0.7)" : "1px solid rgba(255,255,255,0.12)", background: active ? "rgba(245,158,11,0.12)" : "rgba(0,0,0,0.25)" }}>
+                            {ad.video ? <video src={ad.video} muted style={{ width: 22, height: 30, objectFit: "cover", borderRadius: 4, background: "#000", pointerEvents: "none" }} /> : <div style={{ width: 22, height: 30, borderRadius: 4, background: "#1e293b" }} />}
+                            <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.1 }}>
+                              <span style={{ fontSize: 10, fontWeight: 800, color: active ? "#fbbf24" : "#c7d2e0" }}>{ad.kind === 'lead' ? "Ad #1 · Lead" : ("Ad #" + ad.n)}</span>
+                              <span style={{ fontSize: 8.5, fontWeight: 800, color: o.color }}>{o.label}</span>
+                            </span>
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                );
+              })() : null}
               {/* Lead ad — the opening video; + appends the next ad in the sequence */}
               <div style={{ display: "flex", justifyContent: "center", marginBottom: (seqLeadId && !seqBuildNext) ? 30 : 12 }}>
                 {seqPersona ? (
                   <div style={{ position: "relative", display: "inline-block", maxWidth: "58%" }}>
                     <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(245,158,11,0.35)", background: "#0b1322", lineHeight: 0 }}>
-                      {seqLeadVideo ? (
+                      {(seqActiveAd && seqActiveAd.video) ? (
+                        <video key={seqActiveAd.n} src={seqActiveAd.video} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", background: "#000" }} />
+                      ) : seqLeadVideo ? (
                         <video src={seqLeadVideo} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", background: "#000" }} />
                       ) : (
                         <img src={seqPersona.thumbnailUrl || seqPersona.seedImageUrl} alt="" style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto" }} />
                       )}
-                      <span style={{ position: "absolute", top: 10, left: 10, fontSize: 15, fontWeight: 800, color: "#1a1206", background: "rgba(245,158,11,0.92)", borderRadius: 9, padding: "4px 12px", lineHeight: 1.1 }}>★ Template</span>
-                      {seqLeadId ? <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} title="Load another template as the lead" style={{ position: "absolute", top: 10, right: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#c4b5fd", cursor: "pointer", lineHeight: 1.1 }}>Change lead</button> : null}
+                      {seqActiveAd ? (
+                        <span style={{ position: "absolute", top: 10, left: 10, fontSize: 15, fontWeight: 800, color: "white", background: "rgba(99,102,241,0.92)", borderRadius: 9, padding: "4px 12px", lineHeight: 1.1 }}>{"Ad #" + seqActiveAd.n}</span>
+                      ) : (
+                        <span style={{ position: "absolute", top: 10, left: 10, fontSize: 15, fontWeight: 800, color: "#1a1206", background: "rgba(245,158,11,0.92)", borderRadius: 9, padding: "4px 12px", lineHeight: 1.1 }}>★ Template</span>
+                      )}
+                      {(seqLeadId && seqActiveAd) ? (
+                        <button onClick={() => setSeqActiveAd(null)} title="Back to the lead" style={{ position: "absolute", top: 10, right: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#c4b5fd", cursor: "pointer", lineHeight: 1.1 }}>↩ Back to lead</button>
+                      ) : (seqLeadId ? <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} title="Load another template as the lead" style={{ position: "absolute", top: 10, right: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#c4b5fd", cursor: "pointer", lineHeight: 1.1 }}>Change lead</button> : null)}
                     </div>
-                    {(seqLeadId && !seqBuildNext) ? (
+                    {(seqLeadId && !seqBuildNext && !seqActiveAd) ? (
                       <button onClick={openNextAd} title="Add a sequential ad" style={{ position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)", width: 48, height: 48, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 900, lineHeight: 1, color: "white", background: "linear-gradient(135deg,#f59e0b,#ef4444)", border: "3px solid #0f172a", boxShadow: "0 4px 14px rgba(0,0,0,0.45)", cursor: "pointer" }}>+</button>
                     ) : null}
                   </div>
