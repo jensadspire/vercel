@@ -3527,7 +3527,7 @@ function RSAStudio() {
         objective: seqShotObjectives[0] || 'engagement', promo: seqPromo,
         characterId: (seqPersona && seqPersona.id) || null, personaUsed: !!seqPersona,
         productUrl: productUrl, productTitle: seqName || '',
-        engine: 'seedance-byteplus', scene: seqShots[0] || '', inputSource: 'sequence',
+        engine: seqNoPersona ? (seqNoneEngine || 'kling') : 'seedance-byteplus', scene: seqShots[0] || '', inputSource: 'sequence',
         channels: { video: { url: vid } }, thumb: vid,
       };
       const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(payload) }).then(r => r.json());
@@ -6095,16 +6095,20 @@ STRICT rules:
               })() : null}
               {/* Lead ad — the opening video; + appends the next ad in the sequence */}
               <div style={{ display: "flex", justifyContent: "center", marginBottom: (seqLeadId && !seqBuildNext) ? 30 : 12 }}>
-                {seqPersona ? (
+                {(seqPersona || seqNoPersona) ? (
                   <div style={{ position: "relative", display: "inline-block", maxWidth: "58%" }}>
                     <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(245,158,11,0.35)", background: "#0b1322", lineHeight: 0 }}>
                       {(seqActiveAd && seqActiveAd.video) ? (
                         <video key={seqActiveAd.n} src={seqActiveAd.video} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", background: "#000" }} />
                       ) : seqLeadVideo ? (
                         <video src={seqLeadVideo} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", background: "#000" }} />
-                      ) : (
+                      ) : (seqPersona ? (
                         <img src={seqPersona.thumbnailUrl || seqPersona.seedImageUrl} alt="" style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto" }} />
-                      )}
+                      ) : (String(seqProductUrl || '').trim() ? (
+                        <img src={seqProductUrl.trim()} alt="" style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto" }} />
+                      ) : (
+                        <div style={{ padding: "48px 24px", textAlign: "center", color: "#6b82b8", fontSize: 12, lineHeight: 1.5 }}>Paste the image featuring your model below to preview it here.</div>
+                      )))}
                       {seqActiveAd ? (
                         <span style={{ position: "absolute", top: 10, left: 10, fontSize: 15, fontWeight: 800, color: "white", background: "rgba(99,102,241,0.92)", borderRadius: 9, padding: "4px 12px", lineHeight: 1.1 }}>{"Ad #" + seqActiveAd.n}</span>
                       ) : (
