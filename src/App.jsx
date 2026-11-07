@@ -3681,7 +3681,7 @@ function RSAStudio() {
     if (!shots.length) { setSeqErr('Could not write a storyboard — please try again.'); return; }
     setSeqBusy(true); setSeqErr(''); setSeqMsg('');
     const eng = seqNoneEngine || 'kling';
-    const api = apiForEngine(eng);
+    const api = eng === 'veo' ? '/api/veo' : eng === 'runway' ? '/api/runway' : '/api/kling';
     const lang = (pageMeta && pageMeta.language) || 'English';
     const IDENTITY = " Keep the exact same person as the reference image throughout — identical face, hairstyle, hair colour, skin tone, age and body. Do not restyle, replace or re-age them. End the clip on a clear, well-lit, front-facing shot of that same person's face.";
     const mkBody = function (prompt) {
