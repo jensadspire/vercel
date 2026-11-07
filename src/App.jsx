@@ -3494,8 +3494,14 @@ function RSAStudio() {
     const i = SEQ_OBJECTIVES.findIndex(function (o) { return o.id === id; });
     return SEQ_OBJECTIVES[Math.min((i < 0 ? 0 : i) + 1, SEQ_OBJECTIVES.length - 1)].id;
   };
-  const openNextAd = () => {
-    setSeqShots(['']); setSeqShotObjectives([seqNextObjective(seqLeadObjective)]); setSeqShotMeta([]); setSeqResults([]);
+  const openNextAd = async () => {
+    // If a rendered video is still unsaved, auto-add it to the sequence first so it isn't lost.
+    if (seqBuildNext && seqLeadId && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) {
+      const _ok = await addToSequence();
+      if (!_ok) return; // add failed — keep the video and stay put
+      setSeqMsg("✓ Added your last video to the sequence so you could start the next — remove it from the rack above if you did not want it.");
+    }
+    setSeqSelector(null); setSeqShots(['']); setSeqShotObjectives([seqNextObjective(seqLeadObjective)]); setSeqShotMeta([]); setSeqResults([]);
     setSeqBuildNext(true);
   };
   const loadSequenceAds = async (leadId) => {
@@ -3531,9 +3537,9 @@ function RSAStudio() {
         channels: { video: { url: vid } }, thumb: vid,
       };
       const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(payload) }).then(r => r.json());
-      if (d && (d.creative || d.id)) { setSeqMsg('✓ Added to sequence as Ad #' + (nextOrder + 1)); setSeqBuildNext(false); setSeqResults([]); loadSequenceAds(); }
-      else { setSeqErr(d && d.error ? ('Add failed: ' + d.error) : 'Add to sequence failed.'); }
-    } catch (_) { setSeqErr('Add to sequence failed — please try again.'); }
+      if (d && (d.creative || d.id)) { setSeqMsg('✓ Added to sequence as Ad #' + (nextOrder + 1)); setSeqBuildNext(false); setSeqResults([]); loadSequenceAds(); return true; }
+      else { setSeqErr(d && d.error ? ('Add failed: ' + d.error) : 'Add to sequence failed.'); return false; }
+    } catch (_) { setSeqErr('Add to sequence failed — please try again.'); return false; }
     finally { setSeqAddBusy(false); }
   };
   // Ordered ads of the current story: lead first, then linked ads by order.
@@ -6011,6 +6017,7 @@ STRICT rules:
                         </span>
                       );
                     })}
+                    {(seqBuildNext && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? null : (
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <span style={{ color: "#3a4a64", fontSize: 12 }}>→</span>
                       <button data-id="rack-plus-tile" onClick={() => { setSeqActiveAd(null); openNextAd(); }} title="Build the next ad in this sequence" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, cursor: "pointer", border: "1px dashed rgba(245,158,11,0.55)", background: "rgba(245,158,11,0.06)" }}>
@@ -6018,6 +6025,7 @@ STRICT rules:
                         <span style={{ fontSize: 9.5, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.04em" }}>Add ad</span>
                       </button>
                     </span>
+                    )}
                   </div>
                 );
               })() : null}
@@ -6188,7 +6196,7 @@ STRICT rules:
                 const marketLabel = (MARKET_OPTS.find(function (m) { return m.id === seqMarket; }) || { label: 'Auto' }).label;
                 const interactionLabel = (INTERACTION_OPTS.find(function (m) { return m.id === seqInteraction; }) || { label: 'Auto' }).label;
                 const pills = [
-                  { id: 'persona', label: 'Persona', value: seqPersona ? (seqPersona.name || 'Character') : 'Choose', img: seqPersona ? (seqPersona.thumbnailUrl || seqPersona.seedImageUrl) : null, color: null },
+                  ...(seqBuildNext ? [] : [{ id: 'persona', label: 'Persona', value: seqPersona ? (seqPersona.name || 'Character') : 'Choose', img: seqPersona ? (seqPersona.thumbnailUrl || seqPersona.seedImageUrl) : null, color: null }]),
                   { id: 'objective', label: 'Objective', value: seqObjMeta(curObjective).label, img: null, color: seqObjMeta(curObjective).color },
                   { id: 'market', label: 'Market', value: marketLabel, img: null, color: null },
                   { id: 'interaction', label: 'Interaction', value: interactionLabel, img: null, color: null },
