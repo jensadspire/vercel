@@ -12,6 +12,10 @@
  *
  * FAIL-OPEN throughout: if Rendi errors/times out we return the original video
  * so the user never loses their generation; callers log and carry on.
+ *
+ * Promo overlay: callers may pass opts.overlayText (e.g. "Now €49 · 20% OFF"); when present
+ * it is burned as a second drawtext (lower-third, amber box) in the SAME Rendi pass as the
+ * AI label — so promo copy is always correct text we composite, never model-drawn.
  */
 
 // ── EU AI Act visible-label config ───────────────────────────────────────────
@@ -25,25 +29,50 @@ const RENDI_SUBMIT_TIMEOUT_MS = 15000;
 const RENDI_429_RETRIES = 3;       // retry attempts on rate-limit (429)
 const RENDI_429_WAIT_MS = 20000;   // wait between 429 retries (Rendi quota is per-minute)
 
+// Sanitize + escape a short promo string for ffmpeg drawtext (fail-safe: capped, one line).
+function escapeDrawtext(s) {
+  if (!s) return '';
+  // NOTE: with expansion=none on the drawtext, % { } are literal — do NOT escape %
+  // (escaping it as \% triggers ffmpeg's "Stray %" and drops the whole text layer).
+  return String(s).trim().slice(0, 40)
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/:/g, '\\:');
+}
+
 /**
  * Burn a visible "AI-generated" label onto a video via Rendi (hosted ffmpeg).
  * @param {string} videoUrl - public URL of the source video (engine output).
+ * @param {string} [overlayText] - optional promo/offer text to burn as a second line (lower-third).
  * @returns {Promise<string|null>} labelled video URL, or null on any failure.
  *
- * drawtext: semi-transparent white text on a subtle dark box, bottom-right,
- * scaled to the video height so it reads on 9:16 without dominating.
+ * AI label: semi-transparent white text on a subtle dark box, bottom-right, scaled to the
+ * video height so it reads on 9:16 without dominating. Promo (when present): bold white on an
+ * amber box, centered in the lower third — the sales message.
  */
-export async function addAiLabelViaRendi(videoUrl) {
+export async function addAiLabelViaRendi(videoUrl, overlayText) {
   const key = process.env.RENDI_API_KEY;
   if (!key) { console.error('[ai-label] RENDI_API_KEY not set — skipping label (fail-open)'); return null; }
 
   const safeText = String(AI_LABEL_TEXT).replace(/'/g, "\\'");
-  const drawtext =
+  const aiLabel =
     "drawtext=text='" + safeText + "':" +
     "fontcolor=white@0.95:fontsize=h/22:box=1:boxcolor=black@0.45:boxborderw=12:" +
     "x=w-tw-40:y=h-th-40";
+
+  const filters = [aiLabel];
+  const promo = escapeDrawtext(overlayText);
+  if (promo) {
+    filters.push(
+      "drawtext=expansion=none:text='" + promo + "':" +
+      "fontcolor=white:fontsize=h/26:box=1:boxcolor=0xF59E0B@0.92:boxborderw=18:" +
+      "x=(w-tw)/2:y=h-th-h/7"
+    );
+  }
+
   const ffmpeg_command =
-    '-i {{in_1}} -vf "' + drawtext + '" -c:a copy -movflags +faststart {{out_1}}';
+    '-i {{in_1}} -vf "' + filters.join(',') + '" -c:a copy -movflags +faststart {{out_1}}';
 
   try {
     // ── submit (with retry on 429 rate-limit — Rendi quota is per-minute) ────────
@@ -185,13 +214,14 @@ async function signC2PA(videoUrl, brand = '') {
  * FAIL-OPEN at every step: label failure → store the original; sign failure →
  * store the labelled-but-unsigned video; store failure → return the working URL.
  *
- * @param {object} [opts] - { brand } for the C2PA manifest title.
+ * @param {object} [opts] - { brand } for the C2PA manifest title; { overlayText } promo/offer
+ *   copy to burn as a second drawtext alongside the AI label.
  */
 export async function labelAndStore(sourceUrl, filenamePrefix, opts = {}) {
   // 1) label (fail-open: fall back to the original engine URL)
   let workingUrl = sourceUrl;
   let labelled = false;
-  const labelledUrl = await addAiLabelViaRendi(sourceUrl);
+  const labelledUrl = await addAiLabelViaRendi(sourceUrl, opts.overlayText);
   if (labelledUrl) { workingUrl = labelledUrl; labelled = true; }
   else { console.error('[ai-label] Delivering UNLABELLED', filenamePrefix, 'video (Rendi unavailable)'); }
 

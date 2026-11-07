@@ -23,6 +23,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { normalizeAdMeta } from './_ad-schema.js';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '4mb' } }, // the channels bundle (copy + URLs) is bigger than a character doc
@@ -86,6 +87,8 @@ function tagKeys(ownerId, c) {
   add('language', c.language);
   add('promo', c.promo ? 1 : 0);           // always indexed (0/1)
   add('persona', c.personaUsed ? 1 : 0);   // always indexed (0/1)
+  add('objective', c.objective);           // funnel stage (awareness|engagement|retargeting|conversion), null = unindexed
+  if (Array.isArray(c.tags)) for (const t of c.tags) add('tag', t);  // open clustering dimension
   return keys;
 }
 
@@ -137,6 +140,11 @@ export default async function handler(req, res) {
 
       const now = new Date().toISOString();
       const productUrl = str(body.productUrl, 1000);
+      const adMeta = normalizeAdMeta({
+        objective:   body.objective   !== undefined ? body.objective   : (existing && existing.objective),
+        tags:        body.tags        !== undefined ? body.tags        : (existing && existing.tags),
+        performance: body.performance !== undefined ? body.performance : (existing && existing.performance),
+      });
       const doc = {
         // identity & lineage
         id,
@@ -192,6 +200,13 @@ export default async function handler(req, res) {
 
         // derived (Phase 3)
         perfRollup: existing ? (existing.perfRollup || {}) : {},
+
+        // classification + unified performance slot (shared _ad-schema.js). performance stays
+        // empty until the read-API lands, then populates with no reshape; perfRollup above is
+        // the older placeholder, superseded by performance and safe to retire later.
+        objective: adMeta.objective,
+        tags: adMeta.tags,
+        performance: adMeta.performance,
       };
 
       if (!doc.productUrl) return res.status(400).json({ error: 'productUrl is required.' });
@@ -203,6 +218,7 @@ export default async function handler(req, res) {
       await redis('SADD', `idx:creative:owner:${ownerId}`, id);
       if (doc.agencyId) await redis('SADD', `idx:creative:agency:${doc.agencyId}`, id);
       await redis('SADD', `idx:creative:root:${doc.rootId}`, id);
+      if (doc.sequenceId) await redis('SADD', `idx:creative:sequence:${doc.sequenceId}`, id);
       await Promise.all(tagKeys(ownerId, doc).map(k => redis('SADD', k, id)));
 
       return res.status(200).json({ creative: toCard(doc), id, updated: !!existing });
@@ -211,6 +227,16 @@ export default async function handler(req, res) {
     // ── LIST (owner scope; optional faceted filter) — the Library view ─────────
     if (action === 'list') {
       const f = body.filters || {};
+      // Sequence view — all linked ads for one lead, owner-scoped, ordered.
+      if (f.sequence) {
+        let sids = await redis('SMEMBERS', `idx:creative:sequence:${f.sequence}`);
+        sids = Array.isArray(sids) ? sids : [];
+        const sdocs = (await Promise.all(sids.slice(0, 100).map(id => redis('GET', `creative:${id}`))))
+          .map(r => { try { return JSON.parse(r); } catch (_) { return null; } })
+          .filter(Boolean).filter(c => c.ownerId === ownerId)
+          .sort((a, b) => (a.order || 0) - (b.order || 0)).map(toCard);
+        return res.status(200).json({ creatives: sdocs, count: sdocs.length, sequence: f.sequence });
+      }
       const base = `tag:creative:owner:${ownerId}`;
       const lc = (v) => String(v).toLowerCase();
       const filterKeys = [];
@@ -222,6 +248,8 @@ export default async function handler(req, res) {
       if (f.language) filterKeys.push(`${base}:language:${lc(f.language)}`);
       if (f.promo    !== undefined) filterKeys.push(`${base}:promo:${f.promo ? 1 : 0}`);
       if (f.persona  !== undefined) filterKeys.push(`${base}:persona:${f.persona ? 1 : 0}`);
+      if (f.objective) filterKeys.push(`${base}:objective:${lc(f.objective)}`);
+      if (f.tag)       filterKeys.push(`${base}:tag:${lc(f.tag)}`);
 
       let ids;
       if (filterKeys.length === 1)    ids = await redis('SMEMBERS', filterKeys[0]);
@@ -272,6 +300,7 @@ export default async function handler(req, res) {
       await redis('SREM', `idx:creative:owner:${ownerId}`, body.id);
       if (doc.agencyId) await redis('SREM', `idx:creative:agency:${doc.agencyId}`, body.id);
       await redis('SREM', `idx:creative:root:${doc.rootId || body.id}`, body.id);
+      if (doc.sequenceId) await redis('SREM', `idx:creative:sequence:${doc.sequenceId}`, body.id);
       await Promise.all(tagKeys(ownerId, doc).map(k => redis('SREM', k, body.id)));
       await redis('DEL', `creative:${body.id}`);
 

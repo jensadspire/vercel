@@ -19,6 +19,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { normalizeAdMeta, suggestObjective, OBJECTIVE_IDS } from './_ad-schema.js';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '2mb' } },
@@ -89,6 +90,21 @@ export default async function handler(req, res) {
       const now = new Date().toISOString();
       const garments = Array.isArray(body.garmentUrls) ? body.garmentUrls.slice(0, 9)
                      : (existing && existing.garmentUrls) || [];
+      const shotsArr = Array.isArray(body.shots) ? body.shots.slice(0, 8).map(function (s) { return String(s).slice(0, 5000); }) : ((existing && existing.shots) || []);
+      // Per-shot funnel stage (parallel to shots[]) — drives the sequence flow view.
+      // Uses an explicitly provided stage when valid, else auto-suggests from position.
+      const providedObj = Array.isArray(body.shotObjectives) ? body.shotObjectives : ((existing && existing.shotObjectives) || []);
+      const shotObjectives = shotsArr.map(function (_s, i) {
+        const given = String(providedObj[i] || '').toLowerCase().trim();
+        return OBJECTIVE_IDS.includes(given) ? given : suggestObjective({ index: i, total: shotsArr.length });
+      });
+      // Template-level classification + nullable performance slot (shared _ad-schema.js).
+      const tplMeta = normalizeAdMeta({
+        objective:   body.objective   !== undefined ? body.objective   : (existing && existing.objective),
+        promo:       body.promo       !== undefined ? body.promo       : (existing && existing.promo),
+        tags:        body.tags        !== undefined ? body.tags        : (existing && existing.tags),
+        performance: body.performance !== undefined ? body.performance : (existing && existing.performance),
+      });
       const doc = {
         id,
         ownerId,
@@ -104,7 +120,8 @@ export default async function handler(req, res) {
         // the ad formula
         prompt:  str(body.prompt, 5000) || (existing && existing.prompt) || '',
         garmentUrls: garments,
-        shots: Array.isArray(body.shots) ? body.shots.slice(0, 8).map(function (s) { return String(s).slice(0, 5000); }) : ((existing && existing.shots) || []),
+        shots: shotsArr,
+        shotObjectives,
         ratio:    body.ratio    || (existing && existing.ratio)    || '9:16',
         duration: Number.isFinite(body.duration) ? body.duration : (existing ? existing.duration : 5),
         engine:   body.engine   || (existing && existing.engine)   || 'seedance-byteplus',
@@ -113,6 +130,14 @@ export default async function handler(req, res) {
         // display helpers
         thumbnailUrl: body.thumbnailUrl || (existing && existing.thumbnailUrl) || null,
         lastVideoUrl: body.lastVideoUrl || (existing && existing.lastVideoUrl) || null,
+
+        // classification + performance (shared _ad-schema.js). objective is null until set;
+        // performance is empty until the read-API lands, then a per-objective rollup of this
+        // template's generated ads — populated with no reshape.
+        objective: tplMeta.objective,
+        promo: tplMeta.promo,
+        tags: tplMeta.tags,
+        performance: tplMeta.performance,
       };
 
       if (!doc.assetUri && !doc.characterId) {

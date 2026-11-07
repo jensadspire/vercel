@@ -16,6 +16,9 @@
 //   `fields` = per-field coverage flags → powers the "attributes used" column.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { probeWoo, ingestWoo } from './_feed-woo.js';
+import { isWixProductPage, ingestWix } from './_feed-wix.js';
+
 const UA = 'Mozilla/5.0 (compatible; AIAdStudioFeedBot/1.0; +https://theaiad.studio)';
 
 // ── Feed-language detection ──────────────────────────────────────────────────
@@ -96,11 +99,13 @@ export default async function handler(req, res) {
     const mode = await detectMode(String(source).trim());
     let result;
     if (mode.type === 'shopify')      result = await ingestShopify(mode.origin, MAX);
+    else if (mode.type === 'woocommerce') result = await ingestWoo(mode.origin, MAX);
+    else if (mode.type === 'wix')     result = ingestWix(mode.url, mode.body, MAX);
     else if (mode.type === 'gmc-xml') result = ingestGmcXml(mode.url, mode.body, MAX);
     else if (mode.type === 'gmc-tsv') result = ingestGmcTsv(mode.url, mode.body, MAX);
     else return res.status(422).json({
-      error: "Couldn't recognise this as a Shopify store or a Google Merchant feed. " +
-             "Paste a product feed URL (.xml / .tsv) or a Shopify store URL."
+      error: "Couldn't recognise this as a Shopify, WooCommerce or Wix store, or a Google Merchant feed. " +
+             "Paste a product feed URL (.xml / .tsv), a Shopify / WooCommerce store URL, or (for Wix) your shop / product-grid page URL."
     });
 
     const language = detectFeedLanguage(String(source).trim(), mode);
@@ -124,6 +129,10 @@ async function detectMode(source) {
   if (path.includes('/products.json') || /\.myshopify\.com$/i.test(u.hostname)) {
     return { type: 'shopify', origin: u.origin };
   }
+  // Explicit WooCommerce Store API
+  if (path.includes('/wp-json/wc/store')) {
+    return { type: 'woocommerce', origin: u.origin };
+  }
   // Explicit feed file by extension
   if (/\.(xml|rss|atom)$/i.test(path)) return { type: 'gmc-xml', url: u.href, body: await fetchText(u.href) };
   if (/\.(tsv|csv|txt)$/i.test(path)) return { type: 'gmc-tsv', url: u.href, body: await fetchText(u.href) };
@@ -132,6 +141,7 @@ async function detectMode(source) {
   if (path === '/' || path === '') {
     const probe = await tryFetchJson(u.origin + '/products.json?limit=1');
     if (probe && Array.isArray(probe.products)) return { type: 'shopify', origin: u.origin };
+    if (await probeWoo(u.origin)) return { type: 'woocommerce', origin: u.origin };
   }
 
   // Unknown path → fetch + sniff content
@@ -143,9 +153,13 @@ async function detectMode(source) {
   if (head.includes('\t') && /(^|\t)(id|title|link)(\t|$)/m.test(head)) {
     return { type: 'gmc-tsv', url: u.href, body };
   }
+  // Wix Stores — products are server-rendered into the page HTML (catalog.productsWithMetaData).
+  if (isWixProductPage(body)) return { type: 'wix', url: u.href, body };
+
   // Last resort — maybe a Shopify store given with a path
   const probe = await tryFetchJson(u.origin + '/products.json?limit=1');
   if (probe && Array.isArray(probe.products)) return { type: 'shopify', origin: u.origin };
+  if (await probeWoo(u.origin)) return { type: 'woocommerce', origin: u.origin };
 
   return { type: 'unknown' };
 }

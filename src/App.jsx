@@ -3158,7 +3158,7 @@ function RSAStudio() {
   };
   const discardFeedOutput = (link) => setFeedOutputs(prev => { const n = { ...prev }; delete n[link]; return n; });
 
-  // ── Ad Library (Vault) — reads /api/creatives. Separate from the ★ Saved Library (showLibrary). ──
+  // ── Ad Library (Vault) — reads /api/creatives. Separate from the ★ Favourites (showLibrary). ──
   const [showVault, setShowVault] = useState(false);
   const [vaultItems, setVaultItems] = useState([]);
   const [vaultLoading, setVaultLoading] = useState(false);
@@ -3170,6 +3170,8 @@ function RSAStudio() {
   const [vaultConfirm, setVaultConfirm] = useState(null);  // id pending remove-confirm
   const [vaultSavedKey, setVaultSavedKey] = useState(null); // combo key of the single output saved to the Vault
   const [vaultSaving, setVaultSaving] = useState(false);    // star→Vault save in flight
+  const [vaultTab, setVaultTab] = useState('ads');          // 'ads' (creatives) | 'templates' (ad-templates)
+  const [seqTplConfirm, setSeqTplConfirm] = useState(null); // template id pending remove-confirm (Library)
 
   const vaultHeaders = async () => {
     const token = (isSignedIn && session) ? await session.getToken() : null;
@@ -3235,7 +3237,7 @@ function RSAStudio() {
       if (res.ok && Array.isArray(data.jobs)) setVaultJobs(data.jobs);
     } catch (_) {}
   };
-  const openVault = () => { setShowVault(true); setVaultConfirm(null); fetchVault(); fetchVaultJobs(); };
+  const openVault = () => { setShowVault(true); setVaultConfirm(null); fetchVault(); fetchVaultJobs(); loadSeqTemplates(); };
   // While the Library is open and a batch is still running, poll jobs + items so finished ads appear live.
   useEffect(() => {
     if (!showVault) return;
@@ -3290,7 +3292,7 @@ function RSAStudio() {
 
   const fetchFeed = async () => {
     const s = (feedSource || '').trim();
-    if (!s) { setFeedError('Enter a Shopify store URL or a Google Merchant feed URL.'); return; }
+    if (!s) { setFeedError('Enter a Shopify, WooCommerce or Wix store URL, or a Google Merchant feed URL.'); return; }
     if (!feedTermsAccepted) { setFeedError('Please accept the Product Feed Upload Terms to upload a feed.'); return; }
     if (feedBatchBusy || feedSingleBusy) return; // a generation run is in progress
     setFeedLoading(true); setFeedError(''); setFeedResult(null); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
@@ -3417,88 +3419,407 @@ function RSAStudio() {
       setSynStage('Saving to library…');
       const body = { action: 'save', source: 'synthetic', type: 'Synthetic', shot: 'other', name: synName.trim() || 'Synthetic persona', thumbnailUrl: synImg, seedImageUrl: synImg, referenceImages: [synImg], seedanceAssetUri: ing.assetUri, seedanceGroupId: ing.groupId || null };
       const d = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
-      if (d && d.character) { setSynMsg('✓ Saved to your library'); setSynImg(''); setSynPrompt(''); setSynName(''); setSynStage(''); if (charLib !== null) loadCharLibrary(); }
+      if (d && d.character) { setSynMsg(seqReturn ? '✓ Saved — tap your new persona below to return to your ad' : '✓ Saved to your library'); if (seqReturn) setSeqPersona(d.character); setSynImg(''); setSynPrompt(''); setSynName(''); setSynStage(''); if (seqReturn || charLib !== null) loadCharLibrary(); }
       else { setSynErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); setSynStage(''); }
     } catch (_) { setSynErr('Save failed — please try again.'); setSynStage(''); }
     finally { setSynBusy(false); }
   };
   // ── Sequential Ad Builder (persona + product → multi-shot videos → save/reuse template) ──
+  // Funnel objectives (mirror api/_ad-schema.js — same ids the store indexes & filters on).
+  const SEQ_OBJECTIVES = [
+    { id: 'awareness', label: 'Awareness', color: '#38bdf8' },
+    { id: 'engagement', label: 'Engagement', color: '#a78bfa' },
+    { id: 'retargeting', label: 'Retargeting', color: '#f59e0b' },
+    { id: 'conversion', label: 'Conversion', color: '#34d399' },
+  ];
+  const seqObjMeta = (id) => SEQ_OBJECTIVES.find(function (o) { return o.id === id; }) || SEQ_OBJECTIVES[0];
+  const seqDefaultObjective = (i, total) => {
+    if (total <= 1) return 'awareness';
+    if (i <= 0) return 'awareness';
+    if (i >= total - 1) return 'conversion';
+    if (total >= 4 && i === total - 2) return 'retargeting';
+    return 'engagement';
+  };
   const [seqOpen, setSeqOpen] = useState(false);
   const [seqPersona, setSeqPersona] = useState(null);
   const [seqProductUrl, setSeqProductUrl] = useState('');
+  const [seqNoPersona, setSeqNoPersona] = useState(false);     // None lane: build from an image that already features a model
+  const [seqNoneEngine, setSeqNoneEngine] = useState('kling'); // K | V | R engine for the None lane (persists on the template)
   const [seqShots, setSeqShots] = useState(['']);
   const [seqRatio, setSeqRatio] = useState('9:16');
   const [seqDuration, setSeqDuration] = useState(5);
   const [seqBusy, setSeqBusy] = useState(false);
+  const seqResultsRef = useRef(null);
   const [seqResults, setSeqResults] = useState([]);
   const [seqErr, setSeqErr] = useState('');
   const [seqName, setSeqName] = useState('');
   const [seqMsg, setSeqMsg] = useState('');
   const [seqTemplates, setSeqTemplates] = useState(null);
-  const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); };
+  const [seqReturn, setSeqReturn] = useState(false);
+  const [seqShotObjectives, setSeqShotObjectives] = useState(['awareness']);
+  const [seqPromo, setSeqPromo] = useState(false);
+  const [seqPersonaOpen, setSeqPersonaOpen] = useState(false);
+  const [seqMarket, setSeqMarket] = useState('auto');
+  const [seqInteraction, setSeqInteraction] = useState('auto');
+  const [seqAutoBusy, setSeqAutoBusy] = useState(null);   // null | shot index | -1 (all)
+  const [seqLastWriteKey, setSeqLastWriteKey] = useState(null); // settings snapshot at last Auto-write (stale nudge)
+  const [seqShotMeta, setSeqShotMeta] = useState([]);      // per-shot { market, interactionMode } from the generator
+  const [seqLeadVideo, setSeqLeadVideo] = useState(null);  // loaded template's opening video (shown at the top)
+  const [seqSaveOpen, setSeqSaveOpen] = useState(false);   // header "Save as template" bar toggle
+  const [seqLastLead, setSeqLastLead] = useState(function () { try { var s = localStorage.getItem('seq:lastLead'); return s ? JSON.parse(s) : null; } catch (_) { return null; } }); // most recent project → "Continue your story"
+  // ── Sequence → Meta video-story publish (isolated: only calls /api/meta-publish) ──
+  const [seqPubOpen, setSeqPubOpen] = useState(false);     // publish panel open
+  const [seqPubReturn, setSeqPubReturn] = useState(false); // showing an ad in the 3-ad viewer → offer "Back to publish"
+  const [seqPubSel, setSeqPubSel] = useState(null);        // selection map {key:true}; null = all
+  const [seqPubDest, setSeqPubDest] = useState('');        // landing/destination URL (clicks go here)
+  const [seqPubHeadline, setSeqPubHeadline] = useState(''); // shared ad headline (max 40)
+  const [seqPubPrimary, setSeqPubPrimary] = useState('');  // (legacy) manual primary — kept for the fallback destination field only
+  const [seqOriginMeta, setSeqOriginMeta] = useState(null); // original ad's Meta copy (variations) reused for the story
+  const [seqOriginUrl, setSeqOriginUrl] = useState('');     // original ad's real landing URL (click destination)
+  const [seqOriginSnap, setSeqOriginSnap] = useState(null); // original ad's full viewer snapshot (Google+Meta) for "View"
+  const [seqPubUseMetaCopy, setSeqPubUseMetaCopy] = useState(false); // false = video variation [1], true = Meta copy [0]
+  const [seqPubBusy, setSeqPubBusy] = useState(false);     // chained publish in flight
+  const [seqPubProgress, setSeqPubProgress] = useState(''); // "Publishing 2 of 3…"
+  const [seqPubResult, setSeqPubResult] = useState(null);  // { ok, total, done, failures[], adsManagerUrl, error }
+  const [seqLeadId, setSeqLeadId] = useState(null);        // loaded template id — non-null = lead loaded (append mode)
+  const [seqAutoLead, setSeqAutoLead] = useState(false);   // next generate auto-saves into the lead (Recreate-on-persona / Regenerate lead)
+  const [seqBuildNext, setSeqBuildNext] = useState(false); // next-ad controls open (after +)
+  const [seqLeadObjective, setSeqLeadObjective] = useState('awareness'); // lead's funnel stage → next default
+  const [seqSelector, setSeqSelector] = useState(null);    // expanded attribute area: persona|objective|market|interaction
+  const [seqAddBusy, setSeqAddBusy] = useState(false);     // "Add to sequence" save in flight
+  const [seqOfferText, setSeqOfferText] = useState('');    // promo offer copy burned onto the video
+  const [seqSequenceAds, setSeqSequenceAds] = useState([]); // linked ads for the loaded lead (director's view)
+  const [seqActiveAd, setSeqActiveAd] = useState(null);     // rack item currently re-centered in the hero (null = lead)
+  const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); if (seqLeadId) loadSequenceAds(); loadSeqTemplates(); };
+  const seqNextObjective = (id) => {
+    const i = SEQ_OBJECTIVES.findIndex(function (o) { return o.id === id; });
+    return SEQ_OBJECTIVES[Math.min((i < 0 ? 0 : i) + 1, SEQ_OBJECTIVES.length - 1)].id;
+  };
+  const openNextAd = async () => {
+    // If a rendered video is still unsaved, auto-add it to the sequence first so it isn't lost.
+    if (seqBuildNext && seqLeadId && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) {
+      const _ok = await addToSequence();
+      if (!_ok) return; // add failed — keep the video and stay put
+      setSeqMsg("✓ Added your last video to the sequence so you could start the next — remove it from the rack above if you did not want it.");
+    }
+    setSeqSelector(null); setSeqShots(['']); setSeqShotObjectives([seqNextObjective(seqLeadObjective)]); setSeqShotMeta([]); setSeqResults([]);
+    setSeqBuildNext(true);
+  };
+  const loadSequenceAds = async (leadId) => {
+    const id = leadId || seqLeadId;
+    if (!id) { setSeqSequenceAds([]); return []; }
+    try {
+      const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list', filters: { sequence: id } }) }).then(r => r.json());
+      const _list = Array.isArray(d.creatives) ? d.creatives : [];
+      setSeqSequenceAds(_list);
+      return _list;
+    } catch (_) { setSeqSequenceAds([]); return []; }
+  };
+  const reCenterAd = (ad) => {
+    if (seqBuildNext) {
+      if (!window.confirm("You are building a new ad — switch to Ad #" + ad.n + " and discard this draft?")) return;
+      setSeqBuildNext(false); setSeqResults([]);
+    }
+    setSeqMsg(''); setSeqErr('');
+    setSeqActiveAd(ad.kind === 'lead' ? null : ad);
+  };
+  const addToSequence = async () => {
+    const vid = (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
+    if (!seqLeadId || !vid) return;
+    setSeqAddBusy(true); setSeqErr('');
+    try {
+      const list = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list', filters: { sequence: seqLeadId } }) }).then(r => r.json());
+      const existing = Array.isArray(list.creatives) ? list.creatives : [];
+      const nextOrder = existing.reduce(function (m, c) { return Math.max(m, c.order || 0); }, 0) + 1;
+      const productUrl = seqProductUrl.trim() || (seqPersona && (seqPersona.thumbnailUrl || seqPersona.seedImageUrl)) || '';
+      const payload = {
+        action: 'save', sequenceId: seqLeadId, order: nextOrder,
+        objective: seqShotObjectives[0] || 'engagement', promo: seqPromo,
+        characterId: (seqPersona && seqPersona.id) || null, personaUsed: !!seqPersona,
+        productUrl: productUrl, productTitle: seqName || '',
+        engine: seqNoPersona ? (seqNoneEngine || 'kling') : 'seedance-byteplus', scene: seqShots[0] || '', inputSource: 'sequence',
+        channels: { video: { url: vid } }, thumb: vid,
+      };
+      const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(payload) }).then(r => r.json());
+      if (d && (d.creative || d.id)) { setSeqMsg('✓ Added to sequence as Ad #' + (nextOrder + 1)); setSeqBuildNext(false); setSeqResults([]); const _added = (await loadSequenceAds() || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); }).pop(); if (_added) setSeqActiveAd({ n: (_added.order || 0) + 1, video: _added.thumb || null, objective: _added.objective, kind: 'linked', id: _added.id }); return true; }
+      else { setSeqErr(d && d.error ? ('Add failed: ' + d.error) : 'Add to sequence failed.'); return false; }
+    } catch (_) { setSeqErr('Add to sequence failed — please try again.'); return false; }
+    finally { setSeqAddBusy(false); }
+  };
+  // Ordered ads of the current story: lead first, then linked ads by order.
+  const seqStoryAds = () => {
+    const lead = { key: 'lead', n: 1, kind: 'lead', objective: seqLeadObjective, videoUrl: seqLeadVideo || null, label: 'Ad #1 · Lead' };
+    const linked = (Array.isArray(seqSequenceAds) ? seqSequenceAds : [])
+      .slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); })
+      .map(function (a) { return { key: a.id, n: (a.order || 0) + 1, kind: 'linked', objective: a.objective, videoUrl: (a.channels && a.channels.video && a.channels.video.url) || a.thumb || null, label: 'Ad #' + ((a.order || 0) + 1) }; });
+    return [lead].concat(linked);
+  };
+  // Copy for the story's video ads, reused from the original ad's Meta copy (variations):
+  // [1] = the video variation (default), [0] = the Meta image-ad copy ("Use Meta copy" toggle).
+  const seqPubCopy = () => {
+    const m = seqOriginMeta || {};
+    const idx = seqPubUseMetaCopy ? 0 : 1;
+    const pick = function (arr) { return Array.isArray(arr) ? (arr[idx] || arr[0] || '') : ''; };
+    const headline = pick(m.headlines) || String(seqName || '').replace(/ — (persona|sequence)$/i, '');
+    return { headline: String(headline).slice(0, 40), primary: pick(m.primaryTexts), description: pick(m.descriptions) };
+  };
+  const openSeqPub = () => {
+    setSeqPubUseMetaCopy(false);
+    const landing = String(seqOriginUrl || '').trim();
+    const prod = String(seqProductUrl || '').trim();
+    setSeqPubDest(/^https?:\/\//i.test(landing) ? landing : (/^https?:\/\//i.test(prod) ? prod : ''));
+    setSeqPubSel(null); setSeqPubResult(null); setSeqPubProgress('');
+    setSeqPubOpen(true);
+  };
+  // Chained publish: first video creates campaign + ad set; the rest join it via existingAdSetId,
+  // so the whole story lands in ONE ad set. All ads PAUSED (meta-publish default).
+  // Flip to the front-page 3-ad viewer: original (stale) Google + Meta + this sequence video.
+  const viewSeqAd = (videoUrl) => {
+    const s = seqOriginSnap || {};
+    restoreFeedEntry({ url: seqOriginUrl || s.url || '', rows: s.rows || null, metaResult: seqOriginMeta || s.metaResult || null, carouselCardTexts: s.carouselCardTexts || [], tiktokResult: s.tiktokResult || null, engine: s.engine || null, archetype: s.archetype || null, videoUrl: videoUrl || null });
+    setSeqPubReturn(true); setSeqPubOpen(false); setSeqOpen(false);
+  };
+  const publishSeqStory = async () => {
+    const all = seqStoryAds();
+    const sel = all.filter(function (a) { return a.videoUrl && (seqPubSel === null || seqPubSel[a.key]); });
+    const _landing = String(seqOriginUrl || '').trim();
+    const dest = /^https?:\/\//i.test(_landing) ? _landing : String(seqPubDest || '').trim();
+    if (!sel.length) { setSeqPubResult({ ok: false, total: 0, done: 0, failures: [], error: 'Select at least one ad with a video.' }); return; }
+    if (!/^https?:\/\//i.test(dest)) { setSeqPubResult({ ok: false, total: sel.length, done: 0, failures: [], error: 'Enter a valid destination URL (https://…).' }); return; }
+    setSeqPubBusy(true); setSeqPubResult(null);
+    const targeting = { countries: targetCountries, ageMin: targetAgeMin, ageMax: targetAgeMax, placements: targetPlacements, dailyBudget: targetBudget };
+    const _c = seqPubCopy();
+    const headline = _c.headline;
+    const primary = _c.primary;
+    const campaignName = 'AI Ad Studio — Story — ' + new Date().toLocaleDateString();
+    let campaignId = null, adSetId = null, adsManagerUrl = null, done = 0;
+    const failures = [];
+    for (let i = 0; i < sel.length; i++) {
+      const ad = sel[i];
+      setSeqPubProgress('Publishing ' + (i + 1) + ' of ' + sel.length + '…');
+      try {
+        const r = await fetch('/api/meta-publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(isSignedIn && session ? { 'x-clerk-session': await session.getToken() } : {}) },
+          body: JSON.stringify({
+            headline: headline, primaryText: primary, description: _c.description || '',
+            videoUrl: ad.videoUrl, destinationUrl: dest,
+            adName: 'AI Ad Studio — Story — ' + ad.label + (ad.objective ? (' · ' + ad.objective) : ''),
+            campaignName: campaignName,
+            format: 'video',
+            existingCampaignId: campaignId, existingAdSetId: adSetId,
+            targeting: adSetId ? null : targeting,
+          }),
+        });
+        const d = await r.json();
+        if (d && d.success) {
+          done++;
+          if (!campaignId) campaignId = d.campaignId;
+          if (!adSetId) adSetId = d.adSetId;
+          if (!adsManagerUrl) adsManagerUrl = d.adsManagerUrl;
+        } else {
+          failures.push({ ad: ad.label, error: (d && d.error) || 'Publish failed' });
+        }
+      } catch (e) {
+        failures.push({ ad: ad.label, error: (e && e.message) || 'Network error' });
+      }
+    }
+    setSeqPubProgress(''); setSeqPubBusy(false);
+    setSeqPubResult({ ok: failures.length === 0 && done > 0, total: sel.length, done: done, failures: failures, adsManagerUrl: adsManagerUrl });
+  };
+  const seqStoryCtx = (objective) => {
+    let title = String(seqName || '').trim();
+    const dash = title.lastIndexOf(' — ');
+    if (dash > 0) { const tail = title.slice(dash + 3).toLowerCase(); if (tail === 'persona' || tail === 'sequence') title = title.slice(0, dash).trim(); }
+    return {
+      action: 'shot', objective: objective,
+      persona: seqPersona ? { name: seqPersona.name || null } : null,
+      usePersona: !!seqPersona,
+      product: { title: title || undefined, imageUrl: seqProductUrl.trim() || undefined },
+      url: seqProductUrl.trim() || undefined,
+      market: seqMarket === 'auto' ? undefined : seqMarket,
+      interactionMode: seqInteraction === 'auto' ? undefined : seqInteraction,
+      promo: seqPromo, ratio: seqRatio,
+    };
+  };
+  const autoWriteShot = async (i) => {
+    const objective = seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length);
+    setSeqAutoBusy(i); setSeqErr('');
+    try {
+      const d = await fetch('/api/seq-storyboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seqStoryCtx(objective)) }).then(r => r.json());
+      if (d && d.shot && d.shot.prompt) {
+        const ns = seqShots.slice(); ns[i] = d.shot.prompt; setSeqShots(ns);
+        const nm = seqShotMeta.slice(); nm[i] = { market: d.shot.market, interactionMode: d.shot.interactionMode }; setSeqShotMeta(nm);
+      } else { setSeqErr((d && d.error) ? ('Auto-write failed: ' + d.error) : 'Auto-write failed.'); }
+    } catch (_) { setSeqErr('Auto-write failed — please try again.'); }
+    finally { setSeqAutoBusy(null); }
+  };
+  const autoWriteAll = async () => {
+    if (!seqShots.length) return;
+    setSeqAutoBusy(-1); setSeqErr('');
+    try {
+      const results = await Promise.all(seqShots.map(function (_s, i) {
+        const objective = seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length);
+        return fetch('/api/seq-storyboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seqStoryCtx(objective)) }).then(r => r.json()).catch(function () { return null; });
+      }));
+      const ns = seqShots.slice(); const nm = seqShotMeta.slice();
+      results.forEach(function (d, i) { if (d && d.shot && d.shot.prompt) { ns[i] = d.shot.prompt; nm[i] = { market: d.shot.market, interactionMode: d.shot.interactionMode }; } });
+      setSeqShots(ns); setSeqShotMeta(nm);
+      setSeqLastWriteKey(seqMarket + '|' + seqInteraction + '|' + (Array.isArray(seqShotObjectives) ? seqShotObjectives.join(',') : '') + '|' + (seqPromo ? '1' : '0'));
+      return ns;
+    } catch (_) { setSeqErr('Auto-write failed — please try again.'); return seqShots.slice(); }
+    finally { setSeqAutoBusy(null); }
+  };
   const loadSeqTemplates = async () => {
     try {
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list' }) }).then(r => r.json());
       setSeqTemplates(Array.isArray(d.templates) ? d.templates : []);
     } catch (_) { setSeqTemplates([]); }
   };
-  const generateSequence = async () => {
-    if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
-    const shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
-    if (!shots.length) { setSeqErr('Add at least one shot prompt.'); return; }
-    setSeqBusy(true); setSeqErr(''); setSeqMsg('');
-    const refs = [seqPersona.seedanceAssetUri].concat(seqProductUrl.trim() ? [seqProductUrl.trim()] : []);
-    setSeqResults(shots.map(function (p) { return { prompt: p, status: 'running', videoUrl: '' }; }));
+  const deleteSeqTemplate = async (id) => {
+    if (!id) return;
     try {
-      const tasks = await Promise.all(shots.map(function (p) {
-        return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create', imageUrls: refs, prompt: p, ratio: seqRatio, duration: seqDuration }) }).then(r => r.json()).then(function (d) { return d.taskId || null; });
+      await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'delete', id: id }) });
+      setSeqTplConfirm(null);
+      loadSeqTemplates();
+    } catch (_) {}
+  };
+  const generateSequenceNone = async () => {
+    const modelImage = seqProductUrl.trim();
+    if (!/^https?:\/\//i.test(modelImage)) { setSeqErr('Add the image featuring your model (image URL).'); return; }
+    let shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+    if (!shots.length) { const _written = await autoWriteAll(); shots = (_written || []).map(function (s) { return String(s || '').trim(); }).filter(Boolean); }
+    if (!shots.length) { setSeqErr('Could not write a storyboard — please try again.'); return; }
+    setSeqBusy(true); setSeqErr(''); setSeqMsg('');
+    const eng = seqNoneEngine || 'kling';
+    const api = eng === 'veo' ? '/api/veo' : eng === 'runway' ? '/api/runway' : '/api/kling';
+    const lang = (pageMeta && pageMeta.language) || 'English';
+    const IDENTITY = " Keep the exact same person as the reference image throughout — identical face, hairstyle, hair colour, skin tone, age and body. Do not restyle, replace or re-age them. End the clip on a clear, well-lit, front-facing shot of that same person's face.";
+    const mkBody = function (prompt) {
+      const full = prompt + IDENTITY;
+      return eng === 'runway' ? { imageUrl: modelImage, prompt: full, duration: 10, language: lang, brand: '', overlayIntro: '', overlayOutro: '' }
+        : eng === 'veo' ? { imageUrl: modelImage, prompt: full, language: lang, audio: false }
+        : { imageUrl: modelImage, storyboard: full, prompt: full, language: lang, brand: '', logoUrl: null, overlayIntro: '', overlayOutro: '' };
+    };
+    setSeqResults(shots.map(function (p) { return { prompt: p, status: 'running', videoUrl: '' }; }));
+    setTimeout(function () { try { if (seqResultsRef.current) seqResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {} }, 60);
+    try {
+      const creates = await Promise.all(shots.map(function (p) {
+        return fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mkBody(p)) }).then(r => r.json()).then(function (d) {
+          return { videoUrl: d.videoUrl || null, pollId: d.taskId || d.requestId || null, pollKey: d.taskId ? 'taskId' : 'requestId' };
+        }).catch(function () { return { videoUrl: null, pollId: null, pollKey: 'taskId' }; });
       }));
+      const state = creates.map(function (c) { return { videoUrl: c.videoUrl || null, pollId: c.pollId, pollKey: c.pollKey, failed: !c.videoUrl && !c.pollId }; });
+      setSeqResults(shots.map(function (p, i) { const s = state[i]; return { prompt: p, status: s.videoUrl ? 'succeeded' : (s.failed ? 'failed' : 'running'), videoUrl: s.videoUrl || '' }; }));
       let done = false, tries = 0;
-      while (!done && tries < 80) {
+      while (!done && tries < 144) {
         await new Promise(function (res) { setTimeout(res, 5000); });
-        const polled = await Promise.all(tasks.map(function (t) {
-          if (!t) return Promise.resolve({ status: 'failed', videoUrl: '' });
-          return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', taskId: t }) }).then(r => r.json());
+        await Promise.all(state.map(async function (s) {
+          if (s.videoUrl || s.failed) return;
+          try {
+            const pollBody = { action: 'poll' }; pollBody[s.pollKey] = s.pollId;
+            const pd = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pollBody) }).then(r => r.json());
+            if (pd.videoUrl) s.videoUrl = pd.videoUrl;
+            else if (pd.status === 'FAILED' || pd.status === 'CANCELLED' || pd.status === 'failed') s.failed = true;
+          } catch (_) {}
         }));
-        setSeqResults(shots.map(function (p, i) { const r = polled[i] || {}; return { prompt: p, status: r.status || 'running', videoUrl: r.videoUrl || '' }; }));
-        done = polled.every(function (r) { return r && (r.status === 'succeeded' || r.status === 'failed'); });
+        setSeqResults(shots.map(function (p, i) { const s = state[i]; return { prompt: p, status: s.videoUrl ? 'succeeded' : (s.failed ? 'failed' : 'running'), videoUrl: s.videoUrl || '' }; }));
+        done = state.every(function (s) { return s.videoUrl || s.failed; });
         tries++;
+      }
+      if (seqAutoLead) {
+        const _leadVid = (state.find(function (s) { return s.videoUrl; }) || {}).videoUrl || null;
+        if (_leadVid) { await saveSeqTemplate(_leadVid); }
+        setSeqAutoLead(false);
       }
     } catch (_) { setSeqErr('Generation failed — please try again.'); }
     finally { setSeqBusy(false); }
   };
-  const saveSeqTemplate = async () => {
+  const generateSequence = async () => {
+    if (seqNoPersona) { return generateSequenceNone(); }
     if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
-    const shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+    let shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+    if (!shots.length) { const _written = await autoWriteAll(); shots = (_written || []).map(function (s) { return String(s || '').trim(); }).filter(Boolean); }
+    if (!shots.length) { setSeqErr('Could not write a storyboard — please try again.'); return; }
+    setSeqBusy(true); setSeqErr(''); setSeqMsg('');
+    const refs = [seqPersona.seedanceAssetUri].concat(seqProductUrl.trim() ? [seqProductUrl.trim()] : []);
+    setSeqResults(shots.map(function (p) { return { prompt: p, status: 'running', videoUrl: '' }; }));
+    setTimeout(function () { try { if (seqResultsRef.current) seqResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {} }, 60);
+    try {
+      const tasks = await Promise.all(shots.map(function (p) {
+        return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create', imageUrls: refs, prompt: p, ratio: seqRatio, duration: seqDuration }) }).then(r => r.json()).then(function (d) { return d.taskId || null; });
+      }));
+      let done = false, tries = 0, lastPolled = [];
+      while (!done && tries < 80) {
+        await new Promise(function (res) { setTimeout(res, 5000); });
+        const polled = await Promise.all(tasks.map(function (t) {
+          if (!t) return Promise.resolve({ status: 'failed', videoUrl: '' });
+          return fetch('/api/seedance-byteplus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', taskId: t, overlayText: (seqPromo && seqOfferText.trim()) ? seqOfferText.trim() : undefined }) }).then(r => r.json());
+        }));
+        setSeqResults(shots.map(function (p, i) { const r = polled[i] || {}; return { prompt: p, status: r.status || 'running', videoUrl: r.videoUrl || '' }; }));
+        done = polled.every(function (r) { return r && (r.status === 'succeeded' || r.status === 'failed'); });
+        lastPolled = polled;
+        tries++;
+      }
+      if (seqAutoLead) {
+        const _leadVid = (lastPolled.find(function (r) { return r && r.videoUrl; }) || {}).videoUrl || null;
+        if (_leadVid) { await saveSeqTemplate(_leadVid); }
+        setSeqAutoLead(false);
+      }
+    } catch (_) { setSeqErr('Generation failed — please try again.'); }
+    finally { setSeqBusy(false); }
+  };
+  const saveSeqTemplate = async (videoUrlOverride) => {
+    if (!seqNoPersona && (!seqPersona || !seqPersona.seedanceAssetUri)) { setSeqErr('Pick a persona first.'); return; }
+    if (seqNoPersona && !seqProductUrl.trim()) { setSeqErr('Add the image featuring your model.'); return; }
+    const _pairs = seqShots.map(function (s, i) { return { p: String(s || '').trim(), o: (seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length)) }; }).filter(function (x) { return x.p; });
+    const shots = _pairs.map(function (x) { return x.p; });
+    const shotObjectives = _pairs.map(function (x) { return x.o; });
     if (!shots.length) { setSeqErr('Add at least one shot prompt.'); return; }
     setSeqMsg(''); setSeqErr('');
     try {
-      const firstVid = (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
-      const body = { action: 'save', name: seqName.trim() || (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template'), assetUri: seqPersona.seedanceAssetUri, characterId: seqPersona.id || null, prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: 'seedance-byteplus', thumbnailUrl: seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null, lastVideoUrl: firstVid };
+      const firstVid = (typeof videoUrlOverride === 'string' ? videoUrlOverride : null) || (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || seqLeadVideo || null;
+      const _leadName = seqNoPersona ? 'Model-image sequence' : (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template');
+      const body = { action: 'save', id: seqLeadId || undefined, name: seqName.trim() || _leadName, assetUri: seqNoPersona ? null : seqPersona.seedanceAssetUri, characterId: seqNoPersona ? ('none-lane:' + (seqNoneEngine || 'kling')) : (seqPersona.id || null), prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: seqNoPersona ? (seqNoneEngine || 'kling') : 'seedance-byteplus', thumbnailUrl: seqNoPersona ? (seqProductUrl.trim() || null) : (seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null), lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
-      if (d && d.template) { setSeqMsg('✓ Saved as template'); if (seqTemplates !== null) loadSeqTemplates(); }
+      if (d && d.template) { if (seqTemplates !== null) loadSeqTemplates(); setSeqSaveOpen(false); loadSeqTemplate(d.template); try { if (d.template.id && (seqOriginMeta || seqOriginSnap)) localStorage.setItem('seq:origin:' + d.template.id, JSON.stringify({ meta: seqOriginMeta, url: seqOriginUrl, snap: seqOriginSnap })); } catch (_) {} setSeqMsg(d.updated ? '✓ Lead updated.' : '✓ Lead saved — add the next ad with the + button.'); }
       else { setSeqErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
     } catch (_) { setSeqErr('Save failed — please try again.'); }
   };
   const loadSeqTemplate = (t) => {
     if (!t) return;
+    const _isNone = !t.assetUri && (t.engine === 'kling' || t.engine === 'veo' || t.engine === 'runway');
+    setSeqNoPersona(_isNone); if (_isNone) setSeqNoneEngine(t.engine);
     const persona = (Array.isArray(charLib) ? charLib.find(function (c) { return c.seedanceAssetUri && (c.id === t.characterId || c.seedanceAssetUri === t.assetUri); }) : null)
-      || (t.assetUri ? { id: t.characterId || null, name: t.name || 'Persona', seedanceAssetUri: t.assetUri, thumbnailUrl: t.thumbnailUrl || null } : null);
+      || (t.assetUri ? { id: t.characterId || null, name: 'Lead persona', seedanceAssetUri: t.assetUri, thumbnailUrl: t.thumbnailUrl || null } : null);
     setSeqPersona(persona);
-    setSeqShots((t.shots && t.shots.length) ? t.shots : [t.prompt || '']);
+    const _shots = (t.shots && t.shots.length) ? t.shots : [t.prompt || ''];
+    setSeqShots(_shots);
+    setSeqShotObjectives((Array.isArray(t.shotObjectives) && t.shotObjectives.length) ? t.shotObjectives.slice(0, _shots.length) : _shots.map(function (_s, i) { return seqDefaultObjective(i, _shots.length); }));
+    setSeqPromo(!!t.promo); setSeqShotMeta([]); setSeqLeadVideo(t.lastVideoUrl || null);
+    setSeqLeadId(t.id || null); setSeqBuildNext(false); setSeqLeadObjective(t.objective || (Array.isArray(t.shotObjectives) && t.shotObjectives[0]) || 'awareness');
+    setSeqActiveAd(null); loadSequenceAds(t.id || null);
     setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
     setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
+    try { localStorage.setItem('seq:lastLead', JSON.stringify(t)); } catch (_) {} setSeqLastLead(t);
+    try { if (!seqOriginMeta && t.id) { const _os = localStorage.getItem('seq:origin:' + t.id); if (_os) { const _oo = JSON.parse(_os); setSeqOriginMeta(_oo.meta || null); setSeqOriginUrl(_oo.url || (t.garmentUrls && t.garmentUrls[0]) || ''); setSeqOriginSnap(_oo.snap || null); } } } catch (_) {}
   };
   const recreateOnPersona = (it) => {
     if (!it) return;
     setSeqProductUrl(it.thumb || '');
+    // List items are trimmed (no channels.meta) — fetch the FULL creative for the original copy + landing.
+    setSeqOriginMeta(null); setSeqOriginUrl(it.productUrl || ''); setSeqOriginSnap(null);
+    if (it.id) { (async () => { try { const _res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: it.id }) }); const _data = await _res.json().catch(() => ({})); if (_data && _data.creative) { const _o = rebuildFromCreative(_data.creative); setSeqOriginSnap(_o || null); setSeqOriginMeta((_o && _o.metaResult) || null); setSeqOriginUrl((_o && _o.url) || it.productUrl || ''); } } catch (_) {} })(); }
     const prod = it.productTitle ? (it.productTitle + ' ') : '';
     setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
+    setSeqShotObjectives(['awareness']); setSeqPromo(false); setSeqShotMeta([]); setSeqLeadVideo(null); setSeqLeadId(null); setSeqBuildNext(false); setSeqSequenceAds([]); setSeqActiveAd(null);
     setSeqResults([]); setSeqMsg(''); setSeqErr('');
     setSeqName(it.productTitle ? (it.productTitle + ' — persona') : '');
-    setSeqPersona(null);
+    setSeqPersona(null); setSeqNoPersona(false);
     setShowVault(false);
+    setSeqSelector('persona'); // ultra-short: land with the persona chooser already open
+    setSeqAutoLead(true);      // first generate on this path auto-becomes the lead
     openSeqBuilder();
   };
   // ── UGC ad generation (slice 3) — self-contained; branded flow untouched ──
@@ -5105,7 +5426,7 @@ STRICT rules:
           }}>
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>★ Saved Library</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>★ Favourites</div>
                 <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>{library.length} saved output{library.length !== 1 ? 's' : ''} — click Replay to reload</div>
               </div>
               <button onClick={() => setShowLibrary(false)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 20, cursor: 'pointer' }}>✕</button>
@@ -5367,7 +5688,7 @@ STRICT rules:
                   <span title="Ships the selected formats to Google Ads — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startGooglePublishChain(); }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
-            ) : (<><div style={iconBar}>{GoogleG}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>Your Google ad will appear here.</div></>)}
+            ) : (<><div style={iconBar}>{GoogleG}</div><div style={{ margin: "auto 0", padding: "0 24px 24px", textAlign: "center" }}><div style={{ fontSize: 12, color: "#4a5568" }}>Your Google ad will appear here.</div>{loading ? <div style={{ fontSize: 12, color: "#6366f1", marginTop: 6 }}>⟳ Generating…</div> : null}</div></>)}
           </div>
 
           {/* Meta */}
@@ -5459,7 +5780,7 @@ STRICT rules:
                   <span title="Ships the selected Meta formats to Meta Ads Manager — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startMetaPublishChain(); }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
-            ) : (<><div style={iconBar}>{MetaMark}</div><div style={{ fontSize: 12, color: "#4a5568", padding: "0 24px 24px", margin: "auto 0", textAlign: "center" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div></>)}
+            ) : (<><div style={iconBar}>{MetaMark}</div><div style={{ margin: "auto 0", padding: "0 24px 24px", textAlign: "center" }}><div style={{ fontSize: 12, color: "#4a5568" }}>{generateMeta ? "Your Meta ad will appear here." : "Enable Meta above to include it."}</div>{(loading && generateMeta) ? <div style={{ fontSize: 12, color: "#6366f1", marginTop: 6 }}>⟳ Generating…</div> : null}</div></>)}
           </div>
 
           {/* Video */}
@@ -5525,6 +5846,11 @@ STRICT rules:
                     setAdFormat("tiktok"); setViewMode("detailed"); setTimeout(() => { try { setMetaPublishFormat('video'); setMetaConfirmOpen(true); setMetaModalStep(1); setMetaPlacement('new'); setSelectedCampaignId(''); setSelectedAdSetId(''); } catch(_){} }, 80);
                   }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
+                {seqPubReturn ? (
+                  <div style={{ padding: "10px 14px", background: "#fff", borderTop: "1px solid #dadde1" }}>
+                    <button onClick={() => { setSeqPubReturn(false); setSeqOpen(true); setSeqPubOpen(true); }} style={{ width: "100%", padding: "10px 0", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#1877f2,#0ea5e9)", color: "white" }}>← Back to the sequence publish</button>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 12, minHeight: 280 }}>
@@ -5632,7 +5958,7 @@ STRICT rules:
                   <span style={{ fontSize: 15, fontWeight: 800, color: "#5eead4" }}>▦ Bulk Feed</span>
                   <span style={{ fontSize: 10, fontWeight: 800, color: "#5eead4", background: "rgba(45,212,191,0.15)", border: "1px solid rgba(45,212,191,0.35)", borderRadius: 6, padding: "2px 8px" }}>BETA</span>
                 </div>
-                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Ingest your whole catalog from a Shopify store or Google Merchant feed and turn it into ads in bulk — built for high-volume seasons and agencies.</div>
+                <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Ingest your whole catalog from a Shopify, WooCommerce or Wix store or a Google Merchant feed and turn it into ads in bulk — built for high-volume seasons and agencies.</div>
                 <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: "#2dd4bf" }}>Connect a feed →</div>
                 {(() => {
                   const active = vaultJobs.filter(j => j && (j.status === 'scheduled' || j.status === 'queued' || j.status === 'running'));
@@ -5644,7 +5970,7 @@ STRICT rules:
               {/* Ad Library (Vault) */}
               <div onClick={openVault} style={{ flex: 1, minWidth: 280, padding: 20, borderRadius: 14, border: "1px solid rgba(99,102,241,0.3)", background: "linear-gradient(135deg,rgba(99,102,241,0.10),rgba(139,92,246,0.06))", cursor: "pointer", position: "relative" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: "#a5b4fc" }}>◳ Ad Library</span>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#a5b4fc" }}>◳ Library</span>
                   <span style={{ fontSize: 10, fontWeight: 800, color: "#a5b4fc", background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 6, padding: "2px 8px" }}>NEW</span>
                 </div>
                 <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5 }}>Your saved ads — the full Google + Meta + video set for each, organised and scored, ready to reopen, publish or reuse.</div>
@@ -5657,51 +5983,375 @@ STRICT rules:
         {/* Sequential Ad Builder panel */}
         {seqOpen && (
           <div onClick={() => setSeqOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
-            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 680, maxHeight: "88vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 16, padding: 26 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 860, maxHeight: "88vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 16, padding: 26 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>⚡ Sequential Ad Builder</span>
-                <button onClick={() => setSeqOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {(!seqLeadId && Array.isArray(seqResults) && seqResults.length > 0) ? <button onClick={() => setSeqSaveOpen(function (v) { return !v; })} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 800, borderRadius: 8, cursor: "pointer", border: "1px solid rgba(16,185,129,0.4)", background: seqSaveOpen ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.03)", color: "#6ee7b7" }}>💾 Save as template</button> : null}
+                  <button onClick={() => setSeqOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                </div>
               </div>
-              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Pick a saved persona, optionally feature a product, and describe each shot. We generate the set with one consistent character.</div>
+              {seqSaveOpen ? (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, padding: 10, borderRadius: 10, border: "1px solid rgba(16,185,129,0.25)", background: "rgba(16,185,129,0.05)" }}>
+                  <input value={seqName} onChange={e => setSeqName(e.target.value)} placeholder="Template name" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                  <button onClick={saveSeqTemplate} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white", whiteSpace: "nowrap" }}>Save to library</button>
+                  {seqMsg ? <span style={{ fontSize: 10.5, color: "#34d399", whiteSpace: "nowrap" }}>{seqMsg}</span> : null}
+                </div>
+              ) : null}
 
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>1 · Choose persona</div>
-              {charLib === null ? <div style={{ fontSize: 11, color: "#7e92a8", marginBottom: 16 }}>Loading your personas…</div> : (() => {
-                const personas = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
-                if (personas.length === 0) return <div style={{ fontSize: 11, color: "#5a6b80", marginBottom: 16 }}>No synthetic personas yet — create one in Creative Studio → Personas first.</div>;
+              {(seqLeadId && Array.isArray(seqSequenceAds) && seqSequenceAds.length > 0) ? (() => {
+                const rack = [{ n: 1, video: seqLeadVideo, objective: seqLeadObjective, kind: 'lead' }].concat(
+                  seqSequenceAds.map(function (a) { return { n: (a.order || 0) + 1, video: a.thumb || null, objective: a.objective, kind: 'linked', id: a.id }; })
+                );
                 return (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16, maxHeight: 190, overflowY: "auto" }}>
-                    {personas.map(function (c) {
-                      const on = seqPersona && seqPersona.id === c.id;
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 14, padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                    <span style={{ fontSize: 9, color: "#5a6b80", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 2 }}>Sequence</span>
+                    {rack.map(function (ad, idx) {
+                      const active = seqActiveAd ? (seqActiveAd.n === ad.n) : (ad.kind === 'lead');
+                      const o = seqObjMeta(ad.objective || 'awareness');
                       return (
-                        <div key={c.id} onClick={() => setSeqPersona(c)} style={{ cursor: "pointer", borderRadius: 8, overflow: "hidden", border: on ? "2px solid #f59e0b" : "2px solid rgba(255,255,255,0.06)" }}>
-                          <div style={{ position: "relative", aspectRatio: "1" }}>
-                            <img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} />
-                            {on && <div style={{ position: "absolute", top: 3, right: 3, width: 16, height: 16, borderRadius: "50%", background: "#f59e0b", color: "#1a1206", fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>✓</div>}
-                          </div>
-                          <div style={{ padding: "3px 5px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
-                        </div>
+                        <span key={ad.n} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          {idx > 0 ? <span style={{ color: "#3a4a64", fontSize: 12 }}>→</span> : null}
+                          <button onClick={() => reCenterAd(ad)} title={"Ad #" + ad.n} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 8, cursor: "pointer", border: active ? "1px solid rgba(245,158,11,0.7)" : "1px solid rgba(255,255,255,0.12)", background: active ? "rgba(245,158,11,0.12)" : "rgba(0,0,0,0.25)" }}>
+                            {ad.video ? <video src={ad.video} muted style={{ width: 22, height: 30, objectFit: "cover", borderRadius: 4, background: "#000", pointerEvents: "none" }} /> : <div style={{ width: 22, height: 30, borderRadius: 4, background: "#1e293b" }} />}
+                            <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.1 }}>
+                              <span style={{ fontSize: 10, fontWeight: 800, color: active ? "#fbbf24" : "#c7d2e0" }}>{ad.kind === 'lead' ? "Ad #1 · Lead" : ("Ad #" + ad.n)}</span>
+                              <span style={{ fontSize: 8.5, fontWeight: 800, color: o.color }}>{o.label}</span>
+                            </span>
+                          </button>
+                        </span>
                       );
                     })}
+                    {(seqBuildNext && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? null : (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: "#3a4a64", fontSize: 12 }}>→</span>
+                      <button data-id="rack-plus-tile" onClick={() => { setSeqActiveAd(null); openNextAd(); }} title="Build the next ad in this sequence" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, cursor: "pointer", border: "1px dashed rgba(245,158,11,0.55)", background: "rgba(245,158,11,0.06)" }}>
+                        <span style={{ fontSize: 20, fontWeight: 900, color: "#fbbf24", lineHeight: 1 }}>+</span>
+                        <span style={{ fontSize: 9.5, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.04em" }}>Add ad</span>
+                      </button>
+                    </span>
+                    )}
+                  </div>
+                );
+              })() : null}
+              {(seqLeadId && Array.isArray(seqSequenceAds) && seqSequenceAds.length > 0) ? (
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+                  <button onClick={openSeqPub} title="Publish this sequence as a Meta video story" style={{ padding: "7px 16px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#1877f2,#0ea5e9)", color: "white" }}>🎬 Publish story to Meta</button>
+                </div>
+              ) : null}
+              {seqPubOpen ? (() => {
+                const all = seqStoryAds();
+                const isSel = (k) => (seqPubSel === null ? true : !!seqPubSel[k]);
+                const toggle = (k) => setSeqPubSel(function (prev) { const base = prev === null ? all.reduce(function (m, a) { m[a.key] = true; return m; }, {}) : { ...prev }; base[k] = !base[k]; return base; });
+                const selCount = all.filter(function (a) { return a.videoUrl && isSel(a.key); }).length;
+                return (
+                  <div onClick={() => { if (!seqPubBusy) setSeqPubOpen(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2100, padding: 24 }}>
+                    <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "86vh", overflowY: "auto", background: "#0f172a", border: "1px solid rgba(24,119,242,0.35)", borderRadius: 16, padding: 24 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                        <span style={{ fontSize: 16, fontWeight: 900, color: "white" }}>🎬 Publish story to Meta</span>
+                        <button onClick={() => { if (!seqPubBusy) setSeqPubOpen(false); }} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
+                      </div>
+                      {seqPubResult ? (
+                        <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, border: "1px solid " + (seqPubResult.ok ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.4)"), background: seqPubResult.ok ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)" }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 800, color: seqPubResult.ok ? "#34d399" : "#f87171", marginBottom: seqPubResult.adsManagerUrl ? 6 : 0 }}>{seqPubResult.error ? seqPubResult.error : (seqPubResult.done + ' of ' + seqPubResult.total + ' published' + (seqPubResult.ok ? ' into one ad set · paused.' : (' · ' + seqPubResult.failures.length + ' failed.')))}</div>
+                          {seqPubResult.adsManagerUrl ? <a href={seqPubResult.adsManagerUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, fontWeight: 700, color: "#60a5fa" }}>Open in Ads Manager →</a> : null}
+                          {(seqPubResult.failures && seqPubResult.failures.length) ? <div style={{ marginTop: 6, fontSize: 10.5, color: "#fca5a5" }}>{seqPubResult.failures.map(function (f, i) { return <div key={i}>{f.ad}: {f.error}</div>; })}</div> : null}
+                        </div>
+                      ) : null}
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>Ads in this story <span style={{ color: "#5a6b80", fontWeight: 600 }}>· {selCount} selected</span></div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                        {all.map(function (a) {
+                          const om = seqObjMeta(a.objective || 'awareness');
+                          return (
+                            <label key={a.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.25)", cursor: a.videoUrl ? "pointer" : "not-allowed", opacity: a.videoUrl ? 1 : 0.5 }}>
+                              <input type="checkbox" disabled={!a.videoUrl || seqPubBusy} checked={!!a.videoUrl && isSel(a.key)} onChange={() => toggle(a.key)} style={{ cursor: "pointer" }} />
+                              {a.videoUrl ? <video src={a.videoUrl} muted style={{ width: 24, height: 32, objectFit: "cover", borderRadius: 4, background: "#000" }} /> : <div style={{ width: 24, height: 32, borderRadius: 4, background: "#1e293b" }} />}
+                              <span style={{ display: "inline-flex", flexDirection: "column", lineHeight: 1.15 }}>
+                                <span style={{ fontSize: 11.5, fontWeight: 800, color: "#e2e8f0" }}>{a.label}</span>
+                                <span style={{ fontSize: 10, fontWeight: 700, color: om.color }}>{om.label}{a.videoUrl ? "" : " · no video"}</span>
+                              </span>
+                              {a.videoUrl ? <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); viewSeqAd(a.videoUrl); }} title="Open in the 3-ad viewer — original Google + Meta + this video" style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 10, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.12)", color: "#93c5fd", cursor: "pointer", whiteSpace: "nowrap" }}>👁 View</button> : null}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {(() => {
+                        const _c = seqPubCopy();
+                        const _landing = String(seqOriginUrl || '').trim();
+                        const _hasLanding = /^https?:\/\//i.test(_landing);
+                        return (
+                          <>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                              <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em" }}>Ad copy <span style={{ color: "#5a6b80", fontWeight: 600 }}>· auto from your original ad</span></div>
+                              <button onClick={() => setSeqPubUseMetaCopy(function (v) { return !v; })} disabled={seqPubBusy} title={seqPubUseMetaCopy ? "Using the Meta ad copy — click for the video variation" : "Using the video variation — click to reuse the Meta ad copy"} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 7, cursor: seqPubBusy ? "default" : "pointer", border: "1px solid rgba(8,102,255,0.5)", background: seqPubUseMetaCopy ? "#0866FF" : "rgba(8,102,255,0.12)", color: seqPubUseMetaCopy ? "#fff" : "#60a5fa", fontSize: 10, fontWeight: 800 }}>⟲ {seqPubUseMetaCopy ? "Meta copy" : "Use Meta copy"}</button>
+                            </div>
+                            <div style={{ padding: "9px 11px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.25)", marginBottom: 12 }}>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: "#e2e8f0", marginBottom: 4 }}>{_c.headline || "—"}</div>
+                              <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.45 }}>{_c.primary ? (_c.primary.slice(0, 180) + (_c.primary.length > 180 ? "…" : "")) : "No original copy found — ad will publish with the headline only; edit in Ads Manager."}</div>
+                            </div>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>Destination <span style={{ color: "#5a6b80", fontWeight: 600 }}>· where clicks go</span></div>
+                            {_hasLanding ? (
+                              <div style={{ fontSize: 11, color: "#8ea2b8", wordBreak: "break-all", padding: "7px 11px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.25)", marginBottom: 14 }}>{_landing}</div>
+                            ) : (
+                              <input value={seqPubDest} onChange={e => setSeqPubDest(e.target.value)} placeholder="https://yourshop.com/product — add a landing page" disabled={seqPubBusy} style={{ width: "100%", boxSizing: "border-box", padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(245,158,11,0.55)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 14 }} />
+                            )}
+                          </>
+                        );
+                      })()}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        <button onClick={publishSeqStory} disabled={seqPubBusy || selCount === 0} style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: (seqPubBusy || selCount === 0) ? "default" : "pointer", background: (seqPubBusy || selCount === 0) ? "rgba(24,119,242,0.4)" : "linear-gradient(135deg,#1877f2,#0ea5e9)", color: "white" }}>{seqPubBusy ? (seqPubProgress || "Publishing…") : ("🎬 Publish " + selCount + " video" + (selCount === 1 ? "" : "s"))}</button>
+                        <span style={{ fontSize: 10.5, color: "#5a6b80" }}>Created paused — no spend until you activate in Ads Manager.</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })() : null}
+              {/* Lead ad — the opening video; + appends the next ad in the sequence */}
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: (seqLeadId && !seqBuildNext) ? 30 : 12 }}>
+                {(seqPersona || seqNoPersona) ? (
+                  <div style={{ position: "relative", display: "inline-block", maxWidth: "58%" }}>
+                    <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(245,158,11,0.35)", background: "#0b1322", lineHeight: 0 }}>
+                      {(seqActiveAd && seqActiveAd.video) ? (
+                        <video key={seqActiveAd.n} src={seqActiveAd.video} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", background: "#000" }} />
+                      ) : seqLeadVideo ? (
+                        <video src={seqLeadVideo} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", background: "#000" }} />
+                      ) : (seqPersona ? (
+                        <img src={seqPersona.thumbnailUrl || seqPersona.seedImageUrl} alt="" style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto" }} />
+                      ) : (String(seqProductUrl || '').trim() ? (
+                        <img src={seqProductUrl.trim()} alt="" style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto" }} />
+                      ) : (
+                        <div style={{ padding: "48px 24px", textAlign: "center", color: "#6b82b8", fontSize: 12, lineHeight: 1.5 }}>Paste the image featuring your model below to preview it here.</div>
+                      )))}
+                      {seqActiveAd ? (
+                        <span style={{ position: "absolute", top: 10, left: 10, fontSize: 15, fontWeight: 800, color: "white", background: "rgba(99,102,241,0.92)", borderRadius: 9, padding: "4px 12px", lineHeight: 1.1 }}>{"Ad #" + seqActiveAd.n}</span>
+                      ) : (
+                        <span style={{ position: "absolute", top: 10, left: 10, fontSize: 15, fontWeight: 800, color: "#1a1206", background: "rgba(245,158,11,0.92)", borderRadius: 9, padding: "4px 12px", lineHeight: 1.1 }}>★ Template</span>
+                      )}
+                      {(seqLeadId && seqActiveAd) ? (
+                        <button onClick={() => setSeqActiveAd(null)} title="Back to the lead" style={{ position: "absolute", top: 10, right: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#c4b5fd", cursor: "pointer", lineHeight: 1.1 }}>↩ Back to lead</button>
+                      ) : (seqLeadId ? <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} title="Load another template as the lead" style={{ position: "absolute", top: 10, right: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#c4b5fd", cursor: "pointer", lineHeight: 1.1 }}>Change lead</button> : null)}
+                    </div>
+                    {(seqLeadId && !seqBuildNext && !seqActiveAd && (!Array.isArray(seqSequenceAds) || seqSequenceAds.length === 0)) ? (
+                      <button onClick={openNextAd} title="Add a sequential ad" style={{ position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)", width: 48, height: 48, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 900, lineHeight: 1, color: "white", background: "linear-gradient(135deg,#f59e0b,#ef4444)", border: "3px solid #0f172a", boxShadow: "0 4px 14px rgba(0,0,0,0.45)", cursor: "pointer" }}>+</button>
+                    ) : null}
+                    {(seqLeadId && !seqBuildNext && !seqActiveAd) ? (
+                      <button onClick={() => { setSeqAutoLead(true); generateSequence(); }} disabled={seqBusy} title="Regenerate the lead video — updates this template in place" style={{ position: "absolute", top: 10, left: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#fbbf24", cursor: seqBusy ? "default" : "pointer", lineHeight: 1.1 }}>{seqBusy ? "⟳…" : "↻ Regenerate lead"}</button>
+                    ) : null}
+                    {(seqLeadId && !seqActiveAd && Array.isArray(seqSequenceAds) && seqSequenceAds.length > 0) ? (
+                      <span title={"This lead has " + seqSequenceAds.length + " linked ad(s) — see the Sequence rack above"} style={{ position: "absolute", bottom: 10, left: 10, fontSize: 11, fontWeight: 800, color: "white", background: "rgba(99,102,241,0.92)", borderRadius: 8, padding: "3px 9px", lineHeight: 1.1 }}>{"🎬 +" + seqSequenceAds.length}</span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div style={{ width: "58%", borderRadius: 14, border: "1px dashed rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.04)", aspectRatio: "16 / 9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center", padding: 16 }}>
+                    {String(seqProductUrl || '').trim() ? (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <div style={{ fontSize: 12.5, color: "#e2e8f0", maxWidth: 360, lineHeight: 1.45 }}>New product — <strong style={{ color: "#fbbf24" }}>choose a persona</strong> to feature it, then generate your lead ad below.</div>
+                        <button onClick={() => setSeqSelector('persona')} style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", cursor: "pointer" }}>➕ Choose a persona</button>
+                        <div style={{ fontSize: 10, color: "#5a6b80", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 2 }}>or reuse an existing template</div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12.5, color: "#9db0c7", maxWidth: 360, lineHeight: 1.45 }}>Load a saved <strong style={{ color: "#fbbf24" }}>template ad</strong> as your sequence lead, or build one below.</div>
+                    )}
+                    <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", cursor: "pointer" }}>⤵ Browse template ads</button>
+                    {(() => {
+                      const _list = Array.isArray(seqTemplates) ? seqTemplates : [];
+                      const _stem = function (s) { return String(s || '').trim().toLowerCase().replace(/ — (persona|sequence)$/i, ''); };
+                      const _curProd = String(seqProductUrl || '').trim();
+                      const _curStem = _stem(seqName);
+                      const _hasCtx = !!(_curProd || _curStem);
+                      const _matches = function (t) { return !!t && ((_curProd && Array.isArray(t.garmentUrls) && t.garmentUrls.indexOf(_curProd) !== -1) || (_curStem && _stem(t.name) === _curStem)); };
+                      let seqContinueTarget = null;
+                      if (_hasCtx) {
+                        // Product context (e.g. via "Recreate on a persona"): offer Continue only if THIS
+                        // product already has a story, and point at that story — never an unrelated one.
+                        seqContinueTarget = _list.find(_matches) || (_matches(seqLastLead) ? seqLastLead : null);
+                      } else {
+                        // No product context (cold open): resume the most recent story, as before.
+                        seqContinueTarget = seqLastLead || (_list.length ? _list[0] : null);
+                      }
+                      if (!seqContinueTarget) return null;
+                      return (
+                        <button onClick={() => { loadSeqTemplate(seqContinueTarget); openNextAd(); }} title={"Continue: " + (seqContinueTarget.name || "your most recent sequence")} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", background: "linear-gradient(135deg,#10b981,#059669)", color: "white", cursor: "pointer" }}>↪ Continue your story</button>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              {(seqLeadId && !seqBuildNext && seqMsg) ? <div style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "#34d399", marginBottom: 12 }}>{seqMsg}</div> : null}
+              {(!seqLeadId || seqBuildNext) ? (<>
+              {seqBuildNext ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(139,92,246,0.3)", background: "rgba(139,92,246,0.08)" }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#c4b5fd" }}>➕ New sequential ad <span style={{ color: "#8ea2b8", fontWeight: 600 }}>· following your lead</span></span>
+                  <button onClick={() => { setSeqBuildNext(false); setSeqResults([]); }} style={{ fontSize: 10.5, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 7, padding: "4px 10px", cursor: "pointer" }}>✕ Cancel</button>
+                </div>
+              ) : null}
+              {/* Unified attribute selectors — persona / objective / market / interaction */}
+              {(() => {
+                const personasAll = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
+                const personaBoxes = (function () {
+                  const out = []; const seen = {};
+                  if (seqPersona && seqPersona.id) { out.push(seqPersona); seen[seqPersona.id] = 1; }
+                  for (const c of personasAll) { if (out.length >= 4) break; if (!seen[c.id]) { out.push(c); seen[c.id] = 1; } }
+                  return out;
+                })();
+                const MARKET_OPTS = [{ id: 'auto', label: 'Auto', icon: '🌐' }, { id: 'scandinavia', label: 'Scandinavia', icon: '❄️' }, { id: 'uk', label: 'UK', icon: '🇬🇧' }, { id: 'germany', label: 'Central EU', icon: '🇪🇺' }, { id: 'us', label: 'US', icon: '🇺🇸' }];
+                const INTERACTION_OPTS = [{ id: 'auto', label: 'Auto' }, { id: 'wear', label: 'Wear' }, { id: 'use', label: 'Use' }, { id: 'consume', label: 'Consume' }, { id: 'operate', label: 'Operate' }, { id: 'present', label: 'Present' }];
+                const curObjective = seqShotObjectives[0] || seqDefaultObjective(0, 1);
+                const marketLabel = (MARKET_OPTS.find(function (m) { return m.id === seqMarket; }) || { label: 'Auto' }).label;
+                const interactionLabel = (INTERACTION_OPTS.find(function (m) { return m.id === seqInteraction; }) || { label: 'Auto' }).label;
+                const pills = [
+                  ...(seqBuildNext ? [] : [{ id: 'persona', label: 'Persona', value: seqPersona ? (seqPersona.name || 'Character') : 'Choose', img: seqPersona ? (seqPersona.thumbnailUrl || seqPersona.seedImageUrl) : null, color: null }]),
+                  { id: 'objective', label: 'Objective', value: seqObjMeta(curObjective).label, img: null, color: seqObjMeta(curObjective).color },
+                  { id: 'market', label: 'Market', value: marketLabel, img: null, color: null },
+                  { id: 'interaction', label: 'Interaction', value: interactionLabel, img: null, color: null },
+                ];
+                const toggle = (id) => setSeqSelector(seqSelector === id ? null : id);
+                const boxBase = { cursor: "pointer", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.03)" };
+                const boxOn = { border: "2px solid #f59e0b", background: "rgba(245,158,11,0.12)" };
+                return (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 8 }}>
+                      {pills.map(function (p) {
+                        const open = seqSelector === p.id;
+                        return (
+                          <button key={p.id} onClick={() => toggle(p.id)} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 12, cursor: "pointer", border: open ? "1px solid rgba(245,158,11,0.6)" : "1px solid rgba(255,255,255,0.16)", background: open ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.03)", color: "#e2e8f0" }}>
+                            {p.img ? <img src={p.img} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover" }} /> : null}
+                            <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+                              <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 8.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>{p.label}</span>
+                              <span style={{ color: p.color || "#e2e8f0", fontWeight: 800, fontSize: 12 }}>{p.value}</span>
+                            </span>
+                            <span style={{ marginLeft: 2, width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 900, lineHeight: 1, color: open ? "#1a1206" : "#fbbf24", background: open ? "#f59e0b" : "rgba(245,158,11,0.18)" }}>{open ? "–" : "+"}</span>
+                          </button>
+                        );
+                      })}
+                      <span style={{ width: 1, alignSelf: "stretch", background: "rgba(255,255,255,0.12)", margin: "0 4px" }} />
+                      <button onClick={() => setSeqPromo(function (v) { return !v; })} title="Promo / sale — a sideline flag, not one of the funnel stages" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 12, cursor: "pointer", border: seqPromo ? "1px solid rgba(236,72,153,0.7)" : "1px solid rgba(255,255,255,0.16)", background: seqPromo ? "rgba(236,72,153,0.16)" : "rgba(255,255,255,0.03)", color: "#e2e8f0" }}>
+                        <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+                          <span style={{ color: "#8ea2b8", fontWeight: 800, fontSize: 8.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>Promo</span>
+                          <span style={{ color: seqPromo ? "#f472b6" : "#e2e8f0", fontWeight: 800, fontSize: 12 }}>{seqPromo ? "On · sale" : "Off"}</span>
+                        </span>
+                        <span style={{ marginLeft: 2, width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, lineHeight: 1, color: seqPromo ? "white" : "#f472b6", background: seqPromo ? "#ec4899" : "rgba(236,72,153,0.18)" }}>⍟</span>
+                      </button>
+                    </div>
+                    {seqSelector ? (
+                      <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.02)", display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+                        {seqSelector === 'persona' ? (
+                          <>
+                            <div onClick={() => { setSeqOpen(false); setShowCreativeStudio(true); setSeqReturn(true); loadCharLibrary(); }} title="Create a new synthetic persona" style={{ cursor: "pointer", width: 92, borderRadius: 10, overflow: "hidden", border: "1px dashed #3a4a74", background: "#13213f", textAlign: "center" }}>
+                              <div style={{ position: "relative", aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <span style={{ fontSize: 34, color: "#6b82b8", lineHeight: 1 }}>☺</span>
+                                <div style={{ position: "absolute", bottom: 4, right: 4, width: 16, height: 16, borderRadius: "50%", background: "#8b5cf6", color: "white", fontSize: 11, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</div>
+                              </div>
+                              <div style={{ padding: "3px 4px 5px", fontSize: 9, color: "#9db0c7", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>New persona</div>
+                            </div>
+                            <div onClick={() => { setSeqNoPersona(true); setSeqPersona(null); setSeqLeadVideo(null); }} title="Build from an image that already features a model" style={{ cursor: "pointer", width: 92, borderRadius: 10, overflow: "hidden", border: seqNoPersona ? "2px solid #f59e0b" : "1px dashed #3a4a74", background: seqNoPersona ? "rgba(245,158,11,0.12)" : "#13213f", textAlign: "center" }}>
+                              <div style={{ aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <span style={{ fontSize: 30, color: seqNoPersona ? "#fbbf24" : "#6b82b8", lineHeight: 1 }}>⊘</span>
+                              </div>
+                              <div style={{ padding: "3px 4px 5px", fontSize: 9, color: seqNoPersona ? "#fbbf24" : "#9db0c7", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>None</div>
+                            </div>
+                            {personaBoxes.map(function (c) {
+                              const on = seqPersona && seqPersona.id === c.id;
+                              return (
+                                <div key={c.id} onClick={() => { setSeqPersona(c); setSeqNoPersona(false); setSeqSelector(null); setSeqLeadVideo(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center" }}>
+                                  <div style={{ aspectRatio: "1" }}><img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} /></div>
+                                  <div style={{ padding: "3px 4px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
+                                </div>
+                              );
+                            })}
+                            {seqNoPersona ? (
+                              <div style={{ flexBasis: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 4 }}>
+                                <div style={{ fontSize: 9.5, color: "#8ea2b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Animation engine · stays for this product</div>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  {[{ k: "kling", t: "K" }, { k: "veo", t: "V" }, { k: "runway", t: "R" }].map(function (e) {
+                                    const on = seqNoneEngine === e.k;
+                                    return (
+                                      <button key={e.k} onClick={() => setSeqNoneEngine(e.k)} title={e.k} style={{ width: 40, height: 40, borderRadius: 10, cursor: "pointer", fontSize: 16, fontWeight: 900, border: on ? "2px solid #f59e0b" : "1px solid rgba(255,255,255,0.18)", background: on ? "rgba(245,158,11,0.16)" : "rgba(255,255,255,0.03)", color: on ? "#fbbf24" : "#c7d2e0" }}>{e.t}</button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : null}
+                          </>
+                        ) : null}
+                        {seqSelector === 'objective' ? SEQ_OBJECTIVES.map(function (o) {
+                          const on = o.id === curObjective;
+                          return (
+                            <div key={o.id} onClick={() => { const n = seqShotObjectives.slice(); if (!n.length) n.push(o.id); else n[0] = o.id; setSeqShotObjectives(n); setSeqSelector(null); }} style={{ cursor: "pointer", width: 108, padding: "14px 8px", borderRadius: 10, textAlign: "center", border: on ? ("2px solid " + o.color) : "1px solid rgba(255,255,255,0.5)", background: on ? (o.color + "18") : "rgba(255,255,255,0.03)" }}>
+                              <div style={{ fontSize: 12.5, fontWeight: 800, color: o.color }}>{o.label}</div>
+                            </div>
+                          );
+                        }) : null}
+                        {seqSelector === 'market' ? MARKET_OPTS.map(function (m) {
+                          const on = m.id === seqMarket;
+                          return (
+                            <div key={m.id} onClick={() => { setSeqMarket(m.id); setSeqSelector(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 108, padding: "12px 8px", textAlign: "center" }}>
+                              <div style={{ fontSize: 22, lineHeight: 1, marginBottom: 4 }}>{m.icon}</div>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: on ? "#fbbf24" : "#e2e8f0" }}>{m.label}</div>
+                            </div>
+                          );
+                        }) : null}
+                        {seqSelector === 'interaction' ? INTERACTION_OPTS.map(function (m) {
+                          const on = m.id === seqInteraction;
+                          return (
+                            <div key={m.id} onClick={() => { setSeqInteraction(m.id); setSeqSelector(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 100, padding: "14px 8px", textAlign: "center" }}>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: on ? "#fbbf24" : "#e2e8f0" }}>{m.label}</div>
+                            </div>
+                          );
+                        }) : null}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })()}
 
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Feature a product <span style={{ color: "#5a6b80", fontWeight: 600 }}>· optional</span></div>
+
+
+              {seqPromo ? (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#f472b6", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>⍟ Promo offer <span style={{ color: "#5a6b80", fontWeight: 600 }}>· burned onto the video</span></div>
+                  <input value={seqOfferText} onChange={e => setSeqOfferText(e.target.value)} maxLength={40} placeholder="e.g. Now €49 · 20% OFF · Limited time" style={{ width: "100%", boxSizing: "border-box", padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(236,72,153,0.4)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                </div>
+              ) : null}
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{seqNoPersona ? "Image featuring your model " : "Product "}<span style={{ color: "#5a6b80", fontWeight: 600 }}>{seqNoPersona ? "· required" : "· optional"}</span></div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
-                <input value={seqProductUrl} onChange={e => setSeqProductUrl(e.target.value)} placeholder="Product image URL (packshot — no person in it)" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                <input value={seqProductUrl} onChange={e => setSeqProductUrl(e.target.value)} placeholder={seqNoPersona ? "Image URL — a photo that already shows your model" : "Product image URL (packshot — no person in it)"} style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
                 {seqProductUrl.trim() ? <img src={seqProductUrl.trim()} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, background: "#1e293b" }} /> : null}
               </div>
 
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>3 · Shots <span style={{ color: "#5a6b80", fontWeight: 600 }}>· one video each</span></div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em" }}>Storyboard <span style={{ color: "#5a6b80", fontWeight: 600 }}>· one clip each</span></span>
+                {(() => {
+                  const _curKey = seqMarket + '|' + seqInteraction + '|' + (Array.isArray(seqShotObjectives) ? seqShotObjectives.join(',') : '') + '|' + (seqPromo ? '1' : '0');
+                  const _stale = seqLastWriteKey !== null && seqLastWriteKey !== _curKey && seqShots.some(function (s) { return String(s || '').trim(); });
+                  return <button onClick={autoWriteAll} disabled={seqAutoBusy !== null} title={_stale ? "Settings changed since the last write — re-write the storyboard to match" : "Auto-write every clip from its objective"} style={{ padding: "5px 12px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "none", cursor: seqAutoBusy !== null ? "default" : "pointer", background: seqAutoBusy !== null ? "rgba(139,92,246,0.4)" : (_stale ? "linear-gradient(135deg,#f59e0b,#ef4444)" : "linear-gradient(135deg,#8b5cf6,#6366f1)"), color: "white" }}>{seqAutoBusy === -1 ? "⟳ Writing…" : (_stale ? "↻ Re-write storyboard" : "✨ Auto-write all")}</button>;
+                })()}
+              </div>
               {seqShots.map(function (s, i) {
+                const objId = seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length);
+                const meta = seqShotMeta[i] || null;
                 return (
-                  <div key={i} style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                    <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Shot " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={2} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical" }} />
-                    {seqShots.length > 1 ? <button onClick={() => setSeqShots(seqShots.filter(function (_, j) { return j !== i; }))} style={{ padding: "0 10px", fontSize: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#fca5a5", cursor: "pointer" }}>×</button> : null}
+                  <div key={i} style={{ marginBottom: 10, padding: 8, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <textarea value={s} onChange={e => { const n = seqShots.slice(); n[i] = e.target.value; setSeqShots(n); }} placeholder={"Clip " + (i + 1) + " — e.g. Image 1 walks through a sunlit street, smiling at camera. No on-screen text."} rows={4} style={{ flex: 1, boxSizing: "border-box", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", minHeight: 76 }} />
+                      {seqShots.length > 1 ? <button onClick={() => { setSeqShots(seqShots.filter(function (_, j) { return j !== i; })); setSeqShotObjectives(seqShotObjectives.filter(function (_, j) { return j !== i; })); setSeqShotMeta(seqShotMeta.filter(function (_, j) { return j !== i; })); }} style={{ padding: "0 10px", fontSize: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#fca5a5", cursor: "pointer" }}>×</button> : null}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      <button onClick={() => autoWriteShot(i)} disabled={seqAutoBusy !== null} title="Auto-write this shot's storyboard from its objective" style={{ padding: "3px 10px", fontSize: 10, fontWeight: 800, borderRadius: 999, cursor: seqAutoBusy !== null ? "default" : "pointer", border: "none", background: (seqAutoBusy === i) ? "rgba(139,92,246,0.5)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{seqAutoBusy === i ? "⟳" : "✨ Auto-write"}</button>
+                    </div>
+                    {meta ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 8.5, color: "#5a6b80", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Inferred</span>
+                        <span style={{ padding: "1px 7px", fontSize: 9, fontWeight: 700, borderRadius: 999, background: "rgba(56,189,248,0.14)", color: "#7dd3fc", border: "1px solid rgba(56,189,248,0.4)" }}>{meta.market === 'default' ? 'neutral scene' : (meta.market + ' scene')}</span>
+                        {meta.interactionMode ? <span style={{ padding: "1px 7px", fontSize: 9, fontWeight: 700, borderRadius: 999, background: "rgba(167,139,250,0.14)", color: "#c4b5fd", border: "1px solid rgba(167,139,250,0.4)" }}>{meta.interactionMode} mode</span> : null}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
-              {seqShots.length < 4 ? <button onClick={() => setSeqShots(seqShots.concat(['']))} style={{ fontSize: 11, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 11px", cursor: "pointer" }}>＋ Add shot</button> : null}
+              {false && seqShots.length < 4 ? <button onClick={() => { setSeqShots(seqShots.concat([''])); setSeqShotObjectives(seqShotObjectives.concat([seqDefaultObjective(seqShots.length, seqShots.length + 1)])); }} style={{ fontSize: 11, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 11px", cursor: "pointer" }}>＋ Add clip</button> : null}
+
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14, marginBottom: 16 }}>
                 <select value={seqRatio} onChange={e => setSeqRatio(e.target.value)} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
@@ -5710,48 +6360,35 @@ STRICT rules:
                 <select value={seqDuration} onChange={e => setSeqDuration(Number(e.target.value))} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
                   <option value={5}>5s</option><option value={8}>8s</option><option value={10}>10s</option>
                 </select>
-                <button onClick={generateSequence} disabled={seqBusy} style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: seqBusy ? "rgba(245,158,11,0.4)" : "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>{seqBusy ? "⟳ Generating…" : "🎬 Generate sequence"}</button>
+                <button onClick={generateSequence} disabled={seqBusy} style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: seqBusy ? "rgba(245,158,11,0.4)" : "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>{seqBusy ? "⟳ Generating…" : (seqBuildNext ? "🎬 Generate this ad" : ((!seqLeadId && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? "↻ Regenerate" : "🎬 Generate sequence"))}</button>
+                {(!seqLeadId && !seqBuildNext && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? <button onClick={saveSeqTemplate} disabled={seqBusy} title="Save this as your sequence lead, then add the next ad" style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>✓ Save as lead & start sequence</button> : null}
               </div>
+              </>) : null}
               {seqErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginBottom: 12 }}>{seqErr}</div> : null}
 
               {seqResults.length > 0 ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 16 }}>
-                  {seqResults.map(function (r, i) {
-                    return (
-                      <div key={i} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", padding: 8 }}>
-                        {r.videoUrl ? <video src={r.videoUrl} controls playsInline style={{ width: "100%", borderRadius: 8, background: "#000", display: "block" }} /> : <div style={{ aspectRatio: "9/16", display: "flex", alignItems: "center", justifyContent: "center", color: r.status === 'failed' ? "#fca5a5" : "#fbbf24", fontSize: 11, background: "rgba(0,0,0,0.3)", borderRadius: 8 }}>{r.status === 'failed' ? 'failed' : '⟳ rendering…'}</div>}
-                        <div style={{ fontSize: 9.5, color: "#7e92a8", marginTop: 5 }}>Shot {i + 1}</div>
-                      </div>
-                    );
-                  })}
+                <div ref={seqResultsRef} style={{ marginBottom: 16 }}>
+                  {(seqBuildNext && seqResults.some(function (r) { return r.videoUrl; })) ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, padding: "8px 11px", borderRadius: 10, border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.08)" }}>
+                      <button onClick={addToSequence} disabled={seqAddBusy} style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqAddBusy ? "default" : "pointer", background: seqAddBusy ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg,#10b981,#059669)", color: "white", whiteSpace: "nowrap" }}>{seqAddBusy ? "⟳ Adding…" : "＋ Add to sequence"}</button>
+                      <span style={{ fontSize: 10.5, color: "#6ee7b7" }}>links this ad to your lead as the next in line — don't forget this step</span>
+                    </div>
+                  ) : null}
+                  <div style={seqResults.length === 1 ? { display: "flex", justifyContent: "center" } : { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+                    {seqResults.map(function (r, i) {
+                      const _single = seqResults.length === 1;
+                      return (
+                        <div key={i} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", padding: 8, ...(_single ? { width: "100%", maxWidth: 320 } : {}) }}>
+                          {r.videoUrl ? <video src={r.videoUrl} controls playsInline style={{ width: "100%", borderRadius: 8, background: "#000", display: "block" }} /> : <div style={{ aspectRatio: "9/16", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "rgba(0,0,0,0.3)", borderRadius: 8 }}>{r.status === 'failed' ? <span style={{ color: "#fca5a5", fontSize: 11, fontWeight: 700 }}>failed</span> : (<><VideoProgressBars /><span style={{ color: "#8b7bc7", fontSize: 10, fontWeight: 600 }}>rendering…</span></>)}</div>}
+                          <div style={{ fontSize: 9.5, color: "#7e92a8", marginTop: 5 }}>Clip {i + 1}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : null}
 
-              <div style={{ paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Save as template</div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                  <input value={seqName} onChange={e => setSeqName(e.target.value)} placeholder="Template name" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
-                  <button onClick={saveSeqTemplate} style={{ padding: "8px 14px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>Save template</button>
-                </div>
-                {seqMsg ? <div style={{ fontSize: 11, color: "#34d399", marginBottom: 8 }}>{seqMsg}</div> : null}
-                <button onClick={() => { if (seqTemplates === null) loadSeqTemplates(); else setSeqTemplates(null); }} style={{ fontSize: 11, fontWeight: 700, color: "#c4b5fd", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 11px", cursor: "pointer" }}>📁 {seqTemplates === null ? "Show saved templates" : "Hide"}</button>
-                {seqTemplates !== null ? (
-                  seqTemplates.length === 0 ? <div style={{ fontSize: 11, color: "#5a6b80", marginTop: 8 }}>No templates yet.</div> : (
-                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                      {seqTemplates.map(function (t) {
-                        const nShots = (t.shots && t.shots.length) || 1;
-                        return (
-                          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
-                            {t.thumbnailUrl ? <img src={t.thumbnailUrl} alt="" style={{ width: 28, height: 28, borderRadius: 5, objectFit: "cover", background: "#1e293b" }} /> : null}
-                            <div style={{ flex: 1, minWidth: 0, fontSize: 11, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name || "Template"} <span style={{ color: "#5a6b80" }}>· {nShots} shot{nShots === 1 ? "" : "s"}</span></div>
-                            <button onClick={() => loadSeqTemplate(t)} style={{ padding: "4px 10px", fontSize: 10.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>Load</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )
-                ) : null}
-              </div>
+              {!seqLeadId ? <div style={{ fontSize: 10, color: "#5a6b80", marginTop: 4 }}>Save this as a reusable lead with <strong style={{ color: "#6ee7b7" }}>💾 Save as template</strong> (top right) — it lands in your <strong style={{ color: "#a5b4fc" }}>Library → Template ads</strong>.</div> : null}
             </div>
           </div>
         )}
@@ -5769,7 +6406,7 @@ STRICT rules:
                   <button onClick={() => setFeedOpen(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
                 </div>
               </div>
-              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify store URL or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
+              <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify or WooCommerce store URL, a Wix shop-page URL, or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <input value={feedSource} onChange={e => setFeedSource(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
                 <button onClick={fetchFeed} disabled={feedLoading || !feedTermsAccepted || feedBatchBusy || !!feedSingleBusy} title={!feedTermsAccepted ? 'Accept the Product Feed Upload Terms to continue' : ((feedBatchBusy || feedSingleBusy) ? 'Generation in progress — please wait' : '')} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "default" : "pointer", background: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
@@ -5870,7 +6507,7 @@ STRICT rules:
                   <>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
                       <div style={{ fontSize: 11, color: "#7e92a8" }}>
-                        Source: <b style={{ color: "#5eead4" }}>{feedResult.source === 'gmc' ? 'Google Merchant' : 'Shopify'}</b> · {groups.length} {feedGroupBy === 'brand' ? 'brands' : 'categories'} · {all.length} products{typeof feedResult.count === 'number' && feedResult.count > all.length ? (' (' + feedResult.count + ' in feed)') : ''}
+                        Source: <b style={{ color: "#5eead4" }}>{feedResult.source === 'gmc' ? 'Google Merchant' : (feedResult.source === 'woocommerce' ? 'WooCommerce' : (feedResult.source === 'wix' ? 'Wix' : 'Shopify'))}</b> · {groups.length} {feedGroupBy === 'brand' ? 'brands' : 'categories'} · {all.length} products{typeof feedResult.count === 'number' && feedResult.count > all.length ? (' (' + feedResult.count + ' in feed)') : ''}
                       </div>
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         {Object.keys(feedOutputs).length > 0 && (
@@ -6024,9 +6661,20 @@ STRICT rules:
           <div onClick={() => setShowVault(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24 }}>
             <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 940, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "#0f172a", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16, padding: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
-                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>◳ Ad Library <span style={{ fontSize: 12, fontWeight: 800, color: "#a5b4fc" }}>· {vaultItems.length} saved{(() => { const p = vaultItems.filter(it => it.status === 'pending_review').length; return p ? ' · ' + p + ' pending' : ''; })()}</span></span>
+                <span style={{ fontSize: 18, fontWeight: 900, color: "white" }}>◳ Library <span style={{ fontSize: 12, fontWeight: 800, color: "#a5b4fc" }}>· {vaultTab === 'templates' ? ((Array.isArray(seqTemplates) ? seqTemplates.length : 0) + ' template' + ((Array.isArray(seqTemplates) ? seqTemplates.length : 0) === 1 ? '' : 's')) : (vaultItems.length + ' saved' + (() => { const p = vaultItems.filter(it => it.status === 'pending_review').length; return p ? ' · ' + p + ' pending' : ''; })())}</span></span>
                 <button onClick={() => setShowVault(false)} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer" }}>✕</button>
               </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, flexShrink: 0 }}>
+                {[{ id: 'ads', label: 'Saved ads' }, { id: 'templates', label: 'Template ads' }].map(function (tb) {
+                  const on = vaultTab === tb.id;
+                  const cnt = tb.id === 'templates' ? (Array.isArray(seqTemplates) ? seqTemplates.length : 0) : vaultItems.length;
+                  return (
+                    <button key={tb.id} onClick={() => setVaultTab(tb.id)} style={{ padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 9, cursor: "pointer", border: on ? "1px solid rgba(99,102,241,0.6)" : "1px solid rgba(255,255,255,0.1)", background: on ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.02)", color: on ? "#c7d2fe" : "#9db0c7" }}>{tb.label} <span style={{ color: on ? "#a5b4fc" : "#5a6b80", fontWeight: 700 }}>· {cnt}</span></button>
+                  );
+                })}
+                <div style={{ marginLeft: "auto", fontSize: 11, color: "#5a6b80", maxWidth: 240, textAlign: "right", lineHeight: 1.35 }}>{vaultTab === 'templates' ? 'Sequence leaders — a fixed persona, set to open a funnel.' : 'Reusable single ads.'}</div>
+              </div>
+              {vaultTab === 'ads' ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap", flexShrink: 0 }}>
                 <select value={vaultStatus} onChange={e => setVaultStatus(e.target.value)} style={selStyle}>
                   <option value="all">All</option>
@@ -6040,6 +6688,11 @@ STRICT rules:
                 </select>
                 <button onClick={fetchVault} disabled={vaultLoading} style={{ padding: "6px 12px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", cursor: vaultLoading ? "default" : "pointer" }}>{vaultLoading ? 'Loading…' : '↻ Refresh'}</button>
               </div>
+              ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexShrink: 0 }}>
+                <button onClick={loadSeqTemplates} style={{ padding: "6px 12px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", cursor: "pointer" }}>↻ Refresh</button>
+              </div>
+              )}
               {vaultJobs.filter(j => j && (j.status === 'queued' || j.status === 'running' || j.status === 'scheduled')).map(j => {
                 const c = j.counts || { total: 0, done: 0, failed: 0 };
                 const inflight = Math.max(0, (c.total || 0) - (c.done || 0) - (c.failed || 0));
@@ -6051,7 +6704,50 @@ STRICT rules:
               })}
               {vaultError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10, flexShrink: 0 }}>{vaultError}</div>}
               <div style={{ flex: 1, overflowY: "auto" }}>
-                {vaultLoading && !items.length ? (
+                {vaultTab === 'templates' ? (
+                  (seqTemplates === null || (Array.isArray(seqTemplates) && seqTemplates.length === 0)) ? (
+                    <div style={emptyStyle}>{seqTemplates === null ? 'Loading templates…' : 'No template ads yet — build a sequence lead in the Sequential Ad Builder, then use “Save as template to library”.'}</div>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 12 }}>
+                      {seqTemplates.map(function (t) {
+                        const nShots = (t.shots && t.shots.length) || 1;
+                        const objs = Array.isArray(t.shotObjectives) ? t.shotObjectives : [];
+                        return (
+                          <div key={t.id} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid rgba(245,158,11,0.25)", background: "rgba(245,158,11,0.04)", display: "flex", flexDirection: "column" }}>
+                            <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
+                              {t.thumbnailUrl ? <img src={t.thumbnailUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                              <span style={{ position: "absolute", top: 6, left: 6, fontSize: 9.5, fontWeight: 800, color: "#1a1206", background: "rgba(245,158,11,0.92)", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" }}>★ Template</span>
+                              <span title="Use for sequential ads" style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, color: "#fbbf24", background: "rgba(0,0,0,0.55)", borderRadius: 6, border: "1px solid rgba(245,158,11,0.5)", cursor: "default" }}>⤵</span>
+                            </div>
+                            <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                              <div style={{ fontSize: 12.5, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name || '(untitled template)'}</div>
+                              <div style={{ fontSize: 10.5, color: "#7e92a8" }}>{nShots + ' shot' + (nShots === 1 ? '' : 's') + (t.promo ? ' · SALE' : '')}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap" }}>
+                                {(objs.length ? objs : ['awareness']).slice(0, 4).map(function (oid, k) {
+                                  const o = seqObjMeta(oid);
+                                  return (
+                                    <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                      {k > 0 ? <span style={{ color: "#3a4a64", fontSize: 10 }}>→</span> : null}
+                                      <span style={{ padding: "1px 6px", fontSize: 9, fontWeight: 800, borderRadius: 999, background: o.color + "22", color: o.color, border: "1px solid " + o.color + "55" }}>{o.label}</span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                              <button onClick={() => { loadSeqTemplate(t); setShowVault(false); openSeqBuilder(); }} style={{ padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", marginTop: 2 }}>⚡ Load into builder</button>
+                              <div style={{ display: "flex", gap: 6, marginTop: "auto" }}>
+                                {seqTplConfirm === t.id ? (
+                                  <button onClick={() => deleteSeqTemplate(t.id)} style={{ flex: 1, padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(248,113,113,0.5)", background: "rgba(248,113,113,0.15)", color: "#fca5a5" }}>Sure?</button>
+                                ) : (
+                                  <button onClick={() => setSeqTplConfirm(t.id)} style={{ flex: 1, padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#9db0c7" }}>Remove</button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                ) : (vaultLoading && !items.length) ? (
                   <div style={emptyStyle}>Loading your library…</div>
                 ) : items.length === 0 ? (
                   <div style={emptyStyle}>No saved ads yet — hit <b style={{ color: "#5eead4" }}>Save</b> on a generated ad to build your library.</div>
@@ -6063,7 +6759,7 @@ STRICT rules:
                     <div key={it.id} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", display: "flex", flexDirection: "column" }}>
                       <div onClick={() => openVaultItem(it)} title="Open in the editor" style={{ cursor: "pointer", position: "relative" }}>
                         <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
-                          {it.thumb ? <img src={it.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                          {it.thumb ? ((function () { const _isVideoThumb = String(it.thumb).toLowerCase(); return _isVideoThumb.indexOf('.mp4') !== -1 || _isVideoThumb.indexOf('.webm') !== -1 || _isVideoThumb.indexOf('.mov') !== -1; })() ? <video src={it.thumb} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <img src={it.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain" }} />) : null}
                           {it.hasVideo ? <span style={{ position: "absolute", top: 6, right: 6, ...chip("rgba(139,92,246,0.92)", "white", "transparent") }}>▶ video</span> : null}
                           {typeof it.score === 'number' ? <span style={{ position: "absolute", top: 6, left: 6, fontSize: 11, fontWeight: 900, color: "#06281f", background: "#fbbf24", borderRadius: 6, padding: "2px 7px" }}>{it.score}/10</span> : null}
                         </div>
@@ -6327,9 +7023,11 @@ STRICT rules:
                             {charLib.map(function (c) {
                               return (
                                 <div key={c.id} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
-                                  <div style={{ position: "relative", aspectRatio: "1" }}>
+                                  <div onClick={() => { if (seqReturn && c.seedanceAssetUri) setSeqPersona(c); }} style={{ position: "relative", aspectRatio: "1", cursor: (seqReturn && c.seedanceAssetUri) ? "pointer" : "default" }}>
                                     <img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} />
-                                    <div onClick={() => deleteChar(c.id)} title="Remove" style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.6)", color: "#fca5a5", fontSize: 13, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>×</div>
+                                    <div onClick={(e) => { e.stopPropagation(); deleteChar(c.id); }} title="Remove" style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.6)", color: "#fca5a5", fontSize: 13, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>×</div>
+                                    {(seqReturn && c.seedanceAssetUri && !(seqPersona && seqPersona.id === c.id)) ? <div style={{ position: "absolute", bottom: 4, left: 4, fontSize: 9, fontWeight: 800, color: "#0b1020", background: "rgba(245,158,11,0.92)", borderRadius: 5, padding: "2px 6px" }}>Tap to use</div> : null}
+                                    {(seqReturn && seqPersona && seqPersona.id === c.id && c.seedanceAssetUri) ? <div onClick={(e) => { e.stopPropagation(); setShowCreativeStudio(false); setSeqOpen(true); setSeqReturn(false); }} title="Use this persona and go back to your ad" style={{ position: "absolute", inset: 0, background: "rgba(10,12,22,0.74)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", padding: 8, textAlign: "center" }}><span style={{ fontSize: 22, color: "#fbbf24", lineHeight: 1 }}>←</span><span style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", lineHeight: 1.3 }}>Return to your ad</span></div> : null}
                                   </div>
                                   <div style={{ padding: "5px 7px 7px" }}>
                                     <div style={{ fontSize: 10, color: "#e2e8f0", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Untitled"}</div>
@@ -11062,7 +11760,7 @@ STRICT rules:
           }}>
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>★ Saved Library</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>★ Favourites</div>
                 <div style={{ fontSize: 11, color: '#4a5568', marginTop: 2 }}>{library.length} saved output{library.length !== 1 ? 's' : ''} — click Replay to reload</div>
               </div>
               <button onClick={() => setShowLibrary(false)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 20, cursor: 'pointer' }}>✕</button>
@@ -11493,7 +12191,7 @@ STRICT rules:
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={() => setImagenStep(3)} style={{ flex: 1, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8, background: "rgba(255,255,255,0.04)", color: "#7e92a8", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}>← Regenerate</button>
-                    <button onClick={() => { setMetaResult(prev => ({ ...prev, imageUrl: imagenPreview })); setImagenOpen(false); }} style={{ flex: 2, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8, background: "linear-gradient(135deg,#059669,#10b981)", color: "white", border: "none", cursor: "pointer" }}>✓ Use this image</button>
+                    <button onClick={() => { setMetaResult(prev => ({ ...prev, imageUrl: imagenPreview })); tiktokSourceImageRef.current = imagenPreview; setImagenOpen(false); }} style={{ flex: 2, padding: "10px 0", fontSize: 12, fontWeight: 700, borderRadius: 8, background: "linear-gradient(135deg,#059669,#10b981)", color: "white", border: "none", cursor: "pointer" }}>✓ Use this image</button>
                   </div>
                 </div>
               )}
