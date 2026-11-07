@@ -3773,7 +3773,7 @@ function RSAStudio() {
     if (!shots.length) { setSeqErr('Add at least one shot prompt.'); return; }
     setSeqMsg(''); setSeqErr('');
     try {
-      const firstVid = videoUrlOverride || (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
+      const firstVid = (typeof videoUrlOverride === 'string' ? videoUrlOverride : null) || (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || seqLeadVideo || null;
       const _leadName = seqNoPersona ? 'Model-image sequence' : (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template');
       const body = { action: 'save', id: seqLeadId || undefined, name: seqName.trim() || _leadName, assetUri: seqNoPersona ? null : seqPersona.seedanceAssetUri, characterId: seqNoPersona ? ('none-lane:' + (seqNoneEngine || 'kling')) : (seqPersona.id || null), prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: seqNoPersona ? (seqNoneEngine || 'kling') : 'seedance-byteplus', thumbnailUrl: seqNoPersona ? (seqProductUrl.trim() || null) : (seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null), lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
