@@ -3462,6 +3462,7 @@ function RSAStudio() {
   const [seqMarket, setSeqMarket] = useState('auto');
   const [seqInteraction, setSeqInteraction] = useState('auto');
   const [seqAutoBusy, setSeqAutoBusy] = useState(null);   // null | shot index | -1 (all)
+  const [seqLastWriteKey, setSeqLastWriteKey] = useState(null); // settings snapshot at last Auto-write (stale nudge)
   const [seqShotMeta, setSeqShotMeta] = useState([]);      // per-shot { market, interactionMode } from the generator
   const [seqLeadVideo, setSeqLeadVideo] = useState(null);  // loaded template's opening video (shown at the top)
   const [seqSaveOpen, setSeqSaveOpen] = useState(false);   // header "Save as template" bar toggle
@@ -3662,6 +3663,7 @@ function RSAStudio() {
       const ns = seqShots.slice(); const nm = seqShotMeta.slice();
       results.forEach(function (d, i) { if (d && d.shot && d.shot.prompt) { ns[i] = d.shot.prompt; nm[i] = { market: d.shot.market, interactionMode: d.shot.interactionMode }; } });
       setSeqShots(ns); setSeqShotMeta(nm);
+      setSeqLastWriteKey(seqMarket + '|' + seqInteraction + '|' + (Array.isArray(seqShotObjectives) ? seqShotObjectives.join(',') : '') + '|' + (seqPromo ? '1' : '0'));
       return ns;
     } catch (_) { setSeqErr('Auto-write failed — please try again.'); return seqShots.slice(); }
     finally { setSeqAutoBusy(null); }
@@ -6318,7 +6320,11 @@ STRICT rules:
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em" }}>Storyboard <span style={{ color: "#5a6b80", fontWeight: 600 }}>· one clip each</span></span>
-                <button onClick={autoWriteAll} disabled={seqAutoBusy !== null} title="Auto-write every clip from its objective" style={{ padding: "5px 12px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "none", cursor: seqAutoBusy !== null ? "default" : "pointer", background: seqAutoBusy !== null ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{seqAutoBusy === -1 ? "⟳ Writing…" : "✨ Auto-write all"}</button>
+                {(() => {
+                  const _curKey = seqMarket + '|' + seqInteraction + '|' + (Array.isArray(seqShotObjectives) ? seqShotObjectives.join(',') : '') + '|' + (seqPromo ? '1' : '0');
+                  const _stale = seqLastWriteKey !== null && seqLastWriteKey !== _curKey && seqShots.some(function (s) { return String(s || '').trim(); });
+                  return <button onClick={autoWriteAll} disabled={seqAutoBusy !== null} title={_stale ? "Settings changed since the last write — re-write the storyboard to match" : "Auto-write every clip from its objective"} style={{ padding: "5px 12px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "none", cursor: seqAutoBusy !== null ? "default" : "pointer", background: seqAutoBusy !== null ? "rgba(139,92,246,0.4)" : (_stale ? "linear-gradient(135deg,#f59e0b,#ef4444)" : "linear-gradient(135deg,#8b5cf6,#6366f1)"), color: "white" }}>{seqAutoBusy === -1 ? "⟳ Writing…" : (_stale ? "↻ Re-write storyboard" : "✨ Auto-write all")}</button>;
+                })()}
               </div>
               {seqShots.map(function (s, i) {
                 const objId = seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length);
@@ -6366,10 +6372,11 @@ STRICT rules:
                       <span style={{ fontSize: 10.5, color: "#6ee7b7" }}>links this ad to your lead as the next in line — don't forget this step</span>
                     </div>
                   ) : null}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+                  <div style={seqResults.length === 1 ? { display: "flex", justifyContent: "center" } : { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
                     {seqResults.map(function (r, i) {
+                      const _single = seqResults.length === 1;
                       return (
-                        <div key={i} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", padding: 8 }}>
+                        <div key={i} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", padding: 8, ...(_single ? { width: "100%", maxWidth: 320 } : {}) }}>
                           {r.videoUrl ? <video src={r.videoUrl} controls playsInline style={{ width: "100%", borderRadius: 8, background: "#000", display: "block" }} /> : <div style={{ aspectRatio: "9/16", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "rgba(0,0,0,0.3)", borderRadius: 8 }}>{r.status === 'failed' ? <span style={{ color: "#fca5a5", fontSize: 11, fontWeight: 700 }}>failed</span> : (<><VideoProgressBars /><span style={{ color: "#8b7bc7", fontSize: 10, fontWeight: 600 }}>rendering…</span></>)}</div>}
                           <div style={{ fontSize: 9.5, color: "#7e92a8", marginTop: 5 }}>Clip {i + 1}</div>
                         </div>
