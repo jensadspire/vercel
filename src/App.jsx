@@ -3507,11 +3507,13 @@ function RSAStudio() {
   };
   const loadSequenceAds = async (leadId) => {
     const id = leadId || seqLeadId;
-    if (!id) { setSeqSequenceAds([]); return; }
+    if (!id) { setSeqSequenceAds([]); return []; }
     try {
       const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list', filters: { sequence: id } }) }).then(r => r.json());
-      setSeqSequenceAds(Array.isArray(d.creatives) ? d.creatives : []);
-    } catch (_) { setSeqSequenceAds([]); }
+      const _list = Array.isArray(d.creatives) ? d.creatives : [];
+      setSeqSequenceAds(_list);
+      return _list;
+    } catch (_) { setSeqSequenceAds([]); return []; }
   };
   const reCenterAd = (ad) => {
     if (seqBuildNext) {
@@ -3539,7 +3541,7 @@ function RSAStudio() {
         channels: { video: { url: vid } }, thumb: vid,
       };
       const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(payload) }).then(r => r.json());
-      if (d && (d.creative || d.id)) { setSeqMsg('✓ Added to sequence as Ad #' + (nextOrder + 1)); setSeqBuildNext(false); setSeqResults([]); loadSequenceAds(); return true; }
+      if (d && (d.creative || d.id)) { setSeqMsg('✓ Added to sequence as Ad #' + (nextOrder + 1)); setSeqBuildNext(false); setSeqResults([]); const _added = (await loadSequenceAds() || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); }).pop(); if (_added) setSeqActiveAd({ n: (_added.order || 0) + 1, video: _added.thumb || null, objective: _added.objective, kind: 'linked', id: _added.id }); return true; }
       else { setSeqErr(d && d.error ? ('Add failed: ' + d.error) : 'Add to sequence failed.'); return false; }
     } catch (_) { setSeqErr('Add to sequence failed — please try again.'); return false; }
     finally { setSeqAddBusy(false); }
