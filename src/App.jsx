@@ -3517,6 +3517,7 @@ function RSAStudio() {
       if (!window.confirm("You are building a new ad — switch to Ad #" + ad.n + " and discard this draft?")) return;
       setSeqBuildNext(false); setSeqResults([]);
     }
+    setSeqMsg(''); setSeqErr('');
     setSeqActiveAd(ad.kind === 'lead' ? null : ad);
   };
   const addToSequence = async () => {
@@ -6126,7 +6127,7 @@ STRICT rules:
                         <button onClick={() => setSeqActiveAd(null)} title="Back to the lead" style={{ position: "absolute", top: 10, right: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#c4b5fd", cursor: "pointer", lineHeight: 1.1 }}>↩ Back to lead</button>
                       ) : (seqLeadId ? <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} title="Load another template as the lead" style={{ position: "absolute", top: 10, right: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#c4b5fd", cursor: "pointer", lineHeight: 1.1 }}>Change lead</button> : null)}
                     </div>
-                    {(seqLeadId && !seqBuildNext && !seqActiveAd) ? (
+                    {(seqLeadId && !seqBuildNext && !seqActiveAd && (!Array.isArray(seqSequenceAds) || seqSequenceAds.length === 0)) ? (
                       <button onClick={openNextAd} title="Add a sequential ad" style={{ position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)", width: 48, height: 48, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 900, lineHeight: 1, color: "white", background: "linear-gradient(135deg,#f59e0b,#ef4444)", border: "3px solid #0f172a", boxShadow: "0 4px 14px rgba(0,0,0,0.45)", cursor: "pointer" }}>+</button>
                     ) : null}
                     {(seqLeadId && !seqBuildNext && !seqActiveAd) ? (
@@ -6749,7 +6750,7 @@ STRICT rules:
                     <div key={it.id} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", display: "flex", flexDirection: "column" }}>
                       <div onClick={() => openVaultItem(it)} title="Open in the editor" style={{ cursor: "pointer", position: "relative" }}>
                         <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#1e293b", overflow: "hidden", position: "relative" }}>
-                          {it.thumb ? ((function () { const _isVideoThumb = String(it.thumb).toLowerCase(); return _isVideoThumb.indexOf('.mp4') !== -1 || _isVideoThumb.indexOf('.webm') !== -1 || _isVideoThumb.indexOf('.mov') !== -1; })() ? <video src={it.thumb} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <img src={it.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />) : null}
+                          {it.thumb ? ((function () { const _isVideoThumb = String(it.thumb).toLowerCase(); return _isVideoThumb.indexOf('.mp4') !== -1 || _isVideoThumb.indexOf('.webm') !== -1 || _isVideoThumb.indexOf('.mov') !== -1; })() ? <video src={it.thumb} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <img src={it.thumb} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain" }} />) : null}
                           {it.hasVideo ? <span style={{ position: "absolute", top: 6, right: 6, ...chip("rgba(139,92,246,0.92)", "white", "transparent") }}>▶ video</span> : null}
                           {typeof it.score === 'number' ? <span style={{ position: "absolute", top: 6, left: 6, fontSize: 11, fontWeight: 900, color: "#06281f", background: "#fbbf24", borderRadius: 6, padding: "2px 7px" }}>{it.score}/10</span> : null}
                         </div>
