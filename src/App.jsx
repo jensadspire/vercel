@@ -3443,6 +3443,8 @@ function RSAStudio() {
   const [seqOpen, setSeqOpen] = useState(false);
   const [seqPersona, setSeqPersona] = useState(null);
   const [seqProductUrl, setSeqProductUrl] = useState('');
+  const [seqNoPersona, setSeqNoPersona] = useState(false);     // None lane: build from an image that already features a model
+  const [seqNoneEngine, setSeqNoneEngine] = useState('kling'); // K | V | R engine for the None lane (persists on the template)
   const [seqShots, setSeqShots] = useState(['']);
   const [seqRatio, setSeqRatio] = useState('9:16');
   const [seqDuration, setSeqDuration] = useState(5);
@@ -3671,7 +3673,59 @@ function RSAStudio() {
       loadSeqTemplates();
     } catch (_) {}
   };
+  const generateSequenceNone = async () => {
+    const modelImage = seqProductUrl.trim();
+    if (!/^https?:\/\//i.test(modelImage)) { setSeqErr('Add the image featuring your model (image URL).'); return; }
+    let shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+    if (!shots.length) { const _written = await autoWriteAll(); shots = (_written || []).map(function (s) { return String(s || '').trim(); }).filter(Boolean); }
+    if (!shots.length) { setSeqErr('Could not write a storyboard — please try again.'); return; }
+    setSeqBusy(true); setSeqErr(''); setSeqMsg('');
+    const eng = seqNoneEngine || 'kling';
+    const api = apiForEngine(eng);
+    const lang = (pageMeta && pageMeta.language) || 'English';
+    const IDENTITY = " Keep the exact same person as the reference image throughout — identical face, hairstyle, hair colour, skin tone, age and body. Do not restyle, replace or re-age them. End the clip on a clear, well-lit, front-facing shot of that same person's face.";
+    const mkBody = function (prompt) {
+      const full = prompt + IDENTITY;
+      return eng === 'runway' ? { imageUrl: modelImage, prompt: full, duration: 10, language: lang, brand: '', overlayIntro: '', overlayOutro: '' }
+        : eng === 'veo' ? { imageUrl: modelImage, prompt: full, language: lang, audio: false }
+        : { imageUrl: modelImage, storyboard: full, prompt: full, language: lang, brand: '', logoUrl: null, overlayIntro: '', overlayOutro: '' };
+    };
+    setSeqResults(shots.map(function (p) { return { prompt: p, status: 'running', videoUrl: '' }; }));
+    setTimeout(function () { try { if (seqResultsRef.current) seqResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {} }, 60);
+    try {
+      const creates = await Promise.all(shots.map(function (p) {
+        return fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mkBody(p)) }).then(r => r.json()).then(function (d) {
+          return { videoUrl: d.videoUrl || null, pollId: d.taskId || d.requestId || null, pollKey: d.taskId ? 'taskId' : 'requestId' };
+        }).catch(function () { return { videoUrl: null, pollId: null, pollKey: 'taskId' }; });
+      }));
+      const state = creates.map(function (c) { return { videoUrl: c.videoUrl || null, pollId: c.pollId, pollKey: c.pollKey, failed: !c.videoUrl && !c.pollId }; });
+      setSeqResults(shots.map(function (p, i) { const s = state[i]; return { prompt: p, status: s.videoUrl ? 'succeeded' : (s.failed ? 'failed' : 'running'), videoUrl: s.videoUrl || '' }; }));
+      let done = false, tries = 0;
+      while (!done && tries < 144) {
+        await new Promise(function (res) { setTimeout(res, 5000); });
+        await Promise.all(state.map(async function (s) {
+          if (s.videoUrl || s.failed) return;
+          try {
+            const pollBody = { action: 'poll' }; pollBody[s.pollKey] = s.pollId;
+            const pd = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pollBody) }).then(r => r.json());
+            if (pd.videoUrl) s.videoUrl = pd.videoUrl;
+            else if (pd.status === 'FAILED' || pd.status === 'CANCELLED' || pd.status === 'failed') s.failed = true;
+          } catch (_) {}
+        }));
+        setSeqResults(shots.map(function (p, i) { const s = state[i]; return { prompt: p, status: s.videoUrl ? 'succeeded' : (s.failed ? 'failed' : 'running'), videoUrl: s.videoUrl || '' }; }));
+        done = state.every(function (s) { return s.videoUrl || s.failed; });
+        tries++;
+      }
+      if (seqAutoLead) {
+        const _leadVid = (state.find(function (s) { return s.videoUrl; }) || {}).videoUrl || null;
+        if (_leadVid) { await saveSeqTemplate(_leadVid); }
+        setSeqAutoLead(false);
+      }
+    } catch (_) { setSeqErr('Generation failed — please try again.'); }
+    finally { setSeqBusy(false); }
+  };
   const generateSequence = async () => {
+    if (seqNoPersona) { return generateSequenceNone(); }
     if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
     let shots = seqShots.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
     if (!shots.length) { const _written = await autoWriteAll(); shots = (_written || []).map(function (s) { return String(s || '').trim(); }).filter(Boolean); }
@@ -3705,7 +3759,8 @@ function RSAStudio() {
     finally { setSeqBusy(false); }
   };
   const saveSeqTemplate = async (videoUrlOverride) => {
-    if (!seqPersona || !seqPersona.seedanceAssetUri) { setSeqErr('Pick a persona first.'); return; }
+    if (!seqNoPersona && (!seqPersona || !seqPersona.seedanceAssetUri)) { setSeqErr('Pick a persona first.'); return; }
+    if (seqNoPersona && !seqProductUrl.trim()) { setSeqErr('Add the image featuring your model.'); return; }
     const _pairs = seqShots.map(function (s, i) { return { p: String(s || '').trim(), o: (seqShotObjectives[i] || seqDefaultObjective(i, seqShots.length)) }; }).filter(function (x) { return x.p; });
     const shots = _pairs.map(function (x) { return x.p; });
     const shotObjectives = _pairs.map(function (x) { return x.o; });
@@ -3713,7 +3768,8 @@ function RSAStudio() {
     setSeqMsg(''); setSeqErr('');
     try {
       const firstVid = videoUrlOverride || (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || null;
-      const body = { action: 'save', id: seqLeadId || undefined, name: seqName.trim() || (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template'), assetUri: seqPersona.seedanceAssetUri, characterId: seqPersona.id || null, prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: 'seedance-byteplus', thumbnailUrl: seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null, lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
+      const _leadName = seqNoPersona ? 'Model-image sequence' : (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template');
+      const body = { action: 'save', id: seqLeadId || undefined, name: seqName.trim() || _leadName, assetUri: seqNoPersona ? null : seqPersona.seedanceAssetUri, characterId: seqNoPersona ? null : (seqPersona.id || null), prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: seqNoPersona ? (seqNoneEngine || 'kling') : 'seedance-byteplus', thumbnailUrl: seqNoPersona ? (seqProductUrl.trim() || null) : (seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null), lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
       if (d && d.template) { if (seqTemplates !== null) loadSeqTemplates(); setSeqSaveOpen(false); loadSeqTemplate(d.template); try { if (d.template.id && (seqOriginMeta || seqOriginSnap)) localStorage.setItem('seq:origin:' + d.template.id, JSON.stringify({ meta: seqOriginMeta, url: seqOriginUrl, snap: seqOriginSnap })); } catch (_) {} setSeqMsg(d.updated ? '✓ Lead updated.' : '✓ Lead saved — add the next ad with the + button.'); }
       else { setSeqErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
@@ -3721,6 +3777,8 @@ function RSAStudio() {
   };
   const loadSeqTemplate = (t) => {
     if (!t) return;
+    const _isNone = !t.assetUri && (t.engine === 'kling' || t.engine === 'veo' || t.engine === 'runway');
+    setSeqNoPersona(_isNone); if (_isNone) setSeqNoneEngine(t.engine);
     const persona = (Array.isArray(charLib) ? charLib.find(function (c) { return c.seedanceAssetUri && (c.id === t.characterId || c.seedanceAssetUri === t.assetUri); }) : null)
       || (t.assetUri ? { id: t.characterId || null, name: 'Lead persona', seedanceAssetUri: t.assetUri, thumbnailUrl: t.thumbnailUrl || null } : null);
     setSeqPersona(persona);
@@ -3747,7 +3805,7 @@ function RSAStudio() {
     setSeqShotObjectives(['awareness']); setSeqPromo(false); setSeqShotMeta([]); setSeqLeadVideo(null); setSeqLeadId(null); setSeqBuildNext(false); setSeqSequenceAds([]); setSeqActiveAd(null);
     setSeqResults([]); setSeqMsg(''); setSeqErr('');
     setSeqName(it.productTitle ? (it.productTitle + ' — persona') : '');
-    setSeqPersona(null);
+    setSeqPersona(null); setSeqNoPersona(false);
     setShowVault(false);
     setSeqSelector('persona'); // ultra-short: land with the persona chooser already open
     setSeqAutoLead(true);      // first generate on this path auto-becomes the lead
@@ -6170,15 +6228,34 @@ STRICT rules:
                               </div>
                               <div style={{ padding: "3px 4px 5px", fontSize: 9, color: "#9db0c7", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>New persona</div>
                             </div>
+                            <div onClick={() => { setSeqNoPersona(true); setSeqPersona(null); setSeqLeadVideo(null); }} title="Build from an image that already features a model" style={{ cursor: "pointer", width: 92, borderRadius: 10, overflow: "hidden", border: seqNoPersona ? "2px solid #f59e0b" : "1px dashed #3a4a74", background: seqNoPersona ? "rgba(245,158,11,0.12)" : "#13213f", textAlign: "center" }}>
+                              <div style={{ aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <span style={{ fontSize: 30, color: seqNoPersona ? "#fbbf24" : "#6b82b8", lineHeight: 1 }}>⊘</span>
+                              </div>
+                              <div style={{ padding: "3px 4px 5px", fontSize: 9, color: seqNoPersona ? "#fbbf24" : "#9db0c7", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>None</div>
+                            </div>
                             {personaBoxes.map(function (c) {
                               const on = seqPersona && seqPersona.id === c.id;
                               return (
-                                <div key={c.id} onClick={() => { setSeqPersona(c); setSeqSelector(null); setSeqLeadVideo(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center" }}>
+                                <div key={c.id} onClick={() => { setSeqPersona(c); setSeqNoPersona(false); setSeqSelector(null); setSeqLeadVideo(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center" }}>
                                   <div style={{ aspectRatio: "1" }}><img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} /></div>
                                   <div style={{ padding: "3px 4px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
                                 </div>
                               );
                             })}
+                            {seqNoPersona ? (
+                              <div style={{ flexBasis: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 4 }}>
+                                <div style={{ fontSize: 9.5, color: "#8ea2b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Animation engine · stays for this product</div>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  {[{ k: "kling", t: "K" }, { k: "veo", t: "V" }, { k: "runway", t: "R" }].map(function (e) {
+                                    const on = seqNoneEngine === e.k;
+                                    return (
+                                      <button key={e.k} onClick={() => setSeqNoneEngine(e.k)} title={e.k} style={{ width: 40, height: 40, borderRadius: 10, cursor: "pointer", fontSize: 16, fontWeight: 900, border: on ? "2px solid #f59e0b" : "1px solid rgba(255,255,255,0.18)", background: on ? "rgba(245,158,11,0.16)" : "rgba(255,255,255,0.03)", color: on ? "#fbbf24" : "#c7d2e0" }}>{e.t}</button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : null}
                           </>
                         ) : null}
                         {seqSelector === 'objective' ? SEQ_OBJECTIVES.map(function (o) {
@@ -6220,9 +6297,9 @@ STRICT rules:
                   <input value={seqOfferText} onChange={e => setSeqOfferText(e.target.value)} maxLength={40} placeholder="e.g. Now €49 · 20% OFF · Limited time" style={{ width: "100%", boxSizing: "border-box", padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(236,72,153,0.4)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
                 </div>
               ) : null}
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Product <span style={{ color: "#5a6b80", fontWeight: 600 }}>· optional</span></div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{seqNoPersona ? "Image featuring your model " : "Product "}<span style={{ color: "#5a6b80", fontWeight: 600 }}>{seqNoPersona ? "· required" : "· optional"}</span></div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
-                <input value={seqProductUrl} onChange={e => setSeqProductUrl(e.target.value)} placeholder="Product image URL (packshot — no person in it)" style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                <input value={seqProductUrl} onChange={e => setSeqProductUrl(e.target.value)} placeholder={seqNoPersona ? "Image URL — a photo that already shows your model" : "Product image URL (packshot — no person in it)"} style={{ flex: 1, minWidth: 0, padding: "8px 11px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
                 {seqProductUrl.trim() ? <img src={seqProductUrl.trim()} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, background: "#1e293b" }} /> : null}
               </div>
 
