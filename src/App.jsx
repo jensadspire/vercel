@@ -3590,9 +3590,12 @@ function RSAStudio() {
   // Chained publish: first video creates campaign + ad set; the rest join it via existingAdSetId,
   // so the whole story lands in ONE ad set. All ads PAUSED (meta-publish default).
   // Flip to the front-page 3-ad viewer: original (stale) Google + Meta + this sequence video.
-  const viewSeqAd = (videoUrl) => {
+  const viewSeqAd = (videoUrl, adKey) => {
     const s = seqOriginSnap || {};
-    restoreFeedEntry({ url: seqOriginUrl || s.url || '', rows: s.rows || null, metaResult: seqOriginMeta || s.metaResult || null, carouselCardTexts: s.carouselCardTexts || [], tiktokResult: s.tiktokResult || null, engine: s.engine || null, archetype: s.archetype || null, videoUrl: videoUrl || null });
+    const _base = seqOriginMeta || s.metaResult || null;
+    const _pc = (adKey && seqPubCopies && seqPubCopies[adKey]) ? seqPubCopies[adKey] : null;
+    const _meta = _pc ? Object.assign({}, _base || {}, { headlines: [_pc.headline || '', _pc.headline || ''], primaryTexts: [_pc.primary || '', _pc.primary || ''], descriptions: [_pc.description || '', _pc.description || ''] }) : _base;
+    restoreFeedEntry({ url: seqOriginUrl || s.url || '', rows: s.rows || null, metaResult: _meta, carouselCardTexts: s.carouselCardTexts || [], tiktokResult: s.tiktokResult || null, engine: s.engine || null, archetype: s.archetype || null, videoUrl: videoUrl || null });
     setSeqPubReturn(true); setSeqPubOpen(false); setSeqOpen(false);
   };
   const publishSeqStory = async () => {
@@ -6085,7 +6088,7 @@ STRICT rules:
                                 <span style={{ fontSize: 11.5, fontWeight: 800, color: "#e2e8f0" }}>{a.label}</span>
                                 <span style={{ fontSize: 10, fontWeight: 700, color: om.color }}>{om.label}{a.videoUrl ? "" : " · no video"}</span>
                               </span>
-                              {a.videoUrl ? <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); viewSeqAd(a.videoUrl); }} title="Open in the 3-ad viewer — original Google + Meta + this video" style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 10, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.12)", color: "#93c5fd", cursor: "pointer", whiteSpace: "nowrap" }}>👁 View</button> : null}
+                              {a.videoUrl ? <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); viewSeqAd(a.videoUrl, a.key); }} title="Open in the 3-ad viewer — original Google + Meta + this video" style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 10, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.12)", color: "#93c5fd", cursor: "pointer", whiteSpace: "nowrap" }}>👁 View</button> : null}
                             </label>
                           );
                         })}
