@@ -3479,6 +3479,8 @@ function RSAStudio() {
   const [seqOriginUrl, setSeqOriginUrl] = useState('');     // original ad's real landing URL (click destination)
   const [seqOriginSnap, setSeqOriginSnap] = useState(null); // original ad's full viewer snapshot (Google+Meta) for "View"
   const [seqPubUseMetaCopy, setSeqPubUseMetaCopy] = useState(false); // false = video variation [1], true = Meta copy [0]
+  const [seqPubCopies, setSeqPubCopies] = useState({});      // per-ad copy: { [ad.key]: { headline, primary, description } }
+  const [seqPubActiveKey, setSeqPubActiveKey] = useState(null); // which ad's copy the tabs are editing
   const [seqPubBusy, setSeqPubBusy] = useState(false);     // chained publish in flight
   const [seqPubProgress, setSeqPubProgress] = useState(''); // "Publishing 2 of 3…"
   const [seqPubResult, setSeqPubResult] = useState(null);  // { ok, total, done, failures[], adsManagerUrl, error }
@@ -3564,12 +3566,25 @@ function RSAStudio() {
     const headline = pick(m.headlines) || String(seqName || '').replace(/ — (persona|sequence)$/i, '');
     return { headline: String(headline).slice(0, 40), primary: pick(m.primaryTexts), description: pick(m.descriptions) };
   };
+  const seqSeedCopies = (useMeta) => {
+    const m = seqOriginMeta || {};
+    const baseIdx = useMeta ? 0 : 1;
+    const rot = function (arr, i) { if (!Array.isArray(arr) || !arr.length) return ''; return arr[(baseIdx + i) % arr.length] || arr[0] || ''; };
+    const fallbackH = String(seqName || '').replace(/ — (persona|sequence)$/i, '');
+    const next = {};
+    seqStoryAds().forEach(function (a, i) {
+      const h = rot(m.headlines, i) || fallbackH;
+      next[a.key] = { headline: String(h).slice(0, 40), primary: rot(m.primaryTexts, i), description: rot(m.descriptions, i) };
+    });
+    setSeqPubCopies(next);
+  };
   const openSeqPub = () => {
     setSeqPubUseMetaCopy(false);
     const landing = String(seqOriginUrl || '').trim();
     const prod = String(seqProductUrl || '').trim();
     setSeqPubDest(/^https?:\/\//i.test(landing) ? landing : (/^https?:\/\//i.test(prod) ? prod : ''));
     setSeqPubSel(null); setSeqPubResult(null); setSeqPubProgress('');
+    setSeqPubActiveKey(null); seqSeedCopies(false);
     setSeqPubOpen(true);
   };
   // Chained publish: first video creates campaign + ad set; the rest join it via existingAdSetId,
@@ -3589,21 +3604,20 @@ function RSAStudio() {
     if (!/^https?:\/\//i.test(dest)) { setSeqPubResult({ ok: false, total: sel.length, done: 0, failures: [], error: 'Enter a valid destination URL (https://…).' }); return; }
     setSeqPubBusy(true); setSeqPubResult(null);
     const targeting = { countries: targetCountries, ageMin: targetAgeMin, ageMax: targetAgeMax, placements: targetPlacements, dailyBudget: targetBudget };
-    const _c = seqPubCopy();
-    const headline = _c.headline;
-    const primary = _c.primary;
+    const _fallback = seqPubCopy();
     const campaignName = 'AI Ad Studio — Story — ' + new Date().toLocaleDateString();
     let campaignId = null, adSetId = null, adsManagerUrl = null, done = 0;
     const failures = [];
     for (let i = 0; i < sel.length; i++) {
       const ad = sel[i];
+      const _adCopy = (seqPubCopies && seqPubCopies[ad.key]) ? seqPubCopies[ad.key] : _fallback;
       setSeqPubProgress('Publishing ' + (i + 1) + ' of ' + sel.length + '…');
       try {
         const r = await fetch('/api/meta-publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(isSignedIn && session ? { 'x-clerk-session': await session.getToken() } : {}) },
           body: JSON.stringify({
-            headline: headline, primaryText: primary, description: _c.description || '',
+            headline: (_adCopy.headline || _fallback.headline || ''), primaryText: _adCopy.primary || '', description: _adCopy.description || '',
             videoUrl: ad.videoUrl, destinationUrl: dest,
             adName: 'AI Ad Studio — Story — ' + ad.label + (ad.objective ? (' · ' + ad.objective) : ''),
             campaignName: campaignName,
@@ -6077,18 +6091,33 @@ STRICT rules:
                         })}
                       </div>
                       {(() => {
-                        const _c = seqPubCopy();
+                        const _ads = seqStoryAds().filter(function (a) { return a.videoUrl && (seqPubSel === null || seqPubSel[a.key]); });
+                        const _activeKey = (seqPubActiveKey && _ads.some(function (a) { return a.key === seqPubActiveKey; })) ? seqPubActiveKey : (_ads[0] ? _ads[0].key : null);
+                        const _active = _ads.find(function (a) { return a.key === _activeKey; }) || null;
+                        const _cur = (_active && seqPubCopies[_active.key]) ? seqPubCopies[_active.key] : seqPubCopy();
+                        const _setCur = function (patch) { if (!_active) return; setSeqPubCopies(function (prev) { const nx = Object.assign({}, prev || {}); nx[_active.key] = Object.assign({}, nx[_active.key] || seqPubCopy(), patch); return nx; }); };
                         const _landing = String(seqOriginUrl || '').trim();
                         const _hasLanding = /^https?:\/\//i.test(_landing);
                         return (
                           <>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                              <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em" }}>Ad copy <span style={{ color: "#5a6b80", fontWeight: 600 }}>· auto from your original ad</span></div>
-                              <button onClick={() => setSeqPubUseMetaCopy(function (v) { return !v; })} disabled={seqPubBusy} title={seqPubUseMetaCopy ? "Using the Meta ad copy — click for the video variation" : "Using the video variation — click to reuse the Meta ad copy"} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 7, cursor: seqPubBusy ? "default" : "pointer", border: "1px solid rgba(8,102,255,0.5)", background: seqPubUseMetaCopy ? "#0866FF" : "rgba(8,102,255,0.12)", color: seqPubUseMetaCopy ? "#fff" : "#60a5fa", fontSize: 10, fontWeight: 800 }}>⟲ {seqPubUseMetaCopy ? "Meta copy" : "Use Meta copy"}</button>
+                              <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em" }}>Ad copy <span style={{ color: "#5a6b80", fontWeight: 600 }}>· one per ad · editable</span></div>
+                              <button onClick={() => { const _nv = !seqPubUseMetaCopy; setSeqPubUseMetaCopy(_nv); seqSeedCopies(_nv); }} disabled={seqPubBusy} title={seqPubUseMetaCopy ? "Using the Meta ad copy — click for the video variation" : "Using the video variation — click to reuse the Meta ad copy"} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 7, cursor: seqPubBusy ? "default" : "pointer", border: "1px solid rgba(8,102,255,0.5)", background: seqPubUseMetaCopy ? "#0866FF" : "rgba(8,102,255,0.12)", color: seqPubUseMetaCopy ? "#fff" : "#60a5fa", fontSize: 10, fontWeight: 800 }}>⟲ {seqPubUseMetaCopy ? "Meta copy" : "Use Meta copy"}</button>
                             </div>
+                            {_ads.length > 1 ? (
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                                {_ads.map(function (a) {
+                                  const _on = a.key === _activeKey;
+                                  const _o = seqObjMeta(a.objective || 'awareness');
+                                  return (
+                                    <button key={a.key} onClick={() => setSeqPubActiveKey(a.key)} disabled={seqPubBusy} style={{ padding: "4px 10px", borderRadius: 7, cursor: seqPubBusy ? "default" : "pointer", border: _on ? "1px solid rgba(96,165,250,0.9)" : "1px solid rgba(255,255,255,0.12)", background: _on ? "rgba(8,102,255,0.18)" : "rgba(0,0,0,0.25)", color: _on ? "#bfdbfe" : "#8ea2b8", fontSize: 10.5, fontWeight: 800, whiteSpace: "nowrap" }}>{a.kind === 'lead' ? "Ad #1" : ("Ad #" + a.n)} · {_o.label}</button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
                             <div style={{ padding: "9px 11px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.25)", marginBottom: 12 }}>
-                              <div style={{ fontSize: 12, fontWeight: 800, color: "#e2e8f0", marginBottom: 4 }}>{_c.headline || "—"}</div>
-                              <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.45 }}>{_c.primary ? (_c.primary.slice(0, 180) + (_c.primary.length > 180 ? "…" : "")) : "No original copy found — ad will publish with the headline only; edit in Ads Manager."}</div>
+                              <input value={_cur.headline || ''} onChange={e => _setCur({ headline: e.target.value.slice(0, 40) })} disabled={seqPubBusy || !_active} maxLength={40} placeholder="Headline (max 40)" style={{ width: "100%", boxSizing: "border-box", padding: "6px 8px", fontSize: 12, fontWeight: 800, borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#e2e8f0", marginBottom: 6 }} />
+                              <textarea value={_cur.primary || ''} onChange={e => _setCur({ primary: e.target.value })} disabled={seqPubBusy || !_active} rows={3} placeholder="Primary text — leave blank to publish the headline only" style={{ width: "100%", boxSizing: "border-box", padding: "6px 8px", fontSize: 11, lineHeight: 1.45, borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", resize: "vertical" }} />
                             </div>
                             <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>Destination <span style={{ color: "#5a6b80", fontWeight: 600 }}>· where clicks go</span></div>
                             {_hasLanding ? (
