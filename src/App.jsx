@@ -2784,9 +2784,10 @@ function RSAStudio() {
   const [feedLeaveBusy, setFeedLeaveBusy] = useState(false);   // "Generate & leave" (overnight job) in flight
   const [feedLeaveMsg, setFeedLeaveMsg] = useState('');        // confirmation / error after queuing an overnight job
   const [feedLeaveAt, setFeedLeaveAt] = useState('');          // optional schedule time (datetime-local) for "Generate & leave"
-  const [feedTermsAccepted, setFeedTermsAccepted] = useState(() => { try { return localStorage.getItem('rsa_feed_terms_v1') === '1'; } catch (_) { return false; } });
+  const [feedTermsAccepted, setFeedTermsAccepted] = useState(false); // session-scoped: never restored across sessions (re-agree per session / domain)
   const [feedTermsOpen, setFeedTermsOpen] = useState(false);
-  const acceptFeedTerms = (v) => { setFeedTermsAccepted(v); try { if (v) localStorage.setItem('rsa_feed_terms_v1', '1'); else localStorage.removeItem('rsa_feed_terms_v1'); } catch (_) {} };
+  const acceptFeedTerms = (v) => { setFeedTermsAccepted(v); try { localStorage.removeItem('rsa_feed_terms_v1'); } catch (_) {} }; // session-only; agreement is not persisted
+  const feedHostOf = (u) => { let h = String(u || '').trim().toLowerCase(); if (h.indexOf('://') !== -1) h = h.slice(h.indexOf('://') + 3); if (h.indexOf('www.') === 0) h = h.slice(4); h = h.split('/')[0].split('?')[0].split('#')[0]; return h; };
   const [feedSingleBusy, setFeedSingleBusy] = useState(null); // product link currently generating (single)
   const [feedGroupBy, setFeedGroupBy] = useState('category'); // Level-1 grouping axis: 'category' | 'brand'
   const [feedOpenGroup, setFeedOpenGroup] = useState(null);   // opened group key (drill-down) | null = Level 1
@@ -6408,7 +6409,7 @@ STRICT rules:
               </div>
               <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify or WooCommerce store URL, a Wix shop-page URL, or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <input value={feedSource} onChange={e => setFeedSource(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
+                <input value={feedSource} onChange={e => { const v = e.target.value; setFeedSource(v); const nh = feedHostOf(v); if (feedResult && nh && nh !== feedHostOf(feedResult.source || feedResult.feedUrl || '')) { setFeedResult(null); setFeedError(''); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null); setFeedView('products'); setFeedOutputs({}); acceptFeedTerms(false); try { localStorage.removeItem('rsa_feed_cache_v1'); localStorage.removeItem('rsa_feed_outputs_v1'); } catch (_) {} } }} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
                 <button onClick={fetchFeed} disabled={feedLoading || !feedTermsAccepted || feedBatchBusy || !!feedSingleBusy} title={!feedTermsAccepted ? 'Accept the Product Feed Upload Terms to continue' : ((feedBatchBusy || feedSingleBusy) ? 'Generation in progress — please wait' : '')} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "default" : "pointer", background: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
               </div>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, fontSize: 12, color: (feedLoading || feedResult) ? "#5a6b80" : "#9db0c7", lineHeight: 1.45 }}>
