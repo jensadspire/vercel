@@ -20,6 +20,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { normalizeAdMeta, suggestObjective, OBJECTIVE_IDS } from './_ad-schema.js';
+import { scopeFromReq } from './lib/scope.js';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '2mb' } },
@@ -63,7 +64,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   // Auth — templates are a signed-in feature (Creative Studio is Pro-gated).
-  const ownerId = clerkUserId(req);
+  const { userId: ownerId, scope } = scopeFromReq(req);
   if (!ownerId) return res.status(401).json({ error: 'Sign in required.' });
 
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
@@ -83,7 +84,7 @@ export default async function handler(req, res) {
       let existing = null;
       const existingRaw = await redis('GET', docKey);
       if (existingRaw) { try { existing = JSON.parse(existingRaw); } catch (_) {} }
-      if (existing && existing.ownerId !== ownerId) {
+      if (existing && (existing.scope || existing.ownerId) !== scope) {
         return res.status(403).json({ error: 'Not your template.' });
       }
 
@@ -108,6 +109,7 @@ export default async function handler(req, res) {
       const doc = {
         id,
         ownerId,
+        scope: existing ? (existing.scope || scope) : scope,
         name: str(body.name, 120) || (existing && existing.name) || 'Untitled template',
         status: body.status || (existing && existing.status) || 'active',
         createdAt: existing ? existing.createdAt : now,
@@ -146,14 +148,14 @@ export default async function handler(req, res) {
       if (!doc.prompt) return res.status(400).json({ error: 'prompt is required.' });
 
       await redis('SET', docKey, JSON.stringify(doc));
-      await redis('SADD', `idx:tpl:owner:${ownerId}`, id);
+      await redis('SADD', `idx:tpl:owner:${scope}`, id);
 
       return res.status(200).json({ template: doc, updated: !!existing });
     }
 
     // ── LIST (owner scope) ────────────────────────────────────────────────────
     if (action === 'list') {
-      let ids = await redis('SMEMBERS', `idx:tpl:owner:${ownerId}`);
+      let ids = await redis('SMEMBERS', `idx:tpl:owner:${scope}`);
       ids = Array.isArray(ids) ? ids : [];
       const docs = (await Promise.all(ids.slice(0, 300).map(id => redis('GET', `tpl:${id}`))))
         .map(r => { try { return JSON.parse(r); } catch (_) { return null; } })
@@ -168,7 +170,7 @@ export default async function handler(req, res) {
       const raw = await redis('GET', `tpl:${body.id}`);
       const doc = raw ? JSON.parse(raw) : null;
       if (!doc) return res.status(404).json({ error: 'Not found.' });
-      if (doc.ownerId !== ownerId) return res.status(403).json({ error: 'Not your template.' });
+      if ((doc.scope || doc.ownerId) !== scope) return res.status(403).json({ error: 'Not your template.' });
       return res.status(200).json({ template: doc });
     }
 
@@ -178,9 +180,9 @@ export default async function handler(req, res) {
       const raw = await redis('GET', `tpl:${body.id}`);
       const doc = raw ? JSON.parse(raw) : null;
       if (!doc) return res.status(404).json({ error: 'Not found.' });
-      if (doc.ownerId !== ownerId) return res.status(403).json({ error: 'Not your template.' });
+      if ((doc.scope || doc.ownerId) !== scope) return res.status(403).json({ error: 'Not your template.' });
 
-      await redis('SREM', `idx:tpl:owner:${ownerId}`, body.id);
+      await redis('SREM', `idx:tpl:owner:${scope}`, body.id);
       await redis('DEL', `tpl:${body.id}`);
       return res.status(200).json({ deleted: body.id });
     }
