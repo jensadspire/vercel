@@ -1,4 +1,5 @@
 // ── Audience Modifiers — persistent storage via Upstash Redis ─────────────────
+import { scopeFromReq } from './lib/scope.js';
 async function redis(command, ...args) {
   const url   = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -15,7 +16,7 @@ async function redis(command, ...args) {
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-clerk-session");
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -42,9 +43,11 @@ export default async function handler(req, res) {
     }
   }
 
-  if (!userId) return res.status(400).json({ error: "userId required" });
+  // Audience modifiers are session-scoped — derived from the Clerk JWT, never from body.userId.
+  const { userId: uid, scope } = scopeFromReq(req);
+  if (!uid) return res.status(401).json({ error: "Sign in required." });
 
-  const key = `rsa:user:${userId}:audiences`;
+  const key = `rsa:user:${scope}:audiences`;
 
   if (action === "get") {
     try {
