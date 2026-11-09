@@ -1822,27 +1822,33 @@ function RSAStudio() {
   // Load saved audiences from Redis when user signs in
   useEffect(() => {
     if (!isSignedIn || !user?.id) return;
-    fetch("/api/audiences", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "get", userId: user.id }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.audiences) setAudiences(data.audiences);
-        setAudiencesLoaded(true);
+    (async () => { // audiences get/set with session token
+      let token = null; try { token = await window.Clerk?.session?.getToken(); } catch (_) {}
+      fetch("/api/audiences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { "x-clerk-session": token } : {}) },
+        body: JSON.stringify({ action: "get", userId: user.id }),
       })
-      .catch(() => setAudiencesLoaded(true));
+        .then(r => r.json())
+        .then(data => {
+          if (data.audiences) setAudiences(data.audiences);
+          setAudiencesLoaded(true);
+        })
+        .catch(() => setAudiencesLoaded(true));
+    })();
   }, [isSignedIn, user?.id]);
 
   // Save audiences to Redis whenever they change
   useEffect(() => {
     if (!isSignedIn || !user?.id || !audiencesLoaded) return;
-    fetch("/api/audiences", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "set", userId: user.id, audiences }),
-    }).catch(() => {});
+    (async () => {
+      let token = null; try { token = await window.Clerk?.session?.getToken(); } catch (_) {}
+      fetch("/api/audiences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { "x-clerk-session": token } : {}) },
+        body: JSON.stringify({ action: "set", userId: user.id, audiences }),
+      }).catch(() => {});
+    })();
   }, [audiences, isSignedIn, user?.id, audiencesLoaded]);
 
   // ── Meta OAuth: load connection status when user signs in ─────────────────
