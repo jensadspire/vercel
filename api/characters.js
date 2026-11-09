@@ -23,6 +23,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { scopeFromReq } from './lib/scope.js';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '2mb' } },
@@ -57,9 +58,9 @@ function clerkUserId(req) {
 }
 
 // Owner-scoped tag-set keys for a character's dimensions.
-function tagKeys(ownerId, c) {
+function tagKeys(scopeKey, c) {
   const keys = [];
-  const base = `tag:char:owner:${ownerId}`;
+  const base = `tag:char:owner:${scopeKey}`;
   const add = (dim, val) => {
     if (val === undefined || val === null || val === '') return;
     keys.push(`${base}:${dim}:${String(val).toLowerCase()}`);
@@ -82,7 +83,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   // Auth — character library is a signed-in feature (Creative Studio is Pro-gated).
-  const ownerId = clerkUserId(req);
+  const { userId: ownerId, scope } = scopeFromReq(req);
   if (!ownerId) return res.status(401).json({ error: 'Sign in required.' });
 
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
@@ -103,11 +104,11 @@ export default async function handler(req, res) {
       let existing = null;
       const existingRaw = await redis('GET', docKey);
       if (existingRaw) { try { existing = JSON.parse(existingRaw); } catch (_) {} }
-      if (existing && existing.ownerId !== ownerId) {
+      if (existing && (existing.scope || existing.ownerId) !== scope) {
         return res.status(403).json({ error: 'Not your character.' });
       }
       if (existing) {
-        const oldTags = tagKeys(ownerId, existing);
+        const oldTags = tagKeys(scope, existing);
         await Promise.all(oldTags.map(k => redis('SREM', k, id)));
       }
 
@@ -117,6 +118,7 @@ export default async function handler(req, res) {
       const doc = {
         id,
         ownerId,
+        scope: existing ? (existing.scope || scope) : scope,
         agencyId: body.agencyId || (existing && existing.agencyId) || null,
         name:   str(body.name, 120) || str(body.creator, 120) || 'Untitled',
         handle: str(body.handle, 80),
@@ -160,9 +162,9 @@ export default async function handler(req, res) {
       }
 
       await redis('SET', docKey, JSON.stringify(doc));
-      await redis('SADD', `idx:char:owner:${ownerId}`, id);
+      await redis('SADD', `idx:char:owner:${scope}`, id);
       if (doc.agencyId) await redis('SADD', `idx:char:agency:${doc.agencyId}`, id);
-      await Promise.all(tagKeys(ownerId, doc).map(k => redis('SADD', k, id)));
+      await Promise.all(tagKeys(scope, doc).map(k => redis('SADD', k, id)));
 
       return res.status(200).json({ character: doc, updated: !!existing });
     }
@@ -170,7 +172,7 @@ export default async function handler(req, res) {
     // ── LIST (owner scope; optional faceted filter) ───────────────────────────
     if (action === 'list') {
       const f = body.filters || {};
-      const base = `tag:char:owner:${ownerId}`;
+      const base = `tag:char:owner:${scope}`;
       const filterKeys = [];
       if (f.source)   filterKeys.push(`${base}:source:${String(f.source).toLowerCase()}`);
       if (f.type)     filterKeys.push(`${base}:type:${String(f.type).toLowerCase()}`);
@@ -181,7 +183,7 @@ export default async function handler(req, res) {
       let ids;
       if (filterKeys.length === 1)      ids = await redis('SMEMBERS', filterKeys[0]);
       else if (filterKeys.length > 1)   ids = await redis('SINTER', ...filterKeys);
-      else                              ids = await redis('SMEMBERS', `idx:char:owner:${ownerId}`);
+      else                              ids = await redis('SMEMBERS', `idx:char:owner:${scope}`);
       ids = Array.isArray(ids) ? ids : [];
 
       const docs = (await Promise.all(ids.slice(0, 300).map(id => redis('GET', `char:${id}`))))
@@ -200,7 +202,7 @@ export default async function handler(req, res) {
       if (!doc) return res.status(404).json({ error: 'Not found.' });
       // Owner-only for now; agency-visibility read switches on when agency
       // membership is resolvable from the session.
-      if (doc.ownerId !== ownerId) return res.status(403).json({ error: 'Not your character.' });
+      if ((doc.scope || doc.ownerId) !== scope) return res.status(403).json({ error: 'Not your character.' });
       return res.status(200).json({ character: doc });
     }
 
@@ -210,11 +212,11 @@ export default async function handler(req, res) {
       const raw = await redis('GET', `char:${body.id}`);
       const doc = raw ? JSON.parse(raw) : null;
       if (!doc) return res.status(404).json({ error: 'Not found.' });
-      if (doc.ownerId !== ownerId) return res.status(403).json({ error: 'Not your character.' });
+      if ((doc.scope || doc.ownerId) !== scope) return res.status(403).json({ error: 'Not your character.' });
 
-      await redis('SREM', `idx:char:owner:${ownerId}`, body.id);
+      await redis('SREM', `idx:char:owner:${scope}`, body.id);
       if (doc.agencyId) await redis('SREM', `idx:char:agency:${doc.agencyId}`, body.id);
-      await Promise.all(tagKeys(ownerId, doc).map(k => redis('SREM', k, body.id)));
+      await Promise.all(tagKeys(scope, doc).map(k => redis('SREM', k, body.id)));
       await redis('DEL', `char:${body.id}`);
 
       return res.status(200).json({ deleted: body.id });
