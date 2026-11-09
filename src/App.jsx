@@ -3816,7 +3816,7 @@ function RSAStudio() {
     setSeqShotObjectives((Array.isArray(t.shotObjectives) && t.shotObjectives.length) ? t.shotObjectives.slice(0, _shots.length) : _shots.map(function (_s, i) { return seqDefaultObjective(i, _shots.length); }));
     setSeqPromo(!!t.promo); setSeqShotMeta([]); setSeqLeadVideo(t.lastVideoUrl || null);
     setSeqLeadId(t.id || null); setSeqBuildNext(false); setSeqLeadObjective(t.objective || (Array.isArray(t.shotObjectives) && t.shotObjectives[0]) || 'awareness');
-    setSeqActiveAd(null); loadSequenceAds(t.id || null);
+    setSeqActiveAd(null); setSeqSequenceAds([]); if (t.id) loadSequenceAds(t.id);
     setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
     setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
