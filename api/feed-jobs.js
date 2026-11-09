@@ -25,6 +25,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { scopeFromReq } from './lib/scope.js';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '8mb' } }, // a job carries many product snapshots (picks) at once
@@ -148,7 +149,9 @@ export default async function handler(req, res) {
   // Two auth paths: the trusted worker (server-to-server secret) or a signed-in user.
   const workerSecret = req.headers['x-feed-worker-secret'] || '';
   const isWorker = !!process.env.FEED_WORKER_SECRET && workerSecret === process.env.FEED_WORKER_SECRET;
-  const ownerId = isWorker ? null : clerkUserId(req);
+  const sess = isWorker ? null : scopeFromReq(req);
+  const ownerId = isWorker ? null : (sess && sess.userId);
+  const scope = isWorker ? null : (sess && sess.scope);
 
   const WORKER_ACTIONS = new Set(['itemUpdate', 'setStatus']);
   const USER_ACTIONS = new Set(['create', 'list', 'get', 'cancel']);
@@ -180,6 +183,7 @@ export default async function handler(req, res) {
       const job = {
         id,
         ownerId,
+        scope,
         agencyId: body.agencyId || null,
         status: runAt ? 'scheduled' : 'queued', // queued = ready to enqueue (bite 3); scheduled = waits for its runAt (bite 5)
         source: str(body.source, 300) || domainOf(picks[0] && picks[0].link) || '',
@@ -197,19 +201,19 @@ export default async function handler(req, res) {
       };
 
       await redis('SET', `feedjob:${id}`, JSON.stringify(job));
-      await redis('SADD', `idx:feedjob:owner:${ownerId}`, id);
+      await redis('SADD', `idx:feedjob:owner:${scope}`, id);
 
       return res.status(200).json({ job: toJobCard(job), id });
     }
 
     // ── LIST (user) — this user's jobs, most recent first ──────────────────────
     if (action === 'list') {
-      let ids = await redis('SMEMBERS', `idx:feedjob:owner:${ownerId}`);
+      let ids = await redis('SMEMBERS', `idx:feedjob:owner:${scope}`);
       ids = Array.isArray(ids) ? ids : [];
       const jobs = (await Promise.all(ids.slice(0, 200).map(id => redis('GET', `feedjob:${id}`))))
         .map(r => { try { return JSON.parse(r); } catch (_) { return null; } })
         .filter(Boolean)
-        .filter(j => j.ownerId === ownerId)
+        .filter(j => (j.scope || j.ownerId) === scope)
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .map(toJobCard);
       return res.status(200).json({ jobs, count: jobs.length });
@@ -220,7 +224,7 @@ export default async function handler(req, res) {
       if (!body.id) return res.status(400).json({ error: 'id required.' });
       const job = await loadJob(body.id);
       if (!job) return res.status(404).json({ error: 'Not found.' });
-      if (job.ownerId !== ownerId) return res.status(403).json({ error: 'Not your job.' });
+      if ((job.scope || job.ownerId) !== scope) return res.status(403).json({ error: 'Not your job.' });
       return res.status(200).json({ job });
     }
 
@@ -229,7 +233,7 @@ export default async function handler(req, res) {
       if (!body.id) return res.status(400).json({ error: 'id required.' });
       const job = await loadJob(body.id);
       if (!job) return res.status(404).json({ error: 'Not found.' });
-      if (job.ownerId !== ownerId) return res.status(403).json({ error: 'Not your job.' });
+      if ((job.scope || job.ownerId) !== scope) return res.status(403).json({ error: 'Not your job.' });
       if (job.status !== 'done' && job.status !== 'failed') job.status = 'cancelled';
       await saveJob(job);
       return res.status(200).json({ job: toJobCard(job) });
