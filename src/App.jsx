@@ -3500,7 +3500,7 @@ function RSAStudio() {
     var inSeq = (Array.isArray(seqSequenceAds) ? seqSequenceAds : []).some(function (a) { return a.id === curId; });
     if (!inSeq) setSeqActiveAd(null); // active ad belongs to another sequence → snap the hero back to the lead
   }, [seqSequenceAds]); // eslint-disable-line react-hooks/exhaustive-deps
-  const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); if (seqLeadId) loadSequenceAds(); loadSeqTemplates(); };
+  const openSeqBuilder = (skipSeqLoad) => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); if (!skipSeqLoad && seqLeadId) loadSequenceAds(); loadSeqTemplates(); };
   const seqNextObjective = (id) => {
     const i = SEQ_OBJECTIVES.findIndex(function (o) { return o.id === id; });
     return SEQ_OBJECTIVES[Math.min((i < 0 ? 0 : i) + 1, SEQ_OBJECTIVES.length - 1)].id;
@@ -3846,7 +3846,7 @@ function RSAStudio() {
     setShowVault(false);
     setSeqSelector('persona'); // ultra-short: land with the persona chooser already open
     setSeqAutoLead(true);      // first generate on this path auto-becomes the lead
-    openSeqBuilder();
+    openSeqBuilder(true);
   };
   // ── UGC ad generation (slice 3) — self-contained; branded flow untouched ──
   const [ugcAdResult, setUgcAdResult] = useState(null);   // generate-meta-ugc response | null
@@ -6774,7 +6774,7 @@ STRICT rules:
                                   );
                                 })}
                               </div>
-                              <button onClick={() => { loadSeqTemplate(t); setShowVault(false); openSeqBuilder(); }} style={{ padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", marginTop: 2 }}>⚡ Load into builder</button>
+                              <button onClick={() => { loadSeqTemplate(t); setShowVault(false); openSeqBuilder(true); }} style={{ padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", marginTop: 2 }}>⚡ Load into builder</button>
                               <div style={{ display: "flex", gap: 6, marginTop: "auto" }}>
                                 {seqTplConfirm === t.id ? (
                                   <button onClick={() => deleteSeqTemplate(t.id)} style={{ flex: 1, padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(248,113,113,0.5)", background: "rgba(248,113,113,0.15)", color: "#fca5a5" }}>Sure?</button>
