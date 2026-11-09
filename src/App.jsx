@@ -3493,6 +3493,13 @@ function RSAStudio() {
   const [seqOfferText, setSeqOfferText] = useState('');    // promo offer copy burned onto the video
   const [seqSequenceAds, setSeqSequenceAds] = useState([]); // linked ads for the loaded lead (director's view)
   const [seqActiveAd, setSeqActiveAd] = useState(null);     // rack item currently re-centered in the hero (null = lead)
+  const seqSeqReqId = useRef(0); // latest-wins guard: discards stale loadSequenceAds results that resolve out of order
+  useEffect(function () {
+    if (!seqActiveAd || seqActiveAd.kind === 'lead') return;
+    var curId = seqActiveAd.key || seqActiveAd.id;
+    var inSeq = (Array.isArray(seqSequenceAds) ? seqSequenceAds : []).some(function (a) { return a.id === curId; });
+    if (!inSeq) setSeqActiveAd(null); // active ad belongs to another sequence → snap the hero back to the lead
+  }, [seqSequenceAds]); // eslint-disable-line react-hooks/exhaustive-deps
   const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); if (seqLeadId) loadSequenceAds(); loadSeqTemplates(); };
   const seqNextObjective = (id) => {
     const i = SEQ_OBJECTIVES.findIndex(function (o) { return o.id === id; });
@@ -3510,13 +3517,14 @@ function RSAStudio() {
   };
   const loadSequenceAds = async (leadId) => {
     const id = leadId || seqLeadId;
-    if (!id) { setSeqSequenceAds([]); return []; }
+    const _tok = ++seqSeqReqId.current;
+    if (!id) { if (_tok === seqSeqReqId.current) setSeqSequenceAds([]); return []; }
     try {
       const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list', filters: { sequence: id } }) }).then(r => r.json());
       const _list = Array.isArray(d.creatives) ? d.creatives : [];
-      setSeqSequenceAds(_list);
+      if (_tok === seqSeqReqId.current) setSeqSequenceAds(_list);
       return _list;
-    } catch (_) { setSeqSequenceAds([]); return []; }
+    } catch (_) { if (_tok === seqSeqReqId.current) setSeqSequenceAds([]); return []; }
   };
   const reCenterAd = (ad) => {
     if (seqBuildNext) {
