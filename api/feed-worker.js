@@ -26,6 +26,8 @@
  * Isolated: new file. The only merged-code touch is creatives.js's trusted-write branch (bite 2a).
  */
 
+import { scopeFromReq } from './lib/scope.js';
+
 export const config = { api: { bodyParser: { sizeLimit: '8mb' } } };
 
 const WORKER_SECRET = process.env.FEED_WORKER_SECRET || '';
@@ -248,7 +250,7 @@ async function saveCreative(job, work, videoUrl) {
     video: videoUrl ? { url: videoUrl, storyboard: work.storyboard || [], videoPrompt: work.videoPrompt || '' } : null,
   };
   const payload = {
-    action: 'save', inputSource: 'feed', ownerId: job.ownerId,
+    action: 'save', inputSource: 'feed', ownerId: job.ownerId, scope: job.scope || job.ownerId,
     status: 'pending_review',
     productUrl: work.url, productTitle: work.title || '',
     engine: work.engine || '', archetype: 'scene_reveal', scene: work.scene || '',
@@ -285,11 +287,13 @@ export default async function handler(req, res) {
   try {
     // ── START (user) — kick a job's chain from the first product ──────────────
     if (phase === 'start') {
-      const ownerId = clerkUserId(req);
+      const sess = scopeFromReq(req);
+      const ownerId = sess.userId;
+      const scope = sess.scope;
       if (!ownerId) return res.status(401).json({ error: 'Sign in required.' });
       const job = await loadJob(body.jobId);
       if (!job) return res.status(404).json({ error: 'Job not found.' });
-      if (job.ownerId !== ownerId) return res.status(403).json({ error: 'Not your job.' });
+      if ((job.scope || job.ownerId) !== scope) return res.status(403).json({ error: 'Not your job.' });
       if (job.status === 'cancelled' || job.status === 'done') return res.status(200).json({ ok: true, status: job.status });
       if (!process.env.QSTASH_TOKEN || !BASE) return res.status(503).json({ error: 'Batch worker not configured (QStash / base URL).' });
       let notBefore = 0;
