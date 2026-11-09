@@ -2784,9 +2784,10 @@ function RSAStudio() {
   const [feedLeaveBusy, setFeedLeaveBusy] = useState(false);   // "Generate & leave" (overnight job) in flight
   const [feedLeaveMsg, setFeedLeaveMsg] = useState('');        // confirmation / error after queuing an overnight job
   const [feedLeaveAt, setFeedLeaveAt] = useState('');          // optional schedule time (datetime-local) for "Generate & leave"
-  const [feedTermsAccepted, setFeedTermsAccepted] = useState(() => { try { return localStorage.getItem('rsa_feed_terms_v1') === '1'; } catch (_) { return false; } });
+  const [feedTermsAccepted, setFeedTermsAccepted] = useState(false); // session-scoped: never restored across sessions (re-agree per session / domain)
   const [feedTermsOpen, setFeedTermsOpen] = useState(false);
-  const acceptFeedTerms = (v) => { setFeedTermsAccepted(v); try { if (v) localStorage.setItem('rsa_feed_terms_v1', '1'); else localStorage.removeItem('rsa_feed_terms_v1'); } catch (_) {} };
+  const acceptFeedTerms = (v) => { setFeedTermsAccepted(v); try { localStorage.removeItem('rsa_feed_terms_v1'); } catch (_) {} }; // session-only; agreement is not persisted
+  const feedHostOf = (u) => { let h = String(u || '').trim().toLowerCase(); if (h.indexOf('://') !== -1) h = h.slice(h.indexOf('://') + 3); if (h.indexOf('www.') === 0) h = h.slice(4); h = h.split('/')[0].split('?')[0].split('#')[0]; return h; };
   const [feedSingleBusy, setFeedSingleBusy] = useState(null); // product link currently generating (single)
   const [feedGroupBy, setFeedGroupBy] = useState('category'); // Level-1 grouping axis: 'category' | 'brand'
   const [feedOpenGroup, setFeedOpenGroup] = useState(null);   // opened group key (drill-down) | null = Level 1
@@ -3478,6 +3479,8 @@ function RSAStudio() {
   const [seqOriginUrl, setSeqOriginUrl] = useState('');     // original ad's real landing URL (click destination)
   const [seqOriginSnap, setSeqOriginSnap] = useState(null); // original ad's full viewer snapshot (Google+Meta) for "View"
   const [seqPubUseMetaCopy, setSeqPubUseMetaCopy] = useState(false); // false = video variation [1], true = Meta copy [0]
+  const [seqPubCopies, setSeqPubCopies] = useState({});      // per-ad copy: { [ad.key]: { headline, primary, description } }
+  const [seqPubActiveKey, setSeqPubActiveKey] = useState(null); // which ad's copy the tabs are editing
   const [seqPubBusy, setSeqPubBusy] = useState(false);     // chained publish in flight
   const [seqPubProgress, setSeqPubProgress] = useState(''); // "Publishing 2 of 3…"
   const [seqPubResult, setSeqPubResult] = useState(null);  // { ok, total, done, failures[], adsManagerUrl, error }
@@ -3563,20 +3566,36 @@ function RSAStudio() {
     const headline = pick(m.headlines) || String(seqName || '').replace(/ — (persona|sequence)$/i, '');
     return { headline: String(headline).slice(0, 40), primary: pick(m.primaryTexts), description: pick(m.descriptions) };
   };
+  const seqSeedCopies = (useMeta) => {
+    const m = seqOriginMeta || {};
+    const baseIdx = useMeta ? 0 : 1;
+    const rot = function (arr, i) { if (!Array.isArray(arr) || !arr.length) return ''; return arr[(baseIdx + i) % arr.length] || arr[0] || ''; };
+    const fallbackH = String(seqName || '').replace(/ — (persona|sequence)$/i, '');
+    const next = {};
+    seqStoryAds().forEach(function (a, i) {
+      const h = rot(m.headlines, i) || fallbackH;
+      next[a.key] = { headline: String(h).slice(0, 40), primary: rot(m.primaryTexts, i), description: rot(m.descriptions, i) };
+    });
+    setSeqPubCopies(next);
+  };
   const openSeqPub = () => {
     setSeqPubUseMetaCopy(false);
     const landing = String(seqOriginUrl || '').trim();
     const prod = String(seqProductUrl || '').trim();
     setSeqPubDest(/^https?:\/\//i.test(landing) ? landing : (/^https?:\/\//i.test(prod) ? prod : ''));
     setSeqPubSel(null); setSeqPubResult(null); setSeqPubProgress('');
+    setSeqPubActiveKey(null); seqSeedCopies(false);
     setSeqPubOpen(true);
   };
   // Chained publish: first video creates campaign + ad set; the rest join it via existingAdSetId,
   // so the whole story lands in ONE ad set. All ads PAUSED (meta-publish default).
   // Flip to the front-page 3-ad viewer: original (stale) Google + Meta + this sequence video.
-  const viewSeqAd = (videoUrl) => {
+  const viewSeqAd = (videoUrl, adKey) => {
     const s = seqOriginSnap || {};
-    restoreFeedEntry({ url: seqOriginUrl || s.url || '', rows: s.rows || null, metaResult: seqOriginMeta || s.metaResult || null, carouselCardTexts: s.carouselCardTexts || [], tiktokResult: s.tiktokResult || null, engine: s.engine || null, archetype: s.archetype || null, videoUrl: videoUrl || null });
+    const _base = seqOriginMeta || s.metaResult || null;
+    const _pc = (adKey && seqPubCopies && seqPubCopies[adKey]) ? seqPubCopies[adKey] : null;
+    const _meta = _pc ? Object.assign({}, _base || {}, { headlines: [_pc.headline || '', _pc.headline || ''], primaryTexts: [_pc.primary || '', _pc.primary || ''], descriptions: [_pc.description || '', _pc.description || ''] }) : _base;
+    restoreFeedEntry({ url: seqOriginUrl || s.url || '', rows: s.rows || null, metaResult: _meta, carouselCardTexts: s.carouselCardTexts || [], tiktokResult: s.tiktokResult || null, engine: s.engine || null, archetype: s.archetype || null, videoUrl: videoUrl || null });
     setSeqPubReturn(true); setSeqPubOpen(false); setSeqOpen(false);
   };
   const publishSeqStory = async () => {
@@ -3588,21 +3607,20 @@ function RSAStudio() {
     if (!/^https?:\/\//i.test(dest)) { setSeqPubResult({ ok: false, total: sel.length, done: 0, failures: [], error: 'Enter a valid destination URL (https://…).' }); return; }
     setSeqPubBusy(true); setSeqPubResult(null);
     const targeting = { countries: targetCountries, ageMin: targetAgeMin, ageMax: targetAgeMax, placements: targetPlacements, dailyBudget: targetBudget };
-    const _c = seqPubCopy();
-    const headline = _c.headline;
-    const primary = _c.primary;
+    const _fallback = seqPubCopy();
     const campaignName = 'AI Ad Studio — Story — ' + new Date().toLocaleDateString();
     let campaignId = null, adSetId = null, adsManagerUrl = null, done = 0;
     const failures = [];
     for (let i = 0; i < sel.length; i++) {
       const ad = sel[i];
+      const _adCopy = (seqPubCopies && seqPubCopies[ad.key]) ? seqPubCopies[ad.key] : _fallback;
       setSeqPubProgress('Publishing ' + (i + 1) + ' of ' + sel.length + '…');
       try {
         const r = await fetch('/api/meta-publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(isSignedIn && session ? { 'x-clerk-session': await session.getToken() } : {}) },
           body: JSON.stringify({
-            headline: headline, primaryText: primary, description: _c.description || '',
+            headline: (_adCopy.headline || _fallback.headline || ''), primaryText: _adCopy.primary || '', description: _adCopy.description || '',
             videoUrl: ad.videoUrl, destinationUrl: dest,
             adName: 'AI Ad Studio — Story — ' + ad.label + (ad.objective ? (' · ' + ad.objective) : ''),
             campaignName: campaignName,
@@ -6070,24 +6088,39 @@ STRICT rules:
                                 <span style={{ fontSize: 11.5, fontWeight: 800, color: "#e2e8f0" }}>{a.label}</span>
                                 <span style={{ fontSize: 10, fontWeight: 700, color: om.color }}>{om.label}{a.videoUrl ? "" : " · no video"}</span>
                               </span>
-                              {a.videoUrl ? <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); viewSeqAd(a.videoUrl); }} title="Open in the 3-ad viewer — original Google + Meta + this video" style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 10, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.12)", color: "#93c5fd", cursor: "pointer", whiteSpace: "nowrap" }}>👁 View</button> : null}
+                              {a.videoUrl ? <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); viewSeqAd(a.videoUrl, a.key); }} title="Open in the 3-ad viewer — original Google + Meta + this video" style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 10, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.12)", color: "#93c5fd", cursor: "pointer", whiteSpace: "nowrap" }}>👁 View</button> : null}
                             </label>
                           );
                         })}
                       </div>
                       {(() => {
-                        const _c = seqPubCopy();
+                        const _ads = seqStoryAds().filter(function (a) { return a.videoUrl && (seqPubSel === null || seqPubSel[a.key]); });
+                        const _activeKey = (seqPubActiveKey && _ads.some(function (a) { return a.key === seqPubActiveKey; })) ? seqPubActiveKey : (_ads[0] ? _ads[0].key : null);
+                        const _active = _ads.find(function (a) { return a.key === _activeKey; }) || null;
+                        const _cur = (_active && seqPubCopies[_active.key]) ? seqPubCopies[_active.key] : seqPubCopy();
+                        const _setCur = function (patch) { if (!_active) return; setSeqPubCopies(function (prev) { const nx = Object.assign({}, prev || {}); nx[_active.key] = Object.assign({}, nx[_active.key] || seqPubCopy(), patch); return nx; }); };
                         const _landing = String(seqOriginUrl || '').trim();
                         const _hasLanding = /^https?:\/\//i.test(_landing);
                         return (
                           <>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                              <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em" }}>Ad copy <span style={{ color: "#5a6b80", fontWeight: 600 }}>· auto from your original ad</span></div>
-                              <button onClick={() => setSeqPubUseMetaCopy(function (v) { return !v; })} disabled={seqPubBusy} title={seqPubUseMetaCopy ? "Using the Meta ad copy — click for the video variation" : "Using the video variation — click to reuse the Meta ad copy"} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 7, cursor: seqPubBusy ? "default" : "pointer", border: "1px solid rgba(8,102,255,0.5)", background: seqPubUseMetaCopy ? "#0866FF" : "rgba(8,102,255,0.12)", color: seqPubUseMetaCopy ? "#fff" : "#60a5fa", fontSize: 10, fontWeight: 800 }}>⟲ {seqPubUseMetaCopy ? "Meta copy" : "Use Meta copy"}</button>
+                              <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em" }}>Ad copy <span style={{ color: "#5a6b80", fontWeight: 600 }}>· one per ad · editable</span></div>
+                              <button onClick={() => { const _nv = !seqPubUseMetaCopy; setSeqPubUseMetaCopy(_nv); seqSeedCopies(_nv); }} disabled={seqPubBusy} title={seqPubUseMetaCopy ? "Using the Meta ad copy — click for the video variation" : "Using the video variation — click to reuse the Meta ad copy"} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 7, cursor: seqPubBusy ? "default" : "pointer", border: "1px solid rgba(8,102,255,0.5)", background: seqPubUseMetaCopy ? "#0866FF" : "rgba(8,102,255,0.12)", color: seqPubUseMetaCopy ? "#fff" : "#60a5fa", fontSize: 10, fontWeight: 800 }}>⟲ {seqPubUseMetaCopy ? "Meta copy" : "Use Meta copy"}</button>
                             </div>
+                            {_ads.length > 1 ? (
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                                {_ads.map(function (a) {
+                                  const _on = a.key === _activeKey;
+                                  const _o = seqObjMeta(a.objective || 'awareness');
+                                  return (
+                                    <button key={a.key} onClick={() => setSeqPubActiveKey(a.key)} disabled={seqPubBusy} style={{ padding: "4px 10px", borderRadius: 7, cursor: seqPubBusy ? "default" : "pointer", border: _on ? "1px solid rgba(96,165,250,0.9)" : "1px solid rgba(255,255,255,0.12)", background: _on ? "rgba(8,102,255,0.18)" : "rgba(0,0,0,0.25)", color: _on ? "#bfdbfe" : "#8ea2b8", fontSize: 10.5, fontWeight: 800, whiteSpace: "nowrap" }}>{a.kind === 'lead' ? "Ad #1" : ("Ad #" + a.n)} · {_o.label}</button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
                             <div style={{ padding: "9px 11px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.25)", marginBottom: 12 }}>
-                              <div style={{ fontSize: 12, fontWeight: 800, color: "#e2e8f0", marginBottom: 4 }}>{_c.headline || "—"}</div>
-                              <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.45 }}>{_c.primary ? (_c.primary.slice(0, 180) + (_c.primary.length > 180 ? "…" : "")) : "No original copy found — ad will publish with the headline only; edit in Ads Manager."}</div>
+                              <input value={_cur.headline || ''} onChange={e => _setCur({ headline: e.target.value.slice(0, 40) })} disabled={seqPubBusy || !_active} maxLength={40} placeholder="Headline (max 40)" style={{ width: "100%", boxSizing: "border-box", padding: "6px 8px", fontSize: 12, fontWeight: 800, borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#e2e8f0", marginBottom: 6 }} />
+                              <textarea value={_cur.primary || ''} onChange={e => _setCur({ primary: e.target.value })} disabled={seqPubBusy || !_active} rows={3} placeholder="Primary text — leave blank to publish the headline only" style={{ width: "100%", boxSizing: "border-box", padding: "6px 8px", fontSize: 11, lineHeight: 1.45, borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#9db0c7", resize: "vertical" }} />
                             </div>
                             <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>Destination <span style={{ color: "#5a6b80", fontWeight: 600 }}>· where clicks go</span></div>
                             {_hasLanding ? (
@@ -6360,7 +6393,7 @@ STRICT rules:
                 <select value={seqDuration} onChange={e => setSeqDuration(Number(e.target.value))} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
                   <option value={5}>5s</option><option value={8}>8s</option><option value={10}>10s</option>
                 </select>
-                <button onClick={generateSequence} disabled={seqBusy} style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: seqBusy ? "rgba(245,158,11,0.4)" : "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>{seqBusy ? "⟳ Generating…" : (seqBuildNext ? "🎬 Generate this ad" : ((!seqLeadId && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? "↻ Regenerate" : "🎬 Generate sequence"))}</button>
+                <button onClick={generateSequence} disabled={seqBusy} style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: seqBusy ? "rgba(245,158,11,0.4)" : "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>{seqBusy ? "⟳ Generating…" : (seqBuildNext ? "🎬 Generate this ad" : ((!seqLeadId && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? "↻ Regenerate" : "🎬 Generate lead ad"))}</button>
                 {(!seqLeadId && !seqBuildNext && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? <button onClick={saveSeqTemplate} disabled={seqBusy} title="Save this as your sequence lead, then add the next ad" style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>✓ Save as lead & start sequence</button> : null}
               </div>
               </>) : null}
@@ -6408,7 +6441,7 @@ STRICT rules:
               </div>
               <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify or WooCommerce store URL, a Wix shop-page URL, or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <input value={feedSource} onChange={e => setFeedSource(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
+                <input value={feedSource} onChange={e => { const v = e.target.value; setFeedSource(v); const nh = feedHostOf(v); if (feedResult && nh && nh !== feedHostOf(feedResult.source || feedResult.feedUrl || '')) { setFeedResult(null); setFeedError(''); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null); setFeedView('products'); setFeedOutputs({}); acceptFeedTerms(false); try { localStorage.removeItem('rsa_feed_cache_v1'); localStorage.removeItem('rsa_feed_outputs_v1'); } catch (_) {} } }} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
                 <button onClick={fetchFeed} disabled={feedLoading || !feedTermsAccepted || feedBatchBusy || !!feedSingleBusy} title={!feedTermsAccepted ? 'Accept the Product Feed Upload Terms to continue' : ((feedBatchBusy || feedSingleBusy) ? 'Generation in progress — please wait' : '')} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "default" : "pointer", background: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
               </div>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, fontSize: 12, color: (feedLoading || feedResult) ? "#5a6b80" : "#9db0c7", lineHeight: 1.45 }}>
