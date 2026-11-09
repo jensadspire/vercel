@@ -3809,11 +3809,11 @@ function RSAStudio() {
       const _leadName = seqNoPersona ? 'Model-image sequence' : (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template');
       const body = { action: 'save', id: seqLeadId || undefined, name: seqName.trim() || _leadName, assetUri: seqNoPersona ? null : seqPersona.seedanceAssetUri, characterId: seqNoPersona ? ('none-lane:' + (seqNoneEngine || 'kling')) : (seqPersona.id || null), prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: seqNoPersona ? (seqNoneEngine || 'kling') : 'seedance-byteplus', thumbnailUrl: seqNoPersona ? (seqProductUrl.trim() || null) : (seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null), lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
-      if (d && d.template) { if (seqTemplates !== null) loadSeqTemplates(); setSeqSaveOpen(false); loadSeqTemplate(d.template); try { if (d.template.id && (seqOriginMeta || seqOriginSnap)) localStorage.setItem('seq:origin:' + d.template.id, JSON.stringify({ meta: seqOriginMeta, url: seqOriginUrl, snap: seqOriginSnap })); } catch (_) {} setSeqMsg(d.updated ? '✓ Lead updated.' : '✓ Lead saved — add the next ad with the + button.'); }
+      if (d && d.template) { if (seqTemplates !== null) loadSeqTemplates(); setSeqSaveOpen(false); loadSeqTemplate(d.template, { keepOrigin: true }); try { if (d.template.id && (seqOriginMeta || seqOriginSnap)) localStorage.setItem('seq:origin:' + d.template.id, JSON.stringify({ meta: seqOriginMeta, url: seqOriginUrl, snap: seqOriginSnap })); } catch (_) {} setSeqMsg(d.updated ? '✓ Lead updated.' : '✓ Lead saved — add the next ad with the + button.'); }
       else { setSeqErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
     } catch (_) { setSeqErr('Save failed — please try again.'); }
   };
-  const loadSeqTemplate = (t) => {
+  const loadSeqTemplate = (t, opts) => {
     if (!t) return;
     const _isNone = !t.assetUri && (t.engine === 'kling' || t.engine === 'veo' || t.engine === 'runway');
     setSeqNoPersona(_isNone); if (_isNone) setSeqNoneEngine(t.engine);
@@ -3830,7 +3830,17 @@ function RSAStudio() {
     setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
     try { localStorage.setItem('seq:lastLead', JSON.stringify(t)); } catch (_) {} setSeqLastLead(t);
-    try { if (!seqOriginMeta && t.id) { const _os = localStorage.getItem('seq:origin:' + t.id); if (_os) { const _oo = JSON.parse(_os); setSeqOriginMeta(_oo.meta || null); setSeqOriginUrl(_oo.url || (t.garmentUrls && t.garmentUrls[0]) || ''); setSeqOriginSnap(_oo.snap || null); } } } catch (_) {}
+    try {
+      if (opts && opts.keepOrigin) {
+        if (!seqOriginMeta && t.id) { const _os = localStorage.getItem('seq:origin:' + t.id); if (_os) { const _oo = JSON.parse(_os); setSeqOriginMeta(_oo.meta || null); setSeqOriginUrl(_oo.url || (t.garmentUrls && t.garmentUrls[0]) || ''); setSeqOriginSnap(_oo.snap || null); } }
+      } else {
+        // Switching templates → reset origin to THIS template's own (or clear) so view-mode/publish never reuse the previous template's copy.
+        let _oo = null; try { const _os = t.id ? localStorage.getItem('seq:origin:' + t.id) : null; if (_os) _oo = JSON.parse(_os); } catch (_) {}
+        setSeqOriginMeta((_oo && _oo.meta) || null);
+        setSeqOriginUrl((_oo && _oo.url) || (t.garmentUrls && t.garmentUrls[0]) || '');
+        setSeqOriginSnap((_oo && _oo.snap) || null);
+      }
+    } catch (_) {}
   };
   const recreateOnPersona = (it) => {
     if (!it) return;
