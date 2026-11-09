@@ -3839,6 +3839,7 @@ function RSAStudio() {
         setSeqOriginMeta((_oo && _oo.meta) || null);
         setSeqOriginUrl((_oo && _oo.url) || (t.garmentUrls && t.garmentUrls[0]) || '');
         setSeqOriginSnap((_oo && _oo.snap) || null);
+        setSeqPubCopies({}); setSeqPubActiveKey(null); // keep per-ad copy in lockstep with the origin → no stale text over a new image
       }
     } catch (_) {}
   };
@@ -3847,6 +3848,7 @@ function RSAStudio() {
     setSeqProductUrl(it.thumb || '');
     // List items are trimmed (no channels.meta) — fetch the FULL creative for the original copy + landing.
     setSeqOriginMeta(null); setSeqOriginUrl(it.productUrl || ''); setSeqOriginSnap(null);
+    setSeqPubCopies({}); setSeqPubActiveKey(null); // keep per-ad copy in lockstep with the origin
     if (it.id) { (async () => { try { const _res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: it.id }) }); const _data = await _res.json().catch(() => ({})); if (_data && _data.creative) { const _o = rebuildFromCreative(_data.creative); setSeqOriginSnap(_o || null); setSeqOriginMeta((_o && _o.metaResult) || null); setSeqOriginUrl((_o && _o.url) || it.productUrl || ''); } } catch (_) {} })(); }
     const prod = it.productTitle ? (it.productTitle + ' ') : '';
     setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
