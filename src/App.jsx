@@ -2999,6 +2999,7 @@ function RSAStudio() {
   const restoreFeedEntry = (entry) => {
     try {
       setViewMode('overview');
+      setSeqPubReturn(false); // drop any sequential-viewer framing when loading a regular/saved ad (viewSeqAd re-sets it after)
       setGenerated(false);
       setRows([makeRow(1)]); setActiveRow(0);
       setMetaResult(null); setTiktokResult(null); setTiktokVideoUrl(null); setTiktokVideoLoading(false);
