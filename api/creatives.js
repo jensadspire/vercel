@@ -264,6 +264,7 @@ export default async function handler(req, res) {
       const docs = (await Promise.all(ids.slice(0, 500).map(id => redis('GET', `creative:${id}`))))
         .map(r => { try { return JSON.parse(r); } catch (_) { return null; } })
         .filter(Boolean)
+        .filter(c => !c.sequenceId && c.inputSource !== 'sequence') // Saved Ads = originals only (URL / feed, star-saved); sequence clips stay in their director's view
         .sort((a, b) => new Date(b.savedAt || b.createdAt) - new Date(a.savedAt || a.createdAt))
         .map(toCard);
 
