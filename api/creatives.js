@@ -24,6 +24,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { normalizeAdMeta } from './_ad-schema.js';
+import { scopeFromReq } from './lib/scope.js';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '4mb' } }, // the channels bundle (copy + URLs) is bigger than a character doc
@@ -72,9 +73,9 @@ function domainOf(url) {
 }
 
 // Owner-scoped tag-set keys for a creative's filterable dimensions.
-function tagKeys(ownerId, c) {
+function tagKeys(scopeKey, c) {
   const keys = [];
-  const base = `tag:creative:owner:${ownerId}`;
+  const base = `tag:creative:owner:${scopeKey}`;
   const add = (dim, val) => {
     if (val === undefined || val === null || val === '') return;
     keys.push(`${base}:${dim}:${String(val).toLowerCase()}`);
@@ -111,7 +112,9 @@ export default async function handler(req, res) {
   // no browser session) presenting x-feed-worker-secret + an explicit ownerId, or a signed-in user.
   const workerSecret = req.headers['x-feed-worker-secret'] || '';
   const isWorker = !!process.env.FEED_WORKER_SECRET && workerSecret === process.env.FEED_WORKER_SECRET;
-  const ownerId = isWorker ? (req.body && req.body.ownerId) || null : clerkUserId(req);
+  const sess = isWorker ? null : scopeFromReq(req);
+  const ownerId = isWorker ? ((req.body && req.body.ownerId) || null) : (sess && sess.userId);
+  const scope = isWorker ? ((req.body && (req.body.scope || req.body.ownerId)) || null) : (sess && sess.scope);
   if (!ownerId) return res.status(401).json({ error: isWorker ? 'Worker write requires ownerId.' : 'Sign in required.' });
 
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
@@ -130,12 +133,12 @@ export default async function handler(req, res) {
       let existing = null;
       const existingRaw = await redis('GET', docKey);
       if (existingRaw) { try { existing = JSON.parse(existingRaw); } catch (_) {} }
-      if (existing && existing.ownerId !== ownerId) {
+      if (existing && (existing.scope || existing.ownerId) !== scope) {
         return res.status(403).json({ error: 'Not your ad.' });
       }
       if (existing) {
         // Clear old tag memberships before re-indexing (dimensions may have changed, e.g. publishStatus).
-        await Promise.all(tagKeys(ownerId, existing).map(k => redis('SREM', k, id)));
+        await Promise.all(tagKeys(scope, existing).map(k => redis('SREM', k, id)));
       }
 
       const now = new Date().toISOString();
@@ -155,6 +158,7 @@ export default async function handler(req, res) {
 
         // ownership & access
         ownerId,
+        scope: existing ? (existing.scope || scope) : scope,
         agencyId: body.agencyId || (existing && existing.agencyId) || null,
 
         // timestamps
@@ -215,11 +219,11 @@ export default async function handler(req, res) {
       }
 
       await redis('SET', docKey, JSON.stringify(doc));
-      await redis('SADD', `idx:creative:owner:${ownerId}`, id);
+      await redis('SADD', `idx:creative:owner:${scope}`, id);
       if (doc.agencyId) await redis('SADD', `idx:creative:agency:${doc.agencyId}`, id);
       await redis('SADD', `idx:creative:root:${doc.rootId}`, id);
       if (doc.sequenceId) await redis('SADD', `idx:creative:sequence:${doc.sequenceId}`, id);
-      await Promise.all(tagKeys(ownerId, doc).map(k => redis('SADD', k, id)));
+      await Promise.all(tagKeys(scope, doc).map(k => redis('SADD', k, id)));
 
       return res.status(200).json({ creative: toCard(doc), id, updated: !!existing });
     }
@@ -233,11 +237,11 @@ export default async function handler(req, res) {
         sids = Array.isArray(sids) ? sids : [];
         const sdocs = (await Promise.all(sids.slice(0, 100).map(id => redis('GET', `creative:${id}`))))
           .map(r => { try { return JSON.parse(r); } catch (_) { return null; } })
-          .filter(Boolean).filter(c => c.ownerId === ownerId)
+          .filter(Boolean).filter(c => (c.scope || c.ownerId) === scope)
           .sort((a, b) => (a.order || 0) - (b.order || 0)).map(toCard);
         return res.status(200).json({ creatives: sdocs, count: sdocs.length, sequence: f.sequence });
       }
-      const base = `tag:creative:owner:${ownerId}`;
+      const base = `tag:creative:owner:${scope}`;
       const lc = (v) => String(v).toLowerCase();
       const filterKeys = [];
       if (f.domain)   filterKeys.push(`${base}:domain:${lc(f.domain)}`);
@@ -254,7 +258,7 @@ export default async function handler(req, res) {
       let ids;
       if (filterKeys.length === 1)    ids = await redis('SMEMBERS', filterKeys[0]);
       else if (filterKeys.length > 1) ids = await redis('SINTER', ...filterKeys);
-      else                            ids = await redis('SMEMBERS', `idx:creative:owner:${ownerId}`);
+      else                            ids = await redis('SMEMBERS', `idx:creative:owner:${scope}`);
       ids = Array.isArray(ids) ? ids : [];
 
       const docs = (await Promise.all(ids.slice(0, 500).map(id => redis('GET', `creative:${id}`))))
@@ -272,7 +276,7 @@ export default async function handler(req, res) {
       const raw = await redis('GET', `creative:${body.id}`);
       const doc = raw ? JSON.parse(raw) : null;
       if (!doc) return res.status(404).json({ error: 'Not found.' });
-      if (doc.ownerId !== ownerId) return res.status(403).json({ error: 'Not your ad.' }); // owner-only for now
+      if ((doc.scope || doc.ownerId) !== scope) return res.status(403).json({ error: 'Not your ad.' }); // owner-only for now
       return res.status(200).json({ creative: doc });
     }
 
@@ -282,7 +286,7 @@ export default async function handler(req, res) {
       const raw = await redis('GET', `creative:${body.id}`);
       const doc = raw ? JSON.parse(raw) : null;
       if (!doc) return res.status(404).json({ error: 'Not found.' });
-      if (doc.ownerId !== ownerId) return res.status(403).json({ error: 'Not your ad.' });
+      if ((doc.scope || doc.ownerId) !== scope) return res.status(403).json({ error: 'Not your ad.' });
       doc.score = clampScore(body.score);
       doc.scoredAt = new Date().toISOString();
       await redis('SET', `creative:${body.id}`, JSON.stringify(doc));
@@ -295,13 +299,13 @@ export default async function handler(req, res) {
       const raw = await redis('GET', `creative:${body.id}`);
       const doc = raw ? JSON.parse(raw) : null;
       if (!doc) return res.status(404).json({ error: 'Not found.' });
-      if (doc.ownerId !== ownerId) return res.status(403).json({ error: 'Not your ad.' });
+      if ((doc.scope || doc.ownerId) !== scope) return res.status(403).json({ error: 'Not your ad.' });
 
-      await redis('SREM', `idx:creative:owner:${ownerId}`, body.id);
+      await redis('SREM', `idx:creative:owner:${scope}`, body.id);
       if (doc.agencyId) await redis('SREM', `idx:creative:agency:${doc.agencyId}`, body.id);
       await redis('SREM', `idx:creative:root:${doc.rootId || body.id}`, body.id);
       if (doc.sequenceId) await redis('SREM', `idx:creative:sequence:${doc.sequenceId}`, body.id);
-      await Promise.all(tagKeys(ownerId, doc).map(k => redis('SREM', k, body.id)));
+      await Promise.all(tagKeys(scope, doc).map(k => redis('SREM', k, body.id)));
       await redis('DEL', `creative:${body.id}`);
 
       return res.status(200).json({ deleted: body.id });
