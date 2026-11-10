@@ -165,14 +165,14 @@ export async function saveGoogleAdsCredentials({ userId, refreshToken, accessTok
   }
 }
 
-export async function getGoogleAdsCredentials(userId) {
+export async function getGoogleAdsCredentials(userId, scope = userId) {
   if (!userId) return null;
   const [refreshRes, accessRes, expiresRes, customerRes, loginCustomerRes, emailRes, connectedAtRes] = await Promise.all([
     upstash('get', KEY(userId, 'refresh_token')),
     upstash('get', KEY(userId, 'access_token')),
     upstash('get', KEY(userId, 'access_token_expires')),
-    upstash('get', KEY(userId, 'customer_id')),
-    upstash('get', KEY(userId, 'login_customer_id')),
+    upstash('get', KEY(scope, 'customer_id')),
+    upstash('get', KEY(scope, 'login_customer_id')),
     upstash('get', KEY(userId, 'google_user_email')),
     upstash('get', KEY(userId, 'connected_at')),
   ]);
@@ -188,10 +188,10 @@ export async function getGoogleAdsCredentials(userId) {
   };
 }
 
-export async function saveGoogleAdsSelection({ userId, customerId, loginCustomerId }) {
-  if (!userId) throw new Error('userId required');
-  if (customerId) await upstashSet(KEY(userId, 'customer_id'), String(customerId));
-  if (loginCustomerId) await upstashSet(KEY(userId, 'login_customer_id'), String(loginCustomerId));
+export async function saveGoogleAdsSelection({ scope, customerId, loginCustomerId }) {
+  if (!scope) throw new Error('scope required');
+  if (customerId) await upstashSet(KEY(scope, 'customer_id'), String(customerId));
+  if (loginCustomerId) await upstashSet(KEY(scope, 'login_customer_id'), String(loginCustomerId));
 }
 
 export async function updateAccessToken({ userId, accessToken, expiresInSeconds }) {

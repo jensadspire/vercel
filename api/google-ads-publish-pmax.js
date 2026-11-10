@@ -45,7 +45,7 @@ async function authenticateUser(req) {
   );
   const auth = session.toAuth();
   if (!auth?.userId) throw new Error('Not signed in');
-  return auth.userId;
+  return { userId: auth.userId, scope: auth.orgId || auth.userId };
 }
 
 function normalizeId(raw) {
@@ -117,7 +117,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   try {
-    const userId = await authenticateUser(req);
+    const { userId, scope } = await authenticateUser(req);
 
     const validateOnly = req.body?.validateOnly === true;
 
@@ -136,7 +136,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Validation failed', details: validationErrors });
     }
 
-    const creds = await getGoogleAdsCredentials(userId);
+    const creds = await getGoogleAdsCredentials(userId, scope);
     if (!creds?.refreshToken) {
       return res.status(400).json({ error: 'Google Ads account not connected', needsConnect: true });
     }

@@ -36,6 +36,7 @@ export default async function handler(req, res) {
     }
 
     let userId;
+    let scope;
     try {
       const session = await clerkClient.authenticateRequest(
         new Request(`https://${req.headers.host}${req.url}`, {
@@ -45,12 +46,13 @@ export default async function handler(req, res) {
       const auth = session.toAuth();
       if (!auth?.userId) throw new Error('Session not signed in');
       userId = auth.userId;
+      scope = auth.orgId || auth.userId;
     } catch (err) {
       return res.status(401).json({ error: 'Invalid Clerk session: ' + err.message });
     }
 
     // ── Fetch credentials ───────────────────────────────────────────────────
-    const creds = await getGoogleAdsCredentials(userId);
+    const creds = await getGoogleAdsCredentials(userId, scope);
     if (!creds) {
       return res.status(200).json({ connected: false });
     }
