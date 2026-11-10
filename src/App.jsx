@@ -3181,6 +3181,7 @@ function RSAStudio() {
       const startData = await startRes.json().catch(() => ({}));
       if (!startRes.ok || !startData.ok) { setFeedLeaveMsg((startData && startData.error) || ('Queued but could not start (' + startRes.status + ').')); setFeedLeaveBusy(false); return; }
       setFeedSel({});
+      fetchVaultJobs(); // surface the new batch in the "In queue" chips at once (don't wait for the 30s poll)
       setFeedLeaveMsg('\u2713 ' + picks.length + ' ad' + (picks.length === 1 ? '' : 's') + (runAtISO ? (' scheduled for ' + new Date(runAtISO).toLocaleString() + ' — they\'ll appear in your Library after they run.') : ' queued — they\'ll appear in your Library as they finish. You can safely close this tab.'));
     } catch (_) {
       setFeedLeaveMsg('Could not reach the batch service — please try again.');
@@ -3285,6 +3286,17 @@ function RSAStudio() {
     const t = setInterval(fetchVaultJobs, 30000);
     return () => clearInterval(t);
   }, [isSignedIn]);
+
+  // Products sitting in an active (scheduled/queued/running) overnight batch — drives the "In queue" chip.
+  const queuedFeedLinks = (() => {
+    const s = new Set();
+    (vaultJobs || []).forEach(function (j) {
+      if (j && (j.status === 'scheduled' || j.status === 'queued' || j.status === 'running') && Array.isArray(j.queuedLinks)) {
+        j.queuedLinks.forEach(function (l) { if (l) s.add(l); });
+      }
+    });
+    return s;
+  })();
 
   // Rebuild the view-mode snapshot from a stored Creative (inverse of the Save mapping).
   const rebuildFromCreative = (c) => {
@@ -6675,6 +6687,7 @@ STRICT rules:
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title || '(untitled)'}</div>
                           <div style={{ fontSize: 11, color: "#9db0c7", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            {p.link && queuedFeedLinks.has(p.link) ? <span title="In a scheduled/running overnight batch" style={{ fontSize: 9, fontWeight: 800, color: "#06281f", background: "#34d399", borderRadius: 4, padding: "1px 5px" }}>🌙 In queue</span> : null}
                             {p.price ? (
                               <span>
                                 {p.onSale && p.regularPrice ? <span style={{ color: "#6b7a8d", textDecoration: "line-through", marginRight: 4 }}>{p.regularPrice}{p.currency ? (' ' + p.currency) : ''}</span> : null}

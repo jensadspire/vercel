@@ -118,6 +118,9 @@ function toJobCard(job) {
     updatedAt: job.updatedAt,
     counts: job.counts,
     options: job.options,
+    // Links of products still outstanding (pending/generating) — drives the frontend "In queue" chip.
+    // Lightweight (strings only); ready/failed items drop off, so done jobs contribute nothing.
+    queuedLinks: Array.isArray(job.items) ? job.items.filter(function (i) { return i && i.link && i.status !== 'ready' && i.status !== 'failed'; }).map(function (i) { return i.link; }) : [],
   };
 }
 
