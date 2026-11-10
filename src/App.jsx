@@ -1432,7 +1432,7 @@ function RSAStudio() {
     try {
       if (existing) {
         // unsave
-        await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: existing.id }) });
+        await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: existing.id }) });
         setLibrary(prev => prev.filter(x => x.id !== existing.id));
         return;
       }
@@ -1458,7 +1458,7 @@ function RSAStudio() {
       };
       if (!entry.rows && !entry.metaResult && !entry.videoUrl) return; // nothing to save
       setLibrarySaving(entry.id);
-      const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
+      const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
       const d = await r.json();
       if (d.ok) setLibrary(prev => [{ ...entry, savedAt: new Date().toISOString() }, ...prev]);
       else if (d.limitReached) alert('Library limit reached. Remove some saved outputs first.');
@@ -1820,14 +1820,17 @@ function RSAStudio() {
   // Load library on sign-in
   useEffect(() => {
     if (!isSignedIn || !user?.id || libraryLoaded) return;
-    fetch('/api/library', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'load', userId: user.id, plan }),
-    }).then(r => r.json()).then(d => {
-      if (d.entries) setLibrary(d.entries);
-      setLibraryLoaded(true);
-    }).catch(() => setLibraryLoaded(true));
+    (async () => {
+      const _t = window.Clerk?.session ? await window.Clerk.session.getToken() : null; // library favourites: send session token
+      fetch('/api/library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(_t ? { 'x-clerk-session': _t } : {}) },
+        body: JSON.stringify({ action: 'load', userId: user.id, plan }),
+      }).then(r => r.json()).then(d => {
+        if (d.entries) setLibrary(d.entries);
+        setLibraryLoaded(true);
+      }).catch(() => setLibraryLoaded(true));
+    })();
   }, [isSignedIn, user?.id]);
 
   // Load saved audiences from Redis when user signs in
@@ -5544,7 +5547,7 @@ STRICT rules:
                       color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)', cursor: 'pointer',
                     }}>▶ Replay</button>
                     <button onClick={async () => {
-                      await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
+                      await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
                       setLibrary(prev => prev.filter(e => e.id !== entry.id));
                     }} style={{
                       padding: '6px 8px', fontSize: 11, borderRadius: 7,
@@ -10319,11 +10322,11 @@ STRICT rules:
                             <button onClick={async () => {
                               const alreadySaved = library.some(e => e.id === h.id);
                               if (alreadySaved) {
-                                await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: h.id }) });
+                                await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: h.id }) });
                                 setLibrary(prev => prev.filter(e => e.id !== h.id));
                               } else {
                                 setLibrarySaving(h.id);
-                                const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry: h, plan }) });
+                                const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'save', userId: user.id, entry: h, plan }) });
                                 const d = await r.json();
                                 if (d.ok) setLibrary(prev => [{ ...h, savedAt: new Date().toISOString() }, ...prev]);
                                 else if (d.limitReached) alert('Library limit reached. Remove some saved outputs first.');
@@ -11894,7 +11897,7 @@ STRICT rules:
                       color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)', cursor: 'pointer',
                     }}>▶ Replay</button>
                     <button onClick={async () => {
-                      await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
+                      await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
                       setLibrary(prev => prev.filter(e => e.id !== entry.id));
                     }} style={{
                       padding: '6px 8px', fontSize: 11, borderRadius: 7,
@@ -12536,7 +12539,7 @@ STRICT rules:
                       return (
                         <button onClick={async () => {
                           if (saved) {
-                            await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: vidId }) });
+                            await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: vidId }) });
                             setLibrary(prev => prev.filter(e => e.id !== vidId));
                           } else {
                             setLibrarySaving(vidId);
@@ -12548,7 +12551,7 @@ STRICT rules:
                               videoPrompt: tiktokResult?.videoPrompt || '',
                               brand: tiktokResult?.brand || '',
                             };
-                            const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
+                            const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
                             const d = await r.json();
                             if (d.ok) setLibrary(prev => [{ ...entry, savedAt: new Date().toISOString() }, ...prev]);
                             else if (d.limitReached) alert('Library limit reached (' + d.limit + '). Remove some saved outputs first.');
