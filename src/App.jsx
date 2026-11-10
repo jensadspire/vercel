@@ -1720,13 +1720,23 @@ function RSAStudio() {
   const { signOut, session } = useClerk();
   // Agency: switching the active organization (client workspace) re-keys every store via scope — reload to re-fetch under the new scope.
   const { organization, isLoaded: orgIsLoaded } = useOrganization();
-  const prevOrgIdRef = useRef(undefined);
+  // Reset per-client LOCAL state (localStorage) when the active workspace changes, so "Continue your
+  // story" / feed caches never bleed across orgs. Baseline lives in localStorage so it also fires on a
+  // fresh load into a different workspace — and is written BEFORE reload, so there is no reload loop.
   useEffect(() => {
-    if (!orgIsLoaded) return; // wait until Clerk resolves the active org — avoids a load-time reload loop
-    const cur = organization ? organization.id : null;
-    if (prevOrgIdRef.current === undefined) { prevOrgIdRef.current = cur; return; } // capture baseline from the RESOLVED org
-    if (prevOrgIdRef.current !== cur) { prevOrgIdRef.current = cur; try { window.location.reload(); } catch (_) {} } // genuine user switch
-  }, [organization, orgIsLoaded]);
+    if (!orgIsLoaded) return; // wait until Clerk resolves the active org
+    const curScope = organization ? organization.id : (user?.id || null);
+    if (!curScope) return; // signed out — nothing to scope
+    let prevScope = null;
+    try { prevScope = localStorage.getItem('aiad:activeScope'); } catch (_) {}
+    if (prevScope === curScope) return; // same workspace — nothing to do
+    try {
+      ['seq:lastLead', 'rsa_feed_cache_v1', 'rsa_feed_outputs_v1', 'aiad_preconnect_snapshot'].forEach(function (k) { try { localStorage.removeItem(k); } catch (_) {} });
+      Object.keys(localStorage).filter(function (k) { return k.indexOf('seq:origin:') === 0; }).forEach(function (k) { try { localStorage.removeItem(k); } catch (_) {} });
+      localStorage.setItem('aiad:activeScope', curScope);
+    } catch (_) {}
+    try { window.location.reload(); } catch (_) {} // re-init all state from the cleared, now-scoped local storage
+  }, [organization, orgIsLoaded, user?.id]);
   // Reverification-wrapped version of createExternalAccount. Clerk requires
   // re-authentication (password or 2FA) before adding a new external OAuth
   // account that has sensitive permissions (ads_management etc.). The hook
