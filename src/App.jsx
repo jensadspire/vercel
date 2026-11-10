@@ -243,6 +243,8 @@ import {
   useClerk,
   useReverification,
   UserButton,
+  OrganizationSwitcher,
+  useOrganization,
 } from "@clerk/clerk-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -1716,6 +1718,14 @@ function RSAStudio() {
     updateRow(activeRow, row => ({ ...row, pmaxImages: { ...(row.pmaxImages || { landscape: [], square: [], portrait: [] }), [slot]: (row.pmaxImages?.[slot] || []).filter(e => e.url !== url) } }));
   };
   const { signOut, session } = useClerk();
+  // Agency: switching the active organization (client workspace) re-keys every store via scope — reload to re-fetch under the new scope.
+  const { organization } = useOrganization();
+  const prevOrgIdRef = useRef(undefined);
+  useEffect(() => {
+    const cur = organization ? organization.id : null;
+    if (prevOrgIdRef.current === undefined) { prevOrgIdRef.current = cur; return; } // don't reload on first mount
+    if (prevOrgIdRef.current !== cur) { prevOrgIdRef.current = cur; try { window.location.reload(); } catch (_) {} }
+  }, [organization]);
   // Reverification-wrapped version of createExternalAccount. Clerk requires
   // re-authentication (password or 2FA) before adding a new external OAuth
   // account that has sensitive permissions (ads_management etc.). The hook
@@ -5560,6 +5570,7 @@ STRICT rules:
               )}
               {isPro && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", letterSpacing: "0.05em" }}>PRO</span>}
               <span style={{ fontSize: 11, color: "#8fa3b8" }}>{user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}</span>
+              <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 } } }} />
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
           ) : (
@@ -8082,6 +8093,7 @@ STRICT rules:
                 {user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}
               </div>
                 {isPro && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", letterSpacing: "0.05em" }}>PRO</span>}
+              <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 } } }} />
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
           ) : (
