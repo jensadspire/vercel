@@ -1719,13 +1719,14 @@ function RSAStudio() {
   };
   const { signOut, session } = useClerk();
   // Agency: switching the active organization (client workspace) re-keys every store via scope — reload to re-fetch under the new scope.
-  const { organization } = useOrganization();
+  const { organization, isLoaded: orgIsLoaded } = useOrganization();
   const prevOrgIdRef = useRef(undefined);
   useEffect(() => {
+    if (!orgIsLoaded) return; // wait until Clerk resolves the active org — avoids a load-time reload loop
     const cur = organization ? organization.id : null;
-    if (prevOrgIdRef.current === undefined) { prevOrgIdRef.current = cur; return; } // don't reload on first mount
-    if (prevOrgIdRef.current !== cur) { prevOrgIdRef.current = cur; try { window.location.reload(); } catch (_) {} }
-  }, [organization]);
+    if (prevOrgIdRef.current === undefined) { prevOrgIdRef.current = cur; return; } // capture baseline from the RESOLVED org
+    if (prevOrgIdRef.current !== cur) { prevOrgIdRef.current = cur; try { window.location.reload(); } catch (_) {} } // genuine user switch
+  }, [organization, orgIsLoaded]);
   // Reverification-wrapped version of createExternalAccount. Clerk requires
   // re-authentication (password or 2FA) before adding a new external OAuth
   // account that has sensitive permissions (ads_management etc.). The hook
