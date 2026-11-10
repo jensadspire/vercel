@@ -103,13 +103,13 @@ export async function saveMetaCredentials({ userId, accessToken, expiresInSecond
   }
 }
 
-export async function getMetaCredentials(userId) {
+export async function getMetaCredentials(userId, scope = userId) {
   if (!userId) return null;
   const [tokenRes, expiresRes, accountRes, pageRes, fbUserRes] = await Promise.all([
     upstash('get', KEY(userId, 'token')),
     upstash('get', KEY(userId, 'expires')),
-    upstash('get', KEY(userId, 'ad_account_id')),
-    upstash('get', KEY(userId, 'page_id')),
+    upstash('get', KEY(scope, 'ad_account_id')),
+    upstash('get', KEY(scope, 'page_id')),
     upstash('get', KEY(userId, 'fb_user_id')),
   ]);
   if (!tokenRes.result) return null;
@@ -130,10 +130,10 @@ export async function getClerkUserIdByFbUserId(fbUserId) {
   return r.result || null;
 }
 
-export async function saveMetaSelection({ userId, adAccountId, pageId }) {
-  if (!userId) throw new Error('userId required');
-  if (adAccountId) await upstashSet(KEY(userId, 'ad_account_id'), adAccountId);
-  if (pageId) await upstashSet(KEY(userId, 'page_id'), pageId);
+export async function saveMetaSelection({ scope, adAccountId, pageId }) {
+  if (!scope) throw new Error('scope required');
+  if (adAccountId) await upstashSet(KEY(scope, 'ad_account_id'), adAccountId);
+  if (pageId) await upstashSet(KEY(scope, 'page_id'), pageId);
 }
 
 export async function clearMetaCredentials(userId) {

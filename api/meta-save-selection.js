@@ -21,14 +21,14 @@ async function authenticateUser(req) {
   );
   const auth = session.toAuth();
   if (!auth?.userId) throw new Error('Not signed in');
-  return auth.userId;
+  return { userId: auth.userId, scope: auth.orgId || auth.userId };
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   try {
-    const userId = await authenticateUser(req);
+    const { scope } = await authenticateUser(req);
     const { adAccountId, pageId } = req.body || {};
 
     if (!adAccountId || !pageId) {
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     const normalisedAdAccount = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
 
     await saveMetaSelection({
-      userId,
+      scope,
       adAccountId: normalisedAdAccount,
       pageId: String(pageId),
     });
