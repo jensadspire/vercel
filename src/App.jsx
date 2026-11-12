@@ -3307,7 +3307,12 @@ function RSAStudio() {
     try {
       const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: card.id }) });
       const data = await res.json().catch(() => ({}));
-      if (res.ok && data.creative) { restoreFeedEntry(rebuildFromCreative(data.creative)); setShowVault(false); }
+      if (res.ok && data.creative) {
+        restoreFeedEntry(rebuildFromCreative(data.creative)); setShowVault(false);
+        // mark as saved so the ★ shows filled on open (matches currentCombinedId()'s format)
+        lastGeneratedUrlRef.current = data.creative.productUrl || '';
+        setVaultSavedKey('combo_' + String(data.creative.productUrl || '').slice(0, 60));
+      }
       else setVaultError((data && data.error) || 'Could not open this ad.');
     } catch (_) { setVaultError('Could not open this ad.'); }
     finally { setVaultBusy(null); }
