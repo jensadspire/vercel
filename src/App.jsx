@@ -5790,7 +5790,7 @@ STRICT rules:
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
                   <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#6366f1", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★ Saved" : "☆ Save")}</span>
                   <span title="Ships the selected formats to Google Ads — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startGooglePublishChain(); }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
@@ -5882,7 +5882,7 @@ STRICT rules:
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#0866FF", fontWeight: 700 }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#0866FF", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★ Saved" : "☆ Save")}</span>
                   <span title="Ships the selected Meta formats to Meta Ads Manager — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startMetaPublishChain(); }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
@@ -5944,7 +5944,7 @@ STRICT rules:
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span onClick={(e) => { e.stopPropagation(); if (!isSignedIn) { setShowAuthModal(true); return; } setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#8b5cf6", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★ Saved" : "☆ Save")}</span>
                   <span onClick={(e) => { e.stopPropagation();
                     if (!isSignedIn) { setShowAuthModal(true); return; }
                     if (!metaConn.connected) { triggerMetaConnect(); return; }
