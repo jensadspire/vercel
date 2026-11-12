@@ -3500,7 +3500,16 @@ function RSAStudio() {
   const [seqShotMeta, setSeqShotMeta] = useState([]);      // per-shot { market, interactionMode } from the generator
   const [seqLeadVideo, setSeqLeadVideo] = useState(null);  // loaded template's opening video (shown at the top)
   const [seqSaveOpen, setSeqSaveOpen] = useState(false);   // header "Save as template" bar toggle
-  const [seqLastLead, setSeqLastLead] = useState(function () { try { var s = localStorage.getItem('seq:lastLead'); return s ? JSON.parse(s) : null; } catch (_) { return null; } }); // most recent project → "Continue your story"
+  const [seqLastLead, setSeqLastLead] = useState(null); // most recent project → "Continue your story" (loaded per-workspace once scope resolves)
+  // Per-workspace "Continue your story" pointer: read the scoped key (seq:lastLead:<org||user>) when the
+  // active scope resolves and on every switch, so one client's story never shows in another workspace.
+  useEffect(() => {
+    if (!orgIsLoaded) return;
+    const _scope = organization ? organization.id : (user?.id || null);
+    if (!_scope) { setSeqLastLead(null); return; }
+    try { const s = localStorage.getItem('seq:lastLead:' + _scope); setSeqLastLead(s ? JSON.parse(s) : null); }
+    catch (_) { setSeqLastLead(null); }
+  }, [organization, orgIsLoaded, user?.id]);
   // ── Sequence → Meta video-story publish (isolated: only calls /api/meta-publish) ──
   const [seqPubOpen, setSeqPubOpen] = useState(false);     // publish panel open
   const [seqPubReturn, setSeqPubReturn] = useState(false); // showing an ad in the 3-ad viewer → offer "Back to publish"
@@ -3861,7 +3870,7 @@ function RSAStudio() {
     setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
     setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
-    try { localStorage.setItem('seq:lastLead', JSON.stringify(t)); } catch (_) {} setSeqLastLead(t);
+    try { localStorage.setItem('seq:lastLead:' + (organization ? organization.id : (user?.id || '_')), JSON.stringify(t)); } catch (_) {} setSeqLastLead(t);
     try {
       if (opts && opts.keepOrigin) {
         if (!seqOriginMeta && t.id) { const _os = localStorage.getItem('seq:origin:' + t.id); if (_os) { const _oo = JSON.parse(_os); setSeqOriginMeta(_oo.meta || null); setSeqOriginUrl(_oo.url || (t.garmentUrls && t.garmentUrls[0]) || ''); setSeqOriginSnap(_oo.snap || null); } }
