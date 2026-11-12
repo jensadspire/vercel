@@ -133,6 +133,7 @@ export default async function handler(req, res) {
         thumbnailUrl: body.thumbnailUrl || (existing && existing.thumbnailUrl) || null,
         lastVideoUrl: body.lastVideoUrl || (existing && existing.lastVideoUrl) || null,
         landingUrl: str(body.landingUrl, 2000) || (existing && existing.landingUrl) || null, // real product-page landing (click destination) — separate from garmentUrls (images)
+        origin: (body.origin && typeof body.origin === 'object') ? body.origin : ((existing && existing.origin) || null), // full origin snapshot (Google+Meta+landing) for view-mode recovery; stripped from the list projection
 
         // classification + performance (shared _ad-schema.js). objective is null until set;
         // performance is empty until the read-API lands, then a per-objective rollup of this
@@ -162,7 +163,8 @@ export default async function handler(req, res) {
         .map(r => { try { return JSON.parse(r); } catch (_) { return null; } })
         .filter(Boolean)
         .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
-      return res.status(200).json({ templates: docs, count: docs.length });
+      const light = docs.map(function (d) { const c = Object.assign({}, d); delete c.origin; return c; }); // origin is heavy — returned only by GET
+      return res.status(200).json({ templates: light, count: light.length });
     }
 
     // ── GET one ───────────────────────────────────────────────────────────────
