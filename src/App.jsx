@@ -3569,10 +3569,13 @@ function RSAStudio() {
     } catch (_) { if (_tok === seqSeqReqId.current) setSeqSequenceAds([]); return []; }
   };
   const reCenterAd = (ad) => {
-    if (seqBuildNext) {
+    // Only warn when there's a REAL unsaved draft (a generated video not yet added). An empty
+    // build-next state (e.g. from "Continue your story" → openNextAd) has nothing to discard.
+    const _hasDraft = seqBuildNext && Array.isArray(seqResults) && seqResults.some(function (r) { return r && r.videoUrl; });
+    if (_hasDraft) {
       if (!window.confirm("You are building a new ad — switch to Ad #" + ad.n + " and discard this draft?")) return;
-      setSeqBuildNext(false); setSeqResults([]);
     }
+    if (seqBuildNext) { setSeqBuildNext(false); setSeqResults([]); } // drop the build-next state (empty or just-confirmed)
     setSeqMsg(''); setSeqErr('');
     setSeqActiveAd(ad.kind === 'lead' ? null : ad);
   };
