@@ -132,6 +132,7 @@ export default async function handler(req, res) {
         // display helpers
         thumbnailUrl: body.thumbnailUrl || (existing && existing.thumbnailUrl) || null,
         lastVideoUrl: body.lastVideoUrl || (existing && existing.lastVideoUrl) || null,
+        landingUrl: str(body.landingUrl, 2000) || (existing && existing.landingUrl) || null, // real product-page landing (click destination) — separate from garmentUrls (images)
 
         // classification + performance (shared _ad-schema.js). objective is null until set;
         // performance is empty until the read-API lands, then a per-objective rollup of this
