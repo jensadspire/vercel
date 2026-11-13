@@ -52,7 +52,7 @@ function normDomainList(input) {
   for (const d of arr) {
     const n = normDomain(d);
     if (n && !out.includes(n)) out.push(n);
-    if (out.length >= 8) break;
+    if (out.length >= 20) break;
   }
   return out;
 }

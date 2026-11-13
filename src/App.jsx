@@ -1886,6 +1886,70 @@ function RSAStudio() {
       </div>
     </div>
   ) : null;
+  // ── Domain mismatch nudge (Phase 3) ──
+  const _nudgeList = useOrganizationList({ userMemberships: true }) || {};
+  const [domNudgeDismissed, setDomNudgeDismissed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('domNudgeDismissed') || '{}') || {}; } catch (_) { return {}; }
+  });
+  const _hostFromUrl = (u) => {
+    let s = String(u || '').trim().toLowerCase();
+    if (!s) return '';
+    const p = s.indexOf('//'); if (p >= 0) s = s.slice(p + 2);
+    if (s.slice(0, 4) === 'www.') s = s.slice(4);
+    const sl = s.indexOf('/'); if (sl >= 0) s = s.slice(0, sl);
+    const q = s.indexOf('?'); if (q >= 0) s = s.slice(0, q);
+    s = s.split(':')[0].trim();
+    if (s.indexOf('.') < 0) return '';
+    return s;
+  };
+  const _hostMatches = (host, d) => host === d || host.endsWith('.' + d) || d.endsWith('.' + host);
+  const _curOrgDomains = (organization && organization.publicMetadata && Array.isArray(organization.publicMetadata.domains)) ? organization.publicMetadata.domains : [];
+  const _nudgeHost = _hostFromUrl(url);
+  const _nudgeMismatch = !!(organization && _curOrgDomains.length > 0 && _nudgeHost && !_curOrgDomains.some((d) => _hostMatches(_nudgeHost, d)));
+  const _nudgeKey = organization ? (organization.id + '|' + _nudgeHost) : '';
+  const _nudgeDismissed = !!(_nudgeKey && domNudgeDismissed[_nudgeKey]);
+  let _nudgeOtherOrg = null;
+  try {
+    const _mems = (_nudgeList.userMemberships && _nudgeList.userMemberships.data) || [];
+    for (const m of _mems) {
+      const o = m && m.organization;
+      const ds = (o && o.publicMetadata && Array.isArray(o.publicMetadata.domains)) ? o.publicMetadata.domains : [];
+      if (o && o.id !== (organization && organization.id) && _nudgeHost && ds.some((d) => _hostMatches(_nudgeHost, d))) { _nudgeOtherOrg = o; break; }
+    }
+  } catch (_) {}
+  const _dismissNudge = () => {
+    if (!_nudgeKey) return;
+    setDomNudgeDismissed((prev) => {
+      const next = { ...prev, [_nudgeKey]: 1 };
+      try { localStorage.setItem('domNudgeDismissed', JSON.stringify(next)); } catch (_) {}
+      return next;
+    });
+  };
+  const _switchToOtherOrg = async () => {
+    if (!_nudgeOtherOrg || !setActive) return;
+    try { await setActive({ organization: _nudgeOtherOrg.id }); } catch (_) {}
+  };
+  const _addHostToClient = async () => {
+    if (!organization || !_nudgeHost) return;
+    try {
+      const _tok = (window.Clerk && window.Clerk.session) ? await window.Clerk.session.getToken() : null;
+      const next = _curOrgDomains.concat([_nudgeHost]);
+      const r = await fetch('/api/client-domains', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok }, body: JSON.stringify({ orgId: organization.id, domains: next }) });
+      if (r.ok) { try { if (organization.reload) await organization.reload(); } catch (_) {} }
+    } catch (_) {}
+  };
+  const domainNudgeEl = (_nudgeMismatch && !_nudgeDismissed) ? (
+    <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, textAlign: "left", background: "rgba(251,191,36,0.10)", border: "1px solid rgba(251,191,36,0.45)", borderRadius: 10, padding: "10px 12px" }}>
+      <span style={{ fontSize: 16, lineHeight: 1 }}>⚠️</span>
+      <div style={{ flex: 1, fontSize: 12.5, color: "#fde68a", lineHeight: 1.5 }}>
+        <strong style={{ color: "#fef3c7" }}>{_nudgeHost}</strong> isn't a declared domain for <strong style={{ color: "#fef3c7" }}>{organization ? organization.name : 'this client'}</strong>.{_nudgeOtherOrg ? <> It belongs to <strong style={{ color: "#fef3c7" }}>{_nudgeOtherOrg.name}</strong>.</> : <> You may be in the wrong client workspace.</>}
+      </div>
+      {_nudgeOtherOrg
+        ? <button onClick={_switchToOtherOrg} style={{ fontSize: 11.5, fontWeight: 800, color: "#06281f", background: "#fbbf24", border: "none", borderRadius: 8, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>Switch to {_nudgeOtherOrg.name}</button>
+        : <button onClick={_addHostToClient} style={{ fontSize: 11.5, fontWeight: 800, color: "#06281f", background: "#fbbf24", border: "none", borderRadius: 8, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>Add to {organization ? organization.name : 'client'}</button>}
+      <button onClick={_dismissNudge} title="Dismiss" style={{ fontSize: 13, color: "#d4b483", background: "transparent", border: "none", cursor: "pointer", padding: "4px 6px" }}>✕</button>
+    </div>
+  ) : null;
   const chooseAccountType = async (t) => {
     if (!user) return;
     setAcctSaving(true);
@@ -5913,6 +5977,7 @@ STRICT rules:
               placeholder="Paste a product URL (https://...)"
               style={{ width: "100%", boxSizing: "border-box", padding: "14px 16px", fontSize: 15, borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "white", outline: "none" }}
             />
+            {domainNudgeEl}
             <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
               <span style={{ fontSize: 12, color: "#7e92a8" }}>Generate:</span>
               <span style={{ fontSize: 12, color: "#a5b4fc", padding: "6px 12px", background: "rgba(99,102,241,0.15)", borderRadius: 8, fontWeight: 700 }}>Google ✓</span>
