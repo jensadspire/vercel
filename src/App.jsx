@@ -1105,7 +1105,17 @@ export default function App() {
       createOrganization: { title: 'Create a client workspace', formButtonSubmit: 'Create client workspace' },
       organizationSwitcher: { personalWorkspace: 'No client selected', notSelected: 'Select a client', action__createOrganization: 'Create client workspace', action__manageOrganization: 'Manage client' },
       organizationList: { createOrganization: 'Create client workspace', titleWithoutPersonal: 'Choose a client' },
-      organizationProfile: { createOrganizationPage: { title: 'Create a client workspace', formButtonSubmit: 'Create client workspace' } },
+      organizationProfile: {
+        createOrganizationPage: { title: 'Create a client workspace', formButtonSubmit: 'Create client workspace' },
+        navbar: { title: 'Client', description: 'Manage this client workspace' },
+        profilePage: {
+          title: 'Client workspace',
+          dangerSection: {
+            leaveOrganization: { title: 'Leave client workspace' },
+            deleteOrganization: { title: 'Delete client workspace' },
+          },
+        },
+      },
     }}>
       <RSAStudio />
     </ClerkProvider>
@@ -1824,6 +1834,54 @@ function RSAStudio() {
         <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button disabled={ccSaving} onClick={() => setShowCreateClient(false)} style={{ padding: "9px 14px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "1px solid rgba(255,255,255,0.14)", background: "transparent", color: "#cbd5e1", cursor: ccSaving ? "default" : "pointer" }}>Cancel</button>
           <button disabled={ccSaving} onClick={createClientWorkspace} style={{ padding: "9px 16px", fontSize: 13, fontWeight: 800, borderRadius: 9, border: "none", cursor: ccSaving ? "default" : "pointer", opacity: ccSaving ? 0.6 : 1, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{ccSaving ? 'Creating…' : 'Create workspace'}</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+  // ── Edit client domains (Phase 2b) ──
+  const [showEditDomains, setShowEditDomains] = useState(false);
+  const [edForm, setEdForm] = useState('');
+  const [edSaving, setEdSaving] = useState(false);
+  const [edMsg, setEdMsg] = useState('');
+  const openEditDomains = () => {
+    const cur = (organization && organization.publicMetadata && organization.publicMetadata.domains) || [];
+    setEdForm(Array.isArray(cur) ? cur.join(', ') : String(cur || ''));
+    setEdMsg(''); setShowEditDomains(true);
+  };
+  const saveEditDomains = async () => {
+    if (!organization) return;
+    setEdSaving(true); setEdMsg('');
+    try {
+      const _tok = (window.Clerk && window.Clerk.session) ? await window.Clerk.session.getToken() : null;
+      const r = await fetch('/api/client-domains', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok },
+        body: JSON.stringify({ orgId: organization.id, domains: edForm }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setEdMsg((j && j.error) || 'Could not save.'); setEdSaving(false); return; }
+      try { if (organization.reload) await organization.reload(); } catch (_) {}
+      setEdForm(Array.isArray(j.domains) ? j.domains.join(', ') : edForm);
+      setEdMsg('Saved ✓');
+    } catch (e) {
+      setEdMsg((e && e.message) || 'Could not save.');
+    }
+    setEdSaving(false);
+  };
+  const editDomainsModalEl = showEditDomains ? (
+    <div onClick={() => { if (!edSaving) setShowEditDomains(false); }} style={{ position: "fixed", inset: 0, zIndex: 4000, background: "rgba(5,8,18,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, background: "#101a33", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 24 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#6366f1", marginBottom: 6 }}>CLIENT DOMAINS</div>
+        <div style={{ fontSize: 19, fontWeight: 900, color: "#e8eefc", marginBottom: 4 }}>{organization ? organization.name : 'Client'} — domains</div>
+        <div style={{ fontSize: 12.5, color: "#9db0c7", marginBottom: 18, lineHeight: 1.5 }}>These power the wrong-workspace warning. Add every domain this client advertises.</div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Domain(s)
+          <input autoFocus value={edForm} onChange={(e) => setEdForm(e.target.value)} placeholder="e.g. hackett.com, hackett.co.uk" style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 }} />
+          <div style={{ marginTop: 5, fontSize: 11, color: "#6b7f96" }}>Separate multiple brands with commas.</div>
+        </label>
+        {edMsg ? <div style={{ marginTop: 12, fontSize: 12, color: edMsg.indexOf('✓') >= 0 ? '#34d399' : '#f87171' }}>{edMsg}</div> : null}
+        <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button disabled={edSaving} onClick={() => setShowEditDomains(false)} style={{ padding: "9px 14px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "1px solid rgba(255,255,255,0.14)", background: "transparent", color: "#cbd5e1", cursor: edSaving ? "default" : "pointer" }}>Close</button>
+          <button disabled={edSaving} onClick={saveEditDomains} style={{ padding: "9px 16px", fontSize: 13, fontWeight: 800, borderRadius: 9, border: "none", cursor: edSaving ? "default" : "pointer", opacity: edSaving ? 0.6 : 1, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{edSaving ? 'Saving…' : 'Save domains'}</button>
         </div>
       </div>
     </div>
@@ -5817,6 +5875,8 @@ STRICT rules:
                   : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>)}
               <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }, organizationSwitcherPopoverActionButton__createOrganization: { display: "none" } } }} />
               <button onClick={() => setShowCreateClient(true)} title="Create a new client workspace" style={{ fontSize: 11, fontWeight: 800, color: "#c7d2fe", background: "rgba(99,102,241,0.18)", border: "1px solid rgba(99,102,241,0.5)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>+ New client</button>
+              {organization ? <button onClick={openEditDomains} title="Edit this client's domains" style={{ fontSize: 11, fontWeight: 800, color: "#9db0c7", background: "transparent", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 8, padding: "4px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>⚙ Domains</button> : null}
+              {editDomainsModalEl}
               {createClientModalEl}
               </>)}
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
@@ -8361,6 +8421,8 @@ STRICT rules:
                   : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>)}
               <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }, organizationSwitcherPopoverActionButton__createOrganization: { display: "none" } } }} />
               <button onClick={() => setShowCreateClient(true)} title="Create a new client workspace" style={{ fontSize: 11, fontWeight: 800, color: "#c7d2fe", background: "rgba(99,102,241,0.18)", border: "1px solid rgba(99,102,241,0.5)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>+ New client</button>
+              {organization ? <button onClick={openEditDomains} title="Edit this client's domains" style={{ fontSize: 11, fontWeight: 800, color: "#9db0c7", background: "transparent", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 8, padding: "4px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>⚙ Domains</button> : null}
+              {editDomainsModalEl}
               {createClientModalEl}
               </>)}
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
