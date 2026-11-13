@@ -5649,6 +5649,9 @@ STRICT rules:
               )}
               {isPro && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", letterSpacing: "0.05em" }}>PRO</span>}
               <span style={{ fontSize: 11, color: "#8fa3b8" }}>{user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}</span>
+              {organization
+                ? <span title="You are working in this client workspace — ads you build here belong to it" style={{ fontSize: 10, fontWeight: 800, color: "#06281f", background: "#fbbf24", borderRadius: 8, padding: "3px 9px", letterSpacing: "0.03em", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>⬢ {organization.name}</span>
+                : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>}
               <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 } } }} />
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
@@ -8176,6 +8179,9 @@ STRICT rules:
                 {user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}
               </div>
                 {isPro && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", letterSpacing: "0.05em" }}>PRO</span>}
+              {organization
+                ? <span title="You are working in this client workspace — ads you build here belong to it" style={{ fontSize: 10, fontWeight: 800, color: "#06281f", background: "#fbbf24", borderRadius: 8, padding: "3px 9px", letterSpacing: "0.03em", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>⬢ {organization.name}</span>
+                : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>}
               <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 } } }} />
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
