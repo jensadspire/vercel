@@ -245,6 +245,7 @@ import {
   UserButton,
   OrganizationSwitcher,
   useOrganization,
+  useOrganizationList,
 } from "@clerk/clerk-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -1773,6 +1774,60 @@ function RSAStudio() {
     } catch (_) {}
     setAgencySaving(false);
   };
+  // ── Create client workspace with domain capture (Phase 2a) ──
+  const { createOrganization: _createClientOrg } = useOrganizationList() || {};
+  const [showCreateClient, setShowCreateClient] = useState(false);
+  const [ccForm, setCcForm] = useState({ name: '', domains: '' });
+  const [ccSaving, setCcSaving] = useState(false);
+  const [ccError, setCcError] = useState('');
+  const createClientWorkspace = async () => {
+    const name = (ccForm.name || '').trim();
+    if (!name) { setCcError('Please enter a client name.'); return; }
+    if (!_createClientOrg) { setCcError('Workspace creation is still loading — try again in a moment.'); return; }
+    setCcSaving(true); setCcError('');
+    try {
+      const org = await _createClientOrg({ name });
+      // persist the declared domain(s) on the org (backend-only metadata)
+      try {
+        const _tok = (window.Clerk && window.Clerk.session) ? await window.Clerk.session.getToken() : null;
+        if (_tok && (ccForm.domains || '').trim()) {
+          await fetch('/api/client-domains', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok },
+            body: JSON.stringify({ orgId: org.id, domains: ccForm.domains }),
+          });
+        }
+      } catch (_) {}
+      // activate the new client → existing org-change effect reloads into it
+      if (setActive) { try { await setActive({ organization: org.id }); } catch (_) {} }
+      setShowCreateClient(false);
+      setCcForm({ name: '', domains: '' });
+    } catch (e) {
+      setCcError((e && e.errors && e.errors[0] && e.errors[0].message) || (e && e.message) || 'Could not create the workspace.');
+    }
+    setCcSaving(false);
+  };
+  const createClientModalEl = showCreateClient ? (
+    <div onClick={() => { if (!ccSaving) setShowCreateClient(false); }} style={{ position: "fixed", inset: 0, zIndex: 4000, background: "rgba(5,8,18,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, background: "#101a33", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 24 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#6366f1", marginBottom: 6 }}>NEW CLIENT WORKSPACE</div>
+        <div style={{ fontSize: 19, fontWeight: 900, color: "#e8eefc", marginBottom: 4 }}>Create a client workspace</div>
+        <div style={{ fontSize: 12.5, color: "#9db0c7", marginBottom: 18, lineHeight: 1.5 }}>Each client gets an isolated workspace. Declaring the client's domain now powers the wrong-workspace warning later.</div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Client name
+          <input autoFocus value={ccForm.name} onChange={(e) => setCcForm({ ...ccForm, name: e.target.value })} placeholder="e.g. Shoplondon" style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 }} />
+        </label>
+        <label style={{ display: "block", marginTop: 14, fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Client domain(s)
+          <input value={ccForm.domains} onChange={(e) => setCcForm({ ...ccForm, domains: e.target.value })} placeholder="e.g. shoplondon.dk" style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 }} />
+          <div style={{ marginTop: 5, fontSize: 11, color: "#6b7f96" }}>Separate multiple brands with commas. You can edit these later.</div>
+        </label>
+        {ccError ? <div style={{ marginTop: 12, fontSize: 12, color: "#f87171" }}>{ccError}</div> : null}
+        <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button disabled={ccSaving} onClick={() => setShowCreateClient(false)} style={{ padding: "9px 14px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "1px solid rgba(255,255,255,0.14)", background: "transparent", color: "#cbd5e1", cursor: ccSaving ? "default" : "pointer" }}>Cancel</button>
+          <button disabled={ccSaving} onClick={createClientWorkspace} style={{ padding: "9px 16px", fontSize: 13, fontWeight: 800, borderRadius: 9, border: "none", cursor: ccSaving ? "default" : "pointer", opacity: ccSaving ? 0.6 : 1, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{ccSaving ? 'Creating…' : 'Create workspace'}</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
   const chooseAccountType = async (t) => {
     if (!user) return;
     setAcctSaving(true);
@@ -5760,7 +5815,9 @@ STRICT rules:
                 : (accountType === 'agency'
                   ? <span title="No client workspace selected — create or pick a client" style={{ fontSize: 10, fontWeight: 800, color: "#fbbf24", border: "1px solid rgba(251,191,36,0.5)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>⬡ Select a client</span>
                   : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>)}
-              <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 } } }} />
+              <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }, organizationSwitcherPopoverActionButton__createOrganization: { display: "none" } } }} />
+              <button onClick={() => setShowCreateClient(true)} title="Create a new client workspace" style={{ fontSize: 11, fontWeight: 800, color: "#c7d2fe", background: "rgba(99,102,241,0.18)", border: "1px solid rgba(99,102,241,0.5)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>+ New client</button>
+              {createClientModalEl}
               </>)}
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
@@ -5782,7 +5839,7 @@ STRICT rules:
           {accountType === 'agency' && !organization && !acctBannerHidden ? (
             <div style={{ marginTop: 20, maxWidth: 720, marginLeft: "auto", marginRight: "auto", display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "linear-gradient(135deg, rgba(99,102,241,0.14), rgba(14,165,233,0.10))", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 12, padding: "12px 14px" }}>
               <div style={{ flex: 1, fontSize: 13, color: "#cbd5e1", lineHeight: 1.5 }}><strong style={{ color: "#e8eefc" }}>👥 You're set up as an agency.</strong> Create your first client workspace — each client's ads, library and personas stay isolated.</div>
-              <button onClick={() => { try { window.Clerk && window.Clerk.openCreateOrganization && window.Clerk.openCreateOrganization(); } catch (_) {} }} style={{ padding: "8px 14px", fontSize: 12, fontWeight: 800, borderRadius: 9, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", whiteSpace: "nowrap" }}>Create client workspace</button>
+              <button onClick={() => setShowCreateClient(true)} style={{ padding: "8px 14px", fontSize: 12, fontWeight: 800, borderRadius: 9, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", whiteSpace: "nowrap" }}>Create client workspace</button>
               <button onClick={() => setAcctBannerHidden(true)} title="Dismiss" style={{ padding: "6px 8px", fontSize: 13, borderRadius: 8, border: "none", cursor: "pointer", background: "transparent", color: "#8fa3b8" }}>✕</button>
             </div>
           ) : null}
@@ -8302,7 +8359,9 @@ STRICT rules:
                 : (accountType === 'agency'
                   ? <span title="No client workspace selected — create or pick a client" style={{ fontSize: 10, fontWeight: 800, color: "#fbbf24", border: "1px solid rgba(251,191,36,0.5)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>⬡ Select a client</span>
                   : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>)}
-              <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 } } }} />
+              <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }, organizationSwitcherPopoverActionButton__createOrganization: { display: "none" } } }} />
+              <button onClick={() => setShowCreateClient(true)} title="Create a new client workspace" style={{ fontSize: 11, fontWeight: 800, color: "#c7d2fe", background: "rgba(99,102,241,0.18)", border: "1px solid rgba(99,102,241,0.5)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>+ New client</button>
+              {createClientModalEl}
               </>)}
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
