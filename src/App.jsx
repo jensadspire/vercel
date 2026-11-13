@@ -1746,6 +1746,7 @@ function RSAStudio() {
   const needsAccountType = !!(isSignedIn && orgIsLoaded && user && !accountType && _isNewSignup);
   const showOrgUI = (accountType !== 'personal'); // hide org controls only for an explicit personal account
   const [acctSaving, setAcctSaving] = useState(false);
+  const [acctBannerHidden, setAcctBannerHidden] = useState(false);
   const chooseAccountType = async (t) => {
     if (!user) return;
     setAcctSaving(true);
@@ -5690,7 +5691,9 @@ STRICT rules:
               {showOrgUI && (<>
               {organization
                 ? <span title="You are working in this client workspace — ads you build here belong to it" style={{ fontSize: 10, fontWeight: 800, color: "#06281f", background: "#fbbf24", borderRadius: 8, padding: "3px 9px", letterSpacing: "0.03em", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>⬢ {organization.name}</span>
-                : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>}
+                : (accountType === 'agency'
+                  ? <span title="No client workspace selected — create or pick a client" style={{ fontSize: 10, fontWeight: 800, color: "#fbbf24", border: "1px solid rgba(251,191,36,0.5)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>⬡ Select a client</span>
+                  : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>)}
               <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 } } }} />
               </>)}
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
@@ -5709,6 +5712,14 @@ STRICT rules:
           <img src="/apple-touch-icon.png" alt="" width={72} height={72} style={{ borderRadius: 16, display: "block", margin: "0 auto 14px" }} />
           <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: "-0.02em", color: "white" }}>AI Ad Studio</div>
           <div style={{ fontSize: 16, color: "#7e92a8", marginTop: 8 }}>Your next online campaign starts here.</div>
+
+          {accountType === 'agency' && !organization && !acctBannerHidden ? (
+            <div style={{ marginTop: 20, maxWidth: 720, marginLeft: "auto", marginRight: "auto", display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "linear-gradient(135deg, rgba(99,102,241,0.14), rgba(14,165,233,0.10))", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 12, padding: "12px 14px" }}>
+              <div style={{ flex: 1, fontSize: 13, color: "#cbd5e1", lineHeight: 1.5 }}><strong style={{ color: "#e8eefc" }}>👥 You're set up as an agency.</strong> Create your first client workspace — each client's ads, library and personas stay isolated.</div>
+              <button onClick={() => { try { window.Clerk && window.Clerk.openCreateOrganization && window.Clerk.openCreateOrganization(); } catch (_) {} }} style={{ padding: "8px 14px", fontSize: 12, fontWeight: 800, borderRadius: 9, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", whiteSpace: "nowrap" }}>Create client workspace</button>
+              <button onClick={() => setAcctBannerHidden(true)} title="Dismiss" style={{ padding: "6px 8px", fontSize: 13, borderRadius: 8, border: "none", cursor: "pointer", background: "transparent", color: "#8fa3b8" }}>✕</button>
+            </div>
+          ) : null}
 
           {/* URL box + format selectors */}
           <div style={{ marginTop: 36, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, padding: 20 }}>
@@ -8222,7 +8233,9 @@ STRICT rules:
               {showOrgUI && (<>
               {organization
                 ? <span title="You are working in this client workspace — ads you build here belong to it" style={{ fontSize: 10, fontWeight: 800, color: "#06281f", background: "#fbbf24", borderRadius: 8, padding: "3px 9px", letterSpacing: "0.03em", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>⬢ {organization.name}</span>
-                : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>}
+                : (accountType === 'agency'
+                  ? <span title="No client workspace selected — create or pick a client" style={{ fontSize: 10, fontWeight: 800, color: "#fbbf24", border: "1px solid rgba(251,191,36,0.5)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>⬡ Select a client</span>
+                  : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>)}
               <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 } } }} />
               </>)}
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
