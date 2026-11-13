@@ -1717,7 +1717,7 @@ function RSAStudio() {
   const removePmaxImage = (slot, url) => {
     updateRow(activeRow, row => ({ ...row, pmaxImages: { ...(row.pmaxImages || { landscape: [], square: [], portrait: [] }), [slot]: (row.pmaxImages?.[slot] || []).filter(e => e.url !== url) } }));
   };
-  const { signOut, session } = useClerk();
+  const { signOut, session, setActive } = useClerk();
   // Agency: switching the active organization (client workspace) re-keys every store via scope — reload to re-fetch under the new scope.
   const { organization, isLoaded: orgIsLoaded } = useOrganization();
   const prevOrgIdRef = useRef(undefined);
@@ -1739,6 +1739,22 @@ function RSAStudio() {
   );
   const plan = user?.publicMetadata?.plan || 'free';
   const isPro = plan === 'pro';
+  // ── Account type (agency onboarding, Phase 1) ──
+  const accountType = (user && user.unsafeMetadata && user.unsafeMetadata.accountType) || null;
+  const _ACCT_CUTOFF = Date.parse('2026-11-13T00:00:00Z'); // only accounts created from launch day get the chooser
+  const _isNewSignup = !!(user && user.createdAt && new Date(user.createdAt).getTime() >= _ACCT_CUTOFF);
+  const needsAccountType = !!(isSignedIn && orgIsLoaded && user && !accountType && _isNewSignup);
+  const showOrgUI = (accountType !== 'personal'); // hide org controls only for an explicit personal account
+  const [acctSaving, setAcctSaving] = useState(false);
+  const chooseAccountType = async (t) => {
+    if (!user) return;
+    setAcctSaving(true);
+    try {
+      await user.update({ unsafeMetadata: { ...(user.unsafeMetadata || {}), accountType: t } });
+      if (t === 'personal' && organization && setActive) { try { await setActive({ organization: null }); } catch (_) {} }
+    } catch (_) {}
+    setAcctSaving(false);
+  };
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState('');
   const [upgradePlan, setUpgradePlan] = useState('monthly');
@@ -5505,6 +5521,28 @@ STRICT rules:
   };
 
   // ── NEW UI Stage 1a: Overview front page ────────────────────────────────────
+  if (needsAccountType) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0f1e", padding: 20 }}>
+        <div style={{ maxWidth: 580, width: "100%", textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 900, color: "#e8eefc", marginBottom: 8 }}>Welcome 👋 How will you use AI Ad Studio?</div>
+          <div style={{ fontSize: 13, color: "#9db0c7", marginBottom: 24 }}>This sets up your workspace. You can change it later in settings.</div>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
+            <button disabled={acctSaving} onClick={() => chooseAccountType('personal')} style={{ flex: "1 1 240px", maxWidth: 260, textAlign: "left", padding: 18, borderRadius: 14, border: "1px solid rgba(255,255,255,0.12)", background: "#13213f", cursor: acctSaving ? "default" : "pointer", color: "#e8eefc" }}>
+              <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>🏢 One business</div>
+              <div style={{ fontSize: 12, color: "#9db0c7", lineHeight: 1.5 }}>You advertise a single company / domain. A clean, single workspace — no account switching.</div>
+            </button>
+            <button disabled={acctSaving} onClick={() => chooseAccountType('agency')} style={{ flex: "1 1 240px", maxWidth: 260, textAlign: "left", padding: 18, borderRadius: 14, border: "1px solid rgba(99,102,241,0.5)", background: "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(14,165,233,0.12))", cursor: acctSaving ? "default" : "pointer", color: "#e8eefc" }}>
+              <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>👥 An agency / multiple clients</div>
+              <div style={{ fontSize: 12, color: "#9db0c7", lineHeight: 1.5 }}>You run ads for several brands. Each client gets its own isolated workspace — switch between them, work stays separate.</div>
+            </button>
+          </div>
+          <div style={{ marginTop: 18, fontSize: 12, color: "#6366f1", minHeight: 16 }}>{acctSaving ? 'Setting up…' : ''}</div>
+        </div>
+      </div>
+    );
+  }
+
   if (viewMode === "overview") {
     const openDetail = (fmt) => { if (!isSignedIn) { setShowAuthModal(true); return; } setAdFormat(fmt); setViewMode("detailed"); };
     const googleReady = generated && rows && rows.length > 0;
@@ -5649,10 +5687,12 @@ STRICT rules:
               )}
               {isPro && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", letterSpacing: "0.05em" }}>PRO</span>}
               <span style={{ fontSize: 11, color: "#8fa3b8" }}>{user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}</span>
+              {showOrgUI && (<>
               {organization
                 ? <span title="You are working in this client workspace — ads you build here belong to it" style={{ fontSize: 10, fontWeight: 800, color: "#06281f", background: "#fbbf24", borderRadius: 8, padding: "3px 9px", letterSpacing: "0.03em", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>⬢ {organization.name}</span>
                 : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>}
               <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 } } }} />
+              </>)}
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
           ) : (
@@ -8179,10 +8219,12 @@ STRICT rules:
                 {user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}
               </div>
                 {isPro && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", letterSpacing: "0.05em" }}>PRO</span>}
+              {showOrgUI && (<>
               {organization
                 ? <span title="You are working in this client workspace — ads you build here belong to it" style={{ fontSize: 10, fontWeight: 800, color: "#06281f", background: "#fbbf24", borderRadius: 8, padding: "3px 9px", letterSpacing: "0.03em", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>⬢ {organization.name}</span>
                 : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>}
               <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 } } }} />
+              </>)}
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
           ) : (
