@@ -64,15 +64,23 @@ export default async function handler(req, res) {
     const { orgId, domains } = req.body || {};
     if (!orgId || typeof orgId !== 'string') return res.status(400).json({ error: 'orgId required' });
 
-    // Membership guard: caller must belong to the org they are writing to.
-    const memberships = await clerkClient.users.getOrganizationMembershipList({ userId, limit: 100 });
-    const list = (memberships && memberships.data) || memberships || [];
-    const isMember = list.some((m) => ((m && m.organization && m.organization.id) || (m && m.organizationId)) === orgId);
-    if (!isMember) return res.status(403).json({ error: 'Not a member of this workspace' });
+    // Fetch the org up front (needed for existing metadata + the ownership check).
+    const org = await clerkClient.organizations.getOrganization({ organizationId: orgId });
+
+    // Authorize: the creator owns it — immediately consistent right after createOrganization,
+    // so this avoids the membership-list propagation lag. Fall back to the membership list
+    // (covers members who didn't create the org, e.g. the later domains editor).
+    let authorized = !!(org && org.createdBy && org.createdBy === userId);
+    if (!authorized) {
+      try {
+        const memberships = await clerkClient.users.getOrganizationMembershipList({ userId, limit: 100 });
+        const list = (memberships && memberships.data) || memberships || [];
+        authorized = list.some((m) => ((m && m.organization && m.organization.id) || (m && m.organizationId)) === orgId);
+      } catch (_) {}
+    }
+    if (!authorized) return res.status(403).json({ error: 'Not a member of this workspace' });
 
     const cleanDomains = normDomainList(domains);
-
-    const org = await clerkClient.organizations.getOrganization({ organizationId: orgId });
     const existingMeta = (org && org.publicMetadata) || {};
     await clerkClient.organizations.updateOrganization(orgId, {
       publicMetadata: { ...existingMeta, domains: cleanDomains },
