@@ -1098,7 +1098,14 @@ const CS_VERTICALS = {
 
 export default function App() {
   return (
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/" localization={{
+      formFieldLabel__organizationName: 'Client name',
+      formFieldInputPlaceholder__organizationName: 'e.g. Shoplondon',
+      createOrganization: { title: 'Create a client workspace', formButtonSubmit: 'Create client workspace' },
+      organizationSwitcher: { personalWorkspace: 'No client selected', notSelected: 'Select a client', action__createOrganization: 'Create client workspace', action__manageOrganization: 'Manage client' },
+      organizationList: { createOrganization: 'Create client workspace', titleWithoutPersonal: 'Choose a client' },
+      organizationProfile: { createOrganizationPage: { title: 'Create a client workspace', formButtonSubmit: 'Create client workspace' } },
+    }}>
       <RSAStudio />
     </ClerkProvider>
   );
@@ -1747,6 +1754,25 @@ function RSAStudio() {
   const showOrgUI = (accountType !== 'personal'); // hide org controls only for an explicit personal account
   const [acctSaving, setAcctSaving] = useState(false);
   const [acctBannerHidden, setAcctBannerHidden] = useState(false);
+  // ── Agency profile (intermediary setup, Phase 1.1) ──
+  const agencyProfile = (user && user.unsafeMetadata && user.unsafeMetadata.agencyProfile) || null;
+  const needsAgencyProfile = !!(isSignedIn && orgIsLoaded && user && accountType === 'agency' && !agencyProfile && _isNewSignup);
+  const [agencyForm, setAgencyForm] = useState({ company: '', domain: '', type: '', newsletter: true });
+  const [agencySaving, setAgencySaving] = useState(false);
+  const saveAgencyProfile = async () => {
+    if (!user) return;
+    const company = (agencyForm.company || '').trim();
+    let domain = (agencyForm.domain || '').trim().toLowerCase();
+    if (domain.indexOf('//') >= 0) domain = domain.slice(domain.indexOf('//') + 2);
+    if (domain.slice(0, 4) === 'www.') domain = domain.slice(4);
+    const _sl = domain.indexOf('/'); if (_sl >= 0) domain = domain.slice(0, _sl);
+    if (!company || domain.length < 3) return;
+    setAgencySaving(true);
+    try {
+      await user.update({ unsafeMetadata: { ...(user.unsafeMetadata || {}), agencyProfile: { company, domain, type: agencyForm.type || '', newsletter: !!agencyForm.newsletter, ts: Date.now() } } });
+    } catch (_) {}
+    setAgencySaving(false);
+  };
   const chooseAccountType = async (t) => {
     if (!user) return;
     setAcctSaving(true);
@@ -5539,6 +5565,46 @@ STRICT rules:
             </button>
           </div>
           <div style={{ marginTop: 18, fontSize: 12, color: "#6366f1", minHeight: 16 }}>{acctSaving ? 'Setting up…' : ''}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (needsAgencyProfile) {
+    const _canSubmit = (agencyForm.company || '').trim().length > 0 && (agencyForm.domain || '').trim().length > 2 && !agencySaving;
+    const _inp = { marginTop: 6, width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 };
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0f1e", padding: 20 }}>
+        <div style={{ maxWidth: 520, width: "100%" }}>
+          <div style={{ textAlign: "center", marginBottom: 6, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#6366f1" }}>STEP 1 OF 2 · YOUR AGENCY</div>
+          <div style={{ textAlign: "center", fontSize: 22, fontWeight: 900, color: "#e8eefc", marginBottom: 6 }}>Set up your agency</div>
+          <div style={{ textAlign: "center", fontSize: 13, color: "#9db0c7", marginBottom: 22, lineHeight: 1.5 }}>Tell us about <strong style={{ color: "#cbd5e1" }}>your agency</strong> first. Next you'll create your first <strong style={{ color: "#cbd5e1" }}>client workspace</strong> — each client stays isolated.</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, background: "#101a33", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: 22 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Agency name
+              <input value={agencyForm.company} onChange={(e) => setAgencyForm({ ...agencyForm, company: e.target.value })} placeholder="e.g. Adbirds" style={_inp} />
+            </label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Agency domain
+              <input value={agencyForm.domain} onChange={(e) => setAgencyForm({ ...agencyForm, domain: e.target.value })} placeholder="e.g. adbirds.global" style={_inp} />
+            </label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Type of agency
+              <select value={agencyForm.type} onChange={(e) => setAgencyForm({ ...agencyForm, type: e.target.value })} style={_inp}>
+                <option value="">Select…</option>
+                <option value="performance">Performance / media buying</option>
+                <option value="creative">Creative / branding</option>
+                <option value="fullservice">Full-service</option>
+                <option value="social">Social media</option>
+                <option value="seo">SEO / content</option>
+                <option value="ecommerce">Ecommerce / DTC specialist</option>
+                <option value="freelancer">Freelancer / solo</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "#cbd5e1", cursor: "pointer" }}>
+              <input type="checkbox" checked={agencyForm.newsletter} onChange={(e) => setAgencyForm({ ...agencyForm, newsletter: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#6366f1" }} />
+              Send me product updates &amp; agency tips (occasional, no spam)
+            </label>
+            <button disabled={!_canSubmit} onClick={saveAgencyProfile} style={{ marginTop: 4, padding: "12px 16px", fontSize: 14, fontWeight: 800, borderRadius: 11, border: "none", cursor: _canSubmit ? "pointer" : "default", opacity: _canSubmit ? 1 : 0.5, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{agencySaving ? 'Saving…' : 'Continue → create first client'}</button>
+          </div>
         </div>
       </div>
     );
