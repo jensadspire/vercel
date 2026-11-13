@@ -3909,6 +3909,35 @@ function RSAStudio() {
       }
     } catch (_) {}
   };
+  // "Use as lead" — reuse a saved model-featuring ad's EXISTING video as the sequence lead (Ad #1), no
+  // regenerate. None lane, engine locked to the one that made the ad. Parallel to recreateOnPersona.
+  const useAsSequenceLead = async (it) => {
+    if (!it || !it.id) return;
+    setVaultBusy(it.id);
+    try {
+      const _res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: it.id }) });
+      const _data = await _res.json().catch(function () { return {}; });
+      const c = _data && _data.creative;
+      const _o = c ? rebuildFromCreative(c) : null;
+      const _video = (_o && _o.videoUrl) || null;
+      if (!c || !_video) { setVaultBusy(null); try { window.alert('This ad has no video to use as a lead.'); } catch (_) {} return; }
+      const _engine = (c.engine === 'runway' || c.engine === 'veo') ? c.engine : 'kling'; // face-friendly engine the ad was made with
+      const _img = it.thumb || (_o.metaResult && _o.metaResult.imageUrl) || '';
+      const _title = it.productTitle || '';
+      const _prompt = (_o.tiktokResult && _o.tiktokResult.videoPrompt) || ('The model from the lead ad' + (_title ? (' for ' + _title) : '') + ', in a bright modern setting, natural and relaxed. No on-screen text.');
+      const _origin = { meta: (_o.metaResult || null), url: (_o.url || null), snap: _o };
+      const body = { action: 'save', name: _title ? (_title + ' — sequence') : 'Model-image sequence', assetUri: null, characterId: 'none-lane:' + _engine, prompt: _prompt, shots: [_prompt], garmentUrls: _img ? [_img] : [], landingUrl: (_o.url || it.productUrl || null), origin: _origin, ratio: (c.ratio || '9:16'), duration: (c.duration || 5), engine: _engine, thumbnailUrl: _img || null, lastVideoUrl: _video, shotObjectives: ['awareness'], promo: false };
+      const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(function (r) { return r.json(); });
+      setVaultBusy(null);
+      if (d && d.template) {
+        if (seqTemplates !== null) loadSeqTemplates();
+        setShowVault(false);
+        try { localStorage.setItem('seq:origin:' + d.template.id, JSON.stringify(_origin)); } catch (_) {}
+        loadSeqTemplate(d.template, { keepOrigin: false });
+        openSeqBuilder(true);
+      } else { try { window.alert('Could not create the lead ad — please try again.'); } catch (_) {} }
+    } catch (_) { setVaultBusy(null); try { window.alert('Could not create the lead ad — please try again.'); } catch (_) {} }
+  };
   const recreateOnPersona = (it) => {
     if (!it) return;
     setSeqProductUrl(it.thumb || '');
@@ -6905,7 +6934,10 @@ STRICT rules:
                             {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
                           </select>
                         </div>
-                        <button onClick={() => recreateOnPersona(it)} disabled={busy} title="Feature this product on one of your saved personas" style={{ padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#f59e0b)", color: "white", marginTop: 2 }}>✨ Recreate on a persona</button>
+                        <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+                          <button onClick={() => recreateOnPersona(it)} disabled={busy} title="Feature this product on one of your saved personas" style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#f59e0b)", color: "white" }}>✨ Recreate on a persona</button>
+                          {it.hasVideo ? <button onClick={() => useAsSequenceLead(it)} disabled={busy} title="Use this ad's existing video as the lead (Ad #1) of a new sequence — no regenerate" style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#f59e0b,#f97316)", color: "white" }}>⚡ Use as lead</button> : null}
+                        </div>
                         <div style={{ display: "flex", gap: 6, marginTop: "auto" }}>
                           <button onClick={() => openVaultItem(it)} disabled={busy} style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{busy ? '…' : 'Open'}</button>
                           {vaultConfirm === it.id ? (
