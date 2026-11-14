@@ -1122,6 +1122,7 @@ export default function App() {
   );
 }
 
+const _USER_MEMBERSHIPS_PARAMS = { userMemberships: true };
 function RSAStudio() {
   const [url, setUrl] = useState("");
   const [viewMode, setViewMode] = useState("overview"); // "overview" | "detailed" — NEW UI Stage 1a
@@ -1925,7 +1926,7 @@ function RSAStudio() {
     </div>
   ) : null;
   // ── Domain mismatch nudge (Phase 3) ──
-  const _nudgeList = useOrganizationList({ userMemberships: true }) || {};
+  const _nudgeList = useOrganizationList(_USER_MEMBERSHIPS_PARAMS) || {};
   const [domNudgeDismissed, setDomNudgeDismissed] = useState(() => {
     try { return JSON.parse(localStorage.getItem('domNudgeDismissed') || '{}') || {}; } catch (_) { return {}; }
   });
@@ -5456,9 +5457,8 @@ STRICT rules:
 
 
   // ── Auth Modal ───────────────────────────────────────────────────────────────
-  const AuthModal = () => {
-    const [localOptIn, setLocalOptIn] = useState(false);
-    return <div style={{
+  const [localOptIn, setLocalOptIn] = useState(false);
+  const authModalEl = (<div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24,
     }} onClick={() => setShowAuthModal(false)}>
@@ -5508,8 +5508,7 @@ STRICT rules:
           </div>
         )}
       </div>
-    </div>
-  };
+    </div>);
 
   // ── Gate Modal ───────────────────────────────────────────────────────────────
   const GateModal = () => (
@@ -5844,7 +5843,7 @@ STRICT rules:
         display: "flex", flexDirection: "column", alignItems: "center", padding: "0 20px",
       }}>
         {/* overview-auth-bar */}
-        {showAuthModal && <AuthModal />}
+        {showAuthModal && authModalEl}
         {/* video-wall-overview */}
         {videoWallOpen && (
           <div onClick={() => setVideoWallOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 24 }}>
@@ -11852,7 +11851,7 @@ STRICT rules:
       </div>
 
       {showGateModal && <GateModal />}
-      {showAuthModal && <AuthModal />}
+      {showAuthModal && authModalEl}
       {videoWallOpen && (
         <div onClick={() => setVideoWallOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 24 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(6,13,26,0.98))", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16, padding: "36px 32px", maxWidth: 460, width: "100%", textAlign: "center", boxShadow: "0 25px 60px rgba(0,0,0,0.5)" }}>
