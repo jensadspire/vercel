@@ -1840,29 +1840,54 @@ function RSAStudio() {
   ) : null;
   // ── Edit client domains (Phase 2b) ──
   const [showEditDomains, setShowEditDomains] = useState(false);
-  const [edForm, setEdForm] = useState('');
+  const [edList, setEdList] = useState([]);
+  const [edInput, setEdInput] = useState('');
   const [edSaving, setEdSaving] = useState(false);
   const [edMsg, setEdMsg] = useState('');
-  const openEditDomains = () => {
-    const cur = (organization && organization.publicMetadata && organization.publicMetadata.domains) || [];
-    setEdForm(Array.isArray(cur) ? cur.join(', ') : String(cur || ''));
-    setEdMsg(''); setShowEditDomains(true);
+  const _normHostEd = (u) => {
+    let s = String(u || '').trim().toLowerCase();
+    if (!s) return '';
+    const p = s.indexOf('//'); if (p >= 0) s = s.slice(p + 2);
+    const at = s.indexOf('@'); if (at >= 0) s = s.slice(at + 1);
+    if (s.slice(0, 4) === 'www.') s = s.slice(4);
+    const sl = s.indexOf('/'); if (sl >= 0) s = s.slice(0, sl);
+    const q = s.indexOf('?'); if (q >= 0) s = s.slice(0, q);
+    s = s.split(':')[0].trim();
+    if (s.indexOf('.') < 0) return '';
+    return s;
   };
+  const openEditDomains = () => {
+    const cur = (organization && organization.publicMetadata && Array.isArray(organization.publicMetadata.domains)) ? organization.publicMetadata.domains : [];
+    setEdList(cur.slice()); setEdInput(''); setEdMsg(''); setShowEditDomains(true);
+  };
+  const edAddDomain = () => {
+    const parts = String(edInput || '').split(',').join(' ').split(';').join(' ').split(' ');
+    setEdList((prev) => {
+      const out = prev.slice();
+      for (const p of parts) { const h = _normHostEd(p); if (h && out.indexOf(h) < 0 && out.length < 20) out.push(h); }
+      return out;
+    });
+    setEdInput(''); setEdMsg('');
+  };
+  const edRemoveDomain = (h) => { setEdList((prev) => prev.filter((d) => d !== h)); setEdMsg(''); };
   const saveEditDomains = async () => {
     if (!organization) return;
+    let list = edList;
+    const pending = _normHostEd(edInput);
+    if (pending && list.indexOf(pending) < 0) list = list.concat([pending]);
     setEdSaving(true); setEdMsg('');
     try {
       const _tok = (window.Clerk && window.Clerk.session) ? await window.Clerk.session.getToken() : null;
       const r = await fetch('/api/client-domains', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok },
-        body: JSON.stringify({ orgId: organization.id, domains: edForm }),
+        body: JSON.stringify({ orgId: organization.id, domains: list }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setEdMsg((j && j.error) || 'Could not save.'); setEdSaving(false); return; }
       try { if (organization.reload) await organization.reload(); } catch (_) {}
-      setEdForm(Array.isArray(j.domains) ? j.domains.join(', ') : edForm);
-      setEdMsg('Saved ✓');
+      if (Array.isArray(j.domains)) setEdList(j.domains);
+      setEdInput(''); setEdMsg('Saved ✓');
     } catch (e) {
       setEdMsg((e && e.message) || 'Could not save.');
     }
@@ -1873,10 +1898,23 @@ function RSAStudio() {
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, background: "#101a33", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 24 }}>
         <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#6366f1", marginBottom: 6 }}>CLIENT DOMAINS</div>
         <div style={{ fontSize: 19, fontWeight: 900, color: "#e8eefc", marginBottom: 4 }}>{organization ? organization.name : 'Client'} — domains</div>
-        <div style={{ fontSize: 12.5, color: "#9db0c7", marginBottom: 18, lineHeight: 1.5 }}>These power the wrong-workspace warning. Add every domain this client advertises.</div>
-        <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Domain(s)
-          <input autoFocus value={edForm} onChange={(e) => setEdForm(e.target.value)} placeholder="e.g. hackett.com, hackett.co.uk" style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 }} />
-          <div style={{ marginTop: 5, fontSize: 11, color: "#6b7f96" }}>Separate multiple brands with commas.</div>
+        <div style={{ fontSize: 12.5, color: "#9db0c7", marginBottom: 16, lineHeight: 1.5 }}>These power the wrong-workspace warning. Add every domain this client advertises.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
+          {edList.length === 0
+            ? <div style={{ fontSize: 12.5, color: "#6b7f96", fontStyle: "italic", padding: "4px 0" }}>No domains yet — add one below.</div>
+            : edList.map((d) => (
+              <div key={d} style={{ display: "flex", alignItems: "center", gap: 8, background: "#0a1222", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 9, padding: "7px 10px" }}>
+                <span style={{ flex: 1, fontSize: 13.5, color: "#e8eefc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d}</span>
+                <button onClick={() => edRemoveDomain(d)} title="Remove" style={{ fontSize: 12, fontWeight: 800, color: "#f87171", background: "transparent", border: "none", cursor: "pointer", padding: "2px 6px" }}>✕</button>
+              </div>
+            ))}
+        </div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Add a domain
+          <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
+            <input autoFocus value={edInput} onChange={(e) => setEdInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); edAddDomain(); } }} placeholder="e.g. veromoda.com" style={{ flex: 1, boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 }} />
+            <button onClick={edAddDomain} disabled={!edInput.trim()} style={{ padding: "0 16px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "1px solid rgba(99,102,241,0.5)", background: "rgba(99,102,241,0.18)", color: "#c7d2fe", cursor: edInput.trim() ? "pointer" : "default", opacity: edInput.trim() ? 1 : 0.5, whiteSpace: "nowrap" }}>Add</button>
+          </div>
+          <div style={{ marginTop: 5, fontSize: 11, color: "#6b7f96" }}>Press Enter or Add. You can paste several separated by commas.</div>
         </label>
         {edMsg ? <div style={{ marginTop: 12, fontSize: 12, color: edMsg.indexOf('✓') >= 0 ? '#34d399' : '#f87171' }}>{edMsg}</div> : null}
         <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: "flex-end" }}>
