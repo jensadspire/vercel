@@ -4854,6 +4854,16 @@ Rules:
       // ── Step 1: Scrape page metadata (language, meta description, title, OG tags) ──
       // clientLang from URL is used as guaranteed fallback if scrape fails or returns English
       let pageMeta = { language: clientLang || "English", title: null, metaDescription: null, siteName: null, h1: null };
+      // URL-based engine pre-detect — runs even when the scrape is blocked (bot-protected sites),
+      // so fashion/etc. URLs route to the right engine instead of silently defaulting to Kling.
+      // The richer scrape-based pass below refines this when the scrape succeeds.
+      try {
+        const _preSel = detectVertical(url, pageMeta);
+        setVideoEngine(_preSel.engine); videoEngineRef.current = _preSel.engine;
+        videoSelArchetypeRef.current = _preSel.archetype;
+        if (_preSel.engine === 'kling') setVideoArchetype(_preSel.archetype);
+        console.log('[model-select] url pre-detect:', _preSel.engine, _preSel.archetype);
+      } catch (_) {}
       try {
         // Auto-fetch favicon for PMax logo
         if (url.trim()) {
