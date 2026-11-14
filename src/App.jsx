@@ -5279,6 +5279,7 @@ STRICT rules:
               const _csPick = (isPro && csTemplates.length > 0) ? csTemplates[(csRotationRef.current - 1 + csTemplates.length) % csTemplates.length] : null;
               const _tplEngine = _csPick ? TEMPLATE_ENGINE[_csPick] : null;
               if (_tplEngine) { setVideoEngine(_tplEngine); videoEngineRef.current = _tplEngine; }
+              else if (videoEngineRef.current === 'runway') { setVideoEngine('runway'); /* keep the fashion/beauty vertical pick — don't let the image heuristic demote it to Kling */ }
               else { setVideoEngine(detectVideoEngine(tiktokSourceImageRef.current || initialImageUrl)); }
             }
             setVideoTask(null);
