@@ -61,7 +61,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
   try {
     const { userId } = await authenticateUser(req);
-    const { orgId, domains } = req.body || {};
+    const { orgId, domains, vertical } = req.body || {};
     if (!orgId || typeof orgId !== 'string') return res.status(400).json({ error: 'orgId required' });
 
     // Fetch the org up front (needed for existing metadata + the ownership check).
@@ -82,11 +82,14 @@ export default async function handler(req, res) {
 
     const cleanDomains = normDomainList(domains);
     const existingMeta = (org && org.publicMetadata) || {};
-    await clerkClient.organizations.updateOrganization(orgId, {
-      publicMetadata: { ...existingMeta, domains: cleanDomains },
-    });
+    const nextMeta = { ...existingMeta, domains: cleanDomains };
+    // Optional client vertical (agency onboarding). Only a valid bucket overwrites; anything else
+    // (omitted / 'auto' / unknown) leaves the existing value untouched via the spread above.
+    const ALLOWED_VERTICALS = ['fashion', 'home', 'gadgets', 'lifestyle'];
+    if (typeof vertical === 'string' && ALLOWED_VERTICALS.includes(vertical)) nextMeta.vertical = vertical;
+    await clerkClient.organizations.updateOrganization(orgId, { publicMetadata: nextMeta });
 
-    return res.status(200).json({ success: true, domains: cleanDomains });
+    return res.status(200).json({ success: true, domains: cleanDomains, vertical: nextMeta.vertical || null });
   } catch (err) {
     console.error('[client-domains] error:', err);
     return res.status(500).json({ error: err.message || String(err) });

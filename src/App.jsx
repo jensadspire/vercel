@@ -612,6 +612,12 @@ const VERTICAL_RULES = [
   // Travel, Fitness/Wellness, Personal Care, Beverages/Food, Culture, Automotive, Outdoor → Kling Lifestyle Montage
   { engine: 'kling', archetype: 'lifestyle_montage', kw: ['travel','reise','rejse','hotel','resort','hospitality','flight','vacation','urlaub','ferie','fitness','wellness','gym','yoga','workout','training','sport','supplement','vitamin','food','beverage','drink','getränk','drikke','coffee','kaffee','kaffe','tea','tee','the','wine','wein','vin','beer','bier','øl','snack','culture','book','buch','bog','music','musik','game','automotive','car','auto','bil','vehicle','fahrzeug','motorcycle','tire','reifen','outdoor','bike','e-bike','ebike','elcykel','elcykler','pedelec','bicycle','fahrrad','cykel','trekking','hiking','wandern','camping','tent','zelt','telt','backpack','rucksack','rygsæk'] },
 ];
+const VERTICAL_ENGINE_MAP = {
+  fashion:   { engine: 'runway', archetype: 'lifestyle_montage' },
+  home:      { engine: 'kling',  archetype: 'scene_reveal' },
+  gadgets:   { engine: 'kling',  archetype: 'studio_spin' },
+  lifestyle: { engine: 'kling',  archetype: 'lifestyle_montage' },
+};
 function detectVertical(url, meta) {
   const hay = [url || '', meta?.title || '', meta?.h1 || '', meta?.siteName || '', meta?.metaDescription || ''].join(' ').toLowerCase();
   const hit = (k) => new RegExp('(^|[^a-z])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z]|$)', 'i').test(hay);
@@ -1788,7 +1794,7 @@ function RSAStudio() {
   // ── Create client workspace with domain capture (Phase 2a) ──
   const { createOrganization: _createClientOrg } = useOrganizationList() || {};
   const [showCreateClient, setShowCreateClient] = useState(false);
-  const [ccForm, setCcForm] = useState({ name: '', domains: '' });
+  const [ccForm, setCcForm] = useState({ name: '', domains: '', vertical: '' });
   const [ccSaving, setCcSaving] = useState(false);
   const [ccError, setCcError] = useState('');
   const createClientWorkspace = async () => {
@@ -1805,14 +1811,14 @@ function RSAStudio() {
           await fetch('/api/client-domains', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok },
-            body: JSON.stringify({ orgId: org.id, domains: ccForm.domains }),
+            body: JSON.stringify({ orgId: org.id, domains: ccForm.domains, vertical: ccForm.vertical }),
           });
         }
       } catch (_) {}
       // activate the new client → existing org-change effect reloads into it
       if (setActive) { try { await setActive({ organization: org.id }); } catch (_) {} }
       setShowCreateClient(false);
-      setCcForm({ name: '', domains: '' });
+      setCcForm({ name: '', domains: '', vertical: '' });
     } catch (e) {
       setCcError((e && e.errors && e.errors[0] && e.errors[0].message) || (e && e.message) || 'Could not create the workspace.');
     }
@@ -1830,6 +1836,16 @@ function RSAStudio() {
         <label style={{ display: "block", marginTop: 14, fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Client domain(s)
           <input value={ccForm.domains} onChange={(e) => setCcForm({ ...ccForm, domains: e.target.value })} placeholder="e.g. shoplondon.dk" style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 }} />
           <div style={{ marginTop: 5, fontSize: 11, color: "#6b7f96" }}>Separate multiple brands with commas. You can edit these later.</div>
+        </label>
+        <label style={{ display: "block", marginTop: 14, fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Industry <span style={{ fontWeight: 500, color: "#6b7f96" }}>(optional)</span>
+          <select value={ccForm.vertical} onChange={(e) => setCcForm({ ...ccForm, vertical: e.target.value })} style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 }}>
+            <option value="">Auto-detect</option>
+            <option value="fashion">Fashion / Beauty</option>
+            <option value="home">Home / Appliances / Decor</option>
+            <option value="gadgets">Gadgets / Jewelry / Footwear</option>
+            <option value="lifestyle">Travel / Food / Fitness / Lifestyle</option>
+          </select>
+          <div style={{ marginTop: 5, fontSize: 11, color: "#6b7f96" }}>Sets video-engine routing for this client. Leave on Auto-detect to decide per product.</div>
         </label>
         {ccError ? <div style={{ marginTop: 12, fontSize: 12, color: "#f87171" }}>{ccError}</div> : null}
         <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -4788,6 +4804,8 @@ Rules:
     }
 
     setLoading(true); setError("");
+    // Declared client vertical (agency onboarding) — authoritative routing signal when set.
+    const _clientSel = (organization && organization.publicMetadata && VERTICAL_ENGINE_MAP[organization.publicMetadata.vertical]) || null;
     // New-domain run → wipe the UGC library so one client's creators never leak onto
     // another client's domain. Same host keeps it (re-run / different product page).
     if (ugcScanHostRef.current && ugcHostOf(url) !== ugcScanHostRef.current) resetUgcLibrary();
@@ -4858,7 +4876,7 @@ Rules:
       // so fashion/etc. URLs route to the right engine instead of silently defaulting to Kling.
       // The richer scrape-based pass below refines this when the scrape succeeds.
       try {
-        const _preSel = detectVertical(url, pageMeta);
+        const _preSel = _clientSel || detectVertical(url, pageMeta);
         setVideoEngine(_preSel.engine); videoEngineRef.current = _preSel.engine;
         videoSelArchetypeRef.current = _preSel.archetype;
         if (_preSel.engine === 'kling') setVideoArchetype(_preSel.archetype);
@@ -4934,7 +4952,7 @@ Rules:
           setPageMeta(pageMeta);
           // Auto model+variant select by vertical
           try {
-            const sel = detectVertical(url, pageMeta);
+            const sel = _clientSel || detectVertical(url, pageMeta);
             setVideoEngine(sel.engine);
             videoEngineRef.current = sel.engine;
             videoSelArchetypeRef.current = sel.archetype; // synchronous — storyboard call reads this
@@ -5279,6 +5297,7 @@ STRICT rules:
               const _csPick = (isPro && csTemplates.length > 0) ? csTemplates[(csRotationRef.current - 1 + csTemplates.length) % csTemplates.length] : null;
               const _tplEngine = _csPick ? TEMPLATE_ENGINE[_csPick] : null;
               if (_tplEngine) { setVideoEngine(_tplEngine); videoEngineRef.current = _tplEngine; }
+              else if (_clientSel) { setVideoEngine(_clientSel.engine); videoEngineRef.current = _clientSel.engine; /* declared client vertical is authoritative */ }
               else if (videoEngineRef.current === 'runway') { setVideoEngine('runway'); /* keep the fashion/beauty vertical pick — don't let the image heuristic demote it to Kling */ }
               else { setVideoEngine(detectVideoEngine(tiktokSourceImageRef.current || initialImageUrl)); }
             }
