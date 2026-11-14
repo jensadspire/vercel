@@ -5480,8 +5480,8 @@ STRICT rules:
           ))}
         </div>
         {authMode === "sign-in"
-          ? <SignIn routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
-          : <SignUp routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
+          ? <SignIn routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" }, elements: { otpCodeFieldInput: { border: "1px solid rgba(255,255,255,0.55)", color: "#e2e8f0" }, alert__warning: { background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.45)" }, alertText__warning: { color: "#fcd34d" } } }} />
+          : <SignUp routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" }, elements: { otpCodeFieldInput: { border: "1px solid rgba(255,255,255,0.55)", color: "#e2e8f0" }, alert__warning: { background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.45)" }, alertText__warning: { color: "#fcd34d" } } }} />
         }
         {/* Marketing opt-in — below Clerk form, unchecked by default (GDPR compliant) */}
         {authMode === "sign-up" && (
