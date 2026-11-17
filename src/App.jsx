@@ -3701,6 +3701,42 @@ function RSAStudio() {
   const [synAspect, setSynAspect] = useState('3:4');
   const [synName, setSynName] = useState('');
   const [synImg, setSynImg] = useState('');
+  // ── Live-avatar (HeyGen) persona selection — parallel to the synthetic creator ──
+  const [personaMode, setPersonaMode] = useState('synthetic'); // 'synthetic' | 'heygen'
+  const [hgAvatars, setHgAvatars] = useState(null);
+  const [hgLoading, setHgLoading] = useState(false);
+  const [hgErr, setHgErr] = useState('');
+  const [hgSearch, setHgSearch] = useState('');
+  const [hgGender, setHgGender] = useState('all');
+  const [hgSaving, setHgSaving] = useState('');
+  const _hgGenderFromBrief = (t) => {
+    const s = ' ' + String(t || '').toLowerCase() + ' ';
+    if (s.indexOf('woman') >= 0 || s.indexOf('female') >= 0 || s.indexOf(' she ') >= 0 || s.indexOf('girl') >= 0 || s.indexOf('lady') >= 0) return 'female';
+    if (s.indexOf(' man') >= 0 || s.indexOf('male') >= 0 || s.indexOf(' he ') >= 0 || s.indexOf(' guy') >= 0) return 'male';
+    return 'all';
+  };
+  const loadHeygenAvatars = async () => {
+    if (hgAvatars) return;
+    setHgLoading(true); setHgErr('');
+    try {
+      const r = await fetch('/api/heygen-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'avatars' }) });
+      const d = await r.json();
+      if (d && d.ok && Array.isArray(d.avatars)) setHgAvatars(d.avatars);
+      else setHgErr((d && d.error) || 'Could not load avatars.');
+    } catch (e) { setHgErr('Could not load avatars.'); }
+    setHgLoading(false);
+  };
+  const saveHeygenAvatar = async (av) => {
+    if (!av || !av.avatarId) return;
+    setHgSaving(av.avatarId); setHgErr(''); setSynMsg('');
+    try {
+      const body = { action: 'save', source: 'heygen', type: 'Avatar', shot: 'other', name: (synName.trim() || av.name || 'Live avatar'), thumbnailUrl: av.preview || null, seedImageUrl: av.preview || null, referenceImages: av.preview ? [av.preview] : [], heygenAvatarId: av.avatarId };
+      const d = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
+      if (d && d.character) { setSynMsg('✓ Avatar saved to your library'); if (charLib !== null) loadCharLibrary(); }
+      else setHgErr((d && d.error) || 'Could not save avatar.');
+    } catch (e) { setHgErr('Could not save avatar.'); }
+    setHgSaving('');
+  };
   const [synBusy, setSynBusy] = useState(false);
   const [synStage, setSynStage] = useState('');
   const [synErr, setSynErr] = useState('');
@@ -7497,9 +7533,50 @@ STRICT rules:
 
                 {/* 2a · Create a synthetic persona (generate → mint asset → library) */}
                 <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.06)", marginBottom: 20 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e2e8f0", marginBottom: 2 }}>Create a synthetic persona</div>
-                  <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>Describe an <strong style={{ color: "#c4b5fd" }}>invented</strong> character — not a real person. We generate the face, authorize it as a reusable asset, and add it to your library for sequential ads.</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <button onClick={() => setPersonaMode('synthetic')} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: personaMode === 'synthetic' ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.12)", background: personaMode === 'synthetic' ? "rgba(139,92,246,0.22)" : "rgba(255,255,255,0.03)", color: personaMode === 'synthetic' ? "#c4b5fd" : "#9db0c7" }}><div style={{ fontSize: 11.5, fontWeight: 800 }}>🧬 Synthetic persona</div><div style={{ fontSize: 9, fontWeight: 600, opacity: 0.85, marginTop: 2 }}>Full-sized model ads</div></button>
+                    <button onClick={() => { setPersonaMode('heygen'); setHgGender(_hgGenderFromBrief(synPrompt)); loadHeygenAvatars(); }} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: personaMode === 'heygen' ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.12)", background: personaMode === 'heygen' ? "rgba(139,92,246,0.22)" : "rgba(255,255,255,0.03)", color: personaMode === 'heygen' ? "#c4b5fd" : "#9db0c7" }}><div style={{ fontSize: 11.5, fontWeight: 800 }}>🎤 Live avatar</div><div style={{ fontSize: 9, fontWeight: 600, opacity: 0.85, marginTop: 2 }}>Presenter / to-camera</div></button>
+                  </div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e2e8f0", marginBottom: 2 }}>{personaMode === 'heygen' ? 'Pick a live avatar' : 'Create a synthetic persona'}</div>
+                  <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>{personaMode === 'heygen' ? (<>Choose a licensed <strong style={{ color: "#c4b5fd" }}>HeyGen presenter</strong> — best for products shown to camera. Use the box below to filter who you want.</>) : (<>Describe an <strong style={{ color: "#c4b5fd" }}>invented</strong> character — not a real person. We generate the face, authorize it as a reusable asset, and add it to your library for sequential ads.</>)}</div>
                   <textarea value={synPrompt} onChange={function (e) { setSynPrompt(e.target.value); }} placeholder="e.g. A 26-year-old woman, wavy dark-blonde hair, friendly natural smile, minimal makeup, plain cream t-shirt, soft studio background." rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", fontSize: 12, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 8 }} />
+                  {personaMode === 'heygen' ? (
+                    <div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+                        {["all", "female", "male"].map(function (g) { var on = hgGender === g; return <span key={g} onClick={() => setHgGender(g)} style={{ cursor: "pointer", fontSize: 10.5, fontWeight: 700, padding: "4px 11px", borderRadius: 999, border: on ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.14)", background: on ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.04)", color: on ? "#c4b5fd" : "#9db0c7", textTransform: "capitalize" }}>{g}</span>; })}
+                        <input value={hgSearch} onChange={function (e) { setHgSearch(e.target.value); }} placeholder="Search by name…" style={{ flex: "1 1 120px", minWidth: 0, padding: "6px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                      </div>
+                      {hgErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginBottom: 8 }}>{hgErr}</div> : null}
+                      {synMsg ? <div style={{ fontSize: 11, color: "#34d399", marginBottom: 8 }}>{synMsg}</div> : null}
+                      {hgLoading ? <div style={{ fontSize: 11, color: "#7e92a8" }}>Loading avatars…</div> : (function () {
+                        var q = hgSearch.trim().toLowerCase();
+                        var list = (hgAvatars || []).filter(function (a) {
+                          if (hgGender !== 'all' && a.gender && String(a.gender).toLowerCase() !== hgGender) return false;
+                          if (q && String(a.name || '').toLowerCase().indexOf(q) < 0) return false;
+                          return true;
+                        });
+                        var shown = list.slice(0, 60);
+                        return (
+                          <div>
+                            <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 8 }}>{list.length} avatar{list.length === 1 ? "" : "s"}{list.length > 60 ? " · showing first 60 — refine search" : ""}</div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, maxHeight: 340, overflowY: "auto", paddingRight: 2 }}>
+                              {shown.map(function (a) {
+                                return (
+                                  <div key={a.avatarId} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
+                                    <div style={{ aspectRatio: "1", background: "#1e293b" }}>{a.preview ? <img src={a.preview} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /> : null}</div>
+                                    <div style={{ padding: "5px 7px 7px" }}>
+                                      <div style={{ fontSize: 10, color: "#e2e8f0", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+                                      <button onClick={function () { saveHeygenAvatar(a); }} disabled={hgSaving === a.avatarId} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: hgSaving === a.avatarId ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgSaving === a.avatarId ? "Saving…" : "＋ Save to library"}</button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (<>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
                     <input value={synName} onChange={function (e) { setSynName(e.target.value); }} placeholder="Persona name (optional)" style={{ flex: "1 1 140px", minWidth: 0, padding: "7px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
                     <select value={synAspect} onChange={function (e) { setSynAspect(e.target.value); }} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
@@ -7521,6 +7598,7 @@ STRICT rules:
                       </div>
                     </div>
                   ) : null}
+                  </>)}
                 </div>
 
                 {/* 2b · Your character library */}
@@ -7555,7 +7633,7 @@ STRICT rules:
                                   <div style={{ padding: "5px 7px 7px" }}>
                                     <div style={{ fontSize: 10, color: "#e2e8f0", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Untitled"}</div>
                                     <div style={{ fontSize: 8.5, color: "#7e92a8", marginTop: 2 }}>{[c.type, (c.shot && c.shot !== "other") ? c.shot.replace("_", " ") : null].filter(Boolean).join(" · ")}</div>
-                                    <button onClick={() => createUgcAd({ image: c.thumbnailUrl || c.seedImageUrl, creator: c.creator || c.name, caption: c.originCaption, captionLang: c.captionLang })} disabled={ugcAdLoading} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: ugcAdLoading ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>✨ UGC ad</button>
+                                    {(c.source === 'heygen' || c.heygenAvatarId) ? <div style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9, fontWeight: 800, textAlign: "center", color: "#c4b5fd" }}>🎤 Live avatar</div> : <button onClick={() => createUgcAd({ image: c.thumbnailUrl || c.seedImageUrl, creator: c.creator || c.name, caption: c.originCaption, captionLang: c.captionLang })} disabled={ugcAdLoading} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: ugcAdLoading ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>✨ UGC ad</button>}
                                   </div>
                                 </div>
                               );

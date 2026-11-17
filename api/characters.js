@@ -149,6 +149,9 @@ export default async function handler(req, res) {
         // so one saved persona can feed many ad-templates. Set after asset-library ingest reaches Active.
         seedanceAssetUri: body.seedanceAssetUri || (existing && existing.seedanceAssetUri) || null,
         seedanceGroupId:  body.seedanceGroupId  || (existing && existing.seedanceGroupId)  || null,
+        // HeyGen "live-model" avatar reference — set for source:'heygen' personas (studio avatar id).
+        // Mutually exclusive in practice with seedanceAssetUri; directs the downstream (HeyGen) flow.
+        heygenAvatarId:   body.heygenAvatarId   || (existing && existing.heygenAvatarId)   || null,
 
         // derived — managed by the creatives hook (Step 3)
         videoCount: existing ? (existing.videoCount || 0) : 0,
