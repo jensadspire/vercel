@@ -74,8 +74,21 @@ export default async function handler(req, res) {
         language: v.language || null,
         gender: v.gender || null,
         preview: v.preview_audio || null,
+        supportLocale: !!v.support_locale,
       }));
       return res.status(200).json({ ok: true, voices });
+    }
+
+    if (action === 'locales') {
+      const j = await heygen('/v2/voices/locales');
+      const d = (j && j.data) || {};
+      const locales = (d.locales || []).map((l) => ({
+        locale: l.locale,
+        label: l.label || l.value || l.locale,
+        language: l.language || null,
+        languageCode: l.language_code || null,
+      }));
+      return res.status(200).json({ ok: true, locales });
     }
 
     if (action === 'create') {
@@ -92,6 +105,7 @@ export default async function handler(req, res) {
       };
       if (voiceId) payload.voice_id = voiceId;
       payload.voice_settings = { speed: Math.min(1.5, Math.max(0.5, Number(body.speed) || 1)) };
+      if (body.locale && typeof body.locale === 'string') payload.voice_settings.locale = body.locale;
       const j = await heygen('/v3/videos', { method: 'POST', body: payload });
       const d = (j && j.data) || {};
       return res.status(200).json({ ok: true, videoId: d.video_id || null, status: d.status || 'waiting' });
