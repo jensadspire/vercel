@@ -95,18 +95,21 @@ export default async function handler(req, res) {
       const { avatarId, script, voiceId } = body;
       if (!avatarId) return res.status(400).json({ error: 'avatarId required' });
       if (!script || !String(script).trim()) return res.status(400).json({ error: 'script required' });
+
+      // Standard library avatars (/v2/avatars) generate via /v2/video/generate.
+      // Portrait 9:16 by default; the right panel is cropped to the split later.
+      const portrait = (body.aspectRatio || '9:16') !== '1:1';
+      const character = { type: 'avatar', avatar_id: avatarId, avatar_style: body.avatarStyle || 'normal' };
+      const voice = { type: 'text', input_text: String(script).slice(0, 3000) };
+      if (voiceId) voice.voice_id = voiceId;
+      if (body.locale && typeof body.locale === 'string') voice.locale = body.locale;
+      voice.speed = Math.min(1.5, Math.max(0.5, Number(body.speed) || 1));
+
       const payload = {
-        type: 'avatar',
-        avatar_id: avatarId,
-        script: String(script).slice(0, 3000),
-        aspect_ratio: body.aspectRatio || '9:16',
-        resolution: body.resolution || '1080p',
-        engine: { type: 'avatar_iv' },
+        video_inputs: [{ character, voice }],
+        dimension: portrait ? { width: 1080, height: 1920 } : { width: 1080, height: 1080 },
       };
-      if (voiceId) payload.voice_id = voiceId;
-      payload.voice_settings = { speed: Math.min(1.5, Math.max(0.5, Number(body.speed) || 1)) };
-      if (body.locale && typeof body.locale === 'string') payload.voice_settings.locale = body.locale;
-      const j = await heygen('/v3/videos', { method: 'POST', body: payload });
+      const j = await heygen('/v2/video/generate', { method: 'POST', body: payload });
       const d = (j && j.data) || {};
       return res.status(200).json({ ok: true, videoId: d.video_id || null, status: d.status || 'waiting' });
     }
@@ -114,13 +117,16 @@ export default async function handler(req, res) {
     if (action === 'poll') {
       const { videoId } = body;
       if (!videoId) return res.status(400).json({ error: 'videoId required' });
-      const j = await heygen('/v3/videos/' + encodeURIComponent(videoId));
+      const j = await heygen('/v1/video_status.get?video_id=' + encodeURIComponent(videoId));
       const d = (j && j.data) || {};
+      const e = d.error;
+      const errMsg = e ? (typeof e === 'string' ? e : (e.message || e.detail || e.code || JSON.stringify(e))) : null;
       return res.status(200).json({
         ok: true,
         status: d.status || 'processing',
         videoUrl: d.video_url || d.video_url_caption || null,
-        error: d.error || null,
+        duration: d.duration || null,
+        error: errMsg,
       });
     }
 
