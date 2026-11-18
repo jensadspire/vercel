@@ -6816,11 +6816,28 @@ STRICT rules:
               ) : null}
               {/* Unified attribute selectors — persona / objective / market / interaction */}
               {(() => {
-                const personasAll = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
+                const personasAll = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri || c.heygenAvatarId; }) : [];
+                // Persona preference by product type (ref. routing matrix): wearable/mergeable -> synthetic, presentable -> avatar.
+                const _personaPref = (function () {
+                  const hay = ((seqOriginUrl || '') + ' ' + (seqProductUrl || '') + ' ' + ((seqOriginMeta && (seqOriginMeta.title || '')) || '') + ' ' + ((seqOriginMeta && (seqOriginMeta.metaDescription || '')) || '')).toLowerCase();
+                  const WEAR = ['fashion','apparel','clothing','clothes','dress','kleid','kjole','shirt','tshirt','t-shirt','tee','top','blouse','bluse','skjorte','trouser','hose','bukser','jeans','jacket','jacke','jakke','coat','sweater','pullover','hoodie','strik','mode','bekleidung','beauty','cosmetic','kosmetik','skincare','makeup','make-up','perfume','parfum','lipstick','serum','pflege','jewel','schmuck','smykke','necklace','halskæde','bracelet','armband','earring','watch','uhr','shoe','schuh','sko','sneaker','boot','sandal','heel','footwear'];
+                  const PRES = ['gadget','electronic','elektronik','headphone','kopfhörer','earbud','speaker','lautsprecher','charger','powerbank','appliance','haushalt','hvidevar','kitchen','küche','køkken','vacuum','staubsauger','blender','cookware','decor','deko','interior','indretning','furniture','möbel','møbel','lamp','tool','werkzeug','værktøj','supplement','vitamin','protein','food','beverage','drink','getränk','drikke','coffee','kaffe','book','buch','bog','toy','spielzeug','legetøj'];
+                  const hit = function (arr) { for (var i = 0; i < arr.length; i++) { if (hay.indexOf(arr[i]) !== -1) return true; } return false; };
+                  if (hit(WEAR)) return 'synthetic';
+                  if (hit(PRES)) return 'avatar';
+                  return null;
+                })();
                 const personaBoxes = (function () {
                   const out = []; const seen = {};
+                  const isAv = function (c) { return !!c.heygenAvatarId; };
+                  const synth = personasAll.filter(function (c) { return !isAv(c); });
+                  const avs = personasAll.filter(isAv);
+                  let ordered;
+                  if (personasAll.length <= 5 || !_personaPref) ordered = personasAll;
+                  else if (_personaPref === 'avatar') ordered = avs.concat(synth);
+                  else ordered = synth.concat(avs);
                   if (seqPersona && seqPersona.id) { out.push(seqPersona); seen[seqPersona.id] = 1; }
-                  for (const c of personasAll) { if (out.length >= 4) break; if (!seen[c.id]) { out.push(c); seen[c.id] = 1; } }
+                  for (const c of ordered) { if (out.length >= 5) break; if (!seen[c.id]) { out.push(c); seen[c.id] = 1; } }
                   return out;
                 })();
                 const MARKET_OPTS = [{ id: 'auto', label: 'Auto', icon: '🌐' }, { id: 'scandinavia', label: 'Scandinavia', icon: '❄️' }, { id: 'uk', label: 'UK', icon: '🇬🇧' }, { id: 'germany', label: 'Central EU', icon: '🇪🇺' }, { id: 'us', label: 'US', icon: '🇺🇸' }];
@@ -6882,8 +6899,9 @@ STRICT rules:
                             {personaBoxes.map(function (c) {
                               const on = seqPersona && seqPersona.id === c.id;
                               return (
-                                <div key={c.id} onClick={() => { setSeqPersona(c); setSeqNoPersona(false); setSeqSelector(null); setSeqLeadVideo(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center" }}>
+                                <div key={c.id} onClick={() => { if (c.heygenAvatarId) { setSeqSelector(null); openHeygenGen(c); } else { setSeqPersona(c); setSeqNoPersona(false); setSeqSelector(null); setSeqLeadVideo(null); } }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center", position: "relative" }}>
                                   <div style={{ aspectRatio: "1" }}><img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} /></div>
+                                  {c.heygenAvatarId ? <div style={{ position: "absolute", top: 3, left: 3, fontSize: 8, fontWeight: 800, color: "#0b1020", background: "rgba(196,181,253,0.95)", borderRadius: 4, padding: "1px 4px", lineHeight: 1.1 }}>🎤 Live</div> : null}
                                   <div style={{ padding: "3px 4px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
                                 </div>
                               );
@@ -7437,6 +7455,47 @@ STRICT rules:
         })()}
 
         {/* Creative Studio panel */}
+                {hgGenOpen && (
+                  <div onClick={(e) => { if (e.target === e.currentTarget && !hgGenBusy) setHgGenOpen(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                    <div style={{ background: "linear-gradient(135deg,#0a0e1a,#131825)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 22, maxWidth: 560, width: "100%", maxHeight: "92vh", overflowY: "auto" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                        <img src={(hgGenChar && (hgGenChar.thumbnailUrl || hgGenChar.seedImageUrl)) || ""} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", background: "#1e293b" }} />
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: "white" }}>🎤 Live-avatar ad</div>
+                          <div style={{ fontSize: 10.5, color: "#7e92a8" }}>{(hgGenChar && hgGenChar.name) || "Avatar"} · product + presenter, side-by-side</div>
+                        </div>
+                        <div onClick={() => { if (!hgGenBusy) setHgGenOpen(false); }} style={{ marginLeft: "auto", cursor: hgGenBusy ? "default" : "pointer", color: "#7e92a8", fontSize: 18, fontWeight: 900 }}>×</div>
+                      </div>
+                      <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Product image URL (left panel)</div>
+                      <input value={hgGenProductImg} onChange={(e) => setHgGenProductImg(e.target.value)} placeholder="https://… packshot image" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 12 }} />
+                      <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Script — spoken verbatim, in whatever language you write ({(pageMeta && pageMeta.language) || "English"})</div>
+                      <textarea value={hgGenScript} onChange={(e) => setHgGenScript(e.target.value)} rows={4} placeholder="What should the presenter say?" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 12 }} />
+                      <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Voice</div>
+                      <select value={hgGenVoiceId} onChange={(e) => setHgGenVoiceId(e.target.value)} style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 14 }}>
+                        {(hgGenVoices || []).length === 0 ? <option value="">Loading voices…</option> : (hgGenVoices || []).slice(0, 200).map(function (v) { return <option key={v.voiceId} value={v.voiceId} style={{ background: "#0a0e1a" }}>{(v.name || v.voiceId) + (v.gender ? (" · " + v.gender) : "")}</option>; })}
+                      </select>
+                      {hgGenErr ? <div style={{ padding: "7px 9px", marginBottom: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, fontSize: 11, color: "#f87171" }}>{hgGenErr}</div> : null}
+                      {/* Output box — same generating UI as every other video path (spinner + VideoProgressBars) */}
+                      {hgGenBusy ? (
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24, minHeight: 240, marginBottom: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.25)" }}>
+                          <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+                          <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{hgGenStage || "Working…"}<br/>Check back in ~1–2 minutes</div>
+                          <VideoProgressBars />
+                          <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+                        </div>
+                      ) : hgGenUrl ? (
+                        <div style={{ marginBottom: 12 }}>
+                          <video src={hgGenUrl} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", margin: "0 auto", borderRadius: 10, background: "#000" }} />
+                          <a href={hgGenUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 11, fontWeight: 800, color: "#a5b4fc" }}>↗ Open / download</a>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24, minHeight: 120, marginBottom: 12, borderRadius: 12, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.15)", fontSize: 11.5, color: "#5a6b80", textAlign: "center" }}>Your live-avatar ad will appear here.</div>
+                      )}
+                      <button onClick={runHeygenSplit} disabled={hgGenBusy} style={{ width: "100%", padding: "10px 0", fontSize: 12.5, fontWeight: 800, borderRadius: 9, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: hgGenBusy ? "linear-gradient(135deg,#f59e0b,#ef4444)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgGenBusy ? ("⟳ " + (hgGenStage || "Working…")) : (hgGenUrl ? "↻ Regenerate" : "✨ Generate live-avatar ad")}</button>
+                      <div style={{ fontSize: 10, color: "#4a5568", marginTop: 8, textAlign: "center" }}>Takes ~1–2 min: generates the presenter, then composes the split-screen with your product (AI-labelled + signed).</div>
+                    </div>
+                  </div>
+                )}
         {showCreativeStudio && isPro && (() => {
           const vert = CS_VERTICALS[csVertical] || CS_VERTICALS.beauty;
           const toggleTpl = (id) => { const next = csTemplates.includes(id) ? csTemplates.filter(t => t !== id) : [...csTemplates, id]; saveCreativeStudio(next, csVertical); };
@@ -7723,47 +7782,7 @@ STRICT rules:
                 <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.02)", fontSize: 12, color: "#5a6b80" }}>Pull scenery, hero imagery and seasonal elements from your shop — coming later.</div>
 
                 <div style={{ marginTop: 22, fontSize: 11, color: "#4a5568", textAlign: "center" }}>Selections save automatically to your brand.</div>
-                {hgGenOpen && (
-                  <div onClick={(e) => { if (e.target === e.currentTarget && !hgGenBusy) setHgGenOpen(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-                    <div style={{ background: "linear-gradient(135deg,#0a0e1a,#131825)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 22, maxWidth: 560, width: "100%", maxHeight: "92vh", overflowY: "auto" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                        <img src={(hgGenChar && (hgGenChar.thumbnailUrl || hgGenChar.seedImageUrl)) || ""} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", background: "#1e293b" }} />
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: "white" }}>🎤 Live-avatar ad</div>
-                          <div style={{ fontSize: 10.5, color: "#7e92a8" }}>{(hgGenChar && hgGenChar.name) || "Avatar"} · product + presenter, side-by-side</div>
-                        </div>
-                        <div onClick={() => { if (!hgGenBusy) setHgGenOpen(false); }} style={{ marginLeft: "auto", cursor: hgGenBusy ? "default" : "pointer", color: "#7e92a8", fontSize: 18, fontWeight: 900 }}>×</div>
-                      </div>
-                      <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Product image URL (left panel)</div>
-                      <input value={hgGenProductImg} onChange={(e) => setHgGenProductImg(e.target.value)} placeholder="https://… packshot image" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 12 }} />
-                      <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Script — spoken verbatim, in whatever language you write ({(pageMeta && pageMeta.language) || "English"})</div>
-                      <textarea value={hgGenScript} onChange={(e) => setHgGenScript(e.target.value)} rows={4} placeholder="What should the presenter say?" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 12 }} />
-                      <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Voice</div>
-                      <select value={hgGenVoiceId} onChange={(e) => setHgGenVoiceId(e.target.value)} style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 14 }}>
-                        {(hgGenVoices || []).length === 0 ? <option value="">Loading voices…</option> : (hgGenVoices || []).slice(0, 200).map(function (v) { return <option key={v.voiceId} value={v.voiceId} style={{ background: "#0a0e1a" }}>{(v.name || v.voiceId) + (v.gender ? (" · " + v.gender) : "")}</option>; })}
-                      </select>
-                      {hgGenErr ? <div style={{ padding: "7px 9px", marginBottom: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, fontSize: 11, color: "#f87171" }}>{hgGenErr}</div> : null}
-                      {/* Output box — same generating UI as every other video path (spinner + VideoProgressBars) */}
-                      {hgGenBusy ? (
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24, minHeight: 240, marginBottom: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.25)" }}>
-                          <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
-                          <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{hgGenStage || "Working…"}<br/>Check back in ~1–2 minutes</div>
-                          <VideoProgressBars />
-                          <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
-                        </div>
-                      ) : hgGenUrl ? (
-                        <div style={{ marginBottom: 12 }}>
-                          <video src={hgGenUrl} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", margin: "0 auto", borderRadius: 10, background: "#000" }} />
-                          <a href={hgGenUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 11, fontWeight: 800, color: "#a5b4fc" }}>↗ Open / download</a>
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24, minHeight: 120, marginBottom: 12, borderRadius: 12, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.15)", fontSize: 11.5, color: "#5a6b80", textAlign: "center" }}>Your live-avatar ad will appear here.</div>
-                      )}
-                      <button onClick={runHeygenSplit} disabled={hgGenBusy} style={{ width: "100%", padding: "10px 0", fontSize: 12.5, fontWeight: 800, borderRadius: 9, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: hgGenBusy ? "linear-gradient(135deg,#f59e0b,#ef4444)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgGenBusy ? ("⟳ " + (hgGenStage || "Working…")) : (hgGenUrl ? "↻ Regenerate" : "✨ Generate live-avatar ad")}</button>
-                      <div style={{ fontSize: 10, color: "#4a5568", marginTop: 8, textAlign: "center" }}>Takes ~1–2 min: generates the presenter, then composes the split-screen with your product (AI-labelled + signed).</div>
-                    </div>
-                  </div>
-                )}
+                {/* live-avatar modal → moved to app-wide mount below */}
               </div>
             </div>
           );
