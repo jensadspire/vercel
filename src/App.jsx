@@ -6866,7 +6866,7 @@ STRICT rules:
                       <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.02)", display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
                         {seqSelector === 'persona' ? (
                           <>
-                            <div onClick={() => { setSeqOpen(false); setShowCreativeStudio(true); setSeqReturn(true); loadCharLibrary(); }} title="Create a new synthetic persona" style={{ cursor: "pointer", width: 92, borderRadius: 10, overflow: "hidden", border: "1px dashed #3a4a74", background: "#13213f", textAlign: "center" }}>
+                            <div onClick={() => { setSeqOpen(false); setShowCreativeStudio(true); setSeqReturn(true); loadCharLibrary(); try { setTimeout(function () { var el = document.getElementById('personas-section'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 240); } catch (_) {} }} title="Create a new persona" style={{ cursor: "pointer", width: 92, borderRadius: 10, overflow: "hidden", border: "1px dashed #3a4a74", background: "#13213f", textAlign: "center" }}>
                               <div style={{ position: "relative", aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                 <span style={{ fontSize: 34, color: "#6b82b8", lineHeight: 1 }}>☺</span>
                                 <div style={{ position: "absolute", bottom: 4, right: 4, width: 16, height: 16, borderRadius: "50%", background: "#8b5cf6", color: "white", fontSize: 11, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</div>
@@ -7496,7 +7496,7 @@ STRICT rules:
                 </div>
 
                 {/* 2. Personas — UGC source selector (Phase 1) */}
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#c4b5fd", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Personas <span style={{ color: "#5a6b80", fontWeight: 600 }}>· character sources</span></div>
+                <div id="personas-section" style={{ fontSize: 11, fontWeight: 800, color: "#c4b5fd", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Personas <span style={{ color: "#5a6b80", fontWeight: 600 }}>· character sources</span></div>
                 {(ugcAdLoading || ugcAdError || ugcAdResult) && (
                   <div id="ugc-ad-result" style={{ marginBottom: 16, padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.08)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -7745,7 +7745,7 @@ STRICT rules:
                       {hgGenErr ? <div style={{ padding: "7px 9px", marginBottom: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, fontSize: 11, color: "#f87171" }}>{hgGenErr}</div> : null}
                       {hgGenUrl ? (
                         <div style={{ marginBottom: 12 }}>
-                          <video src={hgGenUrl} controls style={{ width: "100%", borderRadius: 10, aspectRatio: "1", background: "#000" }} />
+                          <video src={hgGenUrl} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", margin: "0 auto", borderRadius: 10, background: "#000" }} />
                           <a href={hgGenUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 11, fontWeight: 800, color: "#a5b4fc" }}>↗ Open / download</a>
                         </div>
                       ) : null}
