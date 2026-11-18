@@ -156,7 +156,7 @@ const SIGN_TIMEOUT_MS = 60000; // the service fetches + signs the video server-s
  * @param {string} brand    - brand for the manifest title.
  * @returns {Promise<Buffer|null>} signed MP4 bytes, or null on any failure.
  */
-async function signC2PA(videoUrl, brand = '') {
+export async function signC2PA(videoUrl, brand = '') {
   const base = (process.env.SIGNING_SERVICE_URL || '').replace(/\/$/, '');
   const secret = process.env.SIGNING_INTERNAL_TOKEN;
   const saKey = process.env.SIGNING_SA_KEY;
