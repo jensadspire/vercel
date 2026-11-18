@@ -6899,7 +6899,7 @@ STRICT rules:
                             {personaBoxes.map(function (c) {
                               const on = seqPersona && seqPersona.id === c.id;
                               return (
-                                <div key={c.id} onClick={() => { if (c.heygenAvatarId) { setSeqSelector(null); openHeygenGen(c); } else { setSeqPersona(c); setSeqNoPersona(false); setSeqSelector(null); setSeqLeadVideo(null); } }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center", position: "relative" }}>
+                                <div key={c.id} onClick={() => { if (c.heygenAvatarId) { setSeqOpen(false); setSeqSelector(null); openHeygenGen(c); } else { setSeqPersona(c); setSeqNoPersona(false); setSeqSelector(null); setSeqLeadVideo(null); } }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center", position: "relative" }}>
                                   <div style={{ aspectRatio: "1" }}><img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} /></div>
                                   {c.heygenAvatarId ? <div style={{ position: "absolute", top: 3, left: 3, fontSize: 8, fontWeight: 800, color: "#0b1020", background: "rgba(196,181,253,0.95)", borderRadius: 4, padding: "1px 4px", lineHeight: 1.1 }}>🎤 Live</div> : null}
                                   <div style={{ padding: "3px 4px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
@@ -7456,7 +7456,7 @@ STRICT rules:
 
         {/* Creative Studio panel */}
                 {hgGenOpen && (
-                  <div onClick={(e) => { if (e.target === e.currentTarget && !hgGenBusy) setHgGenOpen(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                  <div onClick={(e) => { if (e.target === e.currentTarget && !hgGenBusy) setHgGenOpen(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 2600, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
                     <div style={{ background: "linear-gradient(135deg,#0a0e1a,#131825)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 22, maxWidth: 560, width: "100%", maxHeight: "92vh", overflowY: "auto" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                         <img src={(hgGenChar && (hgGenChar.thumbnailUrl || hgGenChar.seedImageUrl)) || ""} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", background: "#1e293b" }} />
