@@ -4331,7 +4331,7 @@ function RSAStudio() {
     setSeqName(it.productTitle ? (it.productTitle + ' — persona') : '');
     setSeqPersona(null); setSeqNoPersona(false);
     setShowVault(false);
-    setSeqSelector('persona'); // ultra-short: land with the persona chooser already open
+    setSeqSelector(null); // collapsed on entry — user clicks "Choose a persona" to open the row
     setSeqAutoLead(true);      // first generate on this path auto-becomes the lead
     openSeqBuilder(true);
   };
