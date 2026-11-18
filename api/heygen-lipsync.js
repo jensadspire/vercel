@@ -86,9 +86,8 @@ export default async function handler(req, res) {
       const j = await heygen('/v3/lipsyncs/' + encodeURIComponent(lipsyncId));
       const d = (j && j.data) || {};
       const videoUrl = d.video_url || d.output_url || d.url || (d.output && d.output.video_url) || null;
-      const e = d.error;
-      const errMsg = e ? (typeof e === 'string' ? e : (e.message || e.detail || JSON.stringify(e))) : null;
-      return res.status(200).json({ ok: true, status: d.status || 'processing', videoUrl, error: errMsg });
+      const errMsg = d.failure_message || d.failure_code || (d.error && (typeof d.error === 'string' ? d.error : (d.error.message || d.error.detail || JSON.stringify(d.error)))) || null;
+      return res.status(200).json({ ok: true, status: d.status || 'processing', videoUrl, error: errMsg, failureCode: d.failure_code || null });
     }
 
     // 4) Finalize: compliance (AI label + C2PA + Blob).
