@@ -3709,6 +3709,7 @@ function RSAStudio() {
   const [hgSearch, setHgSearch] = useState('');
   const [hgGender, setHgGender] = useState('all');
   const [hgSaving, setHgSaving] = useState('');
+  const [hgSavedIds, setHgSavedIds] = useState({});
   const _hgGenderFromBrief = (t) => {
     const s = ' ' + String(t || '').toLowerCase() + ' ';
     if (s.indexOf('woman') >= 0 || s.indexOf('female') >= 0 || s.indexOf(' she ') >= 0 || s.indexOf('girl') >= 0 || s.indexOf('lady') >= 0) return 'female';
@@ -3732,7 +3733,11 @@ function RSAStudio() {
     try {
       const body = { action: 'save', source: 'heygen', type: 'Avatar', shot: 'other', name: (synName.trim() || av.name || 'Live avatar'), thumbnailUrl: av.preview || null, seedImageUrl: av.preview || null, referenceImages: av.preview ? [av.preview] : [], heygenAvatarId: av.avatarId };
       const d = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
-      if (d && d.character) { setSynMsg('✓ Avatar saved to your library'); if (charLib !== null) loadCharLibrary(); }
+      if (d && d.character) {
+        setHgSavedIds(function (prev) { var n = Object.assign({}, prev); n[av.avatarId] = true; return n; });
+        loadCharLibrary(); // reveal + refresh so the new avatar's card (with its Live-avatar ad button) is visible
+        try { setTimeout(function () { var el = document.getElementById('char-lib-section'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 180); } catch (_) {}
+      }
       else setHgErr((d && d.error) || 'Could not save avatar.');
     } catch (e) { setHgErr('Could not save avatar.'); }
     setHgSaving('');
@@ -7634,7 +7639,7 @@ STRICT rules:
                                     <div style={{ aspectRatio: "1", background: "#1e293b" }}>{a.preview ? <img src={a.preview} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /> : null}</div>
                                     <div style={{ padding: "5px 7px 7px" }}>
                                       <div style={{ fontSize: 10, color: "#e2e8f0", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
-                                      <button onClick={function () { saveHeygenAvatar(a); }} disabled={hgSaving === a.avatarId} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: hgSaving === a.avatarId ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgSaving === a.avatarId ? "Saving…" : "＋ Save to library"}</button>
+                                      <button onClick={function () { if (!hgSavedIds[a.avatarId]) saveHeygenAvatar(a); }} disabled={hgSaving === a.avatarId || !!hgSavedIds[a.avatarId]} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: (hgSaving === a.avatarId || hgSavedIds[a.avatarId]) ? "default" : "pointer", background: hgSavedIds[a.avatarId] ? "linear-gradient(135deg,#10b981,#059669)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgSavedIds[a.avatarId] ? "✓ Saved to your library" : (hgSaving === a.avatarId ? "Saving…" : "＋ Save to library")}</button>
                                     </div>
                                   </div>
                                 );
@@ -7670,7 +7675,7 @@ STRICT rules:
                 </div>
 
                 {/* 2b · Your character library */}
-                <div style={{ marginBottom: 20 }}>
+                <div id="char-lib-section" style={{ marginBottom: 20 }}>
                   <button onClick={() => { if (charLib === null) { loadCharLibrary(); } else { setCharLib(null); } }} style={{ padding: "7px 13px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", cursor: "pointer", background: "rgba(255,255,255,0.04)", color: "#c4b5fd" }}>📚 {charLib === null ? "Show your character library" : "Hide library"}</button>
                   {charLib !== null && (
                     <div style={{ marginTop: 10, padding: 14, borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
