@@ -7743,13 +7743,23 @@ STRICT rules:
                         {(hgGenVoices || []).length === 0 ? <option value="">Loading voices…</option> : (hgGenVoices || []).slice(0, 200).map(function (v) { return <option key={v.voiceId} value={v.voiceId} style={{ background: "#0a0e1a" }}>{(v.name || v.voiceId) + (v.gender ? (" · " + v.gender) : "")}</option>; })}
                       </select>
                       {hgGenErr ? <div style={{ padding: "7px 9px", marginBottom: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, fontSize: 11, color: "#f87171" }}>{hgGenErr}</div> : null}
-                      {hgGenUrl ? (
+                      {/* Output box — same generating UI as every other video path (spinner + VideoProgressBars) */}
+                      {hgGenBusy ? (
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24, minHeight: 240, marginBottom: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.25)" }}>
+                          <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+                          <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{hgGenStage || "Working…"}<br/>Check back in ~1–2 minutes</div>
+                          <VideoProgressBars />
+                          <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+                        </div>
+                      ) : hgGenUrl ? (
                         <div style={{ marginBottom: 12 }}>
                           <video src={hgGenUrl} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", margin: "0 auto", borderRadius: 10, background: "#000" }} />
                           <a href={hgGenUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 11, fontWeight: 800, color: "#a5b4fc" }}>↗ Open / download</a>
                         </div>
-                      ) : null}
-                      <button onClick={runHeygenSplit} disabled={hgGenBusy} style={{ width: "100%", padding: "10px 0", fontSize: 12.5, fontWeight: 800, borderRadius: 9, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: hgGenBusy ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgGenBusy ? ("⟳ " + (hgGenStage || "Working…")) : (hgGenUrl ? "↻ Regenerate" : "✨ Generate live-avatar ad")}</button>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24, minHeight: 120, marginBottom: 12, borderRadius: 12, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.15)", fontSize: 11.5, color: "#5a6b80", textAlign: "center" }}>Your live-avatar ad will appear here.</div>
+                      )}
+                      <button onClick={runHeygenSplit} disabled={hgGenBusy} style={{ width: "100%", padding: "10px 0", fontSize: 12.5, fontWeight: 800, borderRadius: 9, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: hgGenBusy ? "linear-gradient(135deg,#f59e0b,#ef4444)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgGenBusy ? ("⟳ " + (hgGenStage || "Working…")) : (hgGenUrl ? "↻ Regenerate" : "✨ Generate live-avatar ad")}</button>
                       <div style={{ fontSize: 10, color: "#4a5568", marginTop: 8, textAlign: "center" }}>Takes ~1–2 min: generates the presenter, then composes the split-screen with your product (AI-labelled + signed).</div>
                     </div>
                   </div>
