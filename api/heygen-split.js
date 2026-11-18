@@ -29,10 +29,16 @@ async function composeSideBySide(imageUrl, videoUrl) {
   const key = process.env.RENDI_API_KEY;
   if (!key) { console.error('[heygen-split] RENDI_API_KEY not set — cannot compose (fail-open)'); return null; }
 
+  // Blurred-fill both panels: contained media centered over a blurred, zoomed copy of itself.
   const filter =
-    '[0:v]scale=540:1080:force_original_aspect_ratio=decrease,' +
-    'pad=540:1080:(ow-iw)/2:(oh-ih)/2:color=white,setsar=1[L];' +
-    '[1:v]scale=540:1080:force_original_aspect_ratio=increase,crop=540:1080,setsar=1[R];' +
+    '[0:v]split=2[l0][l1];' +
+    '[l0]scale=540:1080:force_original_aspect_ratio=increase,crop=540:1080,boxblur=20:1,setsar=1[lbg];' +
+    '[l1]scale=540:1080:force_original_aspect_ratio=decrease,setsar=1[lfg];' +
+    '[lbg][lfg]overlay=(W-w)/2:(H-h)/2[L];' +
+    '[1:v]split=2[r0][r1];' +
+    '[r0]scale=540:1080:force_original_aspect_ratio=increase,crop=540:1080,boxblur=20:1,setsar=1[rbg];' +
+    '[r1]scale=540:1080:force_original_aspect_ratio=decrease,setsar=1[rfg];' +
+    '[rbg][rfg]overlay=(W-w)/2:(H-h)/2[R];' +
     '[L][R]hstack=inputs=2,format=yuv420p[v]';
 
   const ffmpeg_command =
