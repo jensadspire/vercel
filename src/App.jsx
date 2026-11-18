@@ -3753,6 +3753,7 @@ function RSAStudio() {
   const [hgGenStage, setHgGenStage] = useState('');
   const [hgGenErr, setHgGenErr] = useState('');
   const [hgGenUrl, setHgGenUrl] = useState('');
+  const [hgGenFromSeq, setHgGenFromSeq] = useState(false);
   const _hgDefaultProductImg = () => (
     (metaResult && (metaResult.heroProductImage || metaResult.imageUrl)) ||
     ((pageMeta && pageMeta.images && pageMeta.images[0]) || '') ||
@@ -3774,12 +3775,13 @@ function RSAStudio() {
       return pool;
     } catch (_) { setHgGenVoices([]); return []; }
   };
-  const openHeygenGen = (c) => {
+  const openHeygenGen = (c, fromSeq) => {
     if (!c) return;
     setHgGenChar(c);
     setHgGenProductImg(_hgDefaultProductImg());
     setHgGenScript(_hgDefaultScript());
     setHgGenUrl(''); setHgGenErr(''); setHgGenStage('');
+    setHgGenFromSeq(!!fromSeq);
     setHgGenOpen(true);
     loadHgGenVoices();
   };
@@ -6899,7 +6901,7 @@ STRICT rules:
                             {personaBoxes.map(function (c) {
                               const on = seqPersona && seqPersona.id === c.id;
                               return (
-                                <div key={c.id} onClick={() => { if (c.heygenAvatarId) { setSeqOpen(false); setSeqSelector(null); openHeygenGen(c); } else { setSeqPersona(c); setSeqNoPersona(false); setSeqSelector(null); setSeqLeadVideo(null); } }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center", position: "relative" }}>
+                                <div key={c.id} onClick={() => { if (c.heygenAvatarId) { setSeqOpen(false); setSeqSelector(null); openHeygenGen(c, true); } else { setSeqPersona(c); setSeqNoPersona(false); setSeqSelector(null); setSeqLeadVideo(null); } }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center", position: "relative" }}>
                                   <div style={{ aspectRatio: "1" }}><img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} /></div>
                                   {c.heygenAvatarId ? <div style={{ position: "absolute", top: 3, left: 3, fontSize: 8, fontWeight: 800, color: "#0b1020", background: "rgba(196,181,253,0.95)", borderRadius: 4, padding: "1px 4px", lineHeight: 1.1 }}>🎤 Live</div> : null}
                                   <div style={{ padding: "3px 4px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
@@ -7464,7 +7466,8 @@ STRICT rules:
                           <div style={{ fontSize: 14, fontWeight: 800, color: "white" }}>🎤 Live-avatar ad</div>
                           <div style={{ fontSize: 10.5, color: "#7e92a8" }}>{(hgGenChar && hgGenChar.name) || "Avatar"} · product + presenter, side-by-side</div>
                         </div>
-                        <div onClick={() => { if (!hgGenBusy) setHgGenOpen(false); }} style={{ marginLeft: "auto", cursor: hgGenBusy ? "default" : "pointer", color: "#7e92a8", fontSize: 18, fontWeight: 900 }}>×</div>
+                        {hgGenFromSeq ? <button onClick={() => { if (hgGenBusy) return; setHgGenOpen(false); setSeqOpen(true); setSeqSelector('persona'); }} style={{ marginLeft: "auto", padding: "4px 9px", fontSize: 10.5, fontWeight: 800, borderRadius: 6, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.05)", color: "#a5b4fc", cursor: hgGenBusy ? "default" : "pointer" }}>← Personas</button> : null}
+                        <div onClick={() => { if (!hgGenBusy) setHgGenOpen(false); }} style={{ marginLeft: hgGenFromSeq ? 8 : "auto", cursor: hgGenBusy ? "default" : "pointer", color: "#7e92a8", fontSize: 18, fontWeight: 900 }}>×</div>
                       </div>
                       <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Product image URL (left panel)</div>
                       <input value={hgGenProductImg} onChange={(e) => setHgGenProductImg(e.target.value)} placeholder="https://… packshot image" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 12 }} />
