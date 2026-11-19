@@ -86,8 +86,13 @@ export default async function handler(req, res) {
       const j = await heygen('/v3/lipsyncs/' + encodeURIComponent(lipsyncId));
       const d = (j && j.data) || {};
       const videoUrl = d.video_url || d.output_url || d.url || (d.output && d.output.video_url) || null;
-      const errMsg = d.failure_message || d.failure_code || (d.error && (typeof d.error === 'string' ? d.error : (d.error.message || d.error.detail || JSON.stringify(d.error)))) || null;
-      return res.status(200).json({ ok: true, status: d.status || 'processing', videoUrl, error: errMsg, failureCode: d.failure_code || null });
+      const st = String(d.status || 'processing');
+      let errMsg = d.failure_message || d.failure_code || (d.error && (typeof d.error === 'string' ? d.error : (d.error.message || d.error.detail || JSON.stringify(d.error)))) || null;
+      if (!errMsg && st.toLowerCase() === 'failed') {
+        errMsg = 'failed (no message from HeyGen) · ' + JSON.stringify(j).slice(0, 400);
+        console.error('[heygen-lipsync] poll failed, raw:', JSON.stringify(j).slice(0, 800));
+      }
+      return res.status(200).json({ ok: true, status: st, videoUrl, error: errMsg, failureCode: d.failure_code || null, raw: JSON.stringify(j).slice(0, 700) });
     }
 
     // 4) Finalize: compliance (AI label + C2PA + Blob).
