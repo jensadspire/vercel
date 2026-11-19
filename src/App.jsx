@@ -7617,14 +7617,14 @@ STRICT rules:
                       {hgGenBusy ? (
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24, minHeight: 240, marginBottom: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.25)" }}>
                           <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
-                          <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{hgGenStage || "Working…"}<br/>{_live ? "Premium render — this can take 4–7 minutes" : "Check back in ~1–2 minutes"}</div>
+                          <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{hgGenStage || "Working…"}<br/>{_live ? "Premium render — this can take 8–10 minutes" : "Check back in ~1–2 minutes"}</div>
                           <VideoProgressBars />
                           <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
                         </div>
                       ) : hgGenUrl ? (
                         <div style={{ marginBottom: 12 }}>
                           <video src={hgGenUrl} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", margin: "0 auto", borderRadius: 10, background: "#000" }} />
-                          <a href={hgGenUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 11, fontWeight: 800, color: "#a5b4fc" }}>↗ Open / download</a>
+                          <a href={hgGenUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 11, fontWeight: 800, color: "#a5b4fc" }}>↗ Open / download (new tab)</a>
                         </div>
                       ) : (
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24, minHeight: 120, marginBottom: 12, borderRadius: 12, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.15)", fontSize: 11.5, color: "#5a6b80", textAlign: "center" }}>Your live-avatar ad will appear here.</div>
