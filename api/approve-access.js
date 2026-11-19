@@ -56,18 +56,19 @@ export default async function handler(req, res) {
     if (!email) return res.status(400).json({ error: 'email required' });
 
     if (action === 'approve') {
-      let invitationId = null;
+      let invitationId = null, inviteUrl = null;
       try {
         const inv = await clerk.invitations.createInvitation({ emailAddress: email, redirectUrl: 'https://theaiad.studio/' });
         invitationId = inv && inv.id ? inv.id : null;
+        inviteUrl = inv && inv.url ? inv.url : null;
       } catch (clerkErr) {
         const detail = (clerkErr && clerkErr.errors && clerkErr.errors[0] && clerkErr.errors[0].longMessage) || clerkErr.message;
         return res.status(502).json({ error: 'Clerk invite failed: ' + detail });
       }
       await redis('ZREM', 'access:pending', email);
       await redis('ZADD', 'access:approved', String(Date.now()), email);
-      await redis('SET', `access:meta:${email}`, JSON.stringify({ email, status: 'approved', ts: Date.now(), invitationId }));
-      return res.status(200).json({ ok: true, invitationId });
+      await redis('SET', `access:meta:${email}`, JSON.stringify({ email, status: 'approved', ts: Date.now(), invitationId, inviteUrl }));
+      return res.status(200).json({ ok: true, invitationId, inviteUrl });
     }
 
     if (action === 'reject') {
