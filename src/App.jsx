@@ -3757,6 +3757,7 @@ function RSAStudio() {
   const [hgGenSeqBusy, setHgGenSeqBusy] = useState(false);
   const [hgGenSeqAppend, setHgGenSeqAppend] = useState(null); // sequenceId to append this clip to (null = lead/normal mode)
   const [hgGenFromSeq, setHgGenFromSeq] = useState(false);
+  const [hgReturnCtx, setHgReturnCtx] = useState(null); // {appendTo,char,productImg,fromSeq} — return to live-avatar flow from the Personas library
   const [hgGenMode, setHgGenMode] = useState('live'); // 'live' = Runway presenter + lipsync; 'split' = side-by-side
   const [hgVoiceOpen, setHgVoiceOpen] = useState(false);
   const [hgScriptLang, setHgScriptLang] = useState('auto');
@@ -7681,7 +7682,7 @@ STRICT rules:
                           <div style={{ fontSize: 15, fontWeight: 800, color: "white" }}>🎤 Live-avatar ad</div>
                           <div style={{ fontSize: 10.5, color: "#7e92a8" }}>{(hgGenChar && hgGenChar.name) || "Avatar"} · {_live ? "live presenter holding your product" : "product + presenter, side-by-side"}</div>
                         </div>
-                        {hgGenFromSeq ? <button onClick={() => { if (hgGenBusy) return; setHgGenOpen(false); setSeqOpen(true); setSeqSelector('persona'); }} style={{ marginLeft: "auto", padding: "4px 9px", fontSize: 10.5, fontWeight: 800, borderRadius: 6, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.05)", color: "#a5b4fc", cursor: hgGenBusy ? "default" : "pointer" }}>← Personas</button> : null}
+                        {hgGenFromSeq ? <button onClick={() => { if (hgGenBusy) return; setHgReturnCtx({ appendTo: hgGenSeqAppend, char: hgGenChar, productImg: hgGenProductImg, fromSeq: hgGenFromSeq }); setHgGenOpen(false); setShowCreativeStudio(true); loadCharLibrary(); try { setTimeout(function () { var el = document.getElementById('personas-section'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 240); } catch (_) {} }} style={{ marginLeft: "auto", padding: "4px 9px", fontSize: 10.5, fontWeight: 800, borderRadius: 6, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.05)", color: "#a5b4fc", cursor: hgGenBusy ? "default" : "pointer" }}>← Personas</button> : null}
                         <div onClick={() => { if (!hgGenBusy) setHgGenOpen(false); }} style={{ marginLeft: hgGenFromSeq ? 8 : "auto", cursor: hgGenBusy ? "default" : "pointer", color: "#7e92a8", fontSize: 18, fontWeight: 900 }}>×</div>
                       </div>
                       <div style={{ display: "flex", gap: 6, marginBottom: 14, background: "rgba(0,0,0,0.25)", borderRadius: 10, padding: 4 }}>
@@ -7796,6 +7797,7 @@ STRICT rules:
                 </div>
 
                 {/* 2. Personas — UGC source selector (Phase 1) */}
+                {hgReturnCtx ? <button onClick={() => { const r = hgReturnCtx; setHgReturnCtx(null); setShowCreativeStudio(false); openHeygenGen(r.char, r.fromSeq, { appendTo: r.appendTo, productImg: r.productImg }); }} style={{ display: "block", marginBottom: 10, padding: "8px 14px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.14)", color: "#c4b5fd", cursor: "pointer" }}>{"← Back to live-avatar ad" + (hgReturnCtx.char && hgReturnCtx.char.name ? (" · " + hgReturnCtx.char.name) : "")}</button> : null}
                 <div id="personas-section" style={{ fontSize: 11, fontWeight: 800, color: "#c4b5fd", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Personas <span style={{ color: "#5a6b80", fontWeight: 600 }}>· character sources</span></div>
                 {(ugcAdLoading || ugcAdError || ugcAdResult) && (
                   <div id="ugc-ad-result" style={{ marginBottom: 16, padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.08)" }}>
@@ -8006,7 +8008,7 @@ STRICT rules:
                                   <div style={{ padding: "5px 7px 7px" }}>
                                     <div style={{ fontSize: 10, color: "#e2e8f0", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Untitled"}</div>
                                     <div style={{ fontSize: 8.5, color: "#7e92a8", marginTop: 2 }}>{[c.type, (c.shot && c.shot !== "other") ? c.shot.replace("_", " ") : null].filter(Boolean).join(" · ")}</div>
-                                    {(c.source === 'heygen' || c.heygenAvatarId) ? <button onClick={() => openHeygenGen(c)} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>🎤 Live-avatar ad</button> : <button onClick={() => createUgcAd({ image: c.thumbnailUrl || c.seedImageUrl, creator: c.creator || c.name, caption: c.originCaption, captionLang: c.captionLang })} disabled={ugcAdLoading} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: ugcAdLoading ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>✨ UGC ad</button>}
+                                    {(c.source === 'heygen' || c.heygenAvatarId) ? <button onClick={() => { if (hgReturnCtx) { const r = hgReturnCtx; setHgReturnCtx(null); setShowCreativeStudio(false); openHeygenGen(c, r.fromSeq, { appendTo: r.appendTo, productImg: r.productImg }); } else { openHeygenGen(c); } }} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>🎤 Live-avatar ad</button> : <button onClick={() => createUgcAd({ image: c.thumbnailUrl || c.seedImageUrl, creator: c.creator || c.name, caption: c.originCaption, captionLang: c.captionLang })} disabled={ugcAdLoading} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: ugcAdLoading ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>✨ UGC ad</button>}
                                   </div>
                                 </div>
                               );
