@@ -3830,7 +3830,7 @@ function RSAStudio() {
     setHgGenBusy(true); setHgGenErr(''); setHgGenUrl('');
     const J = { 'Content-Type': 'application/json' };
     const LS = (b) => fetch('/api/heygen-lipsync', { method: 'POST', headers: J, body: JSON.stringify(b) }).then(r => r.json());
-    const RR = (b) => fetch('/api/runway-recipe', { method: 'POST', headers: J, body: JSON.stringify(b) }).then(r => r.json());
+    const RR = async (b) => fetch('/api/runway-recipe', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(b) }).then(r => r.json());
     const NI = (b) => fetch('/api/normalize-image', { method: 'POST', headers: J, body: JSON.stringify(b) }).then(r => r.json()).catch(function () { return null; });
     const stop = (msg) => { setHgGenErr(msg); setHgGenBusy(false); setHgGenStage(''); };
     try {
