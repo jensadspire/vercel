@@ -3876,7 +3876,9 @@ function RSAStudio() {
     try {
       const _img = (hgGenProductImg || '').trim() || (pageMeta && pageMeta.imageUrl) || '';
       const _title = (pageMeta && (pageMeta.title || pageMeta.brand)) || '';
-      const _name = _title ? (_title + ' — live avatar') : 'Live-avatar ad';
+      const _prodFromUrl = (function (u) { try { var s = String(u || '').split('?')[0].split('/').pop() || ''; s = s.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' ').trim(); if (!s) return ''; s = s.replace(/\b\w/g, function (m) { return m.toUpperCase(); }); return s.slice(0, 60).trim(); } catch (_) { return ''; } })(_img);
+      const _prod = _title || _prodFromUrl;
+      const _name = _prod ? (_prod + ' — live avatar') : 'Live-avatar ad';
       let _dupId = null; try { if (Array.isArray(seqTemplates)) { const _m = seqTemplates.find(function (t) { return t && t.engine === 'heygen-runway' && t.name === _name; }); if (_m) _dupId = _m.id; } } catch (_) {}
       const _script = (hgGenScript || '').trim();
       const _origin = (seqOriginMeta || seqOriginSnap)
