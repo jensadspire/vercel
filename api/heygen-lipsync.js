@@ -128,6 +128,50 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, url: outUrl, labelled: true, signed, stored });
     }
 
+    // 5) Pad TTS audio with trailing silence to ~target seconds (clears lipsync's 15% duration rule).
+    if (action === 'padaudio') {
+      const { audioUrl } = body;
+      if (!audioUrl) return res.status(400).json({ error: 'audioUrl required' });
+      const T = Math.max(1, Math.min(120, Math.round(Number(body.seconds) || 0)));
+      if (!T) return res.status(400).json({ error: 'seconds required' });
+      const key = process.env.RENDI_API_KEY;
+      if (!key) return res.status(503).json({ error: 'RENDI_API_KEY not set' });
+      const RENDI = 'https://api.rendi.dev/v1';
+      try {
+        const sub = await fetch(RENDI + '/run-ffmpeg-command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-KEY': key },
+          body: JSON.stringify({
+            input_files: { in_1: audioUrl },
+            output_files: { out_1: 'padded.wav' },
+            ffmpeg_command: '-i {{in_1}} -af apad -t ' + T + ' -c:a pcm_s16le {{out_1}}',
+          }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const sd = await sub.json().catch(() => ({}));
+        if (!sub.ok) return res.status(502).json({ error: 'Rendi submit failed: ' + sub.status, raw: JSON.stringify(sd).slice(0, 200) });
+        const cmdId = sd.command_id || sd.id || sd.commandId;
+        if (!cmdId) return res.status(502).json({ error: 'Rendi: no command_id', raw: JSON.stringify(sd).slice(0, 200) });
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => setTimeout(r, 2500));
+          const pr = await fetch(RENDI + '/commands/' + cmdId, { method: 'GET', headers: { 'X-API-KEY': key } });
+          const pd = await pr.json().catch(() => ({}));
+          const st = (pd.status || '').toUpperCase();
+          if (st === 'SUCCESS' || st === 'SUCCEEDED' || st === 'COMPLETED') {
+            const out = (pd.output_files && pd.output_files.out_1 && (pd.output_files.out_1.storage_url || pd.output_files.out_1)) ||
+                        (pd.output_files && pd.output_files[0] && pd.output_files[0].storage_url) || null;
+            const outUrl = typeof out === 'string' ? out : (out && out.storage_url) || null;
+            if (!outUrl) return res.status(502).json({ error: 'Rendi SUCCESS but no output url' });
+            return res.status(200).json({ ok: true, audioUrl: outUrl, seconds: T });
+          }
+          if (st === 'FAILED' || st === 'ERROR') return res.status(502).json({ error: 'Rendi pad failed', raw: JSON.stringify(pd).slice(0, 200) });
+        }
+        return res.status(504).json({ error: 'Rendi pad timed out' });
+      } catch (e) {
+        return res.status(500).json({ error: 'padaudio error: ' + e.message });
+      }
+    }
+
     return res.status(400).json({ error: 'unknown action' });
   } catch (err) {
     console.error('[heygen-lipsync] error:', err.message);
