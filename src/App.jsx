@@ -6987,10 +6987,16 @@ STRICT rules:
               {seqBuildNext ? (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(139,92,246,0.3)", background: "rgba(139,92,246,0.08)" }}>
                   <span style={{ fontSize: 12, fontWeight: 800, color: "#c4b5fd" }}>➕ New sequential ad <span style={{ color: "#8ea2b8", fontWeight: 600 }}>· following your lead</span></span>
-                  <button onClick={() => { const _av = seqHeygenChar || (Array.isArray(charLib) ? charLib.find(function (c) { return c.heygenAvatarId; }) : null); if (!_av) { setSeqErr('Save or pick a live-avatar persona first (Personas → Live avatar).'); return; } setSeqOpen(false); openHeygenGen(_av, true, { appendTo: seqLeadId, productImg: (seqProductUrl || '').trim() }); }} title="Make this next ad a live presenter (HeyGen) ad" style={{ marginLeft: "auto", marginRight: 8, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.14)", color: "#c4b5fd", cursor: "pointer", whiteSpace: "nowrap" }}>🎤 Live-avatar ad</button>
+                  {!seqHeygen ? <button onClick={() => { const _av = seqHeygenChar || (Array.isArray(charLib) ? charLib.find(function (c) { return c.heygenAvatarId; }) : null); if (!_av) { setSeqErr('Save or pick a live-avatar persona first (Personas → Live avatar).'); return; } setSeqOpen(false); openHeygenGen(_av, true, { appendTo: seqLeadId, productImg: (seqProductUrl || '').trim() }); }} title="Make this next ad a live presenter (HeyGen) ad" style={{ marginLeft: "auto", marginRight: 8, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.14)", color: "#c4b5fd", cursor: "pointer", whiteSpace: "nowrap" }}>🎤 Live-avatar ad</button> : null}
                   <button onClick={() => { setSeqBuildNext(false); setSeqResults([]); }} style={{ fontSize: 10.5, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 7, padding: "4px 10px", cursor: "pointer" }}>✕ Cancel</button>
                 </div>
               ) : null}
+              {seqHeygen ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "26px 16px 22px" }}>
+                  <div style={{ fontSize: 11.5, color: "#9db0c7", textAlign: "center", maxWidth: 340, lineHeight: 1.5 }}>Your next ad continues this live presenter — generate it on the HeyGen · Runway screen.</div>
+                  <button onClick={() => { const _av = seqHeygenChar || (Array.isArray(charLib) ? charLib.find(function (c) { return c.heygenAvatarId; }) : null); if (!_av) { setSeqErr('Save or pick a live-avatar persona first (Personas → Live avatar).'); return; } setSeqOpen(false); openHeygenGen(_av, true, { appendTo: seqLeadId, productImg: (seqProductUrl || '').trim() }); }} style={{ padding: "12px 24px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>🎤 Create live-avatar ad</button>
+                </div>
+              ) : (<>
               {/* Unified attribute selectors — persona / objective / market / interaction */}
               {(() => {
                 const personasAll = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri || c.heygenAvatarId; }) : [];
@@ -7186,6 +7192,7 @@ STRICT rules:
                 <button onClick={generateSequence} disabled={seqBusy} style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: seqBusy ? "rgba(245,158,11,0.4)" : "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>{seqBusy ? "⟳ Generating…" : (seqBuildNext ? "🎬 Generate this ad" : ((!seqLeadId && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? "↻ Regenerate" : "🎬 Generate lead ad"))}</button>
                 {(!seqLeadId && !seqBuildNext && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? <button onClick={saveSeqTemplate} disabled={seqBusy} title="Save this as your sequence lead, then add the next ad" style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>✓ Save as lead & start sequence</button> : null}
               </div>
+              </>)}
               </>) : null}
               {seqErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginBottom: 12 }}>{seqErr}</div> : null}
 
