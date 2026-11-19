@@ -7226,8 +7226,9 @@ STRICT rules:
                             </div>
                           </div>
                           {isReady ? (
-                            <div style={{ display: "flex", gap: 6, padding: "0 10px 10px" }}>
-                              <button onClick={() => approveFeedOutput(o)} disabled={o.approving || o.approved} style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (o.approving || o.approved) ? "default" : "pointer", background: o.approved ? "rgba(45,212,191,0.15)" : (o.approving ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)"), color: o.approved ? "#5eead4" : "#06281f", whiteSpace: "nowrap" }}>{o.approved ? '✓ Saved' : (o.approving ? 'Saving…' : 'Save')}</button>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 10px 10px" }}>
+                              <button onClick={() => approveFeedOutput(o)} disabled={o.approving || o.approved} style={{ width: "100%", padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (o.approving || o.approved) ? "default" : "pointer", background: o.approved ? "rgba(45,212,191,0.15)" : (o.approving ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)"), color: o.approved ? "#5eead4" : "#06281f", whiteSpace: "nowrap" }}>{o.approved ? '✓ Saved' : (o.approving ? 'Saving…' : 'Save')}</button>
+                              {o.approved ? <button onClick={() => { setFeedOpen(false); openVault(); }} style={{ width: "100%", padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(99,102,241,0.5)", cursor: "pointer", background: "rgba(99,102,241,0.12)", color: "#a5b4fc", whiteSpace: "nowrap" }}>📚 View in library</button> : null}
                             </div>
                           ) : null}
                           {o.approveError ? <div style={{ padding: "0 10px 8px", fontSize: 10, color: "#fca5a5", lineHeight: 1.4 }}>{o.approveError}</div> : null}
