@@ -3756,6 +3756,21 @@ function RSAStudio() {
   const [hgGenFromSeq, setHgGenFromSeq] = useState(false);
   const [hgGenMode, setHgGenMode] = useState('live'); // 'live' = Runway presenter + lipsync; 'split' = side-by-side
   const [hgVoiceOpen, setHgVoiceOpen] = useState(false);
+  const [hgScriptLang, setHgScriptLang] = useState('auto');
+  const [hgScriptStyle, setHgScriptStyle] = useState('product');
+  const [hgWriting, setHgWriting] = useState(false);
+  const writeScript = async () => {
+    const c = hgGenChar;
+    setHgWriting(true); setHgGenErr('');
+    try {
+      const lang = hgScriptLang === 'en' ? 'English' : (((pageMeta && pageMeta.language) || 'English'));
+      const ctx = [pageMeta && pageMeta.title, pageMeta && pageMeta.metaDescription, pageMeta && pageMeta.brand, (c && c.name)].filter(Boolean).join(' — ').slice(0, 1500);
+      const d = await fetch('/api/presenter-script', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language: lang, style: hgScriptStyle, context: ctx, productUrl: (pageMeta && pageMeta.url) || seqOriginUrl || '', targetWords: 38 }) }).then(r => r.json());
+      if (d && d.script) setHgGenScript(d.script);
+      else setHgGenErr((d && d.error) || 'Could not write a script.');
+    } catch (_) { setHgGenErr('Could not write a script.'); }
+    finally { setHgWriting(false); }
+  };
   const _hgDefaultProductImg = () => (
     (metaResult && (metaResult.heroProductImage || metaResult.imageUrl)) ||
     ((pageMeta && pageMeta.images && pageMeta.images[0]) || '') ||
@@ -7576,7 +7591,19 @@ STRICT rules:
                       <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Product image URL</div>
                       <input value={hgGenProductImg} onChange={(e) => setHgGenProductImg(e.target.value)} placeholder="https://… packshot image" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 12 }} />
                       <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Script — spoken verbatim, in whatever language you write ({(pageMeta && pageMeta.language) || "English"})</div>
-                      <textarea value={hgGenScript} onChange={(e) => setHgGenScript(e.target.value)} rows={4} placeholder="What should the presenter say?" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 12 }} />
+                      <textarea value={hgGenScript} onChange={(e) => setHgGenScript(e.target.value)} rows={4} placeholder="Write your own, or hit ✨ Write script" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 8 }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                        <button onClick={writeScript} disabled={hgWriting || hgGenBusy} style={{ padding: "7px 12px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (hgWriting || hgGenBusy) ? "default" : "pointer", background: hgWriting ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{hgWriting ? "⟳ Writing…" : "✨ Write script"}</button>
+                        <select value={hgScriptStyle} onChange={(e) => setHgScriptStyle(e.target.value)} disabled={hgWriting || hgGenBusy} title="Script angle" style={{ padding: "7px 8px", fontSize: 11, borderRadius: 7, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                          <option value="product" style={{ background: "#0a0e1a" }}>Product style</option>
+                          <option value="hook" style={{ background: "#0a0e1a" }}>Hook / question</option>
+                        </select>
+                        <select value={hgScriptLang} onChange={(e) => setHgScriptLang(e.target.value)} disabled={hgWriting || hgGenBusy} title="Language" style={{ padding: "7px 8px", fontSize: 11, borderRadius: 7, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                          <option value="auto" style={{ background: "#0a0e1a" }}>Auto ({(pageMeta && pageMeta.language) || "page language"})</option>
+                          <option value="en" style={{ background: "#0a0e1a" }}>English</option>
+                        </select>
+                        <span style={{ marginLeft: "auto", fontSize: 9.5, color: "#5a6b80" }}>~14s · spoken</span>
+                      </div>
                       <div onClick={() => setHgVoiceOpen(!hgVoiceOpen)} style={{ display: "flex", alignItems: "center", cursor: "pointer", fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: hgVoiceOpen ? 4 : 14 }}>
                         <span>Voice: {(_sel && _sel.name) || "auto-matched to avatar"}{_g ? (" · " + _g) : ""}</span>
                         <span style={{ marginLeft: "auto", color: "#a5b4fc" }}>{hgVoiceOpen ? "hide ▲" : "change ▾"}</span>
