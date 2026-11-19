@@ -3731,7 +3731,7 @@ function RSAStudio() {
     if (!av || !av.avatarId) return;
     setHgSaving(av.avatarId); setHgErr(''); setSynMsg('');
     try {
-      const body = { action: 'save', source: 'heygen', type: 'Avatar', shot: 'other', name: (synName.trim() || av.name || 'Live avatar'), thumbnailUrl: av.preview || null, seedImageUrl: av.preview || null, referenceImages: av.preview ? [av.preview] : [], heygenAvatarId: av.avatarId };
+      const body = { action: 'save', source: 'heygen', type: 'Avatar', shot: 'other', name: (synName.trim() || av.name || 'Live avatar'), thumbnailUrl: av.preview || null, seedImageUrl: av.preview || null, referenceImages: av.preview ? [av.preview] : [], heygenAvatarId: av.avatarId, gender: av.gender || null };
       const d = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
       if (d && d.character) {
         setHgSavedIds(function (prev) { var n = Object.assign({}, prev); n[av.avatarId] = true; return n; });
@@ -3754,6 +3754,8 @@ function RSAStudio() {
   const [hgGenErr, setHgGenErr] = useState('');
   const [hgGenUrl, setHgGenUrl] = useState('');
   const [hgGenFromSeq, setHgGenFromSeq] = useState(false);
+  const [hgGenMode, setHgGenMode] = useState('live'); // 'live' = Runway presenter + lipsync; 'split' = side-by-side
+  const [hgVoiceOpen, setHgVoiceOpen] = useState(false);
   const _hgDefaultProductImg = () => (
     (metaResult && (metaResult.heroProductImage || metaResult.imageUrl)) ||
     ((pageMeta && pageMeta.images && pageMeta.images[0]) || '') ||
@@ -3782,8 +3784,15 @@ function RSAStudio() {
     setHgGenScript(_hgDefaultScript());
     setHgGenUrl(''); setHgGenErr(''); setHgGenStage('');
     setHgGenFromSeq(!!fromSeq);
+    setHgGenMode('live');
+    setHgVoiceOpen(false);
     setHgGenOpen(true);
-    loadHgGenVoices();
+    loadHgGenVoices().then(function (pool) {
+      const g = (c.gender || '').toString().toLowerCase();
+      const match = g ? (pool || []).find(function (v) { return (v.gender || '').toLowerCase() === g; }) : null;
+      if (match) setHgGenVoiceId(match.voiceId);
+      else if ((pool || [])[0]) setHgGenVoiceId(pool[0].voiceId);
+    });
   };
   const runHeygenSplit = async () => {
     const c = hgGenChar;
@@ -3810,6 +3819,89 @@ function RSAStudio() {
       if (outv && outv.url) { setHgGenUrl(outv.url); setHgGenStage(''); }
       else { setHgGenErr((outv && outv.error) || 'Composing failed.'); setHgGenStage(''); }
     } catch (e) { setHgGenErr('Generation failed — please try again.'); setHgGenStage(''); }
+    finally { setHgGenBusy(false); }
+  };
+  // ── Premium "Product presenter (live)": Runway UGC (avatar+product) → TTS → lipsync → finalize ──
+  const runHeygenPresenter = async () => {
+    const c = hgGenChar;
+    if (!c || !c.heygenAvatarId) { setHgGenErr('This persona has no avatar id.'); return; }
+    if (!hgGenScript.trim()) { setHgGenErr('Add a script for the presenter to speak.'); return; }
+    if (!hgGenProductImg.trim()) { setHgGenErr('Add a product image URL.'); return; }
+    setHgGenBusy(true); setHgGenErr(''); setHgGenUrl('');
+    const J = { 'Content-Type': 'application/json' };
+    const LS = (b) => fetch('/api/heygen-lipsync', { method: 'POST', headers: J, body: JSON.stringify(b) }).then(r => r.json());
+    const RR = (b) => fetch('/api/runway-recipe', { method: 'POST', headers: J, body: JSON.stringify(b) }).then(r => r.json());
+    const NI = (b) => fetch('/api/normalize-image', { method: 'POST', headers: J, body: JSON.stringify(b) }).then(r => r.json()).catch(function () { return null; });
+    const stop = (msg) => { setHgGenErr(msg); setHgGenBusy(false); setHgGenStage(''); };
+    try {
+      // 0) normalize both images (webp->flattened jpeg; Runway-safe)
+      setHgGenStage('Preparing images…');
+      const rawChar = c.thumbnailUrl || c.seedImageUrl || (c.referenceImages || [])[0];
+      const normC = await NI({ imageUrl: rawChar, slot: 'portrait', fit: 'cover' });
+      const charImg = (normC && normC.url) || rawChar;
+      const normP = await NI({ imageUrl: hgGenProductImg.trim(), slot: 'square', fit: 'contain' });
+      const prodImg = (normP && normP.url) || hgGenProductImg.trim();
+
+      // 1) Runway UGC (avatar holding product) — retry once on the intermittent content-type error
+      setHgGenStage('Filming the presenter with your product… (this is the long step)');
+      let taskId = null;
+      for (let attempt = 0; attempt < 2 && !taskId; attempt++) {
+        const cr = await RR({ action: 'create', mode: 'ugc', characterImage: charImg, imageUrl: prodImg,
+          productInfo: (pageMeta && pageMeta.brand) ? (pageMeta.brand + ' product') : '',
+          userConcept: 'The person from the character image holds the product near shoulder height, facing the camera and speaking to camera in one continuous shot with no cuts. Keep the face clearly visible and front-facing the whole time. Product label legible.' });
+        if (cr && (cr.taskId || cr.id)) { taskId = cr.taskId || cr.id; break; }
+        const em = (cr && cr.error) || '';
+        if (attempt === 0 && /octet-stream|Validation of body failed/i.test(em)) { await new Promise(r => setTimeout(r, 3000)); continue; }
+        return stop((cr && cr.error) || 'Could not start the presenter video.');
+      }
+      let runwayUrl = null;
+      for (let i = 0; i < 50; i++) {
+        await new Promise(r => setTimeout(r, 8000));
+        const p = await RR({ action: 'poll', taskId });
+        if (p && (p.videoUrl || p.url)) { runwayUrl = p.videoUrl || p.url; break; }
+        if (p && (p.status || '').toLowerCase() === 'failed') return stop('Presenter video failed: ' + (p.error || 'unknown'));
+      }
+      if (!runwayUrl) return stop('Timed out making the presenter video.');
+
+      // 2) TTS (localized) — language from the page (ISO-639-1)
+      setHgGenStage('Voicing your script…');
+      const lang = ((pageMeta && pageMeta.language) || '').toString().slice(0, 2).toLowerCase() || undefined;
+      const pool = hgGenVoices || await loadHgGenVoices();
+      const voiceId = hgGenVoiceId || (pool[0] && pool[0].voiceId);
+      const tts = await LS({ action: 'tts', text: hgGenScript.trim(), voiceId: voiceId, language: lang });
+      if (!tts || !tts.audioUrl) return stop('Voice generation failed: ' + ((tts && tts.error) || ''));
+      let audioUrl = tts.audioUrl;
+
+      // 3) Lipsync — self-correcting on the 15% duration rule (pad audio to the video length, retry once)
+      setHgGenStage('Syncing lips to the voice…');
+      let lipUrl = null;
+      for (let pass = 0; pass < 2 && !lipUrl; pass++) {
+        const cr = await LS({ action: 'create', videoUrl: runwayUrl, audioUrl: audioUrl, mode: 'precision' });
+        if (!cr || !cr.lipsyncId) return stop('Lipsync could not start: ' + ((cr && cr.error) || ''));
+        let failMsg = null;
+        for (let i = 0; i < 80; i++) {
+          await new Promise(r => setTimeout(r, 6000));
+          const p = await LS({ action: 'poll', lipsyncId: cr.lipsyncId });
+          if (p && p.videoUrl) { lipUrl = p.videoUrl; break; }
+          if (p && (p.status || '').toLowerCase() === 'failed') { failMsg = p.error || ''; break; }
+        }
+        if (lipUrl) break;
+        const m = failMsg && failMsg.match(/video is ([0-9.]+) second/i);
+        if (m && pass === 0) {
+          setHgGenStage('Matching audio length…');
+          const pad = await LS({ action: 'padaudio', audioUrl: audioUrl, seconds: Math.ceil(parseFloat(m[1])) });
+          if (pad && pad.audioUrl) { audioUrl = pad.audioUrl; setHgGenStage('Syncing lips to the voice…'); continue; }
+        }
+        return stop('Lipsync failed: ' + (failMsg || 'unknown'));
+      }
+      if (!lipUrl) return stop('Timed out on lipsync.');
+
+      // 4) finalize — the Runway clip already carries the AI label; keep it, add C2PA + store
+      setHgGenStage('Finalizing (label + signing)…');
+      const fin = await LS({ action: 'finalize', videoUrl: lipUrl, brand: (pageMeta && pageMeta.brand) || (c.name || ''), relabel: false });
+      if (fin && fin.url) { setHgGenUrl(fin.url); setHgGenStage(''); }
+      else { setHgGenErr((fin && fin.error) || 'Finalize failed.'); setHgGenStage(''); }
+    } catch (e) { setHgGenErr('Presenter generation failed — please try again.'); setHgGenStage(''); }
     finally { setHgGenBusy(false); }
   };
   const [synBusy, setSynBusy] = useState(false);
@@ -7457,32 +7549,47 @@ STRICT rules:
         })()}
 
         {/* Creative Studio panel */}
-                {hgGenOpen && (
+                {hgGenOpen && (() => {
+                  const _g = (hgGenChar && (hgGenChar.gender || '')).toString().toLowerCase();
+                  const _all = hgGenVoices || [];
+                  const _voices = (_g && _all.some(function (v) { return (v.gender || '').toLowerCase() === _g; })) ? _all.filter(function (v) { return (v.gender || '').toLowerCase() === _g; }) : _all;
+                  const _sel = _voices.find(function (v) { return v.voiceId === hgGenVoiceId; }) || _all.find(function (v) { return v.voiceId === hgGenVoiceId; }) || null;
+                  const _live = hgGenMode === 'live';
+                  const run = function () { if (_live) runHeygenPresenter(); else runHeygenSplit(); };
+                  return (
                   <div onClick={(e) => { if (e.target === e.currentTarget && !hgGenBusy) setHgGenOpen(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 2600, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
                     <div style={{ background: "linear-gradient(135deg,#0a0e1a,#131825)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 22, maxWidth: 560, width: "100%", maxHeight: "92vh", overflowY: "auto" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                        <img src={(hgGenChar && (hgGenChar.thumbnailUrl || hgGenChar.seedImageUrl)) || ""} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", background: "#1e293b" }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                        <img src={(hgGenChar && (hgGenChar.thumbnailUrl || hgGenChar.seedImageUrl)) || ""} alt="" style={{ width: 60, height: 60, borderRadius: 10, objectFit: "cover", background: "#1e293b", flexShrink: 0 }} />
                         <div>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: "white" }}>🎤 Live-avatar ad</div>
-                          <div style={{ fontSize: 10.5, color: "#7e92a8" }}>{(hgGenChar && hgGenChar.name) || "Avatar"} · product + presenter, side-by-side</div>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: "white" }}>🎤 Live-avatar ad</div>
+                          <div style={{ fontSize: 10.5, color: "#7e92a8" }}>{(hgGenChar && hgGenChar.name) || "Avatar"} · {_live ? "live presenter holding your product" : "product + presenter, side-by-side"}</div>
                         </div>
                         {hgGenFromSeq ? <button onClick={() => { if (hgGenBusy) return; setHgGenOpen(false); setSeqOpen(true); setSeqSelector('persona'); }} style={{ marginLeft: "auto", padding: "4px 9px", fontSize: 10.5, fontWeight: 800, borderRadius: 6, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.05)", color: "#a5b4fc", cursor: hgGenBusy ? "default" : "pointer" }}>← Personas</button> : null}
                         <div onClick={() => { if (!hgGenBusy) setHgGenOpen(false); }} style={{ marginLeft: hgGenFromSeq ? 8 : "auto", cursor: hgGenBusy ? "default" : "pointer", color: "#7e92a8", fontSize: 18, fontWeight: 900 }}>×</div>
                       </div>
-                      <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Product image URL (left panel)</div>
+                      <div style={{ display: "flex", gap: 6, marginBottom: 14, background: "rgba(0,0,0,0.25)", borderRadius: 10, padding: 4 }}>
+                        <button onClick={() => { if (!hgGenBusy) setHgGenMode('live'); }} style={{ flex: 1, padding: "8px 6px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: _live ? "linear-gradient(135deg,#8b5cf6,#6366f1)" : "transparent", color: _live ? "white" : "#7e92a8" }}>🎬 Product presenter (live)</button>
+                        <button onClick={() => { if (!hgGenBusy) setHgGenMode('split'); }} style={{ flex: 1, padding: "8px 6px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: !_live ? "linear-gradient(135deg,#8b5cf6,#6366f1)" : "transparent", color: !_live ? "white" : "#7e92a8" }}>▦ Side-by-side</button>
+                      </div>
+                      <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Product image URL</div>
                       <input value={hgGenProductImg} onChange={(e) => setHgGenProductImg(e.target.value)} placeholder="https://… packshot image" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 12 }} />
                       <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Script — spoken verbatim, in whatever language you write ({(pageMeta && pageMeta.language) || "English"})</div>
                       <textarea value={hgGenScript} onChange={(e) => setHgGenScript(e.target.value)} rows={4} placeholder="What should the presenter say?" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 12 }} />
-                      <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Voice</div>
-                      <select value={hgGenVoiceId} onChange={(e) => setHgGenVoiceId(e.target.value)} style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 14 }}>
-                        {(hgGenVoices || []).length === 0 ? <option value="">Loading voices…</option> : (hgGenVoices || []).slice(0, 200).map(function (v) { return <option key={v.voiceId} value={v.voiceId} style={{ background: "#0a0e1a" }}>{(v.name || v.voiceId) + (v.gender ? (" · " + v.gender) : "")}</option>; })}
-                      </select>
+                      <div onClick={() => setHgVoiceOpen(!hgVoiceOpen)} style={{ display: "flex", alignItems: "center", cursor: "pointer", fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: hgVoiceOpen ? 4 : 14 }}>
+                        <span>Voice: {(_sel && _sel.name) || "auto-matched to avatar"}{_g ? (" · " + _g) : ""}</span>
+                        <span style={{ marginLeft: "auto", color: "#a5b4fc" }}>{hgVoiceOpen ? "hide ▲" : "change ▾"}</span>
+                      </div>
+                      {hgVoiceOpen ? (
+                        <select value={hgGenVoiceId} onChange={(e) => setHgGenVoiceId(e.target.value)} style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 14 }}>
+                          {_voices.length === 0 ? <option value="">Loading voices…</option> : _voices.slice(0, 200).map(function (v) { return <option key={v.voiceId} value={v.voiceId} style={{ background: "#0a0e1a" }}>{(v.name || v.voiceId) + (v.gender ? (" · " + v.gender) : "")}</option>; })}
+                        </select>
+                      ) : null}
                       {hgGenErr ? <div style={{ padding: "7px 9px", marginBottom: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, fontSize: 11, color: "#f87171" }}>{hgGenErr}</div> : null}
-                      {/* Output box — same generating UI as every other video path (spinner + VideoProgressBars) */}
                       {hgGenBusy ? (
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24, minHeight: 240, marginBottom: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.25)" }}>
                           <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
-                          <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{hgGenStage || "Working…"}<br/>Check back in ~1–2 minutes</div>
+                          <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{hgGenStage || "Working…"}<br/>{_live ? "Premium render — this can take 4–7 minutes" : "Check back in ~1–2 minutes"}</div>
                           <VideoProgressBars />
                           <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
                         </div>
@@ -7494,11 +7601,12 @@ STRICT rules:
                       ) : (
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24, minHeight: 120, marginBottom: 12, borderRadius: 12, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.15)", fontSize: 11.5, color: "#5a6b80", textAlign: "center" }}>Your live-avatar ad will appear here.</div>
                       )}
-                      <button onClick={runHeygenSplit} disabled={hgGenBusy} style={{ width: "100%", padding: "10px 0", fontSize: 12.5, fontWeight: 800, borderRadius: 9, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: hgGenBusy ? "linear-gradient(135deg,#f59e0b,#ef4444)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgGenBusy ? ("⟳ " + (hgGenStage || "Working…")) : (hgGenUrl ? "↻ Regenerate" : "✨ Generate live-avatar ad")}</button>
-                      <div style={{ fontSize: 10, color: "#4a5568", marginTop: 8, textAlign: "center" }}>Takes ~1–2 min: generates the presenter, then composes the split-screen with your product (AI-labelled + signed).</div>
+                      <button onClick={run} disabled={hgGenBusy} style={{ width: "100%", padding: "10px 0", fontSize: 12.5, fontWeight: 800, borderRadius: 9, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: hgGenBusy ? "linear-gradient(135deg,#f59e0b,#ef4444)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgGenBusy ? ("⟳ " + (hgGenStage || "Working…")) : (hgGenUrl ? "↻ Regenerate" : (_live ? "✨ Generate presenter ad" : "✨ Generate side-by-side ad"))}</button>
+                      <div style={{ fontSize: 10, color: "#4a5568", marginTop: 8, textAlign: "center" }}>{_live ? "Premium: films your avatar holding the product (Runway), then voices + lip-syncs your script. AI-labelled + signed." : "Generates the presenter, then composes a split-screen with your product. AI-labelled + signed."}</div>
                     </div>
                   </div>
-                )}
+                  );
+                })()}
         {showCreativeStudio && isPro && (() => {
           const vert = CS_VERTICALS[csVertical] || CS_VERTICALS.beauty;
           const toggleTpl = (id) => { const next = csTemplates.includes(id) ? csTemplates.filter(t => t !== id) : [...csTemplates, id]; saveCreativeStudio(next, csVertical); };
