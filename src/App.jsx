@@ -3753,6 +3753,7 @@ function RSAStudio() {
   const [hgGenStage, setHgGenStage] = useState('');
   const [hgGenErr, setHgGenErr] = useState('');
   const [hgGenUrl, setHgGenUrl] = useState('');
+  const [hgGenSeqBusy, setHgGenSeqBusy] = useState(false);
   const [hgGenFromSeq, setHgGenFromSeq] = useState(false);
   const [hgGenMode, setHgGenMode] = useState('live'); // 'live' = Runway presenter + lipsync; 'split' = side-by-side
   const [hgVoiceOpen, setHgVoiceOpen] = useState(false);
@@ -3835,6 +3836,40 @@ function RSAStudio() {
       else { setHgGenErr((outv && outv.error) || 'Composing failed.'); setHgGenStage(''); }
     } catch (e) { setHgGenErr('Generation failed — please try again.'); setHgGenStage(''); }
     finally { setHgGenBusy(false); }
+  };
+  // "Save as lead & start sequence" — reuse the rendered HeyGen presenter clip as the sequence lead
+  // (Ad #1), no regenerate. Parallel to useAsSequenceLead; engine 'heygen-runway', avatar id in
+  // characterId ('heygen-lane:<id>'), script in prompt. Origin (Meta/Google/landing) reused for publish.
+  const useHeygenAsSequenceLead = async () => {
+    const c = hgGenChar; const vid = hgGenUrl;
+    if (!c || !vid) return;
+    setHgGenSeqBusy(true); setHgGenErr('');
+    try {
+      const _img = (hgGenProductImg || '').trim() || (pageMeta && pageMeta.imageUrl) || '';
+      const _title = (pageMeta && (pageMeta.title || pageMeta.brand)) || (c && c.name) || '';
+      const _script = (hgGenScript || '').trim();
+      const _origin = (seqOriginMeta || seqOriginSnap)
+        ? { meta: seqOriginMeta, url: (String(seqOriginUrl || '').trim() || (pageMeta && pageMeta.url) || null), snap: seqOriginSnap }
+        : ((pageMeta && (pageMeta.title || pageMeta.url)) ? { meta: { title: (pageMeta.title || ''), metaDescription: (pageMeta.metaDescription || '') }, url: ((pageMeta.url) || null), snap: null } : null);
+      const body = {
+        action: 'save', name: _title ? (_title + ' — sequence') : 'Live-presenter sequence',
+        assetUri: null, characterId: 'heygen-lane:' + (c.heygenAvatarId || c.id || ''),
+        prompt: _script || 'Live presenter holding and demoing the product', shots: [_script || ''],
+        garmentUrls: _img ? [_img] : [], landingUrl: (_origin && _origin.url) || (pageMeta && pageMeta.url) || null,
+        origin: _origin, ratio: '9:16', duration: 5, engine: 'heygen-runway',
+        thumbnailUrl: (c.thumbnailUrl || c.seedImageUrl || c.preview || _img || null), lastVideoUrl: vid,
+        shotObjectives: ['awareness'], promo: false,
+      };
+      const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
+      if (d && d.template) {
+        try { if (d.template.id && _origin) localStorage.setItem('seq:origin:' + d.template.id, JSON.stringify(_origin)); } catch (_) {}
+        if (seqTemplates !== null) loadSeqTemplates();
+        setHgGenOpen(false);
+        loadSeqTemplate(d.template, { keepOrigin: false });
+        openSeqBuilder(true);
+      } else { setHgGenErr(d && d.error ? ('Could not start a sequence: ' + d.error) : 'Could not start a sequence.'); }
+    } catch (_) { setHgGenErr('Could not start a sequence — please try again.'); }
+    finally { setHgGenSeqBusy(false); }
   };
   // ── Premium "Product presenter (live)": Runway UGC (avatar+product) → TTS → lipsync → finalize ──
   const runHeygenPresenter = async () => {
@@ -4025,6 +4060,8 @@ function RSAStudio() {
   const [seqPubProgress, setSeqPubProgress] = useState(''); // "Publishing 2 of 3…"
   const [seqPubResult, setSeqPubResult] = useState(null);  // { ok, total, done, failures[], adsManagerUrl, error }
   const [seqLeadId, setSeqLeadId] = useState(null);        // loaded template id — non-null = lead loaded (append mode)
+  const [seqHeygen, setSeqHeygen] = useState(false);       // heygen-runway lane — live-presenter lead
+  const [seqHeygenChar, setSeqHeygenChar] = useState(null); // avatar persona backing a heygen lead (for Phase B regen/append)
   const [seqAutoLead, setSeqAutoLead] = useState(false);   // next generate auto-saves into the lead (Recreate-on-persona / Regenerate lead)
   const [seqBuildNext, setSeqBuildNext] = useState(false); // next-ad controls open (after +)
   const [seqLeadObjective, setSeqLeadObjective] = useState('awareness'); // lead's funnel stage → next default
@@ -4371,6 +4408,9 @@ function RSAStudio() {
     if (!t) return;
     const _isNone = !t.assetUri && (t.engine === 'kling' || t.engine === 'veo' || t.engine === 'runway');
     setSeqNoPersona(_isNone); if (_isNone) setSeqNoneEngine(t.engine);
+    const _isHeygen = !t.assetUri && t.engine === 'heygen-runway';
+    setSeqHeygen(_isHeygen);
+    if (_isHeygen) { const _avId = String(t.characterId || '').replace(/^heygen-lane:/, ''); const _av = (Array.isArray(charLib) ? charLib.find(function (c) { return c.heygenAvatarId === _avId || c.id === _avId; }) : null) || { heygenAvatarId: _avId, name: 'Live avatar', thumbnailUrl: t.thumbnailUrl || null }; setSeqHeygenChar(_av); } else { setSeqHeygenChar(null); }
     const persona = (Array.isArray(charLib) ? charLib.find(function (c) { return c.seedanceAssetUri && (c.id === t.characterId || c.seedanceAssetUri === t.assetUri); }) : null)
       || (t.assetUri ? { id: t.characterId || null, name: 'Lead persona', seedanceAssetUri: t.assetUri, thumbnailUrl: t.thumbnailUrl || null } : null);
     setSeqPersona(persona);
@@ -6845,7 +6885,7 @@ STRICT rules:
               })() : null}
               {/* Lead ad — the opening video; + appends the next ad in the sequence */}
               <div style={{ display: "flex", justifyContent: "center", marginBottom: (seqLeadId && !seqBuildNext) ? 30 : 12 }}>
-                {(seqPersona || seqNoPersona) ? (
+                {(seqPersona || seqNoPersona || seqHeygen) ? (
                   <div style={{ position: "relative", display: "inline-block", maxWidth: "58%" }}>
                     <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(245,158,11,0.35)", background: "#0b1322", lineHeight: 0 }}>
                       {(seqActiveAd && seqActiveAd.video) ? (
@@ -6869,10 +6909,10 @@ STRICT rules:
                       ) : (seqLeadId ? <button onClick={() => { openVault(); setVaultTab('templates'); setSeqOpen(false); }} title="Load another template as the lead" style={{ position: "absolute", top: 10, right: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#c4b5fd", cursor: "pointer", lineHeight: 1.1 }}>Change lead</button> : null)}
                     </div>
                     {(seqLeadId && !seqBuildNext && !seqActiveAd && (!Array.isArray(seqSequenceAds) || seqSequenceAds.length === 0)) ? (
-                      <button onClick={openNextAd} title="Add a sequential ad" style={{ position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)", width: 48, height: 48, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 900, lineHeight: 1, color: "white", background: "linear-gradient(135deg,#f59e0b,#ef4444)", border: "3px solid #0f172a", boxShadow: "0 4px 14px rgba(0,0,0,0.45)", cursor: "pointer" }}>+</button>
+                      <button onClick={seqHeygen ? function () { setSeqMsg('Adding more presenter ads is coming in the next update — you can publish Ad #1 below for now.'); } : openNextAd} title="Add a sequential ad" style={{ position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)", width: 48, height: 48, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 900, lineHeight: 1, color: "white", background: "linear-gradient(135deg,#f59e0b,#ef4444)", border: "3px solid #0f172a", boxShadow: "0 4px 14px rgba(0,0,0,0.45)", cursor: "pointer" }}>+</button>
                     ) : null}
                     {(seqLeadId && !seqBuildNext && !seqActiveAd) ? (
-                      <button onClick={() => { setSeqAutoLead(true); generateSequence(); }} disabled={seqBusy} title="Regenerate the lead video — updates this template in place" style={{ position: "absolute", top: 10, left: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#fbbf24", cursor: seqBusy ? "default" : "pointer", lineHeight: 1.1 }}>{seqBusy ? "⟳…" : "↻ Regenerate lead"}</button>
+                      <button onClick={() => { if (seqHeygen) { setSeqMsg('Regenerating a live-presenter lead is coming in the next update.'); return; } setSeqAutoLead(true); generateSequence(); }} disabled={seqBusy} title="Regenerate the lead video — updates this template in place" style={{ position: "absolute", top: 10, left: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#fbbf24", cursor: seqBusy ? "default" : "pointer", lineHeight: 1.1 }}>{seqBusy ? "⟳…" : "↻ Regenerate lead"}</button>
                     ) : null}
                     {(seqLeadId && !seqActiveAd && Array.isArray(seqSequenceAds) && seqSequenceAds.length > 0) ? (
                       <span title={"This lead has " + seqSequenceAds.length + " linked ad(s) — see the Sequence rack above"} style={{ position: "absolute", bottom: 10, left: 10, fontSize: 11, fontWeight: 800, color: "white", background: "rgba(99,102,241,0.92)", borderRadius: 8, padding: "3px 9px", lineHeight: 1.1 }}>{"🎬 +" + seqSequenceAds.length}</span>
@@ -7624,7 +7664,10 @@ STRICT rules:
                       ) : hgGenUrl ? (
                         <div style={{ marginBottom: 12 }}>
                           <video src={hgGenUrl} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", margin: "0 auto", borderRadius: 10, background: "#000" }} />
-                          <a href={hgGenUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 11, fontWeight: 800, color: "#a5b4fc" }}>↗ Open / download (new tab)</a>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+                            <a href={hgGenUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11, fontWeight: 800, color: "#a5b4fc" }}>↗ Open / download (new tab)</a>
+                            {_live ? <button onClick={useHeygenAsSequenceLead} disabled={hgGenSeqBusy} title="Use this clip as Ad #1 and open the Sequential Ad Builder" style={{ padding: "7px 13px", fontSize: 11, fontWeight: 800, borderRadius: 8, border: "none", cursor: hgGenSeqBusy ? "default" : "pointer", background: hgGenSeqBusy ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg,#10b981,#059669)", color: "white", whiteSpace: "nowrap" }}>{hgGenSeqBusy ? "⟳ Starting…" : "✓ Save as lead & start sequence"}</button> : null}
+                          </div>
                         </div>
                       ) : (
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24, minHeight: 120, marginBottom: 12, borderRadius: 12, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.15)", fontSize: 11.5, color: "#5a6b80", textAlign: "center" }}>Your live-avatar ad will appear here.</div>
