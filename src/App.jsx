@@ -3469,6 +3469,7 @@ function RSAStudio() {
   const [vaultSavedKey, setVaultSavedKey] = useState(null); // combo key of the single output saved to the Vault
   const [vaultSaving, setVaultSaving] = useState(false);    // star→Vault save in flight
   const [vaultTab, setVaultTab] = useState('ads');          // 'ads' (creatives) | 'templates' (ad-templates)
+  const [seqTplKind, setSeqTplKind] = useState('all');     // template-type filter: 'all' | 'synthetic' | 'avatar'
   const [seqTplConfirm, setSeqTplConfirm] = useState(null); // template id pending remove-confirm (Library)
 
   const vaultHeaders = async () => {
@@ -3873,13 +3874,15 @@ function RSAStudio() {
     setHgGenSeqBusy(true); setHgGenErr('');
     try {
       const _img = (hgGenProductImg || '').trim() || (pageMeta && pageMeta.imageUrl) || '';
-      const _title = (pageMeta && (pageMeta.title || pageMeta.brand)) || (c && c.name) || '';
+      const _title = (pageMeta && (pageMeta.title || pageMeta.brand)) || '';
+      const _name = _title ? (_title + ' — live avatar') : 'Live-avatar ad';
+      let _dupId = null; try { if (Array.isArray(seqTemplates)) { const _m = seqTemplates.find(function (t) { return t && t.engine === 'heygen-runway' && t.name === _name; }); if (_m) _dupId = _m.id; } } catch (_) {}
       const _script = (hgGenScript || '').trim();
       const _origin = (seqOriginMeta || seqOriginSnap)
         ? { meta: seqOriginMeta, url: (String(seqOriginUrl || '').trim() || (pageMeta && pageMeta.url) || null), snap: seqOriginSnap }
         : ((pageMeta && (pageMeta.title || pageMeta.url)) ? { meta: { title: (pageMeta.title || ''), metaDescription: (pageMeta.metaDescription || '') }, url: ((pageMeta.url) || null), snap: null } : null);
       const body = {
-        action: 'save', name: _title ? (_title + ' — sequence') : 'Live-presenter sequence',
+        action: 'save', id: _dupId || undefined, name: _name,
         assetUri: null, characterId: 'heygen-lane:' + (c.heygenAvatarId || c.id || ''),
         prompt: _script || 'Live presenter holding and demoing the product', shots: [_script || ''],
         garmentUrls: _img ? [_img] : [], landingUrl: (_origin && _origin.url) || (pageMeta && pageMeta.url) || null,
@@ -7537,11 +7540,30 @@ STRICT rules:
               {vaultError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10, flexShrink: 0 }}>{vaultError}</div>}
               <div style={{ flex: 1, overflowY: "auto" }}>
                 {vaultTab === 'templates' ? (
-                  (seqTemplates === null || (Array.isArray(seqTemplates) && seqTemplates.length === 0)) ? (
-                    <div style={emptyStyle}>{seqTemplates === null ? 'Loading templates…' : 'No template ads yet — build a sequence lead in the Sequential Ad Builder, then use “Save as template to library”.'}</div>
+                  <>
+                  {(() => {
+                    const _isAv = function (t) { return t && (t.engine === 'heygen-runway' || String(t.characterId || '').indexOf('heygen-lane:') === 0); };
+                    const _avN = Array.isArray(seqTemplates) ? seqTemplates.filter(_isAv).length : 0;
+                    const _syN = Array.isArray(seqTemplates) ? (seqTemplates.length - _avN) : 0;
+                    if (!Array.isArray(seqTemplates) || seqTemplates.length === 0) return null;
+                    return (
+                      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                        {[{ id: 'all', label: 'All', n: seqTemplates.length }, { id: 'synthetic', label: '🧬 Synthetic', n: _syN }, { id: 'avatar', label: '🎤 Live avatar', n: _avN }].map(function (k) {
+                          const on = seqTplKind === k.id;
+                          return <button key={k.id} onClick={() => setSeqTplKind(k.id)} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 800, borderRadius: 8, cursor: "pointer", border: on ? "1px solid rgba(99,102,241,0.6)" : "1px solid rgba(255,255,255,0.12)", background: on ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.03)", color: on ? "#c4b5fd" : "#9db0c7" }}>{k.label + " · " + k.n}</button>;
+                        })}
+                      </div>
+                    );
+                  })()}
+                  {(() => {
+                    const _isAv = function (t) { return t && (t.engine === 'heygen-runway' || String(t.characterId || '').indexOf('heygen-lane:') === 0); };
+                    const _list = Array.isArray(seqTemplates) ? seqTemplates.filter(function (t) { return seqTplKind === 'all' ? true : (seqTplKind === 'avatar' ? _isAv(t) : !_isAv(t)); }) : seqTemplates;
+                    return (
+                  (_list === null || (Array.isArray(_list) && _list.length === 0)) ? (
+                    <div style={emptyStyle}>{seqTemplates === null ? 'Loading templates…' : 'No template ads in this view.'}</div>
                   ) : (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 12 }}>
-                      {seqTemplates.map(function (t) {
+                      {_list.map(function (t) {
                         const nShots = (t.shots && t.shots.length) || 1;
                         const objs = Array.isArray(t.shotObjectives) ? t.shotObjectives : [];
                         return (
@@ -7579,6 +7601,9 @@ STRICT rules:
                       })}
                     </div>
                   )
+                    );
+                  })()}
+                  </>
                 ) : (vaultLoading && !items.length) ? (
                   <div style={emptyStyle}>Loading your library…</div>
                 ) : items.length === 0 ? (
