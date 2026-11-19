@@ -3855,7 +3855,7 @@ function RSAStudio() {
         return stop((cr && cr.error) || 'Could not start the presenter video.');
       }
       let runwayUrl = null;
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 90; i++) {
         await new Promise(r => setTimeout(r, 8000));
         const p = await RR({ action: 'poll', taskId });
         if (p && (p.videoUrl || p.url)) { runwayUrl = p.videoUrl || p.url; break; }
