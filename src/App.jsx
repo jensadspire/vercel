@@ -3786,6 +3786,25 @@ function RSAStudio() {
     }
     return '';
   };
+  const _nameToIso = function (n) { const m = { english: 'en', danish: 'da', german: 'de', french: 'fr', spanish: 'es', swedish: 'sv', dutch: 'nl', italian: 'it', portuguese: 'pt', norwegian: 'no', finnish: 'fi', polish: 'pl' }; const k = String(n || '').trim().toLowerCase(); return m[k] || (k ? k.slice(0, 2) : undefined); };
+  // Conservative language guess from the spoken text; returns null unless there is clear evidence.
+  const _detectScriptLang = function (text) {
+    const t = String(text || '').toLowerCase(); if (!t.trim()) return null;
+    const score = {}; const add = function (k, n) { score[k] = (score[k] || 0) + n; };
+    if (/[æø]/.test(t)) add('da', 3);
+    if (/å/.test(t)) { add('da', 1); add('sv', 1); add('no', 1); }
+    if (/ß/.test(t)) add('de', 4);
+    if (/[äöü]/.test(t)) add('de', 2);
+    if (/[äö]/.test(t) && !/[æøü]/.test(t)) add('sv', 2);
+    if (/ñ|¿|¡/.test(t)) add('es', 4);
+    if (/[ãõ]/.test(t)) add('pt', 3);
+    if (/[çàèéêîôû]/.test(t)) add('fr', 1);
+    const sw = { da: ['og','det','med','du','din','dig','ikke','hver','mere','mindre','godt','dag','samlet','enkel'], de: ['und','der','die','das','mit','für','nicht','ein','eine','auch','sich','dich'], sv: ['och','det','med','du','din','inte','mer','varje'], no: ['og','det','med','du','din','ikke','hver'], nl: ['en','het','met','je','niet','voor','een','van','jij'], fr: ['et','le','la','les','vous','pour','avec','votre','pas'], es: ['el','los','con','para','más','cada','sin'], it: ['il','con','per','non','tuo','ogni','più'], pt: ['com','para','seu','não','mais','cada'], fi: ['ja','on','se','ei','kanssa','joka'], en: ['the','and','with','your','for','not','every','more','less','start'] };
+    const words = t.split(/[^a-zàâäæçèéêîôûùüßñãõöøå]+/i).filter(Boolean); const wset = {}; words.forEach(function (w) { wset[w] = 1; });
+    Object.keys(sw).forEach(function (l) { sw[l].forEach(function (w) { if (wset[w]) add(l, 1); }); });
+    let best = null, bestN = 0; Object.keys(score).forEach(function (l) { if (score[l] > bestN) { bestN = score[l]; best = l; } });
+    return bestN >= 2 ? best : null;
+  };
   const loadHgGenVoices = async () => {
     if (hgGenVoices) return hgGenVoices;
     try {
@@ -3948,7 +3967,7 @@ function RSAStudio() {
 
       // 2) TTS (localized) — language from the page (ISO-639-1)
       setHgGenStage('Voicing your script…');
-      const lang = ((pageMeta && pageMeta.language) || '').toString().slice(0, 2).toLowerCase() || undefined;
+      const lang = _detectScriptLang(hgGenScript) || _nameToIso(pageMeta && pageMeta.language) || undefined;
       const pool = hgGenVoices || await loadHgGenVoices();
       const voiceId = hgGenVoiceId || (pool[0] && pool[0].voiceId);
       const tts = await LS({ action: 'tts', text: hgGenScript.trim(), voiceId: voiceId, language: lang });
