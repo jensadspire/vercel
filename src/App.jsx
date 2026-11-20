@@ -3756,6 +3756,8 @@ function RSAStudio() {
   const [hgGenUrl, setHgGenUrl] = useState('');
   const [hgGenSeqBusy, setHgGenSeqBusy] = useState(false);
   const [hgGenSeqAppend, setHgGenSeqAppend] = useState(null); // sequenceId to append this clip to (null = lead/normal mode)
+  const [hgGenNotice, setHgGenNotice] = useState('');       // language/voice notice shown at generation
+  const [hgVoiceUserPicked, setHgVoiceUserPicked] = useState(false); // user chose a voice manually → respect it
   const [hgGenFromSeq, setHgGenFromSeq] = useState(false);
   const [hgReturnCtx, setHgReturnCtx] = useState(null); // {appendTo,char,productImg,fromSeq} — return to live-avatar flow from the Personas library
   const [hgGenMode, setHgGenMode] = useState('live'); // 'live' = Runway presenter + lipsync; 'split' = side-by-side
@@ -3822,7 +3824,7 @@ function RSAStudio() {
     setHgGenSeqAppend(_o.appendTo || null);
     setHgGenProductImg((_o.productImg && String(_o.productImg).trim()) || _hgDefaultProductImg());
     setHgGenScript(_hgDefaultScript());
-    setHgGenUrl(''); setHgGenErr(''); setHgGenStage('');
+    setHgGenUrl(''); setHgGenErr(''); setHgGenStage(''); setHgGenNotice(''); setHgVoiceUserPicked(false);
     setHgGenFromSeq(!!fromSeq);
     setHgGenMode('live');
     setHgVoiceOpen(false);
@@ -3967,9 +3969,22 @@ function RSAStudio() {
 
       // 2) TTS (localized) — language from the page (ISO-639-1)
       setHgGenStage('Voicing your script…');
-      const lang = _detectScriptLang(hgGenScript) || _nameToIso(pageMeta && pageMeta.language) || undefined;
+      let lang = _detectScriptLang(hgGenScript) || _nameToIso(pageMeta && pageMeta.language);
       const pool = hgGenVoices || await loadHgGenVoices();
-      const voiceId = hgGenVoiceId || (pool[0] && pool[0].voiceId);
+      const _isoName = { en: 'English', da: 'Danish', de: 'German', fr: 'French', es: 'Spanish', sv: 'Swedish', nl: 'Dutch', it: 'Italian', pt: 'Portuguese', no: 'Norwegian', fi: 'Finnish', pl: 'Polish' };
+      const _enFallback = !lang; if (_enFallback) lang = 'en';
+      let voiceId = hgGenVoiceId;
+      if (!hgVoiceUserPicked && Array.isArray(pool) && pool.length) {
+        const g = (c.gender || '').toString().toLowerCase();
+        const genderPool = g ? pool.filter(function (v) { return (v.gender || '').toString().toLowerCase() === g; }) : pool;
+        const base = genderPool.length ? genderPool : pool;                                  // keep gender across tiers
+        const pick = base.find(function (v) { return _nameToIso(v.language) === lang; })      // 1) gender + native
+                  || base[0]                                                                  // 2) gender + multilingual (speaks via param)
+                  || pool[0];                                                                 // 3) any
+        if (pick) { voiceId = pick.voiceId; if (pick.voiceId !== hgGenVoiceId) setHgGenVoiceId(pick.voiceId); }
+      }
+      if (!voiceId) voiceId = (pool[0] && pool[0].voiceId);
+      setHgGenNotice(_enFallback ? '⚠ Language not detected — voicing in English.' : ('🎙 Voicing in ' + (_isoName[lang] || String(lang).toUpperCase()) + '.'));
       const tts = await LS({ action: 'tts', text: hgGenScript.trim(), voiceId: voiceId, language: lang });
       if (!tts || !tts.audioUrl) return stop('Voice generation failed: ' + ((tts && tts.error) || ''));
       let audioUrl = tts.audioUrl;
@@ -7731,7 +7746,7 @@ STRICT rules:
                         <span style={{ marginLeft: "auto", color: "#a5b4fc" }}>{hgVoiceOpen ? "hide ▲" : "change ▾"}</span>
                       </div>
                       {hgVoiceOpen ? (
-                        <select value={hgGenVoiceId} onChange={(e) => setHgGenVoiceId(e.target.value)} style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 14 }}>
+                        <select value={hgGenVoiceId} onChange={(e) => { setHgGenVoiceId(e.target.value); setHgVoiceUserPicked(true); }} style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 14 }}>
                           {_voices.length === 0 ? <option value="">Loading voices…</option> : _voices.slice(0, 200).map(function (v) { return <option key={v.voiceId} value={v.voiceId} style={{ background: "#0a0e1a" }}>{(v.name || v.voiceId) + (v.gender ? (" · " + v.gender) : "")}</option>; })}
                         </select>
                       ) : null}
@@ -7753,6 +7768,7 @@ STRICT rules:
                       ) : (
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24, minHeight: 120, marginBottom: 12, borderRadius: 12, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.15)", fontSize: 11.5, color: "#5a6b80", textAlign: "center" }}>Your live-avatar ad will appear here.</div>
                       )}
+                      {hgGenNotice ? <div style={{ fontSize: 10.5, color: hgGenNotice.indexOf('⚠') === 0 ? '#fbbf24' : '#7e92a8', marginBottom: 8, textAlign: 'center' }}>{hgGenNotice}</div> : null}
                       {hgGenUrl ? null : <button onClick={run} disabled={hgGenBusy} style={{ width: "100%", padding: "10px 0", fontSize: 12.5, fontWeight: 800, borderRadius: 9, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: hgGenBusy ? "linear-gradient(135deg,#f59e0b,#ef4444)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgGenBusy ? ("⟳ " + (hgGenStage || "Working…")) : (_live ? "✨ Generate presenter ad" : "✨ Generate side-by-side ad")}</button>}
                       <div style={{ fontSize: 10, color: "#4a5568", marginTop: 8, textAlign: "center" }}>{_live ? "Premium: films your avatar holding the product (Runway), then voices + lip-syncs your script. AI-labelled + signed." : "Generates the presenter, then composes a split-screen with your product. AI-labelled + signed."}</div>
                     </div>
