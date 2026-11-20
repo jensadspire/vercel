@@ -3808,14 +3808,13 @@ function RSAStudio() {
     return bestN >= 2 ? best : null;
   };
   const loadHgGenVoices = async () => {
-    if (hgGenVoices) return hgGenVoices;
+    if (hgGenVoices && hgGenVoices.length) return hgGenVoices;
     try {
       const d = await fetch('/api/heygen-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'voices' }) }).then(r => r.json());
       const pool = (d && d.ok && Array.isArray(d.voices)) ? d.voices.filter(function (v) { return v.supportLocale; }) : [];
-      setHgGenVoices(pool);
-      if (pool.length && !hgGenVoiceId) setHgGenVoiceId(pool[0].voiceId);
+      if (pool.length) { setHgGenVoices(pool); if (!hgGenVoiceId) setHgGenVoiceId(pool[0].voiceId); }
       return pool;
-    } catch (_) { setHgGenVoices([]); return []; }
+    } catch (_) { return []; }
   };
   const openHeygenGen = (c, fromSeq, opts) => {
     if (!c) return;
@@ -3938,6 +3937,9 @@ function RSAStudio() {
     const NI = (b) => fetch('/api/normalize-image', { method: 'POST', headers: J, body: JSON.stringify(b) }).then(r => r.json()).catch(function () { return null; });
     const stop = (msg) => { setHgGenErr(msg); setHgGenBusy(false); setHgGenStage(''); };
     try {
+      // pre-flight: make sure voices are available BEFORE the long render, so this fails in seconds not minutes
+      setHgGenStage('Checking voices…');
+      { const _vp = hgGenVoices || await loadHgGenVoices(); if (!Array.isArray(_vp) || !_vp.length) return stop('Could not load voices — please try again in a moment.'); }
       // 0) normalize both images (webp->flattened jpeg; Runway-safe)
       setHgGenStage('Preparing images…');
       const rawChar = c.thumbnailUrl || c.seedImageUrl || (c.referenceImages || [])[0];
@@ -3971,6 +3973,7 @@ function RSAStudio() {
       setHgGenStage('Voicing your script…');
       let lang = _detectScriptLang(hgGenScript) || _nameToIso(pageMeta && pageMeta.language);
       const pool = hgGenVoices || await loadHgGenVoices();
+      if (!Array.isArray(pool) || !pool.length) return stop('Could not load voices — please try again in a moment.');
       const _isoName = { en: 'English', da: 'Danish', de: 'German', fr: 'French', es: 'Spanish', sv: 'Swedish', nl: 'Dutch', it: 'Italian', pt: 'Portuguese', no: 'Norwegian', fi: 'Finnish', pl: 'Polish' };
       const _enFallback = !lang; if (_enFallback) lang = 'en';
       let voiceId = hgGenVoiceId;
