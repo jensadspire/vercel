@@ -3976,17 +3976,14 @@ function RSAStudio() {
       const _enFallback = !lang; if (_enFallback) lang = 'en';
       const g = (c.gender || '').toString().toLowerCase();
       const VOICES = async (q) => { try { const dd = await fetch('/api/heygen-avatar', { method: 'POST', headers: J, body: JSON.stringify(Object.assign({ action: 'voices' }, q || {})) }).then(r => r.json()); return (dd && dd.ok && Array.isArray(dd.voices)) ? dd.voices : []; } catch (_) { return []; } };
-      let used = lang;
-      let vpool = await VOICES({ language: lang, gender: g });                 // 1) language + gender
-      if (!vpool.length) vpool = await VOICES({ language: lang });             // 2) language, any gender
-      if (!vpool.length && lang !== 'en') { vpool = await VOICES({ language: 'en', gender: g }); used = 'en'; } // 3) English + gender
-      if (!vpool.length) vpool = await VOICES({ language: 'en' });             // 4) English, any gender
+      const vpool = await VOICES({});                                          // HeyGen's premium multilingual set (filters are ignored server-side)
       if (!vpool.length) return stop('Could not load voices — please try again in a moment.');
-      let voiceId = (hgVoiceUserPicked && hgGenVoiceId) ? hgGenVoiceId : (vpool[0] && vpool[0].voiceId);
-      if (!voiceId) voiceId = (vpool[0] && vpool[0].voiceId);
+      const _gp = g ? vpool.filter(function (v) { return (v.gender || '').toString().toLowerCase() === g; }) : vpool; // gender match (client-side)
+      const _chosen = _gp.length ? _gp : vpool;
+      let voiceId = (hgVoiceUserPicked && hgGenVoiceId) ? hgGenVoiceId : (_chosen[0] && _chosen[0].voiceId);
+      if (!voiceId) voiceId = (_chosen[0] && _chosen[0].voiceId);
       if (voiceId !== hgGenVoiceId) setHgGenVoiceId(voiceId);
-      setHgGenNotice((used !== lang) ? ('⚠ No ' + (_isoName[lang] || lang) + ' voice found — voicing in English.') : ('🎙 Voicing in ' + (_isoName[used] || String(used).toUpperCase()) + '.'));
-      lang = used;
+      setHgGenNotice(_enFallback ? '⚠ Language not detected — voicing in English.' : ('🎙 Voicing in ' + (_isoName[lang] || String(lang).toUpperCase()) + '.'));
       const tts = await LS({ action: 'tts', text: hgGenScript.trim(), voiceId: voiceId, language: lang });
       if (!tts || !tts.audioUrl) return stop('Voice generation failed: ' + ((tts && tts.error) || ''));
       let audioUrl = tts.audioUrl;
