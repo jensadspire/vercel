@@ -74,26 +74,32 @@ export default async function handler(req, res) {
         preview: v.preview_audio || v.preview_audio_url || null,
         supportLocale: (v.support_locale != null ? !!v.support_locale : true),
       });
-      // 1) try the v2 drop-in successor the retirement error points to
+      const listFrom = (j) => { const d = (j && j.data); if (Array.isArray(d)) return d; if (d && Array.isArray(d.voices)) return d.voices; return []; };
+      const page = async (qs) => {
+        let all = []; let token = null; let guard = 0;
+        do {
+          const j = await heygen('/v3/models/audio/voices?' + qs + (token ? ('&token=' + encodeURIComponent(token)) : ''));
+          all = all.concat(listFrom(j));
+          token = (j && j.next_token) || (j && j.data && j.data.next_token) || null;
+          guard++;
+        } while (token && guard < 10);
+        return all.filter((v) => !v.status || v.status === 'ACTIVE').map(mapV);
+      };
+      // Filtered request — language/gender → HeyGen public-list filters (language-correct voices)
+      if (body.language || body.gender) {
+        let qs = 'type=public&limit=100';
+        if (body.language) qs += '&language=' + encodeURIComponent(body.language);
+        if (body.gender) qs += '&gender=' + encodeURIComponent(body.gender);
+        return res.status(200).json({ ok: true, voices: await page(qs) });
+      }
+      // Unfiltered (dropdown / pre-flight): the /v3/voices drop-in, else the first model-audio page
       try {
         const j = await heygen('/v3/voices');
         const d = (j && j.data) || {};
         const list = Array.isArray(d.voices) ? d.voices : (Array.isArray(d) ? d : []);
         if (list.length) return res.status(200).json({ ok: true, voices: list.map(mapV) });
-      } catch (e) { /* fall through to the model-audio list */ }
-      // 2) fallback: paginated model-audio voices (the list that backs /v3/models/audio/tts)
-      let all = []; let token = null; let guard = 0;
-      do {
-        const url = '/v3/models/audio/voices?limit=100' + (token ? ('&token=' + encodeURIComponent(token)) : '');
-        const j = await heygen(url);
-        const d = (j && j.data);
-        const list = Array.isArray(d) ? d : ((d && Array.isArray(d.voices)) ? d.voices : []);
-        all = all.concat(list);
-        token = (j && j.next_token) || (d && d.next_token) || null;
-        guard++;
-      } while (token && guard < 25);
-      const voices = all.filter((v) => !v.status || v.status === 'ACTIVE').map(mapV);
-      return res.status(200).json({ ok: true, voices });
+      } catch (e) { /* fall through */ }
+      return res.status(200).json({ ok: true, voices: await page('type=public&limit=100') });
     }
 
     if (action === 'locales') {
