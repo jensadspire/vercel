@@ -3972,22 +3972,21 @@ function RSAStudio() {
       // 2) TTS (localized) — language from the page (ISO-639-1)
       setHgGenStage('Voicing your script…');
       let lang = _detectScriptLang(hgGenScript) || _nameToIso(pageMeta && pageMeta.language);
-      const pool = hgGenVoices || await loadHgGenVoices();
-      if (!Array.isArray(pool) || !pool.length) return stop('Could not load voices — please try again in a moment.');
       const _isoName = { en: 'English', da: 'Danish', de: 'German', fr: 'French', es: 'Spanish', sv: 'Swedish', nl: 'Dutch', it: 'Italian', pt: 'Portuguese', no: 'Norwegian', fi: 'Finnish', pl: 'Polish' };
       const _enFallback = !lang; if (_enFallback) lang = 'en';
-      let voiceId = hgGenVoiceId;
-      if (!hgVoiceUserPicked && Array.isArray(pool) && pool.length) {
-        const g = (c.gender || '').toString().toLowerCase();
-        const genderPool = g ? pool.filter(function (v) { return (v.gender || '').toString().toLowerCase() === g; }) : pool;
-        const base = genderPool.length ? genderPool : pool;                                  // keep gender across tiers
-        const pick = base.find(function (v) { return _nameToIso(v.language) === lang; })      // 1) gender + native
-                  || base[0]                                                                  // 2) gender + multilingual (speaks via param)
-                  || pool[0];                                                                 // 3) any
-        if (pick) { voiceId = pick.voiceId; if (pick.voiceId !== hgGenVoiceId) setHgGenVoiceId(pick.voiceId); }
-      }
-      if (!voiceId) voiceId = (pool[0] && pool[0].voiceId);
-      setHgGenNotice(_enFallback ? '⚠ Language not detected — voicing in English.' : ('🎙 Voicing in ' + (_isoName[lang] || String(lang).toUpperCase()) + '.'));
+      const g = (c.gender || '').toString().toLowerCase();
+      const VOICES = async (q) => { try { const dd = await fetch('/api/heygen-avatar', { method: 'POST', headers: J, body: JSON.stringify(Object.assign({ action: 'voices' }, q || {})) }).then(r => r.json()); return (dd && dd.ok && Array.isArray(dd.voices)) ? dd.voices : []; } catch (_) { return []; } };
+      let used = lang;
+      let vpool = await VOICES({ language: lang, gender: g });                 // 1) language + gender
+      if (!vpool.length) vpool = await VOICES({ language: lang });             // 2) language, any gender
+      if (!vpool.length && lang !== 'en') { vpool = await VOICES({ language: 'en', gender: g }); used = 'en'; } // 3) English + gender
+      if (!vpool.length) vpool = await VOICES({ language: 'en' });             // 4) English, any gender
+      if (!vpool.length) return stop('Could not load voices — please try again in a moment.');
+      let voiceId = (hgVoiceUserPicked && hgGenVoiceId) ? hgGenVoiceId : (vpool[0] && vpool[0].voiceId);
+      if (!voiceId) voiceId = (vpool[0] && vpool[0].voiceId);
+      if (voiceId !== hgGenVoiceId) setHgGenVoiceId(voiceId);
+      setHgGenNotice((used !== lang) ? ('⚠ No ' + (_isoName[lang] || lang) + ' voice found — voicing in English.') : ('🎙 Voicing in ' + (_isoName[used] || String(used).toUpperCase()) + '.'));
+      lang = used;
       const tts = await LS({ action: 'tts', text: hgGenScript.trim(), voiceId: voiceId, language: lang });
       if (!tts || !tts.audioUrl) return stop('Voice generation failed: ' + ((tts && tts.error) || ''));
       let audioUrl = tts.audioUrl;
