@@ -3811,7 +3811,7 @@ function RSAStudio() {
     if (hgGenVoices && hgGenVoices.length) return hgGenVoices;
     try {
       const d = await fetch('/api/heygen-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'voices' }) }).then(r => r.json());
-      const pool = (d && d.ok && Array.isArray(d.voices)) ? d.voices.filter(function (v) { return v.supportLocale; }) : [];
+      const pool = (d && d.ok && Array.isArray(d.voices)) ? d.voices : [];
       if (pool.length) { setHgGenVoices(pool); if (!hgGenVoiceId) setHgGenVoiceId(pool[0].voiceId); }
       return pool;
     } catch (_) { return []; }
