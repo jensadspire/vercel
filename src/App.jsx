@@ -3771,7 +3771,7 @@ function RSAStudio() {
     try {
       const lang = hgScriptLang === 'en' ? 'English' : (((pageMeta && pageMeta.language) || 'English'));
       const ctx = [pageMeta && pageMeta.title, pageMeta && pageMeta.metaDescription, pageMeta && pageMeta.brand, (c && c.name)].filter(Boolean).join(' — ').slice(0, 1500);
-      const d = await fetch('/api/presenter-script', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language: lang, style: hgScriptStyle, context: ctx, productUrl: (pageMeta && pageMeta.url) || seqOriginUrl || '', targetWords: 38 }) }).then(r => r.json());
+      const d = await fetch('/api/presenter-script', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language: lang, style: hgScriptStyle, context: ctx, productUrl: (pageMeta && pageMeta.url) || seqOriginUrl || '', targetWords: Math.floor(14 * _wpsFor(_nameToIso(lang) || 'en')) }) }).then(r => r.json());
       if (d && d.script) setHgGenScript(d.script);
       else setHgGenErr((d && d.error) || 'Could not write a script.');
     } catch (_) { setHgGenErr('Could not write a script.'); }
@@ -3807,6 +3807,10 @@ function RSAStudio() {
     let best = null, bestN = 0; Object.keys(score).forEach(function (l) { if (score[l] > bestN) { bestN = score[l]; best = l; } });
     return bestN >= 2 ? best : null;
   };
+  const HG_CLIP_SECONDS = 16;    // Runway UGC presenter clip length (fixed)
+  const HG_MAX_SPOKEN = 15.5;    // block if estimated speech exceeds this (keeps a tail so the last word isn't cut)
+  const _wpsFor = function (iso) { return ({ da: 1, de: 1, sv: 1, no: 1, fi: 1, nl: 1 })[iso] ? 2.25 : 2.7; }; // Nordic/Germanic words run longer
+  const _spokenEst = function (text, iso) { const w = String(text || '').trim().split(/\s+/).filter(Boolean).length; return w ? (w / _wpsFor(iso)) : 0; };
   const loadHgGenVoices = async () => {
     if (hgGenVoices && hgGenVoices.length) return hgGenVoices;
     try {
@@ -3938,6 +3942,7 @@ function RSAStudio() {
     const stop = (msg) => { setHgGenErr(msg); setHgGenBusy(false); setHgGenStage(''); };
     try {
       // pre-flight: make sure voices are available BEFORE the long render, so this fails in seconds not minutes
+      { const _l = _detectScriptLang(hgGenScript) || _nameToIso(pageMeta && pageMeta.language) || 'en'; const _s = _spokenEst(hgGenScript, _l); if (_s > HG_MAX_SPOKEN) { const _n = Math.floor(14 * _wpsFor(_l)); return stop('Your script is about ' + Math.round(_s) + 's of speech, but the presenter clip is ~' + HG_CLIP_SECONDS + 's — the end would be cut off. Trim to about ' + _n + ' words.'); } }
       setHgGenStage('Checking voices…');
       { const _vp = hgGenVoices || await loadHgGenVoices(); if (!Array.isArray(_vp) || !_vp.length) return stop('Could not load voices — please try again in a moment.'); }
       // 0) normalize both images (webp->flattened jpeg; Runway-safe)
@@ -7738,7 +7743,7 @@ STRICT rules:
                           <option value="auto" style={{ background: "#0a0e1a" }}>Auto ({(pageMeta && pageMeta.language) || "page language"})</option>
                           <option value="en" style={{ background: "#0a0e1a" }}>English</option>
                         </select>
-                        <span style={{ marginLeft: "auto", fontSize: 9.5, color: "#5a6b80" }}>~14s · spoken</span>
+                        {(() => { const _l = _detectScriptLang(hgGenScript) || _nameToIso(pageMeta && pageMeta.language) || 'en'; const _s = Math.round(_spokenEst(hgGenScript, _l)); const _over = _s > HG_MAX_SPOKEN; const _warn = _s > 14 && !_over; return <span style={{ marginLeft: "auto", fontSize: 9.5, fontWeight: _over ? 800 : 400, color: _over ? "#f87171" : (_warn ? "#fbbf24" : "#5a6b80") }}>{_s ? ("~" + _s + "s · spoken" + (_over ? " · too long" : "")) : "~14s · spoken"}</span>; })()}
                       </div>
                       <div onClick={() => setHgVoiceOpen(!hgVoiceOpen)} style={{ display: "flex", alignItems: "center", cursor: "pointer", fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: hgVoiceOpen ? 4 : 14 }}>
                         <span>Voice: {(_sel && _sel.name) || "auto-matched to avatar"}{_g ? (" · " + _g) : ""}</span>
