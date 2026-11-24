@@ -3086,6 +3086,7 @@ function RSAStudio() {
   const [feedSingleBusy, setFeedSingleBusy] = useState(null); // product link currently generating (single)
   const [feedGroupBy, setFeedGroupBy] = useState('category'); // Level-1 grouping axis: 'category' | 'brand'
   const [feedOpenGroup, setFeedOpenGroup] = useState(null);   // opened group key (drill-down) | null = Level 1
+  const [feedSeen, setFeedSeen] = useState(() => new Set()); // creative ids whose "✓ Completed" chip has been dismissed (per-account, localStorage)
   // Sticky feed: restore the last ingested catalog on mount (survives refresh, 24h TTL).
   // Per-account cache key — each client workspace (org||user) keeps its own bulk-feed caches, so a feed never
   // leaks across accounts/logins and a client's catalogue is still there when you return to it.
@@ -3561,6 +3562,12 @@ function RSAStudio() {
     return () => clearInterval(t);
   }, [isSignedIn]);
 
+  // When the Bulk Feed modal opens, refresh the Library creatives + jobs so finished scheduled/overnight ads
+  // can surface a "✓ Completed" chip on their product tile (vaultItems otherwise only refreshes in the Library).
+  useEffect(() => {
+    if (feedOpen && isSignedIn) { fetchVault(); fetchVaultJobs(); }
+  }, [feedOpen, isSignedIn]);
+
   // Products sitting in an active (scheduled/queued/running) overnight batch — drives the "In queue" chip.
   const queuedFeedLinks = (() => {
     const s = new Set();
@@ -3571,6 +3578,35 @@ function RSAStudio() {
     });
     return s;
   })();
+
+  // Feed products whose scheduled/overnight ad has finished — matched to a saved Creative in the Library by
+  // productUrl (feed-sourced). Drives the "✓ Completed" chip + link on the Bulk Feed grid.
+  const feedDoneByLink = (() => {
+    const m = {};
+    (vaultItems || []).forEach(function (c) {
+      if (c && c.productUrl && c.inputSource === 'feed') m[c.productUrl] = c.id;
+    });
+    return m;
+  })();
+
+  // Dismiss-on-view: load the per-account set of seen/dismissed completed-ad ids when the scope resolves/switches.
+  useEffect(() => {
+    if (!orgIsLoaded) return;
+    try {
+      const raw = localStorage.getItem(_feedScopeKey('rsa_feed_seen_v1'));
+      const arr = raw ? JSON.parse(raw) : [];
+      setFeedSeen(new Set(Array.isArray(arr) ? arr : []));
+    } catch (_) { setFeedSeen(new Set()); }
+  }, [organization, orgIsLoaded, user?.id]);
+  const markFeedSeen = (id) => {
+    if (!id) return;
+    setFeedSeen(prev => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev); next.add(id);
+      try { localStorage.setItem(_feedScopeKey('rsa_feed_seen_v1'), JSON.stringify(Array.from(next))); } catch (_) {}
+      return next;
+    });
+  };
 
   // Rebuild the view-mode snapshot from a stored Creative (inverse of the Save mapping).
   const rebuildFromCreative = (c) => {
@@ -3587,6 +3623,7 @@ function RSAStudio() {
   };
   const openVaultItem = async (card) => {
     if (!card || !card.id) return;
+    markFeedSeen(card.id); // dismiss its Bulk-Feed "✓ Completed" chip once the ad is opened
     setVaultBusy(card.id);
     try {
       const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: card.id }) });
@@ -7473,7 +7510,7 @@ STRICT rules:
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title || '(untitled)'}</div>
                           <div style={{ fontSize: 11, color: "#9db0c7", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                            {p.link && queuedFeedLinks.has(p.link) ? <span title="In a scheduled/running overnight batch" style={{ fontSize: 9, fontWeight: 800, color: "#06281f", background: "#34d399", borderRadius: 4, padding: "1px 5px" }}>🌙 In queue</span> : null}
+                            {p.link && queuedFeedLinks.has(p.link) ? <span title="In a scheduled/running overnight batch" style={{ fontSize: 9, fontWeight: 800, color: "#06281f", background: "#34d399", borderRadius: 4, padding: "1px 5px" }}>🌙 In queue</span> : (() => { const _did = p.link && feedDoneByLink[p.link]; return (_did && !feedSeen.has(_did)) ? <span onClick={(e) => { e.stopPropagation(); markFeedSeen(_did); setFeedOpen(false); openVault(); setVaultTab('ads'); }} title="This ad is ready — view it in your Library (dismisses this)" style={{ fontSize: 9, fontWeight: 800, color: "#06281f", background: "#5eead4", borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>✓ Completed · view</span> : null; })()}
                             {p.price ? (
                               <span>
                                 {p.onSale && p.regularPrice ? <span style={{ color: "#6b7a8d", textDecoration: "line-through", marginRight: 4 }}>{p.regularPrice}{p.currency ? (' ' + p.currency) : ''}</span> : null}
