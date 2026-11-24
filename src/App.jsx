@@ -3087,29 +3087,37 @@ function RSAStudio() {
   const [feedGroupBy, setFeedGroupBy] = useState('category'); // Level-1 grouping axis: 'category' | 'brand'
   const [feedOpenGroup, setFeedOpenGroup] = useState(null);   // opened group key (drill-down) | null = Level 1
   // Sticky feed: restore the last ingested catalog on mount (survives refresh, 24h TTL).
+  // Per-account cache key — each client workspace (org||user) keeps its own bulk-feed caches, so a feed never
+  // leaks across accounts/logins and a client's catalogue is still there when you return to it.
+  const _feedScopeKey = (base) => base + ':' + (organization ? organization.id : (user?.id || '_'));
+  // Restore the loaded feed for the matching account only; clear it when none is cached for this account.
   useEffect(() => {
+    if (!orgIsLoaded) return;
     try {
-      const raw = localStorage.getItem('rsa_feed_cache_v1');
-      if (!raw) return;
-      const c = JSON.parse(raw);
+      const raw = localStorage.getItem(_feedScopeKey('rsa_feed_cache_v1'));
+      const c = raw ? JSON.parse(raw) : null;
       if (c && c.result && c.result.products && c.result.products.length && (Date.now() - (c.ts || 0) < 86400000)) {
         setFeedResult(c.result); if (c.source) setFeedSource(c.source);
+      } else {
+        setFeedResult(null); setFeedSource(''); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
       }
     } catch (_) {}
-  }, []);
+  }, [organization, orgIsLoaded, user?.id]);
 
-  // Staging safety net: restore the Outputs buffer on mount (24h TTL, mirrors rsa_feed_cache_v1).
+  // Staging safety net: restore the Outputs buffer for the matching account only (24h TTL, per-account key).
   useEffect(() => {
+    if (!orgIsLoaded) return;
     try {
-      const raw = localStorage.getItem('rsa_feed_outputs_v1');
-      if (!raw) return;
-      const c = JSON.parse(raw);
+      const raw = localStorage.getItem(_feedScopeKey('rsa_feed_outputs_v1'));
+      const c = raw ? JSON.parse(raw) : null;
       if (c && c.outputs && (Date.now() - (c.ts || 0) < 86400000)) {
         const keys = Object.keys(c.outputs);
-        if (keys.length) { setFeedOutputs(c.outputs); setFeedView('outputs'); }
+        if (keys.length) { setFeedOutputs(c.outputs); setFeedView('outputs'); } else { setFeedOutputs({}); }
+      } else {
+        setFeedOutputs({}); setFeedView('products');
       }
     } catch (_) {}
-  }, []);
+  }, [organization, orgIsLoaded, user?.id]);
 
   // Staging safety net: persist ready outputs on change (ready-only, transient flags stripped, cap 60).
   useEffect(() => {
@@ -3119,7 +3127,7 @@ function RSAStudio() {
       const capped = ready.slice(-60);
       const out = {};
       for (const [link, o] of capped) { const { approving, approveError, ...keep } = o; out[link] = keep; }
-      localStorage.setItem('rsa_feed_outputs_v1', JSON.stringify({ ts: Date.now(), outputs: out }));
+      localStorage.setItem(_feedScopeKey('rsa_feed_outputs_v1'), JSON.stringify({ ts: Date.now(), outputs: out }));
     } catch (_) {}
   }, [feedOutputs]);
 
@@ -3614,7 +3622,7 @@ function RSAStudio() {
     try {
       const r = await fetch('/api/feed-ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: s, limit: 1000 }) });
       const d = await r.json();
-      if (d && d.ok) { setFeedResult(d); try { localStorage.setItem('rsa_feed_cache_v1', JSON.stringify({ source: s, result: d, ts: Date.now() })); } catch (_) {} if (!d.products || !d.products.length) setFeedError('No products found in this feed.'); }
+      if (d && d.ok) { setFeedResult(d); try { localStorage.setItem(_feedScopeKey('rsa_feed_cache_v1'), JSON.stringify({ source: s, result: d, ts: Date.now() })); } catch (_) {} if (!d.products || !d.products.length) setFeedError('No products found in this feed.'); }
       else setFeedError((d && d.error) || 'Could not read this feed.');
     } catch (e) { setFeedError('Feed request failed — please try again.'); }
     finally { setFeedLoading(false); }
@@ -3625,8 +3633,8 @@ function RSAStudio() {
     setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
     setFeedView('products'); setFeedOutputs({});
     acceptFeedTerms(false); // re-require terms acceptance for the next (possibly different-client) feed
-    try { localStorage.removeItem('rsa_feed_cache_v1'); } catch (_) {}
-    try { localStorage.removeItem('rsa_feed_outputs_v1'); } catch (_) {}
+    try { localStorage.removeItem(_feedScopeKey('rsa_feed_cache_v1')); } catch (_) {}
+    try { localStorage.removeItem(_feedScopeKey('rsa_feed_outputs_v1')); } catch (_) {}
   };
   // ── Personas Builder: UGC source selector (Phase 1) ──
   const [ugcData, setUgcData] = useState(null);           // { detected, providers, images } | null
@@ -4085,7 +4093,7 @@ function RSAStudio() {
   const [seqNoneEngine, setSeqNoneEngine] = useState('kling'); // K | V | R engine for the None lane (persists on the template)
   const [seqShots, setSeqShots] = useState(['']);
   const [seqRatio, setSeqRatio] = useState('9:16');
-  const [seqDuration, setSeqDuration] = useState(5);
+  const [seqDuration, setSeqDuration] = useState(10);
   const [seqBusy, setSeqBusy] = useState(false);
   const seqResultsRef = useRef(null);
   const [seqResults, setSeqResults] = useState([]);
@@ -7282,7 +7290,7 @@ STRICT rules:
               </div>
               <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify or WooCommerce store URL, a Wix shop-page URL, or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <input value={feedSource} onChange={e => { const v = e.target.value; setFeedSource(v); const nh = feedHostOf(v); if (feedResult && nh && nh !== feedHostOf(feedResult.source || feedResult.feedUrl || '')) { setFeedResult(null); setFeedError(''); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null); setFeedView('products'); setFeedOutputs({}); acceptFeedTerms(false); try { localStorage.removeItem('rsa_feed_cache_v1'); localStorage.removeItem('rsa_feed_outputs_v1'); } catch (_) {} } }} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
+                <input value={feedSource} onChange={e => { const v = e.target.value; setFeedSource(v); const nh = feedHostOf(v); if (feedResult && nh && nh !== feedHostOf(feedResult.source || feedResult.feedUrl || '')) { setFeedResult(null); setFeedError(''); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null); setFeedView('products'); setFeedOutputs({}); acceptFeedTerms(false); try { localStorage.removeItem(_feedScopeKey('rsa_feed_cache_v1')); localStorage.removeItem(_feedScopeKey('rsa_feed_outputs_v1')); } catch (_) {} } }} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
                 <button onClick={fetchFeed} disabled={feedLoading || !feedTermsAccepted || feedBatchBusy || !!feedSingleBusy} title={!feedTermsAccepted ? 'Accept the Product Feed Upload Terms to continue' : ((feedBatchBusy || feedSingleBusy) ? 'Generation in progress — please wait' : '')} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "default" : "pointer", background: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
               </div>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, fontSize: 12, color: (feedLoading || feedResult) ? "#5a6b80" : "#9db0c7", lineHeight: 1.45 }}>
