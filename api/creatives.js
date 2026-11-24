@@ -294,6 +294,25 @@ export default async function handler(req, res) {
       return res.status(200).json({ id: body.id, score: doc.score });
     }
 
+    // ── SET STATUS (review lifecycle: pending_review → approved on open/review) ──
+    if (action === 'setStatus') {
+      if (!body.id) return res.status(400).json({ error: 'id required.' });
+      const next = String(body.status || '').toLowerCase();
+      if (next !== 'approved' && next !== 'pending_review') return res.status(400).json({ error: 'Invalid status.' });
+      const raw = await redis('GET', `creative:${body.id}`);
+      const doc = raw ? JSON.parse(raw) : null;
+      if (!doc) return res.status(404).json({ error: 'Not found.' });
+      if ((doc.scope || doc.ownerId) !== scope) return res.status(403).json({ error: 'Not your ad.' });
+      if (doc.status !== next) {
+        await Promise.all(tagKeys(scope, doc).map(k => redis('SREM', k, body.id)));
+        doc.status = next;
+        doc.reviewedAt = new Date().toISOString();
+        await redis('SET', `creative:${body.id}`, JSON.stringify(doc));
+        await Promise.all(tagKeys(scope, doc).map(k => redis('SADD', k, body.id)));
+      }
+      return res.status(200).json({ id: body.id, status: doc.status });
+    }
+
     // ── DELETE (remove from the library) ───────────────────────────────────────
     if (action === 'delete') {
       if (!body.id) return res.status(400).json({ error: 'id required.' });
