@@ -3625,6 +3625,10 @@ function RSAStudio() {
     if (!card || !card.id) return;
     markFeedSeen(card.id); // dismiss its Bulk-Feed "✓ Completed" chip once the ad is opened
     setVaultBusy(card.id);
+    if (card.status === 'pending_review') { // opening a scheduled/overnight ad = reviewed → clear its pending-review status + chips
+      setVaultItems(prev => prev.map(x => x.id === card.id ? { ...x, status: 'approved' } : x));
+      vaultHeaders().then(h => fetch('/api/creatives', { method: 'POST', headers: h, body: JSON.stringify({ action: 'setStatus', id: card.id, status: 'approved' }) }).catch(() => {}));
+    }
     try {
       const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: card.id }) });
       const data = await res.json().catch(() => ({}));
