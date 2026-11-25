@@ -98,7 +98,7 @@ function toCard(doc) {
   const ch = doc.channels || {};
   const thumb = (ch.meta && ch.meta.imageUrl) || (ch.video && ch.video.url) || doc.thumb || null;
   const { channels, ...rest } = doc;
-  return { ...rest, thumb, hasVideo: !!(ch.video && ch.video.url) };
+  return { ...rest, thumb, hasVideo: !!(ch.video && ch.video.url), videoUrl: (ch.video && ch.video.url) || null };
 }
 
 export default async function handler(req, res) {
