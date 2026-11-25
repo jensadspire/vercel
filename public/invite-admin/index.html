@@ -104,8 +104,23 @@
     setStatus((action === 'approve' ? 'Inviting ' : 'Rejecting ') + email + '…');
     var res = await api('POST', { action: action, email: email });
     if (res.r.ok && res.d.ok){
-      row.style.opacity = '0.4';
-      row.querySelector('.acts').innerHTML = '<span class="when">' + (action === 'approve' ? 'Invited ✓' : 'Rejected') + '</span>';
+      var acts = row.querySelector('.acts');
+      if (action === 'approve'){
+        var url = res.d.inviteUrl || '';
+        acts.innerHTML = '';
+        var done = document.createElement('span'); done.className = 'when'; done.textContent = 'Invited ✓'; acts.appendChild(done);
+        if (url){
+          var wrap = document.createElement('div'); wrap.style.marginTop = '6px';
+          var inp = document.createElement('input'); inp.readOnly = true; inp.value = url; inp.style.cssText = 'width:240px;max-width:60vw;font-size:11px;padding:4px 6px;margin-right:6px';
+          inp.addEventListener('click', function(){ inp.select(); });
+          var cp = document.createElement('button'); cp.type = 'button'; cp.textContent = 'Copy link';
+          cp.addEventListener('click', function(){ try { navigator.clipboard.writeText(url); } catch(_){ inp.select(); try { document.execCommand('copy'); } catch(e){} } setStatus('Link copied for ' + email, 'good'); });
+          wrap.appendChild(inp); wrap.appendChild(cp); acts.appendChild(wrap);
+        }
+      } else {
+        row.style.opacity = '0.4';
+        acts.innerHTML = '<span class="when">Rejected</span>';
+      }
       setStatus((action === 'approve' ? 'Invited ' : 'Rejected ') + email, 'good');
     } else {
       approve.disabled = false; reject.disabled = false;

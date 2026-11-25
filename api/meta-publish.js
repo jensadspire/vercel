@@ -231,14 +231,19 @@ export default async function handler(req, res) {
       );
       const auth = session.toAuth();
       const userId = auth?.userId;
+      const scope = auth?.orgId || auth?.userId;
       if (userId) {
-        const creds = await getMetaCredentials(userId);
+        const creds = await getMetaCredentials(userId, scope);
         if (creds?.accessToken && creds?.adAccountId && creds?.pageId) {
           accessToken = creds.accessToken;
           adAccountId = creds.adAccountId;
           pageId = creds.pageId;
           credSource = 'user';
-          console.log(`[meta-publish] Using per-user credentials for ${userId} (ad_account=${adAccountId}, page=${pageId})`);
+          console.log(`[meta-publish] Using per-user credentials for ${userId} (scope=${scope}, ad_account=${adAccountId}, page=${pageId})`);
+        } else if (creds?.accessToken) {
+          // Connected but this workspace (org) has no ad account/page selected yet — do NOT fall back
+          // to the env demo account, or a client's ad would publish into Adspire's own account.
+          return res.status(400).json({ error: 'No Meta ad account selected for this workspace. Pick an ad account and page first.', needsSelection: true });
         }
       }
     } catch (err) {

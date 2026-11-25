@@ -22,15 +22,15 @@ async function authenticateUser(req) {
   );
   const auth = session.toAuth();
   if (!auth?.userId) throw new Error('Not signed in');
-  return auth.userId;
+  return { userId: auth.userId, scope: auth.orgId || auth.userId };
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
 
   try {
-    const userId = await authenticateUser(req);
-    const creds = await getMetaCredentials(userId);
+    const { userId, scope } = await authenticateUser(req);
+    const creds = await getMetaCredentials(userId, scope);
     if (!creds?.accessToken) {
       return res.status(400).json({ error: 'Meta account not connected', needsConnect: true });
     }

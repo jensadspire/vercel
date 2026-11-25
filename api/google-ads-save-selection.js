@@ -29,7 +29,7 @@ async function authenticateUser(req) {
   );
   const auth = session.toAuth();
   if (!auth?.userId) throw new Error('Not signed in');
-  return auth.userId;
+  return { userId: auth.userId, scope: auth.orgId || auth.userId };
 }
 
 // Normalize customer_id: strip dashes, ensure it's a 10-digit string.
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   try {
-    const userId = await authenticateUser(req);
+    const { scope } = await authenticateUser(req);
     const { customerId, loginCustomerId } = req.body || {};
 
     const normalizedCustomerId = normalizeCustomerId(customerId);
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     const normalizedLoginCustomerId = loginCustomerId ? normalizeCustomerId(loginCustomerId) : null;
 
     await saveGoogleAdsSelection({
-      userId,
+      scope,
       customerId: normalizedCustomerId,
       loginCustomerId: normalizedLoginCustomerId,
     });

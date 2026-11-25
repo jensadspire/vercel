@@ -34,4 +34,10 @@ dist-ssr
 # Private working folders (not part of the codebase)
 Backup/
 Invoice/
-email_list/
+email_list/# local patch scripts + their auto-backups (never commit)
+*.bak
+*.bak-*
+*.bak[0-9]
+patch-*.mjs
+Backup & Patches*/
+Backup & patches*/

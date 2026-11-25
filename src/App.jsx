@@ -243,6 +243,9 @@ import {
   useClerk,
   useReverification,
   UserButton,
+  OrganizationSwitcher,
+  useOrganization,
+  useOrganizationList,
 } from "@clerk/clerk-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -609,6 +612,12 @@ const VERTICAL_RULES = [
   // Travel, Fitness/Wellness, Personal Care, Beverages/Food, Culture, Automotive, Outdoor → Kling Lifestyle Montage
   { engine: 'kling', archetype: 'lifestyle_montage', kw: ['travel','reise','rejse','hotel','resort','hospitality','flight','vacation','urlaub','ferie','fitness','wellness','gym','yoga','workout','training','sport','supplement','vitamin','food','beverage','drink','getränk','drikke','coffee','kaffee','kaffe','tea','tee','the','wine','wein','vin','beer','bier','øl','snack','culture','book','buch','bog','music','musik','game','automotive','car','auto','bil','vehicle','fahrzeug','motorcycle','tire','reifen','outdoor','bike','e-bike','ebike','elcykel','elcykler','pedelec','bicycle','fahrrad','cykel','trekking','hiking','wandern','camping','tent','zelt','telt','backpack','rucksack','rygsæk'] },
 ];
+const VERTICAL_ENGINE_MAP = {
+  fashion:   { engine: 'runway', archetype: 'lifestyle_montage' },
+  home:      { engine: 'kling',  archetype: 'scene_reveal' },
+  gadgets:   { engine: 'kling',  archetype: 'studio_spin' },
+  lifestyle: { engine: 'kling',  archetype: 'lifestyle_montage' },
+};
 function detectVertical(url, meta) {
   const hay = [url || '', meta?.title || '', meta?.h1 || '', meta?.siteName || '', meta?.metaDescription || ''].join(' ').toLowerCase();
   const hit = (k) => new RegExp('(^|[^a-z])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z]|$)', 'i').test(hay);
@@ -1096,12 +1105,30 @@ const CS_VERTICALS = {
 
 export default function App() {
   return (
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/" localization={{
+      formFieldLabel__organizationName: 'Client name',
+      formFieldInputPlaceholder__organizationName: 'e.g. Shoplondon',
+      createOrganization: { title: 'Create a client workspace', formButtonSubmit: 'Create client workspace' },
+      organizationSwitcher: { personalWorkspace: 'No client selected', notSelected: 'Select a client', action__createOrganization: 'Create client workspace', action__manageOrganization: 'Manage client' },
+      organizationList: { createOrganization: 'Create client workspace', titleWithoutPersonal: 'Choose a client' },
+      organizationProfile: {
+        createOrganizationPage: { title: 'Create a client workspace', formButtonSubmit: 'Create client workspace' },
+        navbar: { title: 'Client', description: 'Manage this client workspace' },
+        profilePage: {
+          title: 'Client workspace',
+          dangerSection: {
+            leaveOrganization: { title: 'Leave client workspace' },
+            deleteOrganization: { title: 'Delete client workspace' },
+          },
+        },
+      },
+    }}>
       <RSAStudio />
     </ClerkProvider>
   );
 }
 
+const _USER_MEMBERSHIPS_PARAMS = { userMemberships: true };
 function RSAStudio() {
   const [url, setUrl] = useState("");
   const [viewMode, setViewMode] = useState("overview"); // "overview" | "detailed" — NEW UI Stage 1a
@@ -1430,7 +1457,7 @@ function RSAStudio() {
     try {
       if (existing) {
         // unsave
-        await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: existing.id }) });
+        await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: existing.id }) });
         setLibrary(prev => prev.filter(x => x.id !== existing.id));
         return;
       }
@@ -1456,7 +1483,7 @@ function RSAStudio() {
       };
       if (!entry.rows && !entry.metaResult && !entry.videoUrl) return; // nothing to save
       setLibrarySaving(entry.id);
-      const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
+      const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
       const d = await r.json();
       if (d.ok) setLibrary(prev => [{ ...entry, savedAt: new Date().toISOString() }, ...prev]);
       else if (d.limitReached) alert('Library limit reached. Remove some saved outputs first.');
@@ -1715,7 +1742,16 @@ function RSAStudio() {
   const removePmaxImage = (slot, url) => {
     updateRow(activeRow, row => ({ ...row, pmaxImages: { ...(row.pmaxImages || { landscape: [], square: [], portrait: [] }), [slot]: (row.pmaxImages?.[slot] || []).filter(e => e.url !== url) } }));
   };
-  const { signOut, session } = useClerk();
+  const { signOut, session, setActive } = useClerk();
+  // Agency: switching the active organization (client workspace) re-keys every store via scope — reload to re-fetch under the new scope.
+  const { organization, isLoaded: orgIsLoaded } = useOrganization();
+  const prevOrgIdRef = useRef(undefined);
+  useEffect(() => {
+    if (!orgIsLoaded) return; // wait until Clerk resolves the active org — avoids a load-time reload loop
+    const cur = organization ? organization.id : null;
+    if (prevOrgIdRef.current === undefined) { prevOrgIdRef.current = cur; return; } // capture baseline from the RESOLVED org
+    if (prevOrgIdRef.current !== cur) { prevOrgIdRef.current = cur; try { window.location.reload(); } catch (_) {} } // genuine user switch
+  }, [organization, orgIsLoaded]);
   // Reverification-wrapped version of createExternalAccount. Clerk requires
   // re-authentication (password or 2FA) before adding a new external OAuth
   // account that has sensitive permissions (ads_management etc.). The hook
@@ -1728,6 +1764,256 @@ function RSAStudio() {
   );
   const plan = user?.publicMetadata?.plan || 'free';
   const isPro = plan === 'pro';
+  // ── Account type (agency onboarding, Phase 1) ──
+  const accountType = (user && user.unsafeMetadata && user.unsafeMetadata.accountType) || null;
+  const _ACCT_CUTOFF = Date.parse('2026-11-13T00:00:00Z'); // only accounts created from launch day get the chooser
+  const _isNewSignup = !!(user && user.createdAt && new Date(user.createdAt).getTime() >= _ACCT_CUTOFF);
+  const needsAccountType = !!(isSignedIn && orgIsLoaded && user && !accountType && _isNewSignup);
+  const showOrgUI = (accountType !== 'personal'); // hide org controls only for an explicit personal account
+  const [acctSaving, setAcctSaving] = useState(false);
+  const [acctBannerHidden, setAcctBannerHidden] = useState(false);
+  // ── Agency profile (intermediary setup, Phase 1.1) ──
+  const agencyProfile = (user && user.unsafeMetadata && user.unsafeMetadata.agencyProfile) || null;
+  const needsAgencyProfile = !!(isSignedIn && orgIsLoaded && user && accountType === 'agency' && !agencyProfile && _isNewSignup);
+  const [agencyForm, setAgencyForm] = useState({ company: '', domain: '', type: '', newsletter: true });
+  const [agencySaving, setAgencySaving] = useState(false);
+  const saveAgencyProfile = async () => {
+    if (!user) return;
+    const company = (agencyForm.company || '').trim();
+    let domain = (agencyForm.domain || '').trim().toLowerCase();
+    if (domain.indexOf('//') >= 0) domain = domain.slice(domain.indexOf('//') + 2);
+    if (domain.slice(0, 4) === 'www.') domain = domain.slice(4);
+    const _sl = domain.indexOf('/'); if (_sl >= 0) domain = domain.slice(0, _sl);
+    if (!company || domain.length < 3) return;
+    setAgencySaving(true);
+    try {
+      await user.update({ unsafeMetadata: { ...(user.unsafeMetadata || {}), agencyProfile: { company, domain, type: agencyForm.type || '', newsletter: !!agencyForm.newsletter, ts: Date.now() } } });
+    } catch (_) {}
+    setAgencySaving(false);
+  };
+  // ── Create client workspace with domain capture (Phase 2a) ──
+  const { createOrganization: _createClientOrg } = useOrganizationList() || {};
+  const [showCreateClient, setShowCreateClient] = useState(false);
+  const [ccForm, setCcForm] = useState({ name: '', domains: '', vertical: '' });
+  const [ccSaving, setCcSaving] = useState(false);
+  const [ccError, setCcError] = useState('');
+  const createClientWorkspace = async () => {
+    const name = (ccForm.name || '').trim();
+    if (!name) { setCcError('Please enter a client name.'); return; }
+    if (!_createClientOrg) { setCcError('Workspace creation is still loading — try again in a moment.'); return; }
+    setCcSaving(true); setCcError('');
+    try {
+      const org = await _createClientOrg({ name });
+      // persist the declared domain(s) on the org (backend-only metadata)
+      try {
+        const _tok = (window.Clerk && window.Clerk.session) ? await window.Clerk.session.getToken() : null;
+        if (_tok && (ccForm.domains || '').trim()) {
+          await fetch('/api/client-domains', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok },
+            body: JSON.stringify({ orgId: org.id, domains: ccForm.domains, vertical: ccForm.vertical }),
+          });
+        }
+      } catch (_) {}
+      // activate the new client → existing org-change effect reloads into it
+      if (setActive) { try { await setActive({ organization: org.id }); } catch (_) {} }
+      setShowCreateClient(false);
+      setCcForm({ name: '', domains: '', vertical: '' });
+    } catch (e) {
+      setCcError((e && e.errors && e.errors[0] && e.errors[0].message) || (e && e.message) || 'Could not create the workspace.');
+    }
+    setCcSaving(false);
+  };
+  const createClientModalEl = showCreateClient ? (
+    <div onClick={() => { if (!ccSaving) setShowCreateClient(false); }} style={{ position: "fixed", inset: 0, zIndex: 4000, background: "rgba(5,8,18,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, background: "#101a33", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 24 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#6366f1", marginBottom: 6 }}>NEW CLIENT WORKSPACE</div>
+        <div style={{ fontSize: 19, fontWeight: 900, color: "#e8eefc", marginBottom: 4 }}>Create a client workspace</div>
+        <div style={{ fontSize: 12.5, color: "#9db0c7", marginBottom: 18, lineHeight: 1.5 }}>Each client gets an isolated workspace. Declaring the client's domain now powers the wrong-workspace warning later.</div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Client name
+          <input autoFocus value={ccForm.name} onChange={(e) => setCcForm({ ...ccForm, name: e.target.value })} placeholder="e.g. Shoplondon" style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 }} />
+        </label>
+        <label style={{ display: "block", marginTop: 14, fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Client domain(s)
+          <input value={ccForm.domains} onChange={(e) => setCcForm({ ...ccForm, domains: e.target.value })} placeholder="e.g. shoplondon.dk" style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 }} />
+          <div style={{ marginTop: 5, fontSize: 11, color: "#6b7f96" }}>Separate multiple brands with commas. You can edit these later.</div>
+        </label>
+        <label style={{ display: "block", marginTop: 14, fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Industry <span style={{ fontWeight: 500, color: "#6b7f96" }}>(optional)</span>
+          <select value={ccForm.vertical} onChange={(e) => setCcForm({ ...ccForm, vertical: e.target.value })} style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 }}>
+            <option value="">Auto-detect</option>
+            <option value="fashion">Fashion / Beauty</option>
+            <option value="home">Home / Appliances / Decor</option>
+            <option value="gadgets">Gadgets / Jewelry / Footwear</option>
+            <option value="lifestyle">Travel / Food / Fitness / Lifestyle</option>
+          </select>
+          <div style={{ marginTop: 5, fontSize: 11, color: "#6b7f96" }}>Sets video-engine routing for this client. Leave on Auto-detect to decide per product.</div>
+        </label>
+        {ccError ? <div style={{ marginTop: 12, fontSize: 12, color: "#f87171" }}>{ccError}</div> : null}
+        <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button disabled={ccSaving} onClick={() => setShowCreateClient(false)} style={{ padding: "9px 14px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "1px solid rgba(255,255,255,0.14)", background: "transparent", color: "#cbd5e1", cursor: ccSaving ? "default" : "pointer" }}>Cancel</button>
+          <button disabled={ccSaving} onClick={createClientWorkspace} style={{ padding: "9px 16px", fontSize: 13, fontWeight: 800, borderRadius: 9, border: "none", cursor: ccSaving ? "default" : "pointer", opacity: ccSaving ? 0.6 : 1, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{ccSaving ? 'Creating…' : 'Create workspace'}</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+  // ── Edit client domains (Phase 2b) ──
+  const [showEditDomains, setShowEditDomains] = useState(false);
+  const [edList, setEdList] = useState([]);
+  const [edInput, setEdInput] = useState('');
+  const [edSaving, setEdSaving] = useState(false);
+  const [edMsg, setEdMsg] = useState('');
+  const _normHostEd = (u) => {
+    let s = String(u || '').trim().toLowerCase();
+    if (!s) return '';
+    const p = s.indexOf('//'); if (p >= 0) s = s.slice(p + 2);
+    const at = s.indexOf('@'); if (at >= 0) s = s.slice(at + 1);
+    if (s.slice(0, 4) === 'www.') s = s.slice(4);
+    const sl = s.indexOf('/'); if (sl >= 0) s = s.slice(0, sl);
+    const q = s.indexOf('?'); if (q >= 0) s = s.slice(0, q);
+    s = s.split(':')[0].trim();
+    if (s.indexOf('.') < 0) return '';
+    return s;
+  };
+  const openEditDomains = () => {
+    const cur = (organization && organization.publicMetadata && Array.isArray(organization.publicMetadata.domains)) ? organization.publicMetadata.domains : [];
+    setEdList(cur.slice()); setEdInput(''); setEdMsg(''); setShowEditDomains(true);
+  };
+  const edAddDomain = () => {
+    const parts = String(edInput || '').split(',').join(' ').split(';').join(' ').split(' ');
+    setEdList((prev) => {
+      const out = prev.slice();
+      for (const p of parts) { const h = _normHostEd(p); if (h && out.indexOf(h) < 0 && out.length < 20) out.push(h); }
+      return out;
+    });
+    setEdInput(''); setEdMsg('');
+  };
+  const edRemoveDomain = (h) => { setEdList((prev) => prev.filter((d) => d !== h)); setEdMsg(''); };
+  const saveEditDomains = async () => {
+    if (!organization) return;
+    let list = edList;
+    const pending = _normHostEd(edInput);
+    if (pending && list.indexOf(pending) < 0) list = list.concat([pending]);
+    setEdSaving(true); setEdMsg('');
+    try {
+      const _tok = (window.Clerk && window.Clerk.session) ? await window.Clerk.session.getToken() : null;
+      const r = await fetch('/api/client-domains', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok },
+        body: JSON.stringify({ orgId: organization.id, domains: list }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setEdMsg((j && j.error) || 'Could not save.'); setEdSaving(false); return; }
+      try { if (organization.reload) await organization.reload(); } catch (_) {}
+      if (Array.isArray(j.domains)) setEdList(j.domains);
+      setEdInput(''); setEdMsg('Saved ✓');
+    } catch (e) {
+      setEdMsg((e && e.message) || 'Could not save.');
+    }
+    setEdSaving(false);
+  };
+  const editDomainsModalEl = showEditDomains ? (
+    <div onClick={() => { if (!edSaving) setShowEditDomains(false); }} style={{ position: "fixed", inset: 0, zIndex: 4000, background: "rgba(5,8,18,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, background: "#101a33", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 24 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#6366f1", marginBottom: 6 }}>CLIENT DOMAINS</div>
+        <div style={{ fontSize: 19, fontWeight: 900, color: "#e8eefc", marginBottom: 4 }}>{organization ? organization.name : 'Client'} — domains</div>
+        <div style={{ fontSize: 12.5, color: "#9db0c7", marginBottom: 16, lineHeight: 1.5 }}>These power the wrong-workspace warning. Add every domain this client advertises.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
+          {edList.length === 0
+            ? <div style={{ fontSize: 12.5, color: "#6b7f96", fontStyle: "italic", padding: "4px 0" }}>No domains yet — add one below.</div>
+            : edList.map((d) => (
+              <div key={d} style={{ display: "flex", alignItems: "center", gap: 8, background: "#0a1222", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 9, padding: "7px 10px" }}>
+                <span style={{ flex: 1, fontSize: 13.5, color: "#e8eefc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d}</span>
+                <button onClick={() => edRemoveDomain(d)} title="Remove" style={{ fontSize: 12, fontWeight: 800, color: "#f87171", background: "transparent", border: "none", cursor: "pointer", padding: "2px 6px" }}>✕</button>
+              </div>
+            ))}
+        </div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Add a domain
+          <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
+            <input autoFocus value={edInput} onChange={(e) => setEdInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); edAddDomain(); } }} placeholder="e.g. veromoda.com" style={{ flex: 1, boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 }} />
+            <button onClick={edAddDomain} disabled={!edInput.trim()} style={{ padding: "0 16px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "1px solid rgba(99,102,241,0.5)", background: "rgba(99,102,241,0.18)", color: "#c7d2fe", cursor: edInput.trim() ? "pointer" : "default", opacity: edInput.trim() ? 1 : 0.5, whiteSpace: "nowrap" }}>Add</button>
+          </div>
+          <div style={{ marginTop: 5, fontSize: 11, color: "#6b7f96" }}>Press Enter or Add. You can paste several separated by commas.</div>
+        </label>
+        {edMsg ? <div style={{ marginTop: 12, fontSize: 12, color: edMsg.indexOf('✓') >= 0 ? '#34d399' : '#f87171' }}>{edMsg}</div> : null}
+        <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button disabled={edSaving} onClick={() => setShowEditDomains(false)} style={{ padding: "9px 14px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "1px solid rgba(255,255,255,0.14)", background: "transparent", color: "#cbd5e1", cursor: edSaving ? "default" : "pointer" }}>Close</button>
+          <button disabled={edSaving} onClick={saveEditDomains} style={{ padding: "9px 16px", fontSize: 13, fontWeight: 800, borderRadius: 9, border: "none", cursor: edSaving ? "default" : "pointer", opacity: edSaving ? 0.6 : 1, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{edSaving ? 'Saving…' : 'Save domains'}</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+  // ── Domain mismatch nudge (Phase 3) ──
+  const _nudgeList = useOrganizationList(_USER_MEMBERSHIPS_PARAMS) || {};
+  const [domNudgeDismissed, setDomNudgeDismissed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('domNudgeDismissed') || '{}') || {}; } catch (_) { return {}; }
+  });
+  const _hostFromUrl = (u) => {
+    let s = String(u || '').trim().toLowerCase();
+    if (!s) return '';
+    const p = s.indexOf('//'); if (p >= 0) s = s.slice(p + 2);
+    if (s.slice(0, 4) === 'www.') s = s.slice(4);
+    const sl = s.indexOf('/'); if (sl >= 0) s = s.slice(0, sl);
+    const q = s.indexOf('?'); if (q >= 0) s = s.slice(0, q);
+    s = s.split(':')[0].trim();
+    if (s.indexOf('.') < 0) return '';
+    return s;
+  };
+  const _hostMatches = (host, d) => host === d || host.endsWith('.' + d) || d.endsWith('.' + host);
+  const _curOrgDomains = (organization && organization.publicMetadata && Array.isArray(organization.publicMetadata.domains)) ? organization.publicMetadata.domains : [];
+  const _nudgeHost = _hostFromUrl(url);
+  const _nudgeMismatch = !!(organization && _curOrgDomains.length > 0 && _nudgeHost && !_curOrgDomains.some((d) => _hostMatches(_nudgeHost, d)));
+  const _nudgeKey = organization ? (organization.id + '|' + _nudgeHost) : '';
+  const _nudgeDismissed = !!(_nudgeKey && domNudgeDismissed[_nudgeKey]);
+  let _nudgeOtherOrg = null;
+  try {
+    const _mems = (_nudgeList.userMemberships && _nudgeList.userMemberships.data) || [];
+    for (const m of _mems) {
+      const o = m && m.organization;
+      const ds = (o && o.publicMetadata && Array.isArray(o.publicMetadata.domains)) ? o.publicMetadata.domains : [];
+      if (o && o.id !== (organization && organization.id) && _nudgeHost && ds.some((d) => _hostMatches(_nudgeHost, d))) { _nudgeOtherOrg = o; break; }
+    }
+  } catch (_) {}
+  const _dismissNudge = () => {
+    if (!_nudgeKey) return;
+    setDomNudgeDismissed((prev) => {
+      const next = { ...prev, [_nudgeKey]: 1 };
+      try { localStorage.setItem('domNudgeDismissed', JSON.stringify(next)); } catch (_) {}
+      return next;
+    });
+  };
+  const _switchToOtherOrg = async () => {
+    if (!_nudgeOtherOrg || !setActive) return;
+    try { await setActive({ organization: _nudgeOtherOrg.id }); } catch (_) {}
+  };
+  const _addHostToClient = async () => {
+    if (!organization || !_nudgeHost) return;
+    try {
+      const _tok = (window.Clerk && window.Clerk.session) ? await window.Clerk.session.getToken() : null;
+      const next = _curOrgDomains.concat([_nudgeHost]);
+      const r = await fetch('/api/client-domains', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok }, body: JSON.stringify({ orgId: organization.id, domains: next }) });
+      if (r.ok) { try { if (organization.reload) await organization.reload(); } catch (_) {} }
+    } catch (_) {}
+  };
+  const domainNudgeEl = (_nudgeMismatch && !_nudgeDismissed) ? (
+    <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, textAlign: "left", background: "rgba(251,191,36,0.10)", border: "1px solid rgba(251,191,36,0.45)", borderRadius: 10, padding: "10px 12px" }}>
+      <span style={{ fontSize: 16, lineHeight: 1 }}>⚠️</span>
+      <div style={{ flex: 1, fontSize: 12.5, color: "#fde68a", lineHeight: 1.5 }}>
+        <strong style={{ color: "#fef3c7" }}>{_nudgeHost}</strong> isn't a declared domain for <strong style={{ color: "#fef3c7" }}>{organization ? organization.name : 'this client'}</strong>.{_nudgeOtherOrg ? <> It belongs to <strong style={{ color: "#fef3c7" }}>{_nudgeOtherOrg.name}</strong>.</> : <> You may be in the wrong client workspace.</>}
+      </div>
+      {_nudgeOtherOrg
+        ? <button onClick={_switchToOtherOrg} style={{ fontSize: 11.5, fontWeight: 800, color: "#06281f", background: "#fbbf24", border: "none", borderRadius: 8, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>Switch to {_nudgeOtherOrg.name}</button>
+        : <button onClick={_addHostToClient} style={{ fontSize: 11.5, fontWeight: 800, color: "#06281f", background: "#fbbf24", border: "none", borderRadius: 8, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>Add to {organization ? organization.name : 'client'}</button>}
+      <button onClick={_dismissNudge} title="Dismiss" style={{ fontSize: 13, color: "#d4b483", background: "transparent", border: "none", cursor: "pointer", padding: "4px 6px" }}>✕</button>
+    </div>
+  ) : null;
+  const chooseAccountType = async (t) => {
+    if (!user) return;
+    setAcctSaving(true);
+    try {
+      await user.update({ unsafeMetadata: { ...(user.unsafeMetadata || {}), accountType: t } });
+      if (t === 'personal' && organization && setActive) { try { await setActive({ organization: null }); } catch (_) {} }
+    } catch (_) {}
+    setAcctSaving(false);
+  };
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState('');
   const [upgradePlan, setUpgradePlan] = useState('monthly');
@@ -1809,40 +2095,49 @@ function RSAStudio() {
   // Load library on sign-in
   useEffect(() => {
     if (!isSignedIn || !user?.id || libraryLoaded) return;
-    fetch('/api/library', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'load', userId: user.id, plan }),
-    }).then(r => r.json()).then(d => {
-      if (d.entries) setLibrary(d.entries);
-      setLibraryLoaded(true);
-    }).catch(() => setLibraryLoaded(true));
+    (async () => {
+      const _t = window.Clerk?.session ? await window.Clerk.session.getToken() : null; // library favourites: send session token
+      fetch('/api/library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(_t ? { 'x-clerk-session': _t } : {}) },
+        body: JSON.stringify({ action: 'load', userId: user.id, plan }),
+      }).then(r => r.json()).then(d => {
+        if (d.entries) setLibrary(d.entries);
+        setLibraryLoaded(true);
+      }).catch(() => setLibraryLoaded(true));
+    })();
   }, [isSignedIn, user?.id]);
 
   // Load saved audiences from Redis when user signs in
   useEffect(() => {
     if (!isSignedIn || !user?.id) return;
-    fetch("/api/audiences", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "get", userId: user.id }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.audiences) setAudiences(data.audiences);
-        setAudiencesLoaded(true);
+    (async () => { // audiences get/set with session token
+      let token = null; try { token = await window.Clerk?.session?.getToken(); } catch (_) {}
+      fetch("/api/audiences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { "x-clerk-session": token } : {}) },
+        body: JSON.stringify({ action: "get", userId: user.id }),
       })
-      .catch(() => setAudiencesLoaded(true));
+        .then(r => r.json())
+        .then(data => {
+          if (data.audiences) setAudiences(data.audiences);
+          setAudiencesLoaded(true);
+        })
+        .catch(() => setAudiencesLoaded(true));
+    })();
   }, [isSignedIn, user?.id]);
 
   // Save audiences to Redis whenever they change
   useEffect(() => {
     if (!isSignedIn || !user?.id || !audiencesLoaded) return;
-    fetch("/api/audiences", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "set", userId: user.id, audiences }),
-    }).catch(() => {});
+    (async () => {
+      let token = null; try { token = await window.Clerk?.session?.getToken(); } catch (_) {}
+      fetch("/api/audiences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { "x-clerk-session": token } : {}) },
+        body: JSON.stringify({ action: "set", userId: user.id, audiences }),
+      }).catch(() => {});
+    })();
   }, [audiences, isSignedIn, user?.id, audiencesLoaded]);
 
   // ── Meta OAuth: load connection status when user signs in ─────────────────
@@ -2791,30 +3086,39 @@ function RSAStudio() {
   const [feedSingleBusy, setFeedSingleBusy] = useState(null); // product link currently generating (single)
   const [feedGroupBy, setFeedGroupBy] = useState('category'); // Level-1 grouping axis: 'category' | 'brand'
   const [feedOpenGroup, setFeedOpenGroup] = useState(null);   // opened group key (drill-down) | null = Level 1
+  const [feedSeen, setFeedSeen] = useState(() => new Set()); // creative ids whose "✓ Completed" chip has been dismissed (per-account, localStorage)
   // Sticky feed: restore the last ingested catalog on mount (survives refresh, 24h TTL).
+  // Per-account cache key — each client workspace (org||user) keeps its own bulk-feed caches, so a feed never
+  // leaks across accounts/logins and a client's catalogue is still there when you return to it.
+  const _feedScopeKey = (base) => base + ':' + (organization ? organization.id : (user?.id || '_'));
+  // Restore the loaded feed for the matching account only; clear it when none is cached for this account.
   useEffect(() => {
+    if (!orgIsLoaded) return;
     try {
-      const raw = localStorage.getItem('rsa_feed_cache_v1');
-      if (!raw) return;
-      const c = JSON.parse(raw);
+      const raw = localStorage.getItem(_feedScopeKey('rsa_feed_cache_v1'));
+      const c = raw ? JSON.parse(raw) : null;
       if (c && c.result && c.result.products && c.result.products.length && (Date.now() - (c.ts || 0) < 86400000)) {
         setFeedResult(c.result); if (c.source) setFeedSource(c.source);
+      } else {
+        setFeedResult(null); setFeedSource(''); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
       }
     } catch (_) {}
-  }, []);
+  }, [organization, orgIsLoaded, user?.id]);
 
-  // Staging safety net: restore the Outputs buffer on mount (24h TTL, mirrors rsa_feed_cache_v1).
+  // Staging safety net: restore the Outputs buffer for the matching account only (24h TTL, per-account key).
   useEffect(() => {
+    if (!orgIsLoaded) return;
     try {
-      const raw = localStorage.getItem('rsa_feed_outputs_v1');
-      if (!raw) return;
-      const c = JSON.parse(raw);
+      const raw = localStorage.getItem(_feedScopeKey('rsa_feed_outputs_v1'));
+      const c = raw ? JSON.parse(raw) : null;
       if (c && c.outputs && (Date.now() - (c.ts || 0) < 86400000)) {
         const keys = Object.keys(c.outputs);
-        if (keys.length) { setFeedOutputs(c.outputs); setFeedView('outputs'); }
+        if (keys.length) { setFeedOutputs(c.outputs); setFeedView('outputs'); } else { setFeedOutputs({}); }
+      } else {
+        setFeedOutputs({}); setFeedView('products');
       }
     } catch (_) {}
-  }, []);
+  }, [organization, orgIsLoaded, user?.id]);
 
   // Staging safety net: persist ready outputs on change (ready-only, transient flags stripped, cap 60).
   useEffect(() => {
@@ -2824,7 +3128,7 @@ function RSAStudio() {
       const capped = ready.slice(-60);
       const out = {};
       for (const [link, o] of capped) { const { approving, approveError, ...keep } = o; out[link] = keep; }
-      localStorage.setItem('rsa_feed_outputs_v1', JSON.stringify({ ts: Date.now(), outputs: out }));
+      localStorage.setItem(_feedScopeKey('rsa_feed_outputs_v1'), JSON.stringify({ ts: Date.now(), outputs: out }));
     } catch (_) {}
   }, [feedOutputs]);
 
@@ -2999,6 +3303,7 @@ function RSAStudio() {
   const restoreFeedEntry = (entry) => {
     try {
       setViewMode('overview');
+      setSeqPubReturn(false); // drop any sequential-viewer framing when loading a regular/saved ad (viewSeqAd re-sets it after)
       setGenerated(false);
       setRows([makeRow(1)]); setActiveRow(0);
       setMetaResult(null); setTiktokResult(null); setTiktokVideoUrl(null); setTiktokVideoLoading(false);
@@ -3150,6 +3455,7 @@ function RSAStudio() {
       const startData = await startRes.json().catch(() => ({}));
       if (!startRes.ok || !startData.ok) { setFeedLeaveMsg((startData && startData.error) || ('Queued but could not start (' + startRes.status + ').')); setFeedLeaveBusy(false); return; }
       setFeedSel({});
+      fetchVaultJobs(); // surface the new batch in the "In queue" chips at once (don't wait for the 30s poll)
       setFeedLeaveMsg('\u2713 ' + picks.length + ' ad' + (picks.length === 1 ? '' : 's') + (runAtISO ? (' scheduled for ' + new Date(runAtISO).toLocaleString() + ' — they\'ll appear in your Library after they run.') : ' queued — they\'ll appear in your Library as they finish. You can safely close this tab.'));
     } catch (_) {
       setFeedLeaveMsg('Could not reach the batch service — please try again.');
@@ -3172,6 +3478,7 @@ function RSAStudio() {
   const [vaultSavedKey, setVaultSavedKey] = useState(null); // combo key of the single output saved to the Vault
   const [vaultSaving, setVaultSaving] = useState(false);    // star→Vault save in flight
   const [vaultTab, setVaultTab] = useState('ads');          // 'ads' (creatives) | 'templates' (ad-templates)
+  const [seqTplKind, setSeqTplKind] = useState('all');     // template-type filter: 'all' | 'synthetic' | 'avatar'
   const [seqTplConfirm, setSeqTplConfirm] = useState(null); // template id pending remove-confirm (Library)
 
   const vaultHeaders = async () => {
@@ -3255,6 +3562,52 @@ function RSAStudio() {
     return () => clearInterval(t);
   }, [isSignedIn]);
 
+  // When the Bulk Feed modal opens, refresh the Library creatives + jobs so finished scheduled/overnight ads
+  // can surface a "✓ Completed" chip on their product tile (vaultItems otherwise only refreshes in the Library).
+  useEffect(() => {
+    if (feedOpen && isSignedIn) { fetchVault(); fetchVaultJobs(); }
+  }, [feedOpen, isSignedIn]);
+
+  // Products sitting in an active (scheduled/queued/running) overnight batch — drives the "In queue" chip.
+  const queuedFeedLinks = (() => {
+    const s = new Set();
+    (vaultJobs || []).forEach(function (j) {
+      if (j && (j.status === 'scheduled' || j.status === 'queued' || j.status === 'running') && Array.isArray(j.queuedLinks)) {
+        j.queuedLinks.forEach(function (l) { if (l) s.add(l); });
+      }
+    });
+    return s;
+  })();
+
+  // Feed products whose scheduled/overnight ad has finished — matched to a saved Creative in the Library by
+  // productUrl (feed-sourced). Drives the "✓ Completed" chip + link on the Bulk Feed grid.
+  const feedDoneByLink = (() => {
+    const m = {};
+    (vaultItems || []).forEach(function (c) {
+      if (c && c.productUrl && c.inputSource === 'feed') m[c.productUrl] = c.id;
+    });
+    return m;
+  })();
+
+  // Dismiss-on-view: load the per-account set of seen/dismissed completed-ad ids when the scope resolves/switches.
+  useEffect(() => {
+    if (!orgIsLoaded) return;
+    try {
+      const raw = localStorage.getItem(_feedScopeKey('rsa_feed_seen_v1'));
+      const arr = raw ? JSON.parse(raw) : [];
+      setFeedSeen(new Set(Array.isArray(arr) ? arr : []));
+    } catch (_) { setFeedSeen(new Set()); }
+  }, [organization, orgIsLoaded, user?.id]);
+  const markFeedSeen = (id) => {
+    if (!id) return;
+    setFeedSeen(prev => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev); next.add(id);
+      try { localStorage.setItem(_feedScopeKey('rsa_feed_seen_v1'), JSON.stringify(Array.from(next))); } catch (_) {}
+      return next;
+    });
+  };
+
   // Rebuild the view-mode snapshot from a stored Creative (inverse of the Save mapping).
   const rebuildFromCreative = (c) => {
     const ch = c.channels || {}; const g = ch.google || {}; const m = ch.meta || {}; const v = ch.video || {};
@@ -3270,11 +3623,21 @@ function RSAStudio() {
   };
   const openVaultItem = async (card) => {
     if (!card || !card.id) return;
+    markFeedSeen(card.id); // dismiss its Bulk-Feed "✓ Completed" chip once the ad is opened
     setVaultBusy(card.id);
+    if (card.status === 'pending_review') { // opening a scheduled/overnight ad = reviewed → clear its pending-review status + chips
+      setVaultItems(prev => prev.map(x => x.id === card.id ? { ...x, status: 'approved' } : x));
+      vaultHeaders().then(h => fetch('/api/creatives', { method: 'POST', headers: h, body: JSON.stringify({ action: 'setStatus', id: card.id, status: 'approved' }) }).catch(() => {}));
+    }
     try {
       const res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: card.id }) });
       const data = await res.json().catch(() => ({}));
-      if (res.ok && data.creative) { restoreFeedEntry(rebuildFromCreative(data.creative)); setShowVault(false); }
+      if (res.ok && data.creative) {
+        restoreFeedEntry(rebuildFromCreative(data.creative)); setShowVault(false);
+        // mark as saved so the ★ shows filled on open (matches currentCombinedId()'s format)
+        lastGeneratedUrlRef.current = data.creative.productUrl || '';
+        setVaultSavedKey('combo_' + String(data.creative.productUrl || '').slice(0, 60));
+      }
       else setVaultError((data && data.error) || 'Could not open this ad.');
     } catch (_) { setVaultError('Could not open this ad.'); }
     finally { setVaultBusy(null); }
@@ -3300,7 +3663,7 @@ function RSAStudio() {
     try {
       const r = await fetch('/api/feed-ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: s, limit: 1000 }) });
       const d = await r.json();
-      if (d && d.ok) { setFeedResult(d); try { localStorage.setItem('rsa_feed_cache_v1', JSON.stringify({ source: s, result: d, ts: Date.now() })); } catch (_) {} if (!d.products || !d.products.length) setFeedError('No products found in this feed.'); }
+      if (d && d.ok) { setFeedResult(d); try { localStorage.setItem(_feedScopeKey('rsa_feed_cache_v1'), JSON.stringify({ source: s, result: d, ts: Date.now() })); } catch (_) {} if (!d.products || !d.products.length) setFeedError('No products found in this feed.'); }
       else setFeedError((d && d.error) || 'Could not read this feed.');
     } catch (e) { setFeedError('Feed request failed — please try again.'); }
     finally { setFeedLoading(false); }
@@ -3311,8 +3674,8 @@ function RSAStudio() {
     setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
     setFeedView('products'); setFeedOutputs({});
     acceptFeedTerms(false); // re-require terms acceptance for the next (possibly different-client) feed
-    try { localStorage.removeItem('rsa_feed_cache_v1'); } catch (_) {}
-    try { localStorage.removeItem('rsa_feed_outputs_v1'); } catch (_) {}
+    try { localStorage.removeItem(_feedScopeKey('rsa_feed_cache_v1')); } catch (_) {}
+    try { localStorage.removeItem(_feedScopeKey('rsa_feed_outputs_v1')); } catch (_) {}
   };
   // ── Personas Builder: UGC source selector (Phase 1) ──
   const [ugcData, setUgcData] = useState(null);           // { detected, providers, images } | null
@@ -3388,6 +3751,329 @@ function RSAStudio() {
   const [synAspect, setSynAspect] = useState('3:4');
   const [synName, setSynName] = useState('');
   const [synImg, setSynImg] = useState('');
+  // ── Live-avatar (HeyGen) persona selection — parallel to the synthetic creator ──
+  const [personaMode, setPersonaMode] = useState('synthetic'); // 'synthetic' | 'heygen'
+  const [hgAvatars, setHgAvatars] = useState(null);
+  const [hgLoading, setHgLoading] = useState(false);
+  const [hgErr, setHgErr] = useState('');
+  const [hgSearch, setHgSearch] = useState('');
+  const [hgGender, setHgGender] = useState('all');
+  const [hgSaving, setHgSaving] = useState('');
+  const [hgSavedIds, setHgSavedIds] = useState({});
+  const _hgGenderFromBrief = (t) => {
+    const s = ' ' + String(t || '').toLowerCase() + ' ';
+    if (s.indexOf('woman') >= 0 || s.indexOf('female') >= 0 || s.indexOf(' she ') >= 0 || s.indexOf('girl') >= 0 || s.indexOf('lady') >= 0) return 'female';
+    if (s.indexOf(' man') >= 0 || s.indexOf('male') >= 0 || s.indexOf(' he ') >= 0 || s.indexOf(' guy') >= 0) return 'male';
+    return 'all';
+  };
+  const loadHeygenAvatars = async () => {
+    if (hgAvatars) return;
+    setHgLoading(true); setHgErr('');
+    try {
+      const r = await fetch('/api/heygen-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'avatars' }) });
+      const d = await r.json();
+      if (d && d.ok && Array.isArray(d.avatars)) setHgAvatars(d.avatars);
+      else setHgErr((d && d.error) || 'Could not load avatars.');
+    } catch (e) { setHgErr('Could not load avatars.'); }
+    setHgLoading(false);
+  };
+  const saveHeygenAvatar = async (av) => {
+    if (!av || !av.avatarId) return;
+    setHgSaving(av.avatarId); setHgErr(''); setSynMsg('');
+    try {
+      const body = { action: 'save', source: 'heygen', type: 'Avatar', shot: 'other', name: (synName.trim() || av.name || 'Live avatar'), thumbnailUrl: av.preview || null, seedImageUrl: av.preview || null, referenceImages: av.preview ? [av.preview] : [], heygenAvatarId: av.avatarId, gender: av.gender || null };
+      const d = await fetch('/api/characters', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
+      if (d && d.character) {
+        setHgSavedIds(function (prev) { var n = Object.assign({}, prev); n[av.avatarId] = true; return n; });
+        loadCharLibrary(); // reveal + refresh so the new avatar's card (with its Live-avatar ad button) is visible
+        try { setTimeout(function () { var el = document.getElementById('char-lib-section'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 180); } catch (_) {}
+      }
+      else setHgErr((d && d.error) || 'Could not save avatar.');
+    } catch (e) { setHgErr('Could not save avatar.'); }
+    setHgSaving('');
+  };
+  // ── Live-avatar AD generation (HeyGen split-screen) — isolated parallel flow ──
+  const [hgGenOpen, setHgGenOpen] = useState(false);
+  const [hgGenChar, setHgGenChar] = useState(null);
+  const [hgGenProductImg, setHgGenProductImg] = useState('');
+  const [hgGenScript, setHgGenScript] = useState('');
+  const [hgGenVoices, setHgGenVoices] = useState(null);
+  const [hgGenVoiceId, setHgGenVoiceId] = useState('');
+  const [hgGenBusy, setHgGenBusy] = useState(false);
+  const [hgGenStage, setHgGenStage] = useState('');
+  const [hgGenErr, setHgGenErr] = useState('');
+  const [hgGenUrl, setHgGenUrl] = useState('');
+  const [hgGenSeqBusy, setHgGenSeqBusy] = useState(false);
+  const [hgGenSeqAppend, setHgGenSeqAppend] = useState(null); // sequenceId to append this clip to (null = lead/normal mode)
+  const [hgGenNotice, setHgGenNotice] = useState('');       // language/voice notice shown at generation
+  const [hgVoiceUserPicked, setHgVoiceUserPicked] = useState(false); // user chose a voice manually → respect it
+  const [hgGenFromSeq, setHgGenFromSeq] = useState(false);
+  const [hgReturnCtx, setHgReturnCtx] = useState(null); // {appendTo,char,productImg,fromSeq} — return to live-avatar flow from the Personas library
+  const [hgGenMode, setHgGenMode] = useState('live'); // 'live' = Runway presenter + lipsync; 'split' = side-by-side
+  const [hgVoiceOpen, setHgVoiceOpen] = useState(false);
+  const [hgScriptLang, setHgScriptLang] = useState('auto');
+  const [hgScriptStyle, setHgScriptStyle] = useState('product');
+  const [hgWriting, setHgWriting] = useState(false);
+  const writeScript = async () => {
+    const c = hgGenChar;
+    setHgWriting(true); setHgGenErr('');
+    try {
+      const lang = hgScriptLang === 'en' ? 'English' : (((pageMeta && pageMeta.language) || 'English'));
+      const ctx = [pageMeta && pageMeta.title, pageMeta && pageMeta.metaDescription, pageMeta && pageMeta.brand, (c && c.name)].filter(Boolean).join(' — ').slice(0, 1500);
+      const d = await fetch('/api/presenter-script', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language: lang, style: hgScriptStyle, context: ctx, productUrl: (pageMeta && pageMeta.url) || seqOriginUrl || '', targetWords: Math.floor(14 * _wpsFor(_nameToIso(lang) || 'en')) }) }).then(r => r.json());
+      if (d && d.script) setHgGenScript(d.script);
+      else setHgGenErr((d && d.error) || 'Could not write a script.');
+    } catch (_) { setHgGenErr('Could not write a script.'); }
+    finally { setHgWriting(false); }
+  };
+  const _hgDefaultProductImg = () => (
+    (metaResult && (metaResult.heroProductImage || metaResult.imageUrl)) ||
+    ((pageMeta && pageMeta.images && pageMeta.images[0]) || '') ||
+    seqProductUrl || ''
+  );
+  const _hgDefaultScript = () => {
+    if (tiktokResult && (tiktokResult.hookLine || tiktokResult.primaryText)) {
+      return [tiktokResult.hookLine, tiktokResult.primaryText, tiktokResult.cta].filter(Boolean).join(' ').trim().slice(0, 800);
+    }
+    return '';
+  };
+  const _nameToIso = function (n) { const m = { english: 'en', danish: 'da', german: 'de', french: 'fr', spanish: 'es', swedish: 'sv', dutch: 'nl', italian: 'it', portuguese: 'pt', norwegian: 'no', finnish: 'fi', polish: 'pl' }; const k = String(n || '').trim().toLowerCase(); return m[k] || (k ? k.slice(0, 2) : undefined); };
+  // Conservative language guess from the spoken text; returns null unless there is clear evidence.
+  const _detectScriptLang = function (text) {
+    const t = String(text || '').toLowerCase(); if (!t.trim()) return null;
+    const score = {}; const add = function (k, n) { score[k] = (score[k] || 0) + n; };
+    if (/[æø]/.test(t)) add('da', 3);
+    if (/å/.test(t)) { add('da', 1); add('sv', 1); add('no', 1); }
+    if (/ß/.test(t)) add('de', 4);
+    if (/[äöü]/.test(t)) add('de', 2);
+    if (/[äö]/.test(t) && !/[æøü]/.test(t)) add('sv', 2);
+    if (/ñ|¿|¡/.test(t)) add('es', 4);
+    if (/[ãõ]/.test(t)) add('pt', 3);
+    if (/[çàèéêîôû]/.test(t)) add('fr', 1);
+    const sw = { da: ['og','det','med','du','din','dig','ikke','hver','mere','mindre','godt','dag','samlet','enkel'], de: ['und','der','die','das','mit','für','nicht','ein','eine','auch','sich','dich'], sv: ['och','det','med','du','din','inte','mer','varje'], no: ['og','det','med','du','din','ikke','hver'], nl: ['en','het','met','je','niet','voor','een','van','jij'], fr: ['et','le','la','les','vous','pour','avec','votre','pas'], es: ['el','los','con','para','más','cada','sin'], it: ['il','con','per','non','tuo','ogni','più'], pt: ['com','para','seu','não','mais','cada'], fi: ['ja','on','se','ei','kanssa','joka'], en: ['the','and','with','your','for','not','every','more','less','start'] };
+    const words = t.split(/[^a-zàâäæçèéêîôûùüßñãõöøå]+/i).filter(Boolean); const wset = {}; words.forEach(function (w) { wset[w] = 1; });
+    Object.keys(sw).forEach(function (l) { sw[l].forEach(function (w) { if (wset[w]) add(l, 1); }); });
+    let best = null, bestN = 0; Object.keys(score).forEach(function (l) { if (score[l] > bestN) { bestN = score[l]; best = l; } });
+    return bestN >= 2 ? best : null;
+  };
+  const HG_CLIP_SECONDS = 16;    // Runway UGC presenter clip length (fixed)
+  const HG_MAX_SPOKEN = 15.5;    // block if estimated speech exceeds this (keeps a tail so the last word isn't cut)
+  const _wpsFor = function (iso) { return ({ da: 1, de: 1, sv: 1, no: 1, fi: 1, nl: 1 })[iso] ? 2.25 : 2.7; }; // Nordic/Germanic words run longer
+  const _spokenEst = function (text, iso) { const w = String(text || '').trim().split(/\s+/).filter(Boolean).length; return w ? (w / _wpsFor(iso)) : 0; };
+  const loadHgGenVoices = async () => {
+    if (hgGenVoices && hgGenVoices.length) return hgGenVoices;
+    try {
+      const d = await fetch('/api/heygen-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'voices' }) }).then(r => r.json());
+      const pool = (d && d.ok && Array.isArray(d.voices)) ? d.voices : [];
+      if (pool.length) { setHgGenVoices(pool); if (!hgGenVoiceId) setHgGenVoiceId(pool[0].voiceId); }
+      return pool;
+    } catch (_) { return []; }
+  };
+  const openHeygenGen = (c, fromSeq, opts) => {
+    if (!c) return;
+    const _o = opts || {};
+    setHgGenChar(c);
+    setHgGenSeqAppend(_o.appendTo || null);
+    setHgGenProductImg((_o.productImg && String(_o.productImg).trim()) || _hgDefaultProductImg());
+    setHgGenScript(_hgDefaultScript());
+    setHgGenUrl(''); setHgGenErr(''); setHgGenStage(''); setHgGenNotice(''); setHgVoiceUserPicked(false);
+    setHgGenFromSeq(!!fromSeq);
+    setHgGenMode('live');
+    setHgVoiceOpen(false);
+    setHgGenOpen(true);
+    loadHgGenVoices().then(function (pool) {
+      const g = (c.gender || '').toString().toLowerCase();
+      const match = g ? (pool || []).find(function (v) { return (v.gender || '').toLowerCase() === g; }) : null;
+      if (match) setHgGenVoiceId(match.voiceId);
+      else if ((pool || [])[0]) setHgGenVoiceId(pool[0].voiceId);
+    });
+  };
+  const runHeygenSplit = async () => {
+    const c = hgGenChar;
+    if (!c || !c.heygenAvatarId) { setHgGenErr('This persona has no avatar id.'); return; }
+    if (!hgGenScript.trim()) { setHgGenErr('Add a script for the avatar to speak.'); return; }
+    if (!hgGenProductImg.trim()) { setHgGenErr('Add a product image URL.'); return; }
+    setHgGenBusy(true); setHgGenErr(''); setHgGenUrl('');
+    try {
+      const pool = hgGenVoices || await loadHgGenVoices();
+      const voiceId = hgGenVoiceId || (pool[0] && pool[0].voiceId) || undefined;
+      setHgGenStage('Generating avatar video…');
+      const c1 = await fetch('/api/heygen-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create', avatarId: c.heygenAvatarId, voiceId: voiceId, script: hgGenScript.trim() }) }).then(r => r.json());
+      if (!c1 || !c1.videoId) { setHgGenErr((c1 && c1.error) || 'Could not start avatar generation.'); setHgGenBusy(false); setHgGenStage(''); return; }
+      let videoUrl = null;
+      for (var i = 0; i < 60; i++) {
+        await new Promise(function (res) { setTimeout(res, 5000); });
+        const p = await fetch('/api/heygen-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', videoId: c1.videoId }) }).then(r => r.json());
+        if (p && p.videoUrl) { videoUrl = p.videoUrl; break; }
+        if (p && p.status === 'failed') { setHgGenErr('Avatar generation failed: ' + (p.error || 'unknown')); setHgGenBusy(false); setHgGenStage(''); return; }
+      }
+      if (!videoUrl) { setHgGenErr('Timed out waiting for the avatar video.'); setHgGenBusy(false); setHgGenStage(''); return; }
+      setHgGenStage('Composing split-screen…');
+      const outv = await fetch('/api/heygen-split', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'compose', avatarVideoUrl: videoUrl, productImageUrl: hgGenProductImg.trim(), brand: (pageMeta && pageMeta.brand) || (c.name || '') }) }).then(r => r.json());
+      if (outv && outv.url) { setHgGenUrl(outv.url); setHgGenStage(''); }
+      else { setHgGenErr((outv && outv.error) || 'Composing failed.'); setHgGenStage(''); }
+    } catch (e) { setHgGenErr('Generation failed — please try again.'); setHgGenStage(''); }
+    finally { setHgGenBusy(false); }
+  };
+  // Append a rendered live-avatar clip to an existing sequence as Ad #N (parallel to addToSequence).
+  const addHeygenToSequence = async () => {
+    const c = hgGenChar; const vid = hgGenUrl; const seqId = hgGenSeqAppend;
+    if (!c || !vid || !seqId) return;
+    setHgGenSeqBusy(true); setHgGenErr('');
+    try {
+      const list = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list', filters: { sequence: seqId } }) }).then(r => r.json());
+      const existing = Array.isArray(list.creatives) ? list.creatives : [];
+      const nextOrder = existing.reduce(function (m, x) { return Math.max(m, x.order || 0); }, 0) + 1;
+      const _img = (hgGenProductImg || '').trim();
+      const payload = {
+        action: 'save', sequenceId: seqId, order: nextOrder,
+        objective: 'engagement', promo: false,
+        characterId: 'heygen-lane:' + (c.heygenAvatarId || c.id || ''), personaUsed: true,
+        productUrl: _img, productTitle: (pageMeta && pageMeta.title) || (c.name || ''),
+        engine: 'heygen-runway', scene: (hgGenScript || '').trim(), inputSource: 'sequence',
+        channels: { video: { url: vid } }, thumb: vid,
+      };
+      const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(payload) }).then(r => r.json());
+      if (d && (d.creative || d.id)) { setHgGenOpen(false); setHgGenSeqAppend(null); setSeqOpen(true); setSeqMsg('✓ Added live-avatar ad as Ad #' + (nextOrder + 1)); loadSequenceAds(seqId); }
+      else { setHgGenErr(d && d.error ? ('Add failed: ' + d.error) : 'Could not add to the sequence.'); }
+    } catch (_) { setHgGenErr('Could not add to the sequence — please try again.'); }
+    finally { setHgGenSeqBusy(false); }
+  };
+  // "Save as lead & start sequence" — reuse the rendered HeyGen presenter clip as the sequence lead
+  // (Ad #1), no regenerate. Parallel to useAsSequenceLead; engine 'heygen-runway', avatar id in
+  // characterId ('heygen-lane:<id>'), script in prompt. Origin (Meta/Google/landing) reused for publish.
+  const useHeygenAsSequenceLead = async () => {
+    const c = hgGenChar; const vid = hgGenUrl;
+    if (!c || !vid) return;
+    setHgGenSeqBusy(true); setHgGenErr('');
+    try {
+      const _img = (hgGenProductImg || '').trim() || (pageMeta && pageMeta.imageUrl) || '';
+      const _title = (pageMeta && (pageMeta.title || pageMeta.brand)) || '';
+      const _prodFromUrl = (function (u) { try { var s = String(u || '').split('?')[0].split('/').pop() || ''; s = s.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' ').trim(); if (!s) return ''; s = s.replace(/\b\w/g, function (m) { return m.toUpperCase(); }); return s.slice(0, 60).trim(); } catch (_) { return ''; } })(_img);
+      const _prod = _title || _prodFromUrl;
+      const _name = _prod ? (_prod + ' — live avatar') : 'Live-avatar ad';
+      let _dupId = null; try { if (Array.isArray(seqTemplates)) { const _m = seqTemplates.find(function (t) { return t && t.engine === 'heygen-runway' && t.name === _name; }); if (_m) _dupId = _m.id; } } catch (_) {}
+      const _script = (hgGenScript || '').trim();
+      const _origin = (seqOriginMeta || seqOriginSnap)
+        ? { meta: seqOriginMeta, url: (String(seqOriginUrl || '').trim() || (pageMeta && pageMeta.url) || null), snap: seqOriginSnap }
+        : ((pageMeta && (pageMeta.title || pageMeta.url)) ? { meta: { title: (pageMeta.title || ''), metaDescription: (pageMeta.metaDescription || '') }, url: ((pageMeta.url) || null), snap: null } : null);
+      const body = {
+        action: 'save', id: _dupId || undefined, name: _name,
+        assetUri: null, characterId: 'heygen-lane:' + (c.heygenAvatarId || c.id || ''),
+        prompt: _script || 'Live presenter holding and demoing the product', shots: [_script || ''],
+        garmentUrls: _img ? [_img] : [], landingUrl: (_origin && _origin.url) || (pageMeta && pageMeta.url) || null,
+        origin: _origin, ratio: '9:16', duration: 5, engine: 'heygen-runway',
+        thumbnailUrl: (c.thumbnailUrl || c.seedImageUrl || c.preview || _img || null), lastVideoUrl: vid,
+        shotObjectives: ['awareness'], promo: false,
+      };
+      const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
+      if (d && d.template) {
+        try { if (d.template.id && _origin) localStorage.setItem('seq:origin:' + d.template.id, JSON.stringify(_origin)); } catch (_) {}
+        if (seqTemplates !== null) loadSeqTemplates();
+        setHgGenOpen(false);
+        loadSeqTemplate(d.template, { keepOrigin: false });
+        openSeqBuilder(true);
+      } else { setHgGenErr(d && d.error ? ('Could not start a sequence: ' + d.error) : 'Could not start a sequence.'); }
+    } catch (_) { setHgGenErr('Could not start a sequence — please try again.'); }
+    finally { setHgGenSeqBusy(false); }
+  };
+  // ── Premium "Product presenter (live)": Runway UGC (avatar+product) → TTS → lipsync → finalize ──
+  const runHeygenPresenter = async () => {
+    const c = hgGenChar;
+    if (!c || !c.heygenAvatarId) { setHgGenErr('This persona has no avatar id.'); return; }
+    if (!hgGenScript.trim()) { setHgGenErr('Add a script for the presenter to speak.'); return; }
+    if (!hgGenProductImg.trim()) { setHgGenErr('Add a product image URL.'); return; }
+    setHgGenBusy(true); setHgGenErr(''); setHgGenUrl('');
+    const J = { 'Content-Type': 'application/json' };
+    const LS = (b) => fetch('/api/heygen-lipsync', { method: 'POST', headers: J, body: JSON.stringify(b) }).then(r => r.json());
+    const RR = async (b) => fetch('/api/runway-recipe', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(b) }).then(r => r.json());
+    const NI = (b) => fetch('/api/normalize-image', { method: 'POST', headers: J, body: JSON.stringify(b) }).then(r => r.json()).catch(function () { return null; });
+    const stop = (msg) => { setHgGenErr(msg); setHgGenBusy(false); setHgGenStage(''); };
+    try {
+      // pre-flight: make sure voices are available BEFORE the long render, so this fails in seconds not minutes
+      { const _l = _detectScriptLang(hgGenScript) || _nameToIso(pageMeta && pageMeta.language) || 'en'; const _s = _spokenEst(hgGenScript, _l); if (_s > HG_MAX_SPOKEN) { const _n = Math.floor(14 * _wpsFor(_l)); return stop('Your script is about ' + Math.round(_s) + 's of speech, but the presenter clip is ~' + HG_CLIP_SECONDS + 's — the end would be cut off. Trim to about ' + _n + ' words.'); } }
+      setHgGenStage('Checking voices…');
+      { const _vp = hgGenVoices || await loadHgGenVoices(); if (!Array.isArray(_vp) || !_vp.length) return stop('Could not load voices — please try again in a moment.'); }
+      // 0) normalize both images (webp->flattened jpeg; Runway-safe)
+      setHgGenStage('Preparing images…');
+      const rawChar = c.thumbnailUrl || c.seedImageUrl || (c.referenceImages || [])[0];
+      const normC = await NI({ imageUrl: rawChar, slot: 'portrait', fit: 'cover' });
+      const charImg = (normC && normC.url) || rawChar;
+      const normP = await NI({ imageUrl: hgGenProductImg.trim(), slot: 'square', fit: 'contain' });
+      const prodImg = (normP && normP.url) || hgGenProductImg.trim();
+
+      // 1) Runway UGC (avatar holding product) — retry once on the intermittent content-type error
+      setHgGenStage('Filming the presenter with your product… (this is the long step)');
+      let taskId = null;
+      for (let attempt = 0; attempt < 2 && !taskId; attempt++) {
+        const cr = await RR({ action: 'create', mode: 'ugc', characterImage: charImg, imageUrl: prodImg,
+          productInfo: (pageMeta && pageMeta.brand) ? (pageMeta.brand + ' product') : '',
+          userConcept: 'The person from the character image holds the product near shoulder height, facing the camera and speaking to camera in one continuous shot with no cuts. Keep the face clearly visible and front-facing the whole time. Product label legible.' });
+        if (cr && (cr.taskId || cr.id)) { taskId = cr.taskId || cr.id; break; }
+        const em = (cr && cr.error) || '';
+        if (attempt === 0 && /octet-stream|Validation of body failed/i.test(em)) { await new Promise(r => setTimeout(r, 3000)); continue; }
+        return stop((cr && cr.error) || 'Could not start the presenter video.');
+      }
+      let runwayUrl = null;
+      for (let i = 0; i < 90; i++) {
+        await new Promise(r => setTimeout(r, 8000));
+        const p = await RR({ action: 'poll', taskId });
+        if (p && (p.videoUrl || p.url)) { runwayUrl = p.videoUrl || p.url; break; }
+        if (p && (p.status || '').toLowerCase() === 'failed') return stop('Presenter video failed: ' + (p.error || 'unknown'));
+      }
+      if (!runwayUrl) return stop('Timed out making the presenter video.');
+
+      // 2) TTS (localized) — language from the page (ISO-639-1)
+      setHgGenStage('Voicing your script…');
+      let lang = _detectScriptLang(hgGenScript) || _nameToIso(pageMeta && pageMeta.language);
+      const _isoName = { en: 'English', da: 'Danish', de: 'German', fr: 'French', es: 'Spanish', sv: 'Swedish', nl: 'Dutch', it: 'Italian', pt: 'Portuguese', no: 'Norwegian', fi: 'Finnish', pl: 'Polish' };
+      const _enFallback = !lang; if (_enFallback) lang = 'en';
+      const g = (c.gender || '').toString().toLowerCase();
+      const VOICES = async (q) => { try { const dd = await fetch('/api/heygen-avatar', { method: 'POST', headers: J, body: JSON.stringify(Object.assign({ action: 'voices' }, q || {})) }).then(r => r.json()); return (dd && dd.ok && Array.isArray(dd.voices)) ? dd.voices : []; } catch (_) { return []; } };
+      const vpool = await VOICES({});                                          // HeyGen's premium multilingual set (filters are ignored server-side)
+      if (!vpool.length) return stop('Could not load voices — please try again in a moment.');
+      const _gp = g ? vpool.filter(function (v) { return (v.gender || '').toString().toLowerCase() === g; }) : vpool; // gender match (client-side)
+      const _chosen = _gp.length ? _gp : vpool;
+      let voiceId = (hgVoiceUserPicked && hgGenVoiceId) ? hgGenVoiceId : (_chosen[0] && _chosen[0].voiceId);
+      if (!voiceId) voiceId = (_chosen[0] && _chosen[0].voiceId);
+      if (voiceId !== hgGenVoiceId) setHgGenVoiceId(voiceId);
+      setHgGenNotice(_enFallback ? '⚠ Language not detected — voicing in English.' : ('🎙 Voicing in ' + (_isoName[lang] || String(lang).toUpperCase()) + '.'));
+      const tts = await LS({ action: 'tts', text: hgGenScript.trim(), voiceId: voiceId, language: lang });
+      if (!tts || !tts.audioUrl) return stop('Voice generation failed: ' + ((tts && tts.error) || ''));
+      let audioUrl = tts.audioUrl;
+
+      // 3) Lipsync — self-correcting on the 15% duration rule (pad audio to the video length, retry once)
+      setHgGenStage('Syncing lips to the voice…');
+      let lipUrl = null;
+      for (let pass = 0; pass < 2 && !lipUrl; pass++) {
+        const cr = await LS({ action: 'create', videoUrl: runwayUrl, audioUrl: audioUrl, mode: 'precision' });
+        if (!cr || !cr.lipsyncId) return stop('Lipsync could not start: ' + ((cr && cr.error) || ''));
+        let failMsg = null;
+        for (let i = 0; i < 80; i++) {
+          await new Promise(r => setTimeout(r, 6000));
+          const p = await LS({ action: 'poll', lipsyncId: cr.lipsyncId });
+          if (p && p.videoUrl) { lipUrl = p.videoUrl; break; }
+          if (p && (p.status || '').toLowerCase() === 'failed') { failMsg = p.error || ''; break; }
+        }
+        if (lipUrl) break;
+        const m = failMsg && failMsg.match(/video is ([0-9.]+) second/i);
+        if (m && pass === 0) {
+          setHgGenStage('Matching audio length…');
+          const pad = await LS({ action: 'padaudio', audioUrl: audioUrl, seconds: Math.ceil(parseFloat(m[1])) });
+          if (pad && pad.audioUrl) { audioUrl = pad.audioUrl; setHgGenStage('Syncing lips to the voice…'); continue; }
+        }
+        return stop('Lipsync failed: ' + (failMsg || 'unknown'));
+      }
+      if (!lipUrl) return stop('Timed out on lipsync.');
+
+      // 4) finalize — the Runway clip already carries the AI label; keep it, add C2PA + store
+      setHgGenStage('Finalizing (label + signing)…');
+      const fin = await LS({ action: 'finalize', videoUrl: lipUrl, brand: (pageMeta && pageMeta.brand) || (c.name || ''), relabel: false });
+      if (fin && fin.url) { setHgGenUrl(fin.url); setHgGenStage(''); }
+      else { setHgGenErr((fin && fin.error) || 'Finalize failed.'); setHgGenStage(''); }
+    } catch (e) { setHgGenErr('Presenter generation failed — please try again.'); setHgGenStage(''); }
+    finally { setHgGenBusy(false); }
+  };
   const [synBusy, setSynBusy] = useState(false);
   const [synStage, setSynStage] = useState('');
   const [synErr, setSynErr] = useState('');
@@ -3448,7 +4134,7 @@ function RSAStudio() {
   const [seqNoneEngine, setSeqNoneEngine] = useState('kling'); // K | V | R engine for the None lane (persists on the template)
   const [seqShots, setSeqShots] = useState(['']);
   const [seqRatio, setSeqRatio] = useState('9:16');
-  const [seqDuration, setSeqDuration] = useState(5);
+  const [seqDuration, setSeqDuration] = useState(10);
   const [seqBusy, setSeqBusy] = useState(false);
   const seqResultsRef = useRef(null);
   const [seqResults, setSeqResults] = useState([]);
@@ -3467,7 +4153,16 @@ function RSAStudio() {
   const [seqShotMeta, setSeqShotMeta] = useState([]);      // per-shot { market, interactionMode } from the generator
   const [seqLeadVideo, setSeqLeadVideo] = useState(null);  // loaded template's opening video (shown at the top)
   const [seqSaveOpen, setSeqSaveOpen] = useState(false);   // header "Save as template" bar toggle
-  const [seqLastLead, setSeqLastLead] = useState(function () { try { var s = localStorage.getItem('seq:lastLead'); return s ? JSON.parse(s) : null; } catch (_) { return null; } }); // most recent project → "Continue your story"
+  const [seqLastLead, setSeqLastLead] = useState(null); // most recent project → "Continue your story" (loaded per-workspace once scope resolves)
+  // Per-workspace "Continue your story" pointer: read the scoped key (seq:lastLead:<org||user>) when the
+  // active scope resolves and on every switch, so one client's story never shows in another workspace.
+  useEffect(() => {
+    if (!orgIsLoaded) return;
+    const _scope = organization ? organization.id : (user?.id || null);
+    if (!_scope) { setSeqLastLead(null); return; }
+    try { const s = localStorage.getItem('seq:lastLead:' + _scope); setSeqLastLead(s ? JSON.parse(s) : null); }
+    catch (_) { setSeqLastLead(null); }
+  }, [organization, orgIsLoaded, user?.id]);
   // ── Sequence → Meta video-story publish (isolated: only calls /api/meta-publish) ──
   const [seqPubOpen, setSeqPubOpen] = useState(false);     // publish panel open
   const [seqPubReturn, setSeqPubReturn] = useState(false); // showing an ad in the 3-ad viewer → offer "Back to publish"
@@ -3485,6 +4180,8 @@ function RSAStudio() {
   const [seqPubProgress, setSeqPubProgress] = useState(''); // "Publishing 2 of 3…"
   const [seqPubResult, setSeqPubResult] = useState(null);  // { ok, total, done, failures[], adsManagerUrl, error }
   const [seqLeadId, setSeqLeadId] = useState(null);        // loaded template id — non-null = lead loaded (append mode)
+  const [seqHeygen, setSeqHeygen] = useState(false);       // heygen-runway lane — live-presenter lead
+  const [seqHeygenChar, setSeqHeygenChar] = useState(null); // avatar persona backing a heygen lead (for Phase B regen/append)
   const [seqAutoLead, setSeqAutoLead] = useState(false);   // next generate auto-saves into the lead (Recreate-on-persona / Regenerate lead)
   const [seqBuildNext, setSeqBuildNext] = useState(false); // next-ad controls open (after +)
   const [seqLeadObjective, setSeqLeadObjective] = useState('awareness'); // lead's funnel stage → next default
@@ -3493,7 +4190,14 @@ function RSAStudio() {
   const [seqOfferText, setSeqOfferText] = useState('');    // promo offer copy burned onto the video
   const [seqSequenceAds, setSeqSequenceAds] = useState([]); // linked ads for the loaded lead (director's view)
   const [seqActiveAd, setSeqActiveAd] = useState(null);     // rack item currently re-centered in the hero (null = lead)
-  const openSeqBuilder = () => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); if (seqLeadId) loadSequenceAds(); loadSeqTemplates(); };
+  const seqSeqReqId = useRef(0); // latest-wins guard: discards stale loadSequenceAds results that resolve out of order
+  useEffect(function () {
+    if (!seqActiveAd || seqActiveAd.kind === 'lead') return;
+    var curId = seqActiveAd.key || seqActiveAd.id;
+    var inSeq = (Array.isArray(seqSequenceAds) ? seqSequenceAds : []).some(function (a) { return a.id === curId; });
+    if (!inSeq) setSeqActiveAd(null); // active ad belongs to another sequence → snap the hero back to the lead
+  }, [seqSequenceAds]); // eslint-disable-line react-hooks/exhaustive-deps
+  const openSeqBuilder = (skipSeqLoad) => { setSeqOpen(true); if (charLib === null) loadCharLibrary(); if (!skipSeqLoad && seqLeadId) loadSequenceAds(); loadSeqTemplates(); };
   const seqNextObjective = (id) => {
     const i = SEQ_OBJECTIVES.findIndex(function (o) { return o.id === id; });
     return SEQ_OBJECTIVES[Math.min((i < 0 ? 0 : i) + 1, SEQ_OBJECTIVES.length - 1)].id;
@@ -3510,19 +4214,23 @@ function RSAStudio() {
   };
   const loadSequenceAds = async (leadId) => {
     const id = leadId || seqLeadId;
-    if (!id) { setSeqSequenceAds([]); return []; }
+    const _tok = ++seqSeqReqId.current;
+    if (!id) { if (_tok === seqSeqReqId.current) setSeqSequenceAds([]); return []; }
     try {
       const d = await fetch('/api/creatives', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'list', filters: { sequence: id } }) }).then(r => r.json());
       const _list = Array.isArray(d.creatives) ? d.creatives : [];
-      setSeqSequenceAds(_list);
+      if (_tok === seqSeqReqId.current) setSeqSequenceAds(_list);
       return _list;
-    } catch (_) { setSeqSequenceAds([]); return []; }
+    } catch (_) { if (_tok === seqSeqReqId.current) setSeqSequenceAds([]); return []; }
   };
   const reCenterAd = (ad) => {
-    if (seqBuildNext) {
+    // Only warn when there's a REAL unsaved draft (a generated video not yet added). An empty
+    // build-next state (e.g. from "Continue your story" → openNextAd) has nothing to discard.
+    const _hasDraft = seqBuildNext && Array.isArray(seqResults) && seqResults.some(function (r) { return r && r.videoUrl; });
+    if (_hasDraft) {
       if (!window.confirm("You are building a new ad — switch to Ad #" + ad.n + " and discard this draft?")) return;
-      setSeqBuildNext(false); setSeqResults([]);
     }
+    if (seqBuildNext) { setSeqBuildNext(false); setSeqResults([]); } // drop the build-next state (empty or just-confirmed)
     setSeqMsg(''); setSeqErr('');
     setSeqActiveAd(ad.kind === 'lead' ? null : ad);
   };
@@ -3581,8 +4289,7 @@ function RSAStudio() {
   const openSeqPub = () => {
     setSeqPubUseMetaCopy(false);
     const landing = String(seqOriginUrl || '').trim();
-    const prod = String(seqProductUrl || '').trim();
-    setSeqPubDest(/^https?:\/\//i.test(landing) ? landing : (/^https?:\/\//i.test(prod) ? prod : ''));
+    setSeqPubDest(/^https?:\/\//i.test(landing) ? landing : '');
     setSeqPubSel(null); setSeqPubResult(null); setSeqPubProgress('');
     setSeqPubActiveKey(null); seqSeedCopies(false);
     setSeqPubOpen(true);
@@ -3798,16 +4505,32 @@ function RSAStudio() {
     try {
       const firstVid = (typeof videoUrlOverride === 'string' ? videoUrlOverride : null) || (seqResults.find(function (r) { return r.videoUrl; }) || {}).videoUrl || seqLeadVideo || null;
       const _leadName = seqNoPersona ? 'Model-image sequence' : (seqPersona.name ? (seqPersona.name + ' — sequence') : 'Ad template');
-      const body = { action: 'save', id: seqLeadId || undefined, name: seqName.trim() || _leadName, assetUri: seqNoPersona ? null : seqPersona.seedanceAssetUri, characterId: seqNoPersona ? ('none-lane:' + (seqNoneEngine || 'kling')) : (seqPersona.id || null), prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], ratio: seqRatio, duration: seqDuration, engine: seqNoPersona ? (seqNoneEngine || 'kling') : 'seedance-byteplus', thumbnailUrl: seqNoPersona ? (seqProductUrl.trim() || null) : (seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null), lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
+      const body = { action: 'save', id: seqLeadId || undefined, name: seqName.trim() || _leadName, assetUri: seqNoPersona ? null : seqPersona.seedanceAssetUri, characterId: seqNoPersona ? ('none-lane:' + (seqNoneEngine || 'kling')) : (seqPersona.id || null), prompt: shots[0], shots: shots, garmentUrls: seqProductUrl.trim() ? [seqProductUrl.trim()] : [], landingUrl: String(seqOriginUrl || '').trim() || null, origin: (seqOriginMeta || seqOriginSnap) ? { meta: seqOriginMeta, url: String(seqOriginUrl || '').trim() || null, snap: seqOriginSnap } : null, ratio: seqRatio, duration: seqDuration, engine: seqNoPersona ? (seqNoneEngine || 'kling') : 'seedance-byteplus', thumbnailUrl: seqNoPersona ? (seqProductUrl.trim() || null) : (seqPersona.thumbnailUrl || seqPersona.seedImageUrl || null), lastVideoUrl: firstVid, shotObjectives: shotObjectives, promo: seqPromo };
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(r => r.json());
-      if (d && d.template) { if (seqTemplates !== null) loadSeqTemplates(); setSeqSaveOpen(false); loadSeqTemplate(d.template); try { if (d.template.id && (seqOriginMeta || seqOriginSnap)) localStorage.setItem('seq:origin:' + d.template.id, JSON.stringify({ meta: seqOriginMeta, url: seqOriginUrl, snap: seqOriginSnap })); } catch (_) {} setSeqMsg(d.updated ? '✓ Lead updated.' : '✓ Lead saved — add the next ad with the + button.'); }
+      if (d && d.template) { if (seqTemplates !== null) loadSeqTemplates(); setSeqSaveOpen(false); loadSeqTemplate(d.template, { keepOrigin: true }); try { if (d.template.id && (seqOriginMeta || seqOriginSnap)) localStorage.setItem('seq:origin:' + d.template.id, JSON.stringify({ meta: seqOriginMeta, url: seqOriginUrl, snap: seqOriginSnap })); } catch (_) {} setSeqMsg(d.updated ? '✓ Lead updated.' : '✓ Lead saved — add the next ad with the + button.'); }
       else { setSeqErr(d && d.error ? ('Save failed: ' + d.error) : 'Save failed'); }
     } catch (_) { setSeqErr('Save failed — please try again.'); }
   };
-  const loadSeqTemplate = (t) => {
+  // Recover the full sequence origin (Google+Meta+landing) from the server when it's not in localStorage
+  // (wiped, account switch, or another device). The template LIST strips 'origin' for weight, so GET by id.
+  const _recoverSeqOrigin = (id, fallbackUrl) => {
+    if (!id) return;
+    (async () => {
+      try {
+        const _r = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify({ action: 'get', id: id }) });
+        const _d = await _r.json().catch(function () { return {}; });
+        const _o = _d && _d.template && _d.template.origin;
+        if (_o) { setSeqOriginMeta(_o.meta || null); setSeqOriginUrl(_o.url || fallbackUrl || ''); setSeqOriginSnap(_o.snap || null); }
+      } catch (_) {}
+    })();
+  };
+  const loadSeqTemplate = (t, opts) => {
     if (!t) return;
     const _isNone = !t.assetUri && (t.engine === 'kling' || t.engine === 'veo' || t.engine === 'runway');
     setSeqNoPersona(_isNone); if (_isNone) setSeqNoneEngine(t.engine);
+    const _isHeygen = !t.assetUri && t.engine === 'heygen-runway';
+    setSeqHeygen(_isHeygen);
+    if (_isHeygen) { const _avId = String(t.characterId || '').replace(/^heygen-lane:/, ''); const _av = (Array.isArray(charLib) ? charLib.find(function (c) { return c.heygenAvatarId === _avId || c.id === _avId; }) : null) || { heygenAvatarId: _avId, name: 'Live avatar', thumbnailUrl: t.thumbnailUrl || null }; setSeqHeygenChar(_av); } else { setSeqHeygenChar(null); }
     const persona = (Array.isArray(charLib) ? charLib.find(function (c) { return c.seedanceAssetUri && (c.id === t.characterId || c.seedanceAssetUri === t.assetUri); }) : null)
       || (t.assetUri ? { id: t.characterId || null, name: 'Lead persona', seedanceAssetUri: t.assetUri, thumbnailUrl: t.thumbnailUrl || null } : null);
     setSeqPersona(persona);
@@ -3816,18 +4539,64 @@ function RSAStudio() {
     setSeqShotObjectives((Array.isArray(t.shotObjectives) && t.shotObjectives.length) ? t.shotObjectives.slice(0, _shots.length) : _shots.map(function (_s, i) { return seqDefaultObjective(i, _shots.length); }));
     setSeqPromo(!!t.promo); setSeqShotMeta([]); setSeqLeadVideo(t.lastVideoUrl || null);
     setSeqLeadId(t.id || null); setSeqBuildNext(false); setSeqLeadObjective(t.objective || (Array.isArray(t.shotObjectives) && t.shotObjectives[0]) || 'awareness');
-    setSeqActiveAd(null); loadSequenceAds(t.id || null);
+    setSeqActiveAd(null); setSeqSequenceAds([]); if (t.id) loadSequenceAds(t.id);
     setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
-    setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
+    setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 10);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
-    try { localStorage.setItem('seq:lastLead', JSON.stringify(t)); } catch (_) {} setSeqLastLead(t);
-    try { if (!seqOriginMeta && t.id) { const _os = localStorage.getItem('seq:origin:' + t.id); if (_os) { const _oo = JSON.parse(_os); setSeqOriginMeta(_oo.meta || null); setSeqOriginUrl(_oo.url || (t.garmentUrls && t.garmentUrls[0]) || ''); setSeqOriginSnap(_oo.snap || null); } } } catch (_) {}
+    try { localStorage.setItem('seq:lastLead:' + (organization ? organization.id : (user?.id || '_')), JSON.stringify(t)); } catch (_) {} setSeqLastLead(t);
+    try {
+      if (opts && opts.keepOrigin) {
+        if (!seqOriginMeta && t.id) {
+          const _os = localStorage.getItem('seq:origin:' + t.id);
+          if (_os) { const _oo = JSON.parse(_os); setSeqOriginMeta(_oo.meta || null); setSeqOriginUrl(_oo.url || t.landingUrl || ''); setSeqOriginSnap(_oo.snap || null); }
+          else { _recoverSeqOrigin(t.id, t.landingUrl); } // no local copy → recover the stored origin from the server
+        }
+      } else {
+        // Switching templates → reset origin to THIS template's own (or clear) so view-mode/publish never reuse the previous template's copy.
+        let _oo = null; try { const _os = t.id ? localStorage.getItem('seq:origin:' + t.id) : null; if (_os) _oo = JSON.parse(_os); } catch (_) {}
+        setSeqOriginMeta((_oo && _oo.meta) || null);
+        setSeqOriginUrl((_oo && _oo.url) || t.landingUrl || '');
+        setSeqOriginSnap((_oo && _oo.snap) || null);
+        setSeqPubCopies({}); setSeqPubActiveKey(null); // keep per-ad copy in lockstep with the origin → no stale text over a new image
+        if (!_oo && t.id) { _recoverSeqOrigin(t.id, t.landingUrl); } // no local copy → recover the stored origin from the server
+      }
+    } catch (_) {}
+  };
+  // "Use as lead" — reuse a saved model-featuring ad's EXISTING video as the sequence lead (Ad #1), no
+  // regenerate. None lane, engine locked to the one that made the ad. Parallel to recreateOnPersona.
+  const useAsSequenceLead = async (it) => {
+    if (!it || !it.id) return;
+    setVaultBusy(it.id);
+    try {
+      const _res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: it.id }) });
+      const _data = await _res.json().catch(function () { return {}; });
+      const c = _data && _data.creative;
+      const _o = c ? rebuildFromCreative(c) : null;
+      const _video = (_o && _o.videoUrl) || null;
+      if (!c || !_video) { setVaultBusy(null); try { window.alert('This ad has no video to use as a lead.'); } catch (_) {} return; }
+      const _engine = (c.engine === 'runway' || c.engine === 'veo') ? c.engine : 'kling'; // face-friendly engine the ad was made with
+      const _img = it.thumb || (_o.metaResult && _o.metaResult.imageUrl) || '';
+      const _title = it.productTitle || '';
+      const _prompt = (_o.tiktokResult && _o.tiktokResult.videoPrompt) || ('The model from the lead ad' + (_title ? (' for ' + _title) : '') + ', in a bright modern setting, natural and relaxed. No on-screen text.');
+      const _origin = { meta: (_o.metaResult || null), url: (_o.url || null), snap: _o };
+      const body = { action: 'save', name: _title ? (_title + ' — sequence') : 'Model-image sequence', assetUri: null, characterId: 'none-lane:' + _engine, prompt: _prompt, shots: [_prompt], garmentUrls: _img ? [_img] : [], landingUrl: (_o.url || it.productUrl || null), origin: _origin, ratio: (c.ratio || '9:16'), duration: (c.duration || 10), engine: _engine, thumbnailUrl: _img || null, lastVideoUrl: _video, shotObjectives: ['awareness'], promo: false };
+      const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(function (r) { return r.json(); });
+      setVaultBusy(null);
+      if (d && d.template) {
+        if (seqTemplates !== null) loadSeqTemplates();
+        setShowVault(false);
+        try { localStorage.setItem('seq:origin:' + d.template.id, JSON.stringify(_origin)); } catch (_) {}
+        loadSeqTemplate(d.template, { keepOrigin: false });
+        openSeqBuilder(true);
+      } else { try { window.alert('Could not create the lead ad — please try again.'); } catch (_) {} }
+    } catch (_) { setVaultBusy(null); try { window.alert('Could not create the lead ad — please try again.'); } catch (_) {} }
   };
   const recreateOnPersona = (it) => {
     if (!it) return;
     setSeqProductUrl(it.thumb || '');
     // List items are trimmed (no channels.meta) — fetch the FULL creative for the original copy + landing.
     setSeqOriginMeta(null); setSeqOriginUrl(it.productUrl || ''); setSeqOriginSnap(null);
+    setSeqPubCopies({}); setSeqPubActiveKey(null); // keep per-ad copy in lockstep with the origin
     if (it.id) { (async () => { try { const _res = await fetch('/api/creatives', { method: 'POST', headers: await vaultHeaders(), body: JSON.stringify({ action: 'get', id: it.id }) }); const _data = await _res.json().catch(() => ({})); if (_data && _data.creative) { const _o = rebuildFromCreative(_data.creative); setSeqOriginSnap(_o || null); setSeqOriginMeta((_o && _o.metaResult) || null); setSeqOriginUrl((_o && _o.url) || it.productUrl || ''); } } catch (_) {} })(); }
     const prod = it.productTitle ? (it.productTitle + ' ') : '';
     setSeqShots(['The woman from Image 1, wearing the ' + prod + 'product shown in Image 2, in a bright modern setting, turning to the camera with a relaxed, natural smile. Keep her face exactly as in Image 1. No on-screen text or captions or watermarks.']);
@@ -3836,9 +4605,9 @@ function RSAStudio() {
     setSeqName(it.productTitle ? (it.productTitle + ' — persona') : '');
     setSeqPersona(null); setSeqNoPersona(false);
     setShowVault(false);
-    setSeqSelector('persona'); // ultra-short: land with the persona chooser already open
+    setSeqSelector(null); // collapsed on entry — user clicks "Choose a persona" to open the row
     setSeqAutoLead(true);      // first generate on this path auto-becomes the lead
-    openSeqBuilder();
+    openSeqBuilder(true);
   };
   // ── UGC ad generation (slice 3) — self-contained; branded flow untouched ──
   const [ugcAdResult, setUgcAdResult] = useState(null);   // generate-meta-ugc response | null
@@ -4413,6 +5182,8 @@ Rules:
     }
 
     setLoading(true); setError("");
+    // Declared client vertical (agency onboarding) — authoritative routing signal when set.
+    const _clientSel = (organization && organization.publicMetadata && VERTICAL_ENGINE_MAP[organization.publicMetadata.vertical]) || null;
     // New-domain run → wipe the UGC library so one client's creators never leak onto
     // another client's domain. Same host keeps it (re-run / different product page).
     if (ugcScanHostRef.current && ugcHostOf(url) !== ugcScanHostRef.current) resetUgcLibrary();
@@ -4479,6 +5250,16 @@ Rules:
       // ── Step 1: Scrape page metadata (language, meta description, title, OG tags) ──
       // clientLang from URL is used as guaranteed fallback if scrape fails or returns English
       let pageMeta = { language: clientLang || "English", title: null, metaDescription: null, siteName: null, h1: null };
+      // URL-based engine pre-detect — runs even when the scrape is blocked (bot-protected sites),
+      // so fashion/etc. URLs route to the right engine instead of silently defaulting to Kling.
+      // The richer scrape-based pass below refines this when the scrape succeeds.
+      try {
+        const _preSel = _clientSel || detectVertical(url, pageMeta);
+        setVideoEngine(_preSel.engine); videoEngineRef.current = _preSel.engine;
+        videoSelArchetypeRef.current = _preSel.archetype;
+        if (_preSel.engine === 'kling') setVideoArchetype(_preSel.archetype);
+        console.log('[model-select] url pre-detect:', _preSel.engine, _preSel.archetype);
+      } catch (_) {}
       try {
         // Auto-fetch favicon for PMax logo
         if (url.trim()) {
@@ -4549,7 +5330,7 @@ Rules:
           setPageMeta(pageMeta);
           // Auto model+variant select by vertical
           try {
-            const sel = detectVertical(url, pageMeta);
+            const sel = _clientSel || detectVertical(url, pageMeta);
             setVideoEngine(sel.engine);
             videoEngineRef.current = sel.engine;
             videoSelArchetypeRef.current = sel.archetype; // synchronous — storyboard call reads this
@@ -4894,6 +5675,8 @@ STRICT rules:
               const _csPick = (isPro && csTemplates.length > 0) ? csTemplates[(csRotationRef.current - 1 + csTemplates.length) % csTemplates.length] : null;
               const _tplEngine = _csPick ? TEMPLATE_ENGINE[_csPick] : null;
               if (_tplEngine) { setVideoEngine(_tplEngine); videoEngineRef.current = _tplEngine; }
+              else if (_clientSel) { setVideoEngine(_clientSel.engine); videoEngineRef.current = _clientSel.engine; /* declared client vertical is authoritative */ }
+              else if (videoEngineRef.current === 'runway') { setVideoEngine('runway'); /* keep the fashion/beauty vertical pick — don't let the image heuristic demote it to Kling */ }
               else { setVideoEngine(detectVideoEngine(tiktokSourceImageRef.current || initialImageUrl)); }
             }
             setVideoTask(null);
@@ -5082,9 +5865,8 @@ STRICT rules:
 
 
   // ── Auth Modal ───────────────────────────────────────────────────────────────
-  const AuthModal = () => {
-    const [localOptIn, setLocalOptIn] = useState(false);
-    return <div style={{
+  const [localOptIn, setLocalOptIn] = useState(false);
+  const authModalEl = (<div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 24,
     }} onClick={() => setShowAuthModal(false)}>
@@ -5106,8 +5888,8 @@ STRICT rules:
           ))}
         </div>
         {authMode === "sign-in"
-          ? <SignIn routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
-          : <SignUp routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" } }} />
+          ? <SignIn routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" }, elements: { otpCodeFieldInput: { border: "1px solid rgba(255,255,255,0.55)", color: "#e2e8f0" }, alert__warning: { background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.45)" }, alertText__warning: { color: "#fcd34d" } } }} />
+          : <SignUp routing="hash" appearance={{ variables: { colorPrimary: "#6366f1", colorBackground: "#0f172a", colorText: "#e2e8f0", colorInputBackground: "#1e293b", colorInputText: "#e2e8f0", borderRadius: "8px" }, elements: { otpCodeFieldInput: { border: "1px solid rgba(255,255,255,0.55)", color: "#e2e8f0" }, alert__warning: { background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.45)" }, alertText__warning: { color: "#fcd34d" } } }} />
         }
         {/* Marketing opt-in — below Clerk form, unchecked by default (GDPR compliant) */}
         {authMode === "sign-up" && (
@@ -5134,8 +5916,7 @@ STRICT rules:
           </div>
         )}
       </div>
-    </div>
-  };
+    </div>);
 
   // ── Gate Modal ───────────────────────────────────────────────────────────────
   const GateModal = () => (
@@ -5389,6 +6170,169 @@ STRICT rules:
   };
 
   // ── NEW UI Stage 1a: Overview front page ────────────────────────────────────
+  if (needsAccountType) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0f1e", padding: 20 }}>
+        <div style={{ maxWidth: 580, width: "100%", textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 900, color: "#e8eefc", marginBottom: 8 }}>Welcome 👋 How will you use AI Ad Studio?</div>
+          <div style={{ fontSize: 13, color: "#9db0c7", marginBottom: 24 }}>This sets up your workspace. You can change it later in settings.</div>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
+            <button disabled={acctSaving} onClick={() => chooseAccountType('personal')} style={{ flex: "1 1 240px", maxWidth: 260, textAlign: "left", padding: 18, borderRadius: 14, border: "1px solid rgba(255,255,255,0.12)", background: "#13213f", cursor: acctSaving ? "default" : "pointer", color: "#e8eefc" }}>
+              <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>🏢 One business</div>
+              <div style={{ fontSize: 12, color: "#9db0c7", lineHeight: 1.5 }}>You advertise a single company / domain. A clean, single workspace — no account switching.</div>
+            </button>
+            <button disabled={acctSaving} onClick={() => chooseAccountType('agency')} style={{ flex: "1 1 240px", maxWidth: 260, textAlign: "left", padding: 18, borderRadius: 14, border: "1px solid rgba(99,102,241,0.5)", background: "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(14,165,233,0.12))", cursor: acctSaving ? "default" : "pointer", color: "#e8eefc" }}>
+              <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>👥 An agency / multiple clients</div>
+              <div style={{ fontSize: 12, color: "#9db0c7", lineHeight: 1.5 }}>You run ads for several brands. Each client gets its own isolated workspace — switch between them, work stays separate.</div>
+            </button>
+          </div>
+          <div style={{ marginTop: 18, fontSize: 12, color: "#6366f1", minHeight: 16 }}>{acctSaving ? 'Setting up…' : ''}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (needsAgencyProfile) {
+    const _canSubmit = (agencyForm.company || '').trim().length > 0 && (agencyForm.domain || '').trim().length > 2 && !agencySaving;
+    const _inp = { marginTop: 6, width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "#0a1222", color: "#e8eefc", fontSize: 14 };
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0f1e", padding: 20 }}>
+        <div style={{ maxWidth: 520, width: "100%" }}>
+          <div style={{ textAlign: "center", marginBottom: 6, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#6366f1" }}>STEP 1 OF 2 · YOUR AGENCY</div>
+          <div style={{ textAlign: "center", fontSize: 22, fontWeight: 900, color: "#e8eefc", marginBottom: 6 }}>Set up your agency</div>
+          <div style={{ textAlign: "center", fontSize: 13, color: "#9db0c7", marginBottom: 22, lineHeight: 1.5 }}>Tell us about <strong style={{ color: "#cbd5e1" }}>your agency</strong> first. Next you'll create your first <strong style={{ color: "#cbd5e1" }}>client workspace</strong> — each client stays isolated.</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, background: "#101a33", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: 22 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Agency name
+              <input value={agencyForm.company} onChange={(e) => setAgencyForm({ ...agencyForm, company: e.target.value })} placeholder="e.g. Adbirds" style={_inp} />
+            </label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Agency domain
+              <input value={agencyForm.domain} onChange={(e) => setAgencyForm({ ...agencyForm, domain: e.target.value })} placeholder="e.g. adbirds.global" style={_inp} />
+            </label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#9db0c7" }}>Type of agency
+              <select value={agencyForm.type} onChange={(e) => setAgencyForm({ ...agencyForm, type: e.target.value })} style={_inp}>
+                <option value="">Select…</option>
+                <option value="performance">Performance / media buying</option>
+                <option value="creative">Creative / branding</option>
+                <option value="fullservice">Full-service</option>
+                <option value="social">Social media</option>
+                <option value="seo">SEO / content</option>
+                <option value="ecommerce">Ecommerce / DTC specialist</option>
+                <option value="freelancer">Freelancer / solo</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "#cbd5e1", cursor: "pointer" }}>
+              <input type="checkbox" checked={agencyForm.newsletter} onChange={(e) => setAgencyForm({ ...agencyForm, newsletter: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#6366f1" }} />
+              Send me product updates &amp; agency tips (occasional, no spam)
+            </label>
+            <button disabled={!_canSubmit} onClick={saveAgencyProfile} style={{ marginTop: 4, padding: "12px 16px", fontSize: 14, fontWeight: 800, borderRadius: 11, border: "none", cursor: _canSubmit ? "pointer" : "default", opacity: _canSubmit ? 1 : 0.5, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{agencySaving ? 'Saving…' : 'Continue → create first client'}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const upgradeModalEl = (
+        <div onClick={() => setShowUpgradeModal(false)} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+          backdropFilter: "blur(6px)", zIndex: 3100,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: "#0f1623", border: "1px solid rgba(99,102,241,0.4)",
+            borderRadius: 16, width: "100%", maxWidth: 480,
+            boxShadow: "0 24px 64px rgba(0,0,0,0.6)", overflow: "hidden",
+          }}>
+            {/* Header */}
+            <div style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.2),rgba(14,165,233,0.2))", padding: "24px 24px 20px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6366f1", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Upgrade to Pro</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", letterSpacing: "-0.02em" }}>
+                {upgradeFeature === 'imagen' ? "✦ Imagen is a Pro feature" :
+                 upgradeFeature === 'batch' ? "📦 Batch upload is a Pro feature" :
+                 upgradeFeature === 'api' ? "⚡ API access is a Pro feature" :
+                 upgradeFeature === 'creative-studio' ? "✦ Creative Studio is a Pro feature" :
+                 "🚀 Unlock Pro features"}
+              </div>
+              <div style={{ fontSize: 12, color: "#7e92a8", marginTop: 6 }}>
+                {upgradeFeature === 'imagen' ? "You've used your 5 free Imagen generations. Upgrade for unlimited." :
+                 upgradeFeature === 'batch' ? "Process multiple URLs at once with the batch uploader." :
+                 upgradeFeature === 'creative-studio' ? "Shape how your video ads look and feel with brand-consistent storyline templates." :
+                 "Get unlimited access to all RSA Studio features."}
+              </div>
+            </div>
+
+            {/* Plan toggle */}
+            <div style={{ padding: "20px 24px 0" }}>
+              <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: 4, marginBottom: 20 }}>
+                {["monthly","annual"].map(p => (
+                  <button key={p} onClick={() => setUpgradePlan(p)} style={{
+                    flex: 1, padding: "8px 0", fontSize: 12, fontWeight: 700, borderRadius: 7,
+                    cursor: "pointer", transition: "all 0.2s", border: "none",
+                    background: upgradePlan === p ? "linear-gradient(135deg,#6366f1,#0ea5e9)" : "transparent",
+                    color: upgradePlan === p ? "white" : "#4a5568",
+                  }}>
+                    {p === "monthly" ? "€69 / month" : "€590 / year"}
+                    {p === "annual" && <span style={{ fontSize: 9, marginLeft: 6, background: "rgba(52,211,153,0.2)", color: "#34d399", padding: "1px 5px", borderRadius: 10 }}>Save 29%</span>}
+                  </button>
+                ))}
+              </div>
+
+              {/* Features list */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+                {[
+                  "✦ Unlimited Imagen generations",
+                  "📦 Batch URL uploader",
+                  "⚡ API access",
+                  "🎯 Ad & image library",
+                  "📈 Performance library",
+                  "∞ Unlimited RSA & Meta ads",
+                  "🔍 Advanced domain scan",
+                  "💬 Priority support",
+                ].map(f => (
+                  <div key={f} style={{ fontSize: 11, color: "#7e92a8", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: "#34d399", fontSize: 10 }}>✓</span>{f}
+                  </div>
+                ))}
+              </div>
+
+              {/* Trial note */}
+              <div style={{ fontSize: 10, color: "#4a5568", textAlign: "center", marginBottom: 16 }}>
+                🎁 30-day free trial — cancel anytime, no questions asked
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div style={{ padding: "0 24px 24px" }}>
+              <button onClick={async () => {
+                if (!isSignedIn) { setShowUpgradeModal(false); setShowAuthModal(true); return; }
+                setUpgradeLoading(true);
+                try {
+                  const r = await fetch('/api/stripe-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ plan: upgradePlan, userId: user.id, email: user.primaryEmailAddress?.emailAddress }),
+                  });
+                  const d = await r.json();
+                  if (d.url) window.location.href = d.url;
+                  else alert(d.error || 'Checkout failed');
+                } catch(e) { alert(e.message); }
+                setUpgradeLoading(false);
+              }} style={{
+                width: "100%", padding: "14px", fontSize: 14, fontWeight: 800,
+                background: upgradeLoading ? "rgba(99,102,241,0.3)" : "linear-gradient(135deg,#6366f1,#0ea5e9)",
+                color: "white", border: "none", borderRadius: 10, cursor: upgradeLoading ? "default" : "pointer",
+                boxShadow: "0 4px 20px rgba(99,102,241,0.4)", transition: "all 0.3s",
+              }}>
+                {upgradeLoading ? "Redirecting to checkout..." : `Start free trial — ${upgradePlan === 'annual' ? '€590/yr' : '€69/mo'}`}
+              </button>
+              <button onClick={() => setShowUpgradeModal(false)} style={{
+                width: "100%", marginTop: 10, padding: "10px", fontSize: 12,
+                background: "none", border: "none", color: "#4a5568", cursor: "pointer",
+              }}>Maybe later</button>
+            </div>
+          </div>
+        </div>
+  );
   if (viewMode === "overview") {
     const openDetail = (fmt) => { if (!isSignedIn) { setShowAuthModal(true); return; } setAdFormat(fmt); setViewMode("detailed"); };
     const googleReady = generated && rows && rows.length > 0;
@@ -5408,7 +6352,8 @@ STRICT rules:
         display: "flex", flexDirection: "column", alignItems: "center", padding: "0 20px",
       }}>
         {/* overview-auth-bar */}
-        {showAuthModal && <AuthModal />}
+        {showAuthModal && authModalEl}
+        {showUpgradeModal && upgradeModalEl}
         {/* video-wall-overview */}
         {videoWallOpen && (
           <div onClick={() => setVideoWallOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 24 }}>
@@ -5506,7 +6451,7 @@ STRICT rules:
                       color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)', cursor: 'pointer',
                     }}>▶ Replay</button>
                     <button onClick={async () => {
-                      await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
+                      await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
                       setLibrary(prev => prev.filter(e => e.id !== entry.id));
                     }} style={{
                       padding: '6px 8px', fontSize: 11, borderRadius: 7,
@@ -5533,6 +6478,18 @@ STRICT rules:
               )}
               {isPro && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", letterSpacing: "0.05em" }}>PRO</span>}
               <span style={{ fontSize: 11, color: "#8fa3b8" }}>{user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}</span>
+              {showOrgUI && (<>
+              {organization
+                ? <span title="You are working in this client workspace — ads you build here belong to it" style={{ fontSize: 10, fontWeight: 800, color: "#06281f", background: "#fbbf24", borderRadius: 8, padding: "3px 9px", letterSpacing: "0.03em", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>⬢ {organization.name}</span>
+                : (accountType === 'agency'
+                  ? <span title="No client workspace selected — create or pick a client" style={{ fontSize: 10, fontWeight: 800, color: "#fbbf24", border: "1px solid rgba(251,191,36,0.5)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>⬡ Select a client</span>
+                  : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>)}
+              <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }, organizationSwitcherPopoverActionButton__createOrganization: { display: "none" } } }} />
+              <button onClick={() => setShowCreateClient(true)} title="Create a new client workspace" style={{ fontSize: 11, fontWeight: 800, color: "#c7d2fe", background: "rgba(99,102,241,0.18)", border: "1px solid rgba(99,102,241,0.5)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>+ New client</button>
+              {organization ? <button onClick={openEditDomains} title="Edit this client's domains" style={{ fontSize: 11, fontWeight: 800, color: "#9db0c7", background: "transparent", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 8, padding: "4px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>⚙ Domains</button> : null}
+              {editDomainsModalEl}
+              {createClientModalEl}
+              </>)}
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
           ) : (
@@ -5550,6 +6507,14 @@ STRICT rules:
           <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: "-0.02em", color: "white" }}>AI Ad Studio</div>
           <div style={{ fontSize: 16, color: "#7e92a8", marginTop: 8 }}>Your next online campaign starts here.</div>
 
+          {accountType === 'agency' && !organization && !acctBannerHidden ? (
+            <div style={{ marginTop: 20, maxWidth: 720, marginLeft: "auto", marginRight: "auto", display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "linear-gradient(135deg, rgba(99,102,241,0.14), rgba(14,165,233,0.10))", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 12, padding: "12px 14px" }}>
+              <div style={{ flex: 1, fontSize: 13, color: "#cbd5e1", lineHeight: 1.5 }}><strong style={{ color: "#e8eefc" }}>👥 You're set up as an agency.</strong> Create your first client workspace — each client's ads, library and personas stay isolated.</div>
+              <button onClick={() => setShowCreateClient(true)} style={{ padding: "8px 14px", fontSize: 12, fontWeight: 800, borderRadius: 9, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", whiteSpace: "nowrap" }}>Create client workspace</button>
+              <button onClick={() => setAcctBannerHidden(true)} title="Dismiss" style={{ padding: "6px 8px", fontSize: 13, borderRadius: 8, border: "none", cursor: "pointer", background: "transparent", color: "#8fa3b8" }}>✕</button>
+            </div>
+          ) : null}
+
           {/* URL box + format selectors */}
           <div style={{ marginTop: 36, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, padding: 20 }}>
             <input
@@ -5559,6 +6524,7 @@ STRICT rules:
               placeholder="Paste a product URL (https://...)"
               style={{ width: "100%", boxSizing: "border-box", padding: "14px 16px", fontSize: 15, borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "white", outline: "none" }}
             />
+            {domainNudgeEl}
             <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
               <span style={{ fontSize: 12, color: "#7e92a8" }}>Generate:</span>
               <span style={{ fontSize: 12, color: "#a5b4fc", padding: "6px 12px", background: "rgba(99,102,241,0.15)", borderRadius: 8, fontWeight: 700 }}>Google ✓</span>
@@ -5702,7 +6668,7 @@ STRICT rules:
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
                   <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★ Saved" : "☆ Save")}</span>
                   <span title="Ships the selected formats to Google Ads — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startGooglePublishChain(); }} style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
@@ -5794,7 +6760,7 @@ STRICT rules:
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span style={{ fontSize: 11, color: "#0866FF", fontWeight: 700 }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★ Saved" : "☆ Save")}</span>
                   <span title="Ships the selected Meta formats to Meta Ads Manager — review your copy in the editor first." onClick={(e) => { e.stopPropagation(); startMetaPublishChain(); }} style={{ fontSize: 11, color: "#0866FF", fontWeight: 700, cursor: "pointer" }}>Publish</span>
                 </div>
               </div>
@@ -5856,7 +6822,7 @@ STRICT rules:
                 </div>
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff" }}>
                   <span onClick={(e) => { e.stopPropagation(); if (!isSignedIn) { setShowAuthModal(true); return; } setAdFormat("tiktok"); setViewMode("detailed"); }} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: "pointer" }}>Open editor →</span>
-                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 14, color: "#f59e0b", cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★" : "☆")}</span>
+                  <span onClick={(e) => { e.stopPropagation(); saveCurrentToVault(); }} title={isCurrentVaultSaved() ? "Saved to your Ad Library" : "Save to your Ad Library"} style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, cursor: vaultSaving ? "default" : "pointer", lineHeight: 1 }}>{vaultSaving ? "⋯" : (isCurrentVaultSaved() ? "★ Saved" : "☆ Save")}</span>
                   <span onClick={(e) => { e.stopPropagation();
                     if (!isSignedIn) { setShowAuthModal(true); return; }
                     if (!metaConn.connected) { triggerMetaConnect(); return; }
@@ -6141,7 +7107,7 @@ STRICT rules:
               })() : null}
               {/* Lead ad — the opening video; + appends the next ad in the sequence */}
               <div style={{ display: "flex", justifyContent: "center", marginBottom: (seqLeadId && !seqBuildNext) ? 30 : 12 }}>
-                {(seqPersona || seqNoPersona) ? (
+                {(seqPersona || seqNoPersona || seqHeygen) ? (
                   <div style={{ position: "relative", display: "inline-block", maxWidth: "58%" }}>
                     <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(245,158,11,0.35)", background: "#0b1322", lineHeight: 0 }}>
                       {(seqActiveAd && seqActiveAd.video) ? (
@@ -6168,7 +7134,7 @@ STRICT rules:
                       <button onClick={openNextAd} title="Add a sequential ad" style={{ position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)", width: 48, height: 48, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 900, lineHeight: 1, color: "white", background: "linear-gradient(135deg,#f59e0b,#ef4444)", border: "3px solid #0f172a", boxShadow: "0 4px 14px rgba(0,0,0,0.45)", cursor: "pointer" }}>+</button>
                     ) : null}
                     {(seqLeadId && !seqBuildNext && !seqActiveAd) ? (
-                      <button onClick={() => { setSeqAutoLead(true); generateSequence(); }} disabled={seqBusy} title="Regenerate the lead video — updates this template in place" style={{ position: "absolute", top: 10, left: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#fbbf24", cursor: seqBusy ? "default" : "pointer", lineHeight: 1.1 }}>{seqBusy ? "⟳…" : "↻ Regenerate lead"}</button>
+                      <button onClick={() => { if (seqHeygen) { setSeqMsg('Regenerating a live-presenter lead is coming in the next update.'); return; } setSeqAutoLead(true); generateSequence(); }} disabled={seqBusy} title="Regenerate the lead video — updates this template in place" style={{ position: "absolute", top: 10, left: 10, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.6)", color: "#fbbf24", cursor: seqBusy ? "default" : "pointer", lineHeight: 1.1 }}>{seqBusy ? "⟳…" : "↻ Regenerate lead"}</button>
                     ) : null}
                     {(seqLeadId && !seqActiveAd && Array.isArray(seqSequenceAds) && seqSequenceAds.length > 0) ? (
                       <span title={"This lead has " + seqSequenceAds.length + " linked ad(s) — see the Sequence rack above"} style={{ position: "absolute", bottom: 10, left: 10, fontSize: 11, fontWeight: 800, color: "white", background: "rgba(99,102,241,0.92)", borderRadius: 8, padding: "3px 9px", lineHeight: 1.1 }}>{"🎬 +" + seqSequenceAds.length}</span>
@@ -6216,16 +7182,40 @@ STRICT rules:
               {seqBuildNext ? (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(139,92,246,0.3)", background: "rgba(139,92,246,0.08)" }}>
                   <span style={{ fontSize: 12, fontWeight: 800, color: "#c4b5fd" }}>➕ New sequential ad <span style={{ color: "#8ea2b8", fontWeight: 600 }}>· following your lead</span></span>
+                  {!seqHeygen ? <button onClick={() => { const _av = seqHeygenChar || (Array.isArray(charLib) ? charLib.find(function (c) { return c.heygenAvatarId; }) : null); if (!_av) { setSeqErr('Save or pick a live-avatar persona first (Personas → Live avatar).'); return; } setSeqOpen(false); openHeygenGen(_av, true, { appendTo: seqLeadId, productImg: (seqProductUrl || '').trim() }); }} title="Make this next ad a live presenter (HeyGen) ad" style={{ marginLeft: "auto", marginRight: 8, padding: "5px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.14)", color: "#c4b5fd", cursor: "pointer", whiteSpace: "nowrap" }}>🎤 Live-avatar ad</button> : null}
                   <button onClick={() => { setSeqBuildNext(false); setSeqResults([]); }} style={{ fontSize: 10.5, fontWeight: 700, color: "#9db0c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 7, padding: "4px 10px", cursor: "pointer" }}>✕ Cancel</button>
                 </div>
               ) : null}
+              {seqHeygen ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "26px 16px 22px" }}>
+                  <div style={{ fontSize: 11.5, color: "#9db0c7", textAlign: "center", maxWidth: 340, lineHeight: 1.5 }}>Your next ad continues this live presenter — generate it on the HeyGen · Runway screen.</div>
+                  <button onClick={() => { const _av = seqHeygenChar || (Array.isArray(charLib) ? charLib.find(function (c) { return c.heygenAvatarId; }) : null); if (!_av) { setSeqErr('Save or pick a live-avatar persona first (Personas → Live avatar).'); return; } setSeqOpen(false); openHeygenGen(_av, true, { appendTo: seqLeadId, productImg: (seqProductUrl || '').trim() }); }} style={{ padding: "12px 24px", fontSize: 13, fontWeight: 800, borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>🎤 Create live-avatar ad</button>
+                </div>
+              ) : (<>
               {/* Unified attribute selectors — persona / objective / market / interaction */}
               {(() => {
-                const personasAll = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri; }) : [];
+                const personasAll = Array.isArray(charLib) ? charLib.filter(function (c) { return c.seedanceAssetUri || c.heygenAvatarId; }) : [];
+                // Persona preference by product type (ref. routing matrix): wearable/mergeable -> synthetic, presentable -> avatar.
+                const _personaPref = (function () {
+                  const hay = ((seqOriginUrl || '') + ' ' + (seqProductUrl || '') + ' ' + ((seqOriginMeta && (seqOriginMeta.title || '')) || '') + ' ' + ((seqOriginMeta && (seqOriginMeta.metaDescription || '')) || '')).toLowerCase();
+                  const WEAR = ['fashion','apparel','clothing','clothes','dress','kleid','kjole','shirt','tshirt','t-shirt','tee','top','blouse','bluse','skjorte','trouser','hose','bukser','jeans','jacket','jacke','jakke','coat','sweater','pullover','hoodie','strik','mode','bekleidung','beauty','cosmetic','kosmetik','skincare','makeup','make-up','perfume','parfum','lipstick','serum','pflege','jewel','schmuck','smykke','necklace','halskæde','bracelet','armband','earring','watch','uhr','shoe','schuh','sko','sneaker','boot','sandal','heel','footwear'];
+                  const PRES = ['gadget','electronic','elektronik','headphone','kopfhörer','earbud','speaker','lautsprecher','charger','powerbank','appliance','haushalt','hvidevar','kitchen','küche','køkken','vacuum','staubsauger','blender','cookware','decor','deko','interior','indretning','furniture','möbel','møbel','lamp','tool','werkzeug','værktøj','supplement','vitamin','protein','food','beverage','drink','getränk','drikke','coffee','kaffe','book','buch','bog','toy','spielzeug','legetøj'];
+                  const hit = function (arr) { for (var i = 0; i < arr.length; i++) { if (hay.indexOf(arr[i]) !== -1) return true; } return false; };
+                  if (hit(WEAR)) return 'synthetic';
+                  if (hit(PRES)) return 'avatar';
+                  return null;
+                })();
                 const personaBoxes = (function () {
                   const out = []; const seen = {};
+                  const isAv = function (c) { return !!c.heygenAvatarId; };
+                  const synth = personasAll.filter(function (c) { return !isAv(c); });
+                  const avs = personasAll.filter(isAv);
+                  let ordered;
+                  if (personasAll.length <= 5 || !_personaPref) ordered = personasAll;
+                  else if (_personaPref === 'avatar') ordered = avs.concat(synth);
+                  else ordered = synth.concat(avs);
                   if (seqPersona && seqPersona.id) { out.push(seqPersona); seen[seqPersona.id] = 1; }
-                  for (const c of personasAll) { if (out.length >= 4) break; if (!seen[c.id]) { out.push(c); seen[c.id] = 1; } }
+                  for (const c of ordered) { if (out.length >= 5) break; if (!seen[c.id]) { out.push(c); seen[c.id] = 1; } }
                   return out;
                 })();
                 const MARKET_OPTS = [{ id: 'auto', label: 'Auto', icon: '🌐' }, { id: 'scandinavia', label: 'Scandinavia', icon: '❄️' }, { id: 'uk', label: 'UK', icon: '🇬🇧' }, { id: 'germany', label: 'Central EU', icon: '🇪🇺' }, { id: 'us', label: 'US', icon: '🇺🇸' }];
@@ -6271,7 +7261,7 @@ STRICT rules:
                       <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.02)", display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
                         {seqSelector === 'persona' ? (
                           <>
-                            <div onClick={() => { setSeqOpen(false); setShowCreativeStudio(true); setSeqReturn(true); loadCharLibrary(); }} title="Create a new synthetic persona" style={{ cursor: "pointer", width: 92, borderRadius: 10, overflow: "hidden", border: "1px dashed #3a4a74", background: "#13213f", textAlign: "center" }}>
+                            <div onClick={() => { if (!isPro) { setUpgradeFeature('creative-studio'); setShowUpgradeModal(true); return; } setSeqOpen(false); setShowCreativeStudio(true); setSeqReturn(true); loadCharLibrary(); try { setTimeout(function () { var el = document.getElementById('personas-section'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 240); } catch (_) {} }} title="Create a new persona" style={{ cursor: "pointer", width: 92, borderRadius: 10, overflow: "hidden", border: "1px dashed #3a4a74", background: "#13213f", textAlign: "center" }}>
                               <div style={{ position: "relative", aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                 <span style={{ fontSize: 34, color: "#6b82b8", lineHeight: 1 }}>☺</span>
                                 <div style={{ position: "absolute", bottom: 4, right: 4, width: 16, height: 16, borderRadius: "50%", background: "#8b5cf6", color: "white", fontSize: 11, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</div>
@@ -6287,8 +7277,9 @@ STRICT rules:
                             {personaBoxes.map(function (c) {
                               const on = seqPersona && seqPersona.id === c.id;
                               return (
-                                <div key={c.id} onClick={() => { setSeqPersona(c); setSeqNoPersona(false); setSeqSelector(null); setSeqLeadVideo(null); }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center" }}>
+                                <div key={c.id} onClick={() => { if (c.heygenAvatarId) { setSeqOpen(false); setSeqSelector(null); openHeygenGen(c, true); } else { setSeqPersona(c); setSeqNoPersona(false); setSeqSelector(null); setSeqLeadVideo(null); } }} style={{ ...boxBase, ...(on ? boxOn : {}), width: 92, textAlign: "center", position: "relative" }}>
                                   <div style={{ aspectRatio: "1" }}><img src={c.thumbnailUrl || c.seedImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#1e293b" }} /></div>
+                                  {c.heygenAvatarId ? <div style={{ position: "absolute", top: 3, left: 3, fontSize: 8, fontWeight: 800, color: "#0b1020", background: "rgba(196,181,253,0.95)", borderRadius: 4, padding: "1px 4px", lineHeight: 1.1 }}>🎤 Live</div> : null}
                                   <div style={{ padding: "3px 4px 5px", fontSize: 9, color: "#c7d2e0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Persona"}</div>
                                 </div>
                               );
@@ -6396,6 +7387,7 @@ STRICT rules:
                 <button onClick={generateSequence} disabled={seqBusy} style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: seqBusy ? "rgba(245,158,11,0.4)" : "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white" }}>{seqBusy ? "⟳ Generating…" : (seqBuildNext ? "🎬 Generate this ad" : ((!seqLeadId && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? "↻ Regenerate" : "🎬 Generate lead ad"))}</button>
                 {(!seqLeadId && !seqBuildNext && Array.isArray(seqResults) && seqResults.some(function (r) { return r.videoUrl; })) ? <button onClick={saveSeqTemplate} disabled={seqBusy} title="Save this as your sequence lead, then add the next ad" style={{ padding: "9px 18px", fontSize: 12.5, fontWeight: 800, borderRadius: 8, border: "none", cursor: seqBusy ? "default" : "pointer", background: "linear-gradient(135deg,#10b981,#059669)", color: "white" }}>✓ Save as lead & start sequence</button> : null}
               </div>
+              </>)}
               </>) : null}
               {seqErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginBottom: 12 }}>{seqErr}</div> : null}
 
@@ -6441,7 +7433,7 @@ STRICT rules:
               </div>
               <div style={{ fontSize: 12.5, color: "#9db0c7", lineHeight: 1.5, marginBottom: 16 }}>Paste a Shopify or WooCommerce store URL, a Wix shop-page URL, or a Google Merchant (GMC) feed URL. We read the catalog and show a sample of your products, normalized and ready for ad generation.</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <input value={feedSource} onChange={e => { const v = e.target.value; setFeedSource(v); const nh = feedHostOf(v); if (feedResult && nh && nh !== feedHostOf(feedResult.source || feedResult.feedUrl || '')) { setFeedResult(null); setFeedError(''); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null); setFeedView('products'); setFeedOutputs({}); acceptFeedTerms(false); try { localStorage.removeItem('rsa_feed_cache_v1'); localStorage.removeItem('rsa_feed_outputs_v1'); } catch (_) {} } }} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
+                <input value={feedSource} onChange={e => { const v = e.target.value; setFeedSource(v); const nh = feedHostOf(v); if (feedResult && nh && nh !== feedHostOf(feedResult.source || feedResult.feedUrl || '')) { setFeedResult(null); setFeedError(''); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null); setFeedView('products'); setFeedOutputs({}); acceptFeedTerms(false); try { localStorage.removeItem(_feedScopeKey('rsa_feed_cache_v1')); localStorage.removeItem(_feedScopeKey('rsa_feed_outputs_v1')); } catch (_) {} } }} onKeyDown={e => { if (e.key === 'Enter') fetchFeed(); }} placeholder="https://yourstore.com   or   https://…/googleMerchant" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", color: "white", border: "1px solid rgba(255,255,255,0.12)", fontSize: 13 }} />
                 <button onClick={fetchFeed} disabled={feedLoading || !feedTermsAccepted || feedBatchBusy || !!feedSingleBusy} title={!feedTermsAccepted ? 'Accept the Product Feed Upload Terms to continue' : ((feedBatchBusy || feedSingleBusy) ? 'Generation in progress — please wait' : '')} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 800, borderRadius: 8, border: "none", cursor: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "default" : "pointer", background: (feedLoading || !feedTermsAccepted || feedBatchBusy || feedSingleBusy) ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)", color: "#06281f", whiteSpace: "nowrap" }}>{feedLoading ? 'Reading…' : 'Fetch feed'}</button>
               </div>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, fontSize: 12, color: (feedLoading || feedResult) ? "#5a6b80" : "#9db0c7", lineHeight: 1.45 }}>
@@ -6519,8 +7511,9 @@ STRICT rules:
                             </div>
                           </div>
                           {isReady ? (
-                            <div style={{ display: "flex", gap: 6, padding: "0 10px 10px" }}>
-                              <button onClick={() => approveFeedOutput(o)} disabled={o.approving || o.approved} style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (o.approving || o.approved) ? "default" : "pointer", background: o.approved ? "rgba(45,212,191,0.15)" : (o.approving ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)"), color: o.approved ? "#5eead4" : "#06281f", whiteSpace: "nowrap" }}>{o.approved ? '✓ Saved' : (o.approving ? 'Saving…' : 'Save')}</button>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 10px 10px" }}>
+                              <button onClick={() => approveFeedOutput(o)} disabled={o.approving || o.approved} style={{ width: "100%", padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (o.approving || o.approved) ? "default" : "pointer", background: o.approved ? "rgba(45,212,191,0.15)" : (o.approving ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)"), color: o.approved ? "#5eead4" : "#06281f", whiteSpace: "nowrap" }}>{o.approved ? '✓ Saved' : (o.approving ? 'Saving…' : 'Save')}</button>
+                              {o.approved ? <button onClick={() => { setFeedOpen(false); openVault(); }} style={{ width: "100%", padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(99,102,241,0.5)", cursor: "pointer", background: "rgba(99,102,241,0.12)", color: "#a5b4fc", whiteSpace: "nowrap" }}>📚 View in library</button> : null}
                             </div>
                           ) : null}
                           {o.approveError ? <div style={{ padding: "0 10px 8px", fontSize: 10, color: "#fca5a5", lineHeight: 1.4 }}>{o.approveError}</div> : null}
@@ -6623,6 +7616,7 @@ STRICT rules:
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title || '(untitled)'}</div>
                           <div style={{ fontSize: 11, color: "#9db0c7", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            {p.link && queuedFeedLinks.has(p.link) ? <span title="In a scheduled/running overnight batch" style={{ fontSize: 9, fontWeight: 800, color: "#06281f", background: "#34d399", borderRadius: 4, padding: "1px 5px" }}>🌙 In queue</span> : (() => { const _did = p.link && feedDoneByLink[p.link]; return (_did && !feedSeen.has(_did)) ? <span onClick={(e) => { e.stopPropagation(); markFeedSeen(_did); setFeedOpen(false); openVault(); setVaultTab('ads'); }} title="This ad is ready — view it in your Library (dismisses this)" style={{ fontSize: 9, fontWeight: 800, color: "#06281f", background: "#5eead4", borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>✓ Completed · view</span> : null; })()}
                             {p.price ? (
                               <span>
                                 {p.onSale && p.regularPrice ? <span style={{ color: "#6b7a8d", textDecoration: "line-through", marginRight: 4 }}>{p.regularPrice}{p.currency ? (' ' + p.currency) : ''}</span> : null}
@@ -6738,11 +7732,30 @@ STRICT rules:
               {vaultError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10, flexShrink: 0 }}>{vaultError}</div>}
               <div style={{ flex: 1, overflowY: "auto" }}>
                 {vaultTab === 'templates' ? (
-                  (seqTemplates === null || (Array.isArray(seqTemplates) && seqTemplates.length === 0)) ? (
-                    <div style={emptyStyle}>{seqTemplates === null ? 'Loading templates…' : 'No template ads yet — build a sequence lead in the Sequential Ad Builder, then use “Save as template to library”.'}</div>
+                  <>
+                  {(() => {
+                    const _isAv = function (t) { return t && (t.engine === 'heygen-runway' || String(t.characterId || '').indexOf('heygen-lane:') === 0); };
+                    const _avN = Array.isArray(seqTemplates) ? seqTemplates.filter(_isAv).length : 0;
+                    const _syN = Array.isArray(seqTemplates) ? (seqTemplates.length - _avN) : 0;
+                    if (!Array.isArray(seqTemplates) || seqTemplates.length === 0) return null;
+                    return (
+                      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                        {[{ id: 'all', label: 'All', n: seqTemplates.length }, { id: 'synthetic', label: '🧬 Synthetic', n: _syN }, { id: 'avatar', label: '🎤 Live avatar', n: _avN }].map(function (k) {
+                          const on = seqTplKind === k.id;
+                          return <button key={k.id} onClick={() => setSeqTplKind(k.id)} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 800, borderRadius: 8, cursor: "pointer", border: on ? "1px solid rgba(99,102,241,0.6)" : "1px solid rgba(255,255,255,0.12)", background: on ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.03)", color: on ? "#c4b5fd" : "#9db0c7" }}>{k.label + " · " + k.n}</button>;
+                        })}
+                      </div>
+                    );
+                  })()}
+                  {(() => {
+                    const _isAv = function (t) { return t && (t.engine === 'heygen-runway' || String(t.characterId || '').indexOf('heygen-lane:') === 0); };
+                    const _list = Array.isArray(seqTemplates) ? seqTemplates.filter(function (t) { return seqTplKind === 'all' ? true : (seqTplKind === 'avatar' ? _isAv(t) : !_isAv(t)); }) : seqTemplates;
+                    return (
+                  (_list === null || (Array.isArray(_list) && _list.length === 0)) ? (
+                    <div style={emptyStyle}>{seqTemplates === null ? 'Loading templates…' : 'No template ads in this view.'}</div>
                   ) : (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 12 }}>
-                      {seqTemplates.map(function (t) {
+                      {_list.map(function (t) {
                         const nShots = (t.shots && t.shots.length) || 1;
                         const objs = Array.isArray(t.shotObjectives) ? t.shotObjectives : [];
                         return (
@@ -6766,7 +7779,7 @@ STRICT rules:
                                   );
                                 })}
                               </div>
-                              <button onClick={() => { loadSeqTemplate(t); setShowVault(false); openSeqBuilder(); }} style={{ padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", marginTop: 2 }}>⚡ Load into builder</button>
+                              <button onClick={() => { loadSeqTemplate(t); setShowVault(false); openSeqBuilder(true); }} style={{ padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "white", marginTop: 2 }}>⚡ Load into builder</button>
                               <div style={{ display: "flex", gap: 6, marginTop: "auto" }}>
                                 {seqTplConfirm === t.id ? (
                                   <button onClick={() => deleteSeqTemplate(t.id)} style={{ flex: 1, padding: "6px 10px", fontSize: 11, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "1px solid rgba(248,113,113,0.5)", background: "rgba(248,113,113,0.15)", color: "#fca5a5" }}>Sure?</button>
@@ -6780,6 +7793,9 @@ STRICT rules:
                       })}
                     </div>
                   )
+                    );
+                  })()}
+                  </>
                 ) : (vaultLoading && !items.length) ? (
                   <div style={emptyStyle}>Loading your library…</div>
                 ) : items.length === 0 ? (
@@ -6816,7 +7832,10 @@ STRICT rules:
                             {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
                           </select>
                         </div>
-                        <button onClick={() => recreateOnPersona(it)} disabled={busy} title="Feature this product on one of your saved personas" style={{ padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#f59e0b)", color: "white", marginTop: 2 }}>✨ Recreate on a persona</button>
+                        <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+                          <button onClick={() => { if (!isPro) { setUpgradeFeature('creative-studio'); setShowUpgradeModal(true); return; } recreateOnPersona(it); }} disabled={busy} title="Feature this product on one of your saved personas" style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#f59e0b)", color: "white" }}>Add persona</button>
+                          {it.hasVideo ? <button onClick={() => { if (!isPro) { setUpgradeFeature('creative-studio'); setShowUpgradeModal(true); return; } useAsSequenceLead(it); }} disabled={busy} title="Use this ad's existing video as the lead (Ad #1) of a new sequence — no regenerate" style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#f59e0b,#f97316)", color: "white" }}>Use as lead</button> : null}
+                        </div>
                         <div style={{ display: "flex", gap: 6, marginTop: "auto" }}>
                           <button onClick={() => openVaultItem(it)} disabled={busy} style={{ flex: 1, padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer", background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white" }}>{busy ? '…' : 'Open'}</button>
                           {vaultConfirm === it.id ? (
@@ -6838,6 +7857,79 @@ STRICT rules:
         })()}
 
         {/* Creative Studio panel */}
+                {hgGenOpen && (() => {
+                  const _g = (hgGenChar && (hgGenChar.gender || '')).toString().toLowerCase();
+                  const _all = hgGenVoices || [];
+                  const _voices = (_g && _all.some(function (v) { return (v.gender || '').toLowerCase() === _g; })) ? _all.filter(function (v) { return (v.gender || '').toLowerCase() === _g; }) : _all;
+                  const _sel = _voices.find(function (v) { return v.voiceId === hgGenVoiceId; }) || _all.find(function (v) { return v.voiceId === hgGenVoiceId; }) || null;
+                  const _live = hgGenMode === 'live';
+                  const run = function () { if (_live) runHeygenPresenter(); else runHeygenSplit(); };
+                  return (
+                  <div onClick={(e) => { if (e.target === e.currentTarget && !hgGenBusy) setHgGenOpen(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 2600, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                    <div style={{ background: "linear-gradient(135deg,#0a0e1a,#131825)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 22, maxWidth: 560, width: "100%", maxHeight: "92vh", overflowY: "auto" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                        <img src={(hgGenChar && (hgGenChar.thumbnailUrl || hgGenChar.seedImageUrl)) || ""} alt="" style={{ width: 60, height: 60, borderRadius: 10, objectFit: "cover", background: "#1e293b", flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: "white" }}>🎤 Live-avatar ad</div>
+                          <div style={{ fontSize: 10.5, color: "#7e92a8" }}>{(hgGenChar && hgGenChar.name) || "Avatar"} · {_live ? "live presenter holding your product" : "product + presenter, side-by-side"}</div>
+                        </div>
+                        {hgGenFromSeq ? <button onClick={() => { if (hgGenBusy) return; if (!isPro) { setUpgradeFeature('creative-studio'); setShowUpgradeModal(true); return; } setHgReturnCtx({ appendTo: hgGenSeqAppend, char: hgGenChar, productImg: hgGenProductImg, fromSeq: hgGenFromSeq }); setHgGenOpen(false); setShowCreativeStudio(true); loadCharLibrary(); try { setTimeout(function () { var el = document.getElementById('personas-section'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 240); } catch (_) {} }} style={{ marginLeft: "auto", padding: "4px 9px", fontSize: 10.5, fontWeight: 800, borderRadius: 6, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.05)", color: "#a5b4fc", cursor: hgGenBusy ? "default" : "pointer" }}>← Personas</button> : null}
+                        <div onClick={() => { if (!hgGenBusy) setHgGenOpen(false); }} style={{ marginLeft: hgGenFromSeq ? 8 : "auto", cursor: hgGenBusy ? "default" : "pointer", color: "#7e92a8", fontSize: 18, fontWeight: 900 }}>×</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, marginBottom: 14, background: "rgba(0,0,0,0.25)", borderRadius: 10, padding: 4 }}>
+                        <button onClick={() => { if (!hgGenBusy) setHgGenMode('live'); }} style={{ flex: 1, padding: "8px 6px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: _live ? "linear-gradient(135deg,#8b5cf6,#6366f1)" : "transparent", color: _live ? "white" : "#7e92a8" }}>🎬 Product presenter (live)</button>
+                        <button onClick={() => { if (!hgGenBusy) setHgGenMode('split'); }} style={{ flex: 1, padding: "8px 6px", fontSize: 10.5, fontWeight: 800, borderRadius: 7, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: !_live ? "linear-gradient(135deg,#8b5cf6,#6366f1)" : "transparent", color: !_live ? "white" : "#7e92a8" }}>▦ Side-by-side</button>
+                      </div>
+                      <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Product image URL</div>
+                      <input value={hgGenProductImg} onChange={(e) => setHgGenProductImg(e.target.value)} placeholder="https://… packshot image" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 12 }} />
+                      <div style={{ fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: 4 }}>Script — spoken verbatim, in whatever language you write ({(pageMeta && pageMeta.language) || "English"})</div>
+                      <textarea value={hgGenScript} onChange={(e) => setHgGenScript(e.target.value)} rows={4} placeholder="Write your own, or hit ✨ Write script" style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: (_spokenEst(hgGenScript, (_detectScriptLang(hgGenScript) || _nameToIso(pageMeta && pageMeta.language) || 'en')) > HG_MAX_SPOKEN ? "1px solid #f87171" : "1px solid rgba(255,255,255,0.12)"), background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 8 }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                        <button onClick={writeScript} disabled={hgWriting || hgGenBusy} style={{ padding: "7px 12px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (hgWriting || hgGenBusy) ? "default" : "pointer", background: hgWriting ? "rgba(139,92,246,0.4)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white", whiteSpace: "nowrap" }}>{hgWriting ? "⟳ Writing…" : "✨ Write script"}</button>
+                        <select value={hgScriptStyle} onChange={(e) => setHgScriptStyle(e.target.value)} disabled={hgWriting || hgGenBusy} title="Script angle" style={{ padding: "7px 8px", fontSize: 11, borderRadius: 7, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                          <option value="product" style={{ background: "#0a0e1a" }}>Product style</option>
+                          <option value="hook" style={{ background: "#0a0e1a" }}>Hook / question</option>
+                        </select>
+                        <select value={hgScriptLang} onChange={(e) => setHgScriptLang(e.target.value)} disabled={hgWriting || hgGenBusy} title="Language" style={{ padding: "7px 8px", fontSize: 11, borderRadius: 7, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
+                          <option value="auto" style={{ background: "#0a0e1a" }}>Auto ({(pageMeta && pageMeta.language) || "page language"})</option>
+                          <option value="en" style={{ background: "#0a0e1a" }}>English</option>
+                        </select>
+                        {(() => { const _l = _detectScriptLang(hgGenScript) || _nameToIso(pageMeta && pageMeta.language) || 'en'; const _w = String(hgGenScript || '').trim().split(/\s+/).filter(Boolean).length; const _s = Math.round(_spokenEst(hgGenScript, _l)); const _n = Math.floor(14 * _wpsFor(_l)); const _over = _s > HG_MAX_SPOKEN; const _warn = _s > 14 && !_over; const _txt = !_w ? "~14s · spoken" : (_over ? (_s + "s too long: " + _w + " words. Please reduce text to max " + _n + " words.") : (_w + " words · ~" + _s + "s spoken")); return <span style={{ marginLeft: "auto", fontSize: 9.5, fontWeight: _over ? 800 : 400, color: _over ? "#f87171" : (_warn ? "#fbbf24" : "#5a6b80") }}>{_txt}</span>; })()}
+                      </div>
+                      <div onClick={() => setHgVoiceOpen(!hgVoiceOpen)} style={{ display: "flex", alignItems: "center", cursor: "pointer", fontSize: 10, color: "#7e92a8", fontWeight: 700, marginBottom: hgVoiceOpen ? 4 : 14 }}>
+                        <span>Voice: {(_sel && _sel.name) || "auto-matched to avatar"}{_g ? (" · " + _g) : ""}</span>
+                        <span style={{ marginLeft: "auto", color: "#a5b4fc" }}>{hgVoiceOpen ? "hide ▲" : "change ▾"}</span>
+                      </div>
+                      {hgVoiceOpen ? (
+                        <select value={hgGenVoiceId} onChange={(e) => { setHgGenVoiceId(e.target.value); setHgVoiceUserPicked(true); }} style={{ width: "100%", padding: "8px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", marginBottom: 14 }}>
+                          {_voices.length === 0 ? <option value="">Loading voices…</option> : _voices.slice(0, 200).map(function (v) { return <option key={v.voiceId} value={v.voiceId} style={{ background: "#0a0e1a" }}>{(v.name || v.voiceId) + (v.gender ? (" · " + v.gender) : "")}</option>; })}
+                        </select>
+                      ) : null}
+                      {hgGenErr ? <div style={{ padding: "7px 9px", marginBottom: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, fontSize: 11, color: "#f87171" }}>{hgGenErr}</div> : null}
+                      {hgGenBusy ? (
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24, minHeight: 240, marginBottom: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.25)" }}>
+                          <div style={{ width: 34, height: 34, border: "3px solid rgba(139,92,246,0.25)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+                          <div style={{ fontSize: 12, color: "#7e92a8", textAlign: "center", lineHeight: 1.5 }}>{hgGenStage || "Working…"}<br/>{_live ? "Premium render — this can take 8–10 minutes" : "Check back in ~1–2 minutes"}</div>
+                          <VideoProgressBars />
+                          <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+                        </div>
+                      ) : hgGenUrl ? (
+                        <div style={{ marginBottom: 12 }}>
+                          <video src={hgGenUrl} controls playsInline style={{ display: "block", maxHeight: "56vh", maxWidth: "100%", width: "auto", margin: "0 auto", borderRadius: 10, background: "#000" }} />
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginTop: 10 }}>
+                            {_live ? (hgGenSeqAppend ? <button onClick={addHeygenToSequence} disabled={hgGenSeqBusy} title="Add this clip to the current sequence" style={{ padding: "9px 20px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", cursor: hgGenSeqBusy ? "default" : "pointer", background: hgGenSeqBusy ? "rgba(99,102,241,0.4)" : "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white", whiteSpace: "nowrap" }}>{hgGenSeqBusy ? "⟳ Adding…" : "➕ Add to sequence"}</button> : <button onClick={useHeygenAsSequenceLead} disabled={hgGenSeqBusy} title="Use this clip as Ad #1 and open the Sequential Ad Builder" style={{ padding: "9px 20px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "none", cursor: hgGenSeqBusy ? "default" : "pointer", background: hgGenSeqBusy ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg,#10b981,#059669)", color: "white", whiteSpace: "nowrap" }}>{hgGenSeqBusy ? "⟳ Starting…" : "✓ Save as lead"}</button>) : null}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24, minHeight: 120, marginBottom: 12, borderRadius: 12, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.15)", fontSize: 11.5, color: "#5a6b80", textAlign: "center" }}>Your live-avatar ad will appear here.</div>
+                      )}
+                      {hgGenNotice ? <div style={{ fontSize: 10.5, color: hgGenNotice.indexOf('⚠') === 0 ? '#fbbf24' : '#7e92a8', marginBottom: 8, textAlign: 'center' }}>{hgGenNotice}</div> : null}
+                      {hgGenUrl ? null : <button onClick={run} disabled={hgGenBusy} style={{ width: "100%", padding: "10px 0", fontSize: 12.5, fontWeight: 800, borderRadius: 9, border: "none", cursor: hgGenBusy ? "default" : "pointer", background: hgGenBusy ? "linear-gradient(135deg,#f59e0b,#ef4444)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgGenBusy ? ("⟳ " + (hgGenStage || "Working…")) : (_live ? "✨ Generate presenter ad" : "✨ Generate side-by-side ad")}</button>}
+                      <div style={{ fontSize: 10, color: "#4a5568", marginTop: 8, textAlign: "center" }}>{_live ? "Premium: films your avatar holding the product (Runway), then voices + lip-syncs your script. AI-labelled + signed." : "Generates the presenter, then composes a split-screen with your product. AI-labelled + signed."}</div>
+                    </div>
+                  </div>
+                  );
+                })()}
         {showCreativeStudio && isPro && (() => {
           const vert = CS_VERTICALS[csVertical] || CS_VERTICALS.beauty;
           const toggleTpl = (id) => { const next = csTemplates.includes(id) ? csTemplates.filter(t => t !== id) : [...csTemplates, id]; saveCreativeStudio(next, csVertical); };
@@ -6897,7 +7989,8 @@ STRICT rules:
                 </div>
 
                 {/* 2. Personas — UGC source selector (Phase 1) */}
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#c4b5fd", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Personas <span style={{ color: "#5a6b80", fontWeight: 600 }}>· character sources</span></div>
+                {hgReturnCtx ? <button onClick={() => { const r = hgReturnCtx; setHgReturnCtx(null); setShowCreativeStudio(false); openHeygenGen(r.char, r.fromSeq, { appendTo: r.appendTo, productImg: r.productImg }); }} style={{ display: "block", marginBottom: 10, padding: "8px 14px", fontSize: 12, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(139,92,246,0.5)", background: "rgba(139,92,246,0.14)", color: "#c4b5fd", cursor: "pointer" }}>{"← Back to live-avatar ad" + (hgReturnCtx.char && hgReturnCtx.char.name ? (" · " + hgReturnCtx.char.name) : "")}</button> : null}
+                <div id="personas-section" style={{ fontSize: 11, fontWeight: 800, color: "#c4b5fd", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>2 · Personas <span style={{ color: "#5a6b80", fontWeight: 600 }}>· character sources</span></div>
                 {(ugcAdLoading || ugcAdError || ugcAdResult) && (
                   <div id="ugc-ad-result" style={{ marginBottom: 16, padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.08)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -7007,9 +8100,50 @@ STRICT rules:
 
                 {/* 2a · Create a synthetic persona (generate → mint asset → library) */}
                 <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.06)", marginBottom: 20 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e2e8f0", marginBottom: 2 }}>Create a synthetic persona</div>
-                  <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>Describe an <strong style={{ color: "#c4b5fd" }}>invented</strong> character — not a real person. We generate the face, authorize it as a reusable asset, and add it to your library for sequential ads.</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <button onClick={() => setPersonaMode('synthetic')} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: personaMode === 'synthetic' ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.12)", background: personaMode === 'synthetic' ? "rgba(139,92,246,0.22)" : "rgba(255,255,255,0.03)", color: personaMode === 'synthetic' ? "#c4b5fd" : "#9db0c7" }}><div style={{ fontSize: 11.5, fontWeight: 800 }}>🧬 Synthetic persona</div><div style={{ fontSize: 9, fontWeight: 600, opacity: 0.85, marginTop: 2 }}>Full-sized model ads</div></button>
+                    <button onClick={() => { setPersonaMode('heygen'); setHgGender(_hgGenderFromBrief(synPrompt)); loadHeygenAvatars(); }} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: personaMode === 'heygen' ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.12)", background: personaMode === 'heygen' ? "rgba(139,92,246,0.22)" : "rgba(255,255,255,0.03)", color: personaMode === 'heygen' ? "#c4b5fd" : "#9db0c7" }}><div style={{ fontSize: 11.5, fontWeight: 800 }}>🎤 Live avatar</div><div style={{ fontSize: 9, fontWeight: 600, opacity: 0.85, marginTop: 2 }}>Presenter / to-camera</div></button>
+                  </div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e2e8f0", marginBottom: 2 }}>{personaMode === 'heygen' ? 'Pick a live avatar' : 'Create a synthetic persona'}</div>
+                  <div style={{ fontSize: 11, color: "#9db0c7", lineHeight: 1.5, marginBottom: 10 }}>{personaMode === 'heygen' ? (<>Choose a licensed <strong style={{ color: "#c4b5fd" }}>HeyGen presenter</strong> — best for products shown to camera. Use the box below to filter who you want.</>) : (<>Describe an <strong style={{ color: "#c4b5fd" }}>invented</strong> character — not a real person. We generate the face, authorize it as a reusable asset, and add it to your library for sequential ads.</>)}</div>
                   <textarea value={synPrompt} onChange={function (e) { setSynPrompt(e.target.value); }} placeholder="e.g. A 26-year-old woman, wavy dark-blonde hair, friendly natural smile, minimal makeup, plain cream t-shirt, soft studio background." rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", fontSize: 12, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0", resize: "vertical", marginBottom: 8 }} />
+                  {personaMode === 'heygen' ? (
+                    <div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+                        {["all", "female", "male"].map(function (g) { var on = hgGender === g; return <span key={g} onClick={() => setHgGender(g)} style={{ cursor: "pointer", fontSize: 10.5, fontWeight: 700, padding: "4px 11px", borderRadius: 999, border: on ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.14)", background: on ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.04)", color: on ? "#c4b5fd" : "#9db0c7", textTransform: "capitalize" }}>{g}</span>; })}
+                        <input value={hgSearch} onChange={function (e) { setHgSearch(e.target.value); }} placeholder="Search by name…" style={{ flex: "1 1 120px", minWidth: 0, padding: "6px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
+                      </div>
+                      {hgErr ? <div style={{ fontSize: 11, color: "#fca5a5", marginBottom: 8 }}>{hgErr}</div> : null}
+                      {synMsg ? <div style={{ fontSize: 11, color: "#34d399", marginBottom: 8 }}>{synMsg}</div> : null}
+                      {hgLoading ? <div style={{ fontSize: 11, color: "#7e92a8" }}>Loading avatars…</div> : (function () {
+                        var q = hgSearch.trim().toLowerCase();
+                        var list = (hgAvatars || []).filter(function (a) {
+                          if (hgGender !== 'all' && a.gender && String(a.gender).toLowerCase() !== hgGender) return false;
+                          if (q && String(a.name || '').toLowerCase().indexOf(q) < 0) return false;
+                          return true;
+                        });
+                        var shown = list.slice(0, 60);
+                        return (
+                          <div>
+                            <div style={{ fontSize: 10, color: "#7e92a8", marginBottom: 8 }}>{list.length} avatar{list.length === 1 ? "" : "s"}{list.length > 60 ? " · showing first 60 — refine search" : ""}</div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, maxHeight: 340, overflowY: "auto", paddingRight: 2 }}>
+                              {shown.map(function (a) {
+                                return (
+                                  <div key={a.avatarId} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
+                                    <div style={{ aspectRatio: "1", background: "#1e293b" }}>{a.preview ? <img src={a.preview} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /> : null}</div>
+                                    <div style={{ padding: "5px 7px 7px" }}>
+                                      <div style={{ fontSize: 10, color: "#e2e8f0", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+                                      <button onClick={function () { if (!hgSavedIds[a.avatarId]) saveHeygenAvatar(a); }} disabled={hgSaving === a.avatarId || !!hgSavedIds[a.avatarId]} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: (hgSaving === a.avatarId || hgSavedIds[a.avatarId]) ? "default" : "pointer", background: hgSavedIds[a.avatarId] ? "linear-gradient(135deg,#10b981,#059669)" : "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>{hgSavedIds[a.avatarId] ? "✓ Saved to your library" : (hgSaving === a.avatarId ? "Saving…" : "＋ Save to library")}</button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (<>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
                     <input value={synName} onChange={function (e) { setSynName(e.target.value); }} placeholder="Persona name (optional)" style={{ flex: "1 1 140px", minWidth: 0, padding: "7px 10px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }} />
                     <select value={synAspect} onChange={function (e) { setSynAspect(e.target.value); }} style={{ padding: "7px 8px", fontSize: 11.5, borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.25)", color: "#e2e8f0" }}>
@@ -7031,10 +8165,11 @@ STRICT rules:
                       </div>
                     </div>
                   ) : null}
+                  </>)}
                 </div>
 
                 {/* 2b · Your character library */}
-                <div style={{ marginBottom: 20 }}>
+                <div id="char-lib-section" style={{ marginBottom: 20 }}>
                   <button onClick={() => { if (charLib === null) { loadCharLibrary(); } else { setCharLib(null); } }} style={{ padding: "7px 13px", fontSize: 11.5, fontWeight: 800, borderRadius: 8, border: "1px solid rgba(255,255,255,0.14)", cursor: "pointer", background: "rgba(255,255,255,0.04)", color: "#c4b5fd" }}>📚 {charLib === null ? "Show your character library" : "Hide library"}</button>
                   {charLib !== null && (
                     <div style={{ marginTop: 10, padding: 14, borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
@@ -7065,7 +8200,7 @@ STRICT rules:
                                   <div style={{ padding: "5px 7px 7px" }}>
                                     <div style={{ fontSize: 10, color: "#e2e8f0", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "Untitled"}</div>
                                     <div style={{ fontSize: 8.5, color: "#7e92a8", marginTop: 2 }}>{[c.type, (c.shot && c.shot !== "other") ? c.shot.replace("_", " ") : null].filter(Boolean).join(" · ")}</div>
-                                    <button onClick={() => createUgcAd({ image: c.thumbnailUrl || c.seedImageUrl, creator: c.creator || c.name, caption: c.originCaption, captionLang: c.captionLang })} disabled={ugcAdLoading} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: ugcAdLoading ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>✨ UGC ad</button>
+                                    {(c.source === 'heygen' || c.heygenAvatarId) ? <button onClick={() => { if (hgReturnCtx) { const r = hgReturnCtx; setHgReturnCtx(null); setShowCreativeStudio(false); openHeygenGen(c, r.fromSeq, { appendTo: r.appendTo, productImg: r.productImg }); } else { openHeygenGen(c); } }} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>🎤 Live-avatar ad</button> : <button onClick={() => createUgcAd({ image: c.thumbnailUrl || c.seedImageUrl, creator: c.creator || c.name, caption: c.originCaption, captionLang: c.captionLang })} disabled={ugcAdLoading} style={{ marginTop: 6, width: "100%", padding: "4px 0", fontSize: 9.5, fontWeight: 800, borderRadius: 6, border: "none", cursor: ugcAdLoading ? "default" : "pointer", background: "linear-gradient(135deg,#8b5cf6,#6366f1)", color: "white" }}>✨ UGC ad</button>}
                                   </div>
                                 </div>
                               );
@@ -7082,6 +8217,7 @@ STRICT rules:
                 <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px dashed rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.02)", fontSize: 12, color: "#5a6b80" }}>Pull scenery, hero imagery and seasonal elements from your shop — coming later.</div>
 
                 <div style={{ marginTop: 22, fontSize: 11, color: "#4a5568", textAlign: "center" }}>Selections save automatically to your brand.</div>
+                {/* live-avatar modal → moved to app-wide mount below */}
               </div>
             </div>
           );
@@ -8055,6 +9191,18 @@ STRICT rules:
                 {user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0]}
               </div>
                 {isPro && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#0ea5e9)", color: "white", letterSpacing: "0.05em" }}>PRO</span>}
+              {showOrgUI && (<>
+              {organization
+                ? <span title="You are working in this client workspace — ads you build here belong to it" style={{ fontSize: 10, fontWeight: 800, color: "#06281f", background: "#fbbf24", borderRadius: 8, padding: "3px 9px", letterSpacing: "0.03em", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>⬢ {organization.name}</span>
+                : (accountType === 'agency'
+                  ? <span title="No client workspace selected — create or pick a client" style={{ fontSize: 10, fontWeight: 800, color: "#fbbf24", border: "1px solid rgba(251,191,36,0.5)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>⬡ Select a client</span>
+                  : <span title="Your personal workspace" style={{ fontSize: 10, fontWeight: 700, color: "#8fa3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" }}>Personal</span>)}
+              <OrganizationSwitcher hidePersonal={false} appearance={{ variables: { colorPrimary: "#6366f1" }, elements: { organizationSwitcherTrigger: { color: "#cbd5e1", padding: "4px 8px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }, organizationSwitcherPopoverActionButton__createOrganization: { display: "none" } } }} />
+              <button onClick={() => setShowCreateClient(true)} title="Create a new client workspace" style={{ fontSize: 11, fontWeight: 800, color: "#c7d2fe", background: "rgba(99,102,241,0.18)", border: "1px solid rgba(99,102,241,0.5)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>+ New client</button>
+              {organization ? <button onClick={openEditDomains} title="Edit this client's domains" style={{ fontSize: 11, fontWeight: 800, color: "#9db0c7", background: "transparent", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 8, padding: "4px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>⚙ Domains</button> : null}
+              {editDomainsModalEl}
+              {createClientModalEl}
+              </>)}
               <UserButton afterSignOutUrl="/" appearance={{ variables: { colorPrimary: "#6366f1" } }} />
             </div>
           ) : (
@@ -10279,11 +11427,11 @@ STRICT rules:
                             <button onClick={async () => {
                               const alreadySaved = library.some(e => e.id === h.id);
                               if (alreadySaved) {
-                                await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: h.id }) });
+                                await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: h.id }) });
                                 setLibrary(prev => prev.filter(e => e.id !== h.id));
                               } else {
                                 setLibrarySaving(h.id);
-                                const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry: h, plan }) });
+                                const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'save', userId: user.id, entry: h, plan }) });
                                 const d = await r.json();
                                 if (d.ok) setLibrary(prev => [{ ...h, savedAt: new Date().toISOString() }, ...prev]);
                                 else if (d.limitReached) alert('Library limit reached. Remove some saved outputs first.');
@@ -11379,7 +12527,7 @@ STRICT rules:
       </div>
 
       {showGateModal && <GateModal />}
-      {showAuthModal && <AuthModal />}
+      {showAuthModal && authModalEl}
       {videoWallOpen && (
         <div onClick={() => setVideoWallOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 24 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(6,13,26,0.98))", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 16, padding: "36px 32px", maxWidth: 460, width: "100%", textAlign: "center", boxShadow: "0 25px 60px rgba(0,0,0,0.5)" }}>
@@ -11452,107 +12600,7 @@ STRICT rules:
         @media (prefers-reduced-motion: reduce) { .tab-rim-anim::before { animation: none; } }
       `}</style>
       {/* ── Upgrade Modal ─────────────────────────────────────────── */}
-      {showUpgradeModal && (
-        <div onClick={() => setShowUpgradeModal(false)} style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
-          backdropFilter: "blur(6px)", zIndex: 1001,
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-        }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: "#0f1623", border: "1px solid rgba(99,102,241,0.4)",
-            borderRadius: 16, width: "100%", maxWidth: 480,
-            boxShadow: "0 24px 64px rgba(0,0,0,0.6)", overflow: "hidden",
-          }}>
-            {/* Header */}
-            <div style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.2),rgba(14,165,233,0.2))", padding: "24px 24px 20px" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6366f1", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Upgrade to Pro</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", letterSpacing: "-0.02em" }}>
-                {upgradeFeature === 'imagen' ? "✦ Imagen is a Pro feature" :
-                 upgradeFeature === 'batch' ? "📦 Batch upload is a Pro feature" :
-                 upgradeFeature === 'api' ? "⚡ API access is a Pro feature" :
-                 upgradeFeature === 'creative-studio' ? "✦ Creative Studio is a Pro feature" :
-                 "🚀 Unlock Pro features"}
-              </div>
-              <div style={{ fontSize: 12, color: "#7e92a8", marginTop: 6 }}>
-                {upgradeFeature === 'imagen' ? "You've used your 5 free Imagen generations. Upgrade for unlimited." :
-                 upgradeFeature === 'batch' ? "Process multiple URLs at once with the batch uploader." :
-                 upgradeFeature === 'creative-studio' ? "Shape how your video ads look and feel with brand-consistent storyline templates." :
-                 "Get unlimited access to all RSA Studio features."}
-              </div>
-            </div>
-
-            {/* Plan toggle */}
-            <div style={{ padding: "20px 24px 0" }}>
-              <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: 4, marginBottom: 20 }}>
-                {["monthly","annual"].map(p => (
-                  <button key={p} onClick={() => setUpgradePlan(p)} style={{
-                    flex: 1, padding: "8px 0", fontSize: 12, fontWeight: 700, borderRadius: 7,
-                    cursor: "pointer", transition: "all 0.2s", border: "none",
-                    background: upgradePlan === p ? "linear-gradient(135deg,#6366f1,#0ea5e9)" : "transparent",
-                    color: upgradePlan === p ? "white" : "#4a5568",
-                  }}>
-                    {p === "monthly" ? "€69 / month" : "€590 / year"}
-                    {p === "annual" && <span style={{ fontSize: 9, marginLeft: 6, background: "rgba(52,211,153,0.2)", color: "#34d399", padding: "1px 5px", borderRadius: 10 }}>Save 29%</span>}
-                  </button>
-                ))}
-              </div>
-
-              {/* Features list */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
-                {[
-                  "✦ Unlimited Imagen generations",
-                  "📦 Batch URL uploader",
-                  "⚡ API access",
-                  "🎯 Ad & image library",
-                  "📈 Performance library",
-                  "∞ Unlimited RSA & Meta ads",
-                  "🔍 Advanced domain scan",
-                  "💬 Priority support",
-                ].map(f => (
-                  <div key={f} style={{ fontSize: 11, color: "#7e92a8", display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ color: "#34d399", fontSize: 10 }}>✓</span>{f}
-                  </div>
-                ))}
-              </div>
-
-              {/* Trial note */}
-              <div style={{ fontSize: 10, color: "#4a5568", textAlign: "center", marginBottom: 16 }}>
-                🎁 30-day free trial — cancel anytime, no questions asked
-              </div>
-            </div>
-
-            {/* CTA */}
-            <div style={{ padding: "0 24px 24px" }}>
-              <button onClick={async () => {
-                if (!isSignedIn) { setShowUpgradeModal(false); setShowAuthModal(true); return; }
-                setUpgradeLoading(true);
-                try {
-                  const r = await fetch('/api/stripe-checkout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ plan: upgradePlan, userId: user.id, email: user.primaryEmailAddress?.emailAddress }),
-                  });
-                  const d = await r.json();
-                  if (d.url) window.location.href = d.url;
-                  else alert(d.error || 'Checkout failed');
-                } catch(e) { alert(e.message); }
-                setUpgradeLoading(false);
-              }} style={{
-                width: "100%", padding: "14px", fontSize: 14, fontWeight: 800,
-                background: upgradeLoading ? "rgba(99,102,241,0.3)" : "linear-gradient(135deg,#6366f1,#0ea5e9)",
-                color: "white", border: "none", borderRadius: 10, cursor: upgradeLoading ? "default" : "pointer",
-                boxShadow: "0 4px 20px rgba(99,102,241,0.4)", transition: "all 0.3s",
-              }}>
-                {upgradeLoading ? "Redirecting to checkout..." : `Start free trial — ${upgradePlan === 'annual' ? '€590/yr' : '€69/mo'}`}
-              </button>
-              <button onClick={() => setShowUpgradeModal(false)} style={{
-                width: "100%", marginTop: 10, padding: "10px", fontSize: 12,
-                background: "none", border: "none", color: "#4a5568", cursor: "pointer",
-              }}>Maybe later</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showUpgradeModal && upgradeModalEl}
 
       {/* ── Upgrade Success Banner ─────────────────────────────────── */}
       {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('upgraded') === 'true' && (
@@ -11854,7 +12902,7 @@ STRICT rules:
                       color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)', cursor: 'pointer',
                     }}>▶ Replay</button>
                     <button onClick={async () => {
-                      await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
+                      await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: entry.id }) });
                       setLibrary(prev => prev.filter(e => e.id !== entry.id));
                     }} style={{
                       padding: '6px 8px', fontSize: 11, borderRadius: 7,
@@ -12496,7 +13544,7 @@ STRICT rules:
                       return (
                         <button onClick={async () => {
                           if (saved) {
-                            await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: vidId }) });
+                            await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'delete', userId: user.id, entryId: vidId }) });
                             setLibrary(prev => prev.filter(e => e.id !== vidId));
                           } else {
                             setLibrarySaving(vidId);
@@ -12508,7 +13556,7 @@ STRICT rules:
                               videoPrompt: tiktokResult?.videoPrompt || '',
                               brand: tiktokResult?.brand || '',
                             };
-                            const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
+                            const r = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(window.Clerk?.session ? { 'x-clerk-session': await window.Clerk.session.getToken() } : {}) }, body: JSON.stringify({ action: 'save', userId: user.id, entry, plan }) });
                             const d = await r.json();
                             if (d.ok) setLibrary(prev => [{ ...entry, savedAt: new Date().toISOString() }, ...prev]);
                             else if (d.limitReached) alert('Library limit reached (' + d.limit + '). Remove some saved outputs first.');

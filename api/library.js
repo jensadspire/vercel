@@ -8,6 +8,8 @@
  * Max 20 entries for Pro, 5 for free signed-in
  */
 
+import { scopeFromReq } from './lib/scope.js';
+
 const MAX_PRO  = 20;
 const MAX_FREE = 5;
 
@@ -25,14 +27,16 @@ async function redis(command, ...args) {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-clerk-session');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { action, userId, entry, entryId, plan = 'free' } = req.body || {};
-  if (!userId) return res.status(400).json({ error: 'userId required' });
+  const { action, entry, entryId, plan = 'free' } = req.body || {};
+  // Favourites are session-scoped — derived from the Clerk JWT, never from body.userId.
+  const { userId, scope } = scopeFromReq(req);
+  if (!userId) return res.status(401).json({ error: 'Sign in required.' });
 
-  const key = `library:${userId}`;
+  const key = `library:${scope}`;
   const maxEntries = plan === 'pro' ? MAX_PRO : MAX_FREE;
 
   try {

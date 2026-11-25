@@ -37,7 +37,7 @@ async function authenticateUser(req) {
   );
   const auth = session.toAuth();
   if (!auth?.userId) throw new Error('Not signed in');
-  return auth.userId;
+  return { userId: auth.userId, scope: auth.orgId || auth.userId };
 }
 
 // Strip "customers/" prefix from resource names like "customers/1234567890"
@@ -51,10 +51,10 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
 
   try {
-    const userId = await authenticateUser(req);
+    const { userId, scope } = await authenticateUser(req);
 
     // ── Retrieve stored credentials ─────────────────────────────────────────
-    const creds = await getGoogleAdsCredentials(userId);
+    const creds = await getGoogleAdsCredentials(userId, scope);
     if (!creds?.refreshToken) {
       return res.status(400).json({ error: 'Google Ads account not connected', needsConnect: true });
     }
