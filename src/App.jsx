@@ -12501,7 +12501,7 @@ STRICT rules:
       {showUpgradeModal && (
         <div onClick={() => setShowUpgradeModal(false)} style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
-          backdropFilter: "blur(6px)", zIndex: 1001,
+          backdropFilter: "blur(6px)", zIndex: 3100,
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
         }}>
           <div onClick={e => e.stopPropagation()} style={{
