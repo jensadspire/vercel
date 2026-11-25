@@ -4541,7 +4541,7 @@ function RSAStudio() {
     setSeqLeadId(t.id || null); setSeqBuildNext(false); setSeqLeadObjective(t.objective || (Array.isArray(t.shotObjectives) && t.shotObjectives[0]) || 'awareness');
     setSeqActiveAd(null); setSeqSequenceAds([]); if (t.id) loadSequenceAds(t.id);
     setSeqProductUrl((t.garmentUrls && t.garmentUrls[0]) || '');
-    setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 5);
+    setSeqRatio(t.ratio || '9:16'); setSeqDuration(t.duration || 10);
     setSeqName(t.name || ''); setSeqResults([]); setSeqMsg('Loaded — adjust and regenerate.'); setSeqErr('');
     try { localStorage.setItem('seq:lastLead:' + (organization ? organization.id : (user?.id || '_')), JSON.stringify(t)); } catch (_) {} setSeqLastLead(t);
     try {
@@ -4579,7 +4579,7 @@ function RSAStudio() {
       const _title = it.productTitle || '';
       const _prompt = (_o.tiktokResult && _o.tiktokResult.videoPrompt) || ('The model from the lead ad' + (_title ? (' for ' + _title) : '') + ', in a bright modern setting, natural and relaxed. No on-screen text.');
       const _origin = { meta: (_o.metaResult || null), url: (_o.url || null), snap: _o };
-      const body = { action: 'save', name: _title ? (_title + ' — sequence') : 'Model-image sequence', assetUri: null, characterId: 'none-lane:' + _engine, prompt: _prompt, shots: [_prompt], garmentUrls: _img ? [_img] : [], landingUrl: (_o.url || it.productUrl || null), origin: _origin, ratio: (c.ratio || '9:16'), duration: (c.duration || 5), engine: _engine, thumbnailUrl: _img || null, lastVideoUrl: _video, shotObjectives: ['awareness'], promo: false };
+      const body = { action: 'save', name: _title ? (_title + ' — sequence') : 'Model-image sequence', assetUri: null, characterId: 'none-lane:' + _engine, prompt: _prompt, shots: [_prompt], garmentUrls: _img ? [_img] : [], landingUrl: (_o.url || it.productUrl || null), origin: _origin, ratio: (c.ratio || '9:16'), duration: (c.duration || 10), engine: _engine, thumbnailUrl: _img || null, lastVideoUrl: _video, shotObjectives: ['awareness'], promo: false };
       const d = await fetch('/api/ad-templates', { method: 'POST', headers: await charAuthHeaders(), body: JSON.stringify(body) }).then(function (r) { return r.json(); });
       setVaultBusy(null);
       if (d && d.template) {
