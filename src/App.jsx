@@ -3103,11 +3103,12 @@ function RSAStudio() {
         setFeedResult(null); setFeedSource(''); setFeedFilter('all'); setFeedSel({}); setFeedOpenGroup(null);
       }
     } catch (_) {}
-  }, [organization, orgIsLoaded, user?.id]);
+  }, [organization?.id, orgIsLoaded, user?.id]);
 
   // Staging safety net: restore the Outputs buffer for the matching account only (24h TTL, per-account key).
   useEffect(() => {
     if (!orgIsLoaded) return;
+    if (feedBatchBusy || feedSingleBusy) return; // never overwrite an in-flight batch's live (generating) outputs
     try {
       const raw = localStorage.getItem(_feedScopeKey('rsa_feed_outputs_v1'));
       const c = raw ? JSON.parse(raw) : null;
@@ -3118,7 +3119,7 @@ function RSAStudio() {
         setFeedOutputs({}); setFeedView('products');
       }
     } catch (_) {}
-  }, [organization, orgIsLoaded, user?.id]);
+  }, [organization?.id, orgIsLoaded, user?.id]);
 
   // Staging safety net: persist ready outputs on change (ready-only, transient flags stripped, cap 60).
   useEffect(() => {
@@ -3605,7 +3606,7 @@ function RSAStudio() {
       const arr = raw ? JSON.parse(raw) : [];
       setFeedSeen(new Set(Array.isArray(arr) ? arr : []));
     } catch (_) { setFeedSeen(new Set()); }
-  }, [organization, orgIsLoaded, user?.id]);
+  }, [organization?.id, orgIsLoaded, user?.id]);
   const markFeedSeen = (id) => {
     if (!id) return;
     setFeedSeen(prev => {
@@ -4170,7 +4171,7 @@ function RSAStudio() {
     if (!_scope) { setSeqLastLead(null); return; }
     try { const s = localStorage.getItem('seq:lastLead:' + _scope); setSeqLastLead(s ? JSON.parse(s) : null); }
     catch (_) { setSeqLastLead(null); }
-  }, [organization, orgIsLoaded, user?.id]);
+  }, [organization?.id, orgIsLoaded, user?.id]);
   // ── Sequence → Meta video-story publish (isolated: only calls /api/meta-publish) ──
   const [seqPubOpen, setSeqPubOpen] = useState(false);     // publish panel open
   const [seqPubReturn, setSeqPubReturn] = useState(false); // showing an ad in the 3-ad viewer → offer "Back to publish"
