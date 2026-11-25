@@ -6232,6 +6232,107 @@ STRICT rules:
     );
   }
 
+  const upgradeModalEl = (
+        <div onClick={() => setShowUpgradeModal(false)} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+          backdropFilter: "blur(6px)", zIndex: 3100,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: "#0f1623", border: "1px solid rgba(99,102,241,0.4)",
+            borderRadius: 16, width: "100%", maxWidth: 480,
+            boxShadow: "0 24px 64px rgba(0,0,0,0.6)", overflow: "hidden",
+          }}>
+            {/* Header */}
+            <div style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.2),rgba(14,165,233,0.2))", padding: "24px 24px 20px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6366f1", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Upgrade to Pro</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", letterSpacing: "-0.02em" }}>
+                {upgradeFeature === 'imagen' ? "✦ Imagen is a Pro feature" :
+                 upgradeFeature === 'batch' ? "📦 Batch upload is a Pro feature" :
+                 upgradeFeature === 'api' ? "⚡ API access is a Pro feature" :
+                 upgradeFeature === 'creative-studio' ? "✦ Creative Studio is a Pro feature" :
+                 "🚀 Unlock Pro features"}
+              </div>
+              <div style={{ fontSize: 12, color: "#7e92a8", marginTop: 6 }}>
+                {upgradeFeature === 'imagen' ? "You've used your 5 free Imagen generations. Upgrade for unlimited." :
+                 upgradeFeature === 'batch' ? "Process multiple URLs at once with the batch uploader." :
+                 upgradeFeature === 'creative-studio' ? "Shape how your video ads look and feel with brand-consistent storyline templates." :
+                 "Get unlimited access to all RSA Studio features."}
+              </div>
+            </div>
+
+            {/* Plan toggle */}
+            <div style={{ padding: "20px 24px 0" }}>
+              <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: 4, marginBottom: 20 }}>
+                {["monthly","annual"].map(p => (
+                  <button key={p} onClick={() => setUpgradePlan(p)} style={{
+                    flex: 1, padding: "8px 0", fontSize: 12, fontWeight: 700, borderRadius: 7,
+                    cursor: "pointer", transition: "all 0.2s", border: "none",
+                    background: upgradePlan === p ? "linear-gradient(135deg,#6366f1,#0ea5e9)" : "transparent",
+                    color: upgradePlan === p ? "white" : "#4a5568",
+                  }}>
+                    {p === "monthly" ? "€69 / month" : "€590 / year"}
+                    {p === "annual" && <span style={{ fontSize: 9, marginLeft: 6, background: "rgba(52,211,153,0.2)", color: "#34d399", padding: "1px 5px", borderRadius: 10 }}>Save 29%</span>}
+                  </button>
+                ))}
+              </div>
+
+              {/* Features list */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+                {[
+                  "✦ Unlimited Imagen generations",
+                  "📦 Batch URL uploader",
+                  "⚡ API access",
+                  "🎯 Ad & image library",
+                  "📈 Performance library",
+                  "∞ Unlimited RSA & Meta ads",
+                  "🔍 Advanced domain scan",
+                  "💬 Priority support",
+                ].map(f => (
+                  <div key={f} style={{ fontSize: 11, color: "#7e92a8", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: "#34d399", fontSize: 10 }}>✓</span>{f}
+                  </div>
+                ))}
+              </div>
+
+              {/* Trial note */}
+              <div style={{ fontSize: 10, color: "#4a5568", textAlign: "center", marginBottom: 16 }}>
+                🎁 30-day free trial — cancel anytime, no questions asked
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div style={{ padding: "0 24px 24px" }}>
+              <button onClick={async () => {
+                if (!isSignedIn) { setShowUpgradeModal(false); setShowAuthModal(true); return; }
+                setUpgradeLoading(true);
+                try {
+                  const r = await fetch('/api/stripe-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ plan: upgradePlan, userId: user.id, email: user.primaryEmailAddress?.emailAddress }),
+                  });
+                  const d = await r.json();
+                  if (d.url) window.location.href = d.url;
+                  else alert(d.error || 'Checkout failed');
+                } catch(e) { alert(e.message); }
+                setUpgradeLoading(false);
+              }} style={{
+                width: "100%", padding: "14px", fontSize: 14, fontWeight: 800,
+                background: upgradeLoading ? "rgba(99,102,241,0.3)" : "linear-gradient(135deg,#6366f1,#0ea5e9)",
+                color: "white", border: "none", borderRadius: 10, cursor: upgradeLoading ? "default" : "pointer",
+                boxShadow: "0 4px 20px rgba(99,102,241,0.4)", transition: "all 0.3s",
+              }}>
+                {upgradeLoading ? "Redirecting to checkout..." : `Start free trial — ${upgradePlan === 'annual' ? '€590/yr' : '€69/mo'}`}
+              </button>
+              <button onClick={() => setShowUpgradeModal(false)} style={{
+                width: "100%", marginTop: 10, padding: "10px", fontSize: 12,
+                background: "none", border: "none", color: "#4a5568", cursor: "pointer",
+              }}>Maybe later</button>
+            </div>
+          </div>
+        </div>
+  );
   if (viewMode === "overview") {
     const openDetail = (fmt) => { if (!isSignedIn) { setShowAuthModal(true); return; } setAdFormat(fmt); setViewMode("detailed"); };
     const googleReady = generated && rows && rows.length > 0;
@@ -6252,6 +6353,7 @@ STRICT rules:
       }}>
         {/* overview-auth-bar */}
         {showAuthModal && authModalEl}
+        {showUpgradeModal && upgradeModalEl}
         {/* video-wall-overview */}
         {videoWallOpen && (
           <div onClick={() => setVideoWallOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 24 }}>
@@ -12498,107 +12600,7 @@ STRICT rules:
         @media (prefers-reduced-motion: reduce) { .tab-rim-anim::before { animation: none; } }
       `}</style>
       {/* ── Upgrade Modal ─────────────────────────────────────────── */}
-      {showUpgradeModal && (
-        <div onClick={() => setShowUpgradeModal(false)} style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
-          backdropFilter: "blur(6px)", zIndex: 3100,
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-        }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: "#0f1623", border: "1px solid rgba(99,102,241,0.4)",
-            borderRadius: 16, width: "100%", maxWidth: 480,
-            boxShadow: "0 24px 64px rgba(0,0,0,0.6)", overflow: "hidden",
-          }}>
-            {/* Header */}
-            <div style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.2),rgba(14,165,233,0.2))", padding: "24px 24px 20px" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6366f1", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Upgrade to Pro</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: "#e2e8f0", letterSpacing: "-0.02em" }}>
-                {upgradeFeature === 'imagen' ? "✦ Imagen is a Pro feature" :
-                 upgradeFeature === 'batch' ? "📦 Batch upload is a Pro feature" :
-                 upgradeFeature === 'api' ? "⚡ API access is a Pro feature" :
-                 upgradeFeature === 'creative-studio' ? "✦ Creative Studio is a Pro feature" :
-                 "🚀 Unlock Pro features"}
-              </div>
-              <div style={{ fontSize: 12, color: "#7e92a8", marginTop: 6 }}>
-                {upgradeFeature === 'imagen' ? "You've used your 5 free Imagen generations. Upgrade for unlimited." :
-                 upgradeFeature === 'batch' ? "Process multiple URLs at once with the batch uploader." :
-                 upgradeFeature === 'creative-studio' ? "Shape how your video ads look and feel with brand-consistent storyline templates." :
-                 "Get unlimited access to all RSA Studio features."}
-              </div>
-            </div>
-
-            {/* Plan toggle */}
-            <div style={{ padding: "20px 24px 0" }}>
-              <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: 4, marginBottom: 20 }}>
-                {["monthly","annual"].map(p => (
-                  <button key={p} onClick={() => setUpgradePlan(p)} style={{
-                    flex: 1, padding: "8px 0", fontSize: 12, fontWeight: 700, borderRadius: 7,
-                    cursor: "pointer", transition: "all 0.2s", border: "none",
-                    background: upgradePlan === p ? "linear-gradient(135deg,#6366f1,#0ea5e9)" : "transparent",
-                    color: upgradePlan === p ? "white" : "#4a5568",
-                  }}>
-                    {p === "monthly" ? "€69 / month" : "€590 / year"}
-                    {p === "annual" && <span style={{ fontSize: 9, marginLeft: 6, background: "rgba(52,211,153,0.2)", color: "#34d399", padding: "1px 5px", borderRadius: 10 }}>Save 29%</span>}
-                  </button>
-                ))}
-              </div>
-
-              {/* Features list */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
-                {[
-                  "✦ Unlimited Imagen generations",
-                  "📦 Batch URL uploader",
-                  "⚡ API access",
-                  "🎯 Ad & image library",
-                  "📈 Performance library",
-                  "∞ Unlimited RSA & Meta ads",
-                  "🔍 Advanced domain scan",
-                  "💬 Priority support",
-                ].map(f => (
-                  <div key={f} style={{ fontSize: 11, color: "#7e92a8", display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ color: "#34d399", fontSize: 10 }}>✓</span>{f}
-                  </div>
-                ))}
-              </div>
-
-              {/* Trial note */}
-              <div style={{ fontSize: 10, color: "#4a5568", textAlign: "center", marginBottom: 16 }}>
-                🎁 30-day free trial — cancel anytime, no questions asked
-              </div>
-            </div>
-
-            {/* CTA */}
-            <div style={{ padding: "0 24px 24px" }}>
-              <button onClick={async () => {
-                if (!isSignedIn) { setShowUpgradeModal(false); setShowAuthModal(true); return; }
-                setUpgradeLoading(true);
-                try {
-                  const r = await fetch('/api/stripe-checkout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ plan: upgradePlan, userId: user.id, email: user.primaryEmailAddress?.emailAddress }),
-                  });
-                  const d = await r.json();
-                  if (d.url) window.location.href = d.url;
-                  else alert(d.error || 'Checkout failed');
-                } catch(e) { alert(e.message); }
-                setUpgradeLoading(false);
-              }} style={{
-                width: "100%", padding: "14px", fontSize: 14, fontWeight: 800,
-                background: upgradeLoading ? "rgba(99,102,241,0.3)" : "linear-gradient(135deg,#6366f1,#0ea5e9)",
-                color: "white", border: "none", borderRadius: 10, cursor: upgradeLoading ? "default" : "pointer",
-                boxShadow: "0 4px 20px rgba(99,102,241,0.4)", transition: "all 0.3s",
-              }}>
-                {upgradeLoading ? "Redirecting to checkout..." : `Start free trial — ${upgradePlan === 'annual' ? '€590/yr' : '€69/mo'}`}
-              </button>
-              <button onClick={() => setShowUpgradeModal(false)} style={{
-                width: "100%", marginTop: 10, padding: "10px", fontSize: 12,
-                background: "none", border: "none", color: "#4a5568", cursor: "pointer",
-              }}>Maybe later</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showUpgradeModal && upgradeModalEl}
 
       {/* ── Upgrade Success Banner ─────────────────────────────────── */}
       {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('upgraded') === 'true' && (
