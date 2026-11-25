@@ -3589,6 +3589,14 @@ function RSAStudio() {
     return m;
   })();
 
+  // Videos already in the Library (feed-sourced) — used so a ready output's Save button shows "✓ Saved"
+  // whether it was saved via the output's own Save button OR via open → view-mode → ★ (matched by video URL).
+  const feedSavedVideos = (() => {
+    const s = new Set();
+    (vaultItems || []).forEach(function (c) { if (c && c.inputSource === 'feed' && c.videoUrl) s.add(c.videoUrl); });
+    return s;
+  })();
+
   // Dismiss-on-view: load the per-account set of seen/dismissed completed-ad ids when the scope resolves/switches.
   useEffect(() => {
     if (!orgIsLoaded) return;
@@ -7512,7 +7520,7 @@ STRICT rules:
                           </div>
                           {isReady ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 10px 10px" }}>
-                              <button onClick={() => approveFeedOutput(o)} disabled={o.approving || o.approved} style={{ width: "100%", padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (o.approving || o.approved) ? "default" : "pointer", background: o.approved ? "rgba(45,212,191,0.15)" : (o.approving ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)"), color: o.approved ? "#5eead4" : "#06281f", whiteSpace: "nowrap" }}>{o.approved ? '✓ Saved' : (o.approving ? 'Saving…' : 'Save')}</button>
+                              {(() => { const _sv = o.approved || (o.videoUrl && feedSavedVideos.has(o.videoUrl)); return (<button onClick={() => approveFeedOutput(o)} disabled={o.approving || _sv} style={{ width: "100%", padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "none", cursor: (o.approving || _sv) ? "default" : "pointer", background: _sv ? "rgba(45,212,191,0.15)" : (o.approving ? "rgba(45,212,191,0.4)" : "linear-gradient(135deg,#2dd4bf,#10b981)"), color: _sv ? "#5eead4" : "#06281f", whiteSpace: "nowrap" }}>{_sv ? '✓ Saved' : (o.approving ? 'Saving…' : 'Save')}</button>); })()}
                               {o.approved ? <button onClick={() => { setFeedOpen(false); openVault(); }} style={{ width: "100%", padding: "6px 8px", fontSize: 11, fontWeight: 800, borderRadius: 7, border: "1px solid rgba(99,102,241,0.5)", cursor: "pointer", background: "rgba(99,102,241,0.12)", color: "#a5b4fc", whiteSpace: "nowrap" }}>📚 View in library</button> : null}
                             </div>
                           ) : null}
